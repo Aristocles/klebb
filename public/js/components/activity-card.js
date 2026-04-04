@@ -14,21 +14,21 @@ class ActivityCard extends LitElement {
     :host { display: block; min-width: 0; }
 
     .card {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 16px 20px;
       cursor: pointer;
     }
 
-    .card:hover { border-color: #3a3a5a; }
+    .card:hover { border-color: #cbd5e1; }
 
     .title {
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #8888aa;
+      color: #64748b;
       margin: 0 0 12px 0;
       display: flex;
       justify-content: space-between;
@@ -51,7 +51,7 @@ class ActivityCard extends LitElement {
 
     .stat-label {
       font-size: 11px;
-      color: #8888aa;
+      color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-bottom: 4px;
@@ -60,17 +60,17 @@ class ActivityCard extends LitElement {
     .stat-value { font-size: 22px; font-weight: 700; }
     .stat-unit { font-size: 13px; font-weight: 400; opacity: 0.7; }
 
-    .steps { color: #00d4aa; }
-    .distance { color: #ffaa00; }
+    .steps { color: #0ea5e9; }
+    .distance { color: #f59e0b; }
     .energy { color: #6366f1; }
 
-    .loading-text { color: #8888aa; font-size: 14px; }
+    .loading-text { color: #64748b; font-size: 14px; }
 
     /* Expanded */
     .expanded {
       margin-top: 16px;
       padding-top: 14px;
-      border-top: 1px solid #2a2a4a;
+      border-top: 1px solid #e2e8f0;
     }
 
     .week-chart {
@@ -94,15 +94,15 @@ class ActivityCard extends LitElement {
     .bar-fill-steps {
       width: 100%;
       border-radius: 4px 4px 0 0;
-      background: #00d4aa;
+      background: #0ea5e9;
       min-height: 2px;
       transition: height 0.3s;
     }
 
-    .bar-fill-steps.empty { background: #2a2a4a; }
+    .bar-fill-steps.empty { background: #e2e8f0; }
 
-    .bar-label { font-size: 10px; color: #666688; }
-    .bar-count { font-size: 9px; color: #aaaacc; }
+    .bar-label { font-size: 10px; color: #94a3b8; }
+    .bar-count { font-size: 9px; color: #475569; }
 
     .week-stats {
       display: flex;
@@ -114,7 +114,7 @@ class ActivityCard extends LitElement {
 
     .week-stat-label {
       font-size: 10px;
-      color: #666688;
+      color: #94a3b8;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -128,11 +128,11 @@ class ActivityCard extends LitElement {
     .best-day {
       margin-top: 10px;
       font-size: 12px;
-      color: #8888aa;
+      color: #64748b;
       text-align: center;
     }
 
-    .best-day strong { color: #00d4aa; }
+    .best-day strong { color: #0ea5e9; }
 
     @media (max-width: 480px) {
       .stat-value { font-size: 18px; }

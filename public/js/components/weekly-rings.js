@@ -17,8 +17,8 @@ class WeeklyRings extends LitElement {
     :host { display: block; }
 
     .card {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 16px 20px;
     }
@@ -33,7 +33,7 @@ class WeeklyRings extends LitElement {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #8888aa;
+      color: #64748b;
       margin: 0 0 12px 0;
     }
 
@@ -50,19 +50,19 @@ class WeeklyRings extends LitElement {
 
     .ring-bg {
       fill: none;
-      stroke: #2a2a4a;
+      stroke: #e2e8f0;
     }
 
     .ring-cardio {
       fill: none;
-      stroke: #00d4aa;
+      stroke: #0ea5e9;
       stroke-linecap: round;
       transition: stroke-dashoffset 0.6s ease;
     }
 
     .ring-strength {
       fill: none;
-      stroke: #ffaa00;
+      stroke: #f59e0b;
       stroke-linecap: round;
       transition: stroke-dashoffset 0.6s ease;
     }
@@ -81,12 +81,12 @@ class WeeklyRings extends LitElement {
     }
 
     .label-cardio {
-      fill: #00d4aa;
+      fill: #0ea5e9;
       font-size: 11px;
     }
 
     .label-strength {
-      fill: #ffaa00;
+      fill: #f59e0b;
       font-size: 11px;
     }
 
@@ -102,13 +102,13 @@ class WeeklyRings extends LitElement {
     }
 
     .loading-text {
-      color: #8888aa;
+      color: #64748b;
       font-size: 14px;
     }
 
     /* Expandable */
     .card { cursor: pointer; }
-    .card:hover { border-color: #3a3a5a; }
+    .card:hover { border-color: #cbd5e1; }
 
     .title-row {
       display: flex;
@@ -116,13 +116,13 @@ class WeeklyRings extends LitElement {
       align-items: center;
     }
 
-    .chevron { font-size: 12px; color: #8888aa; transition: transform 0.2s; }
+    .chevron { font-size: 12px; color: #64748b; transition: transform 0.2s; }
     .chevron.open { transform: rotate(180deg); }
 
     .expanded {
       margin-top: 12px;
       padding-top: 12px;
-      border-top: 1px solid #2a2a4a;
+      border-top: 1px solid #e2e8f0;
     }
 
     .split-row {
@@ -133,14 +133,14 @@ class WeeklyRings extends LitElement {
     }
 
     .split-item { text-align: center; }
-    .split-label { font-size: 10px; color: #666688; text-transform: uppercase; letter-spacing: 0.5px; }
+    .split-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
     .split-value { font-size: 18px; font-weight: 700; }
-    .split-cardio { color: #00d4aa; }
-    .split-strength { color: #ffaa00; }
+    .split-cardio { color: #0ea5e9; }
+    .split-strength { color: #f59e0b; }
 
     .goal-text {
       font-size: 12px;
-      color: #8888aa;
+      color: #64748b;
       text-align: center;
       margin-top: 8px;
     }

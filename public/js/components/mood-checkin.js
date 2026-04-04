@@ -16,7 +16,7 @@ class MoodCheckin extends LitElement {
     .overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.4);
       z-index: 200;
       display: flex;
       align-items: center;
@@ -31,8 +31,8 @@ class MoodCheckin extends LitElement {
     }
 
     .modal {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 20px;
       padding: 32px 28px;
       max-width: 380px;
@@ -48,14 +48,14 @@ class MoodCheckin extends LitElement {
 
     .greeting {
       font-size: 14px;
-      color: #8888aa;
+      color: #64748b;
       margin-bottom: 6px;
     }
 
     .question {
       font-size: 20px;
       font-weight: 700;
-      color: #e0e0e0;
+      color: #1e293b;
       margin-bottom: 24px;
     }
 
@@ -70,7 +70,7 @@ class MoodCheckin extends LitElement {
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      border: 2px solid #2a2a4a;
+      border: 2px solid #e2e8f0;
       background: transparent;
       font-size: 28px;
       cursor: pointer;
@@ -81,20 +81,20 @@ class MoodCheckin extends LitElement {
     }
 
     .mood-btn:hover {
-      border-color: #4a4a6a;
+      border-color: #94a3b8;
       transform: scale(1.1);
     }
 
     .mood-btn.selected {
-      border-color: #00d4aa;
+      border-color: #0ea5e9;
       background: rgba(0, 212, 170, 0.1);
       transform: scale(1.15);
-      box-shadow: 0 0 16px rgba(0, 212, 170, 0.2);
+      box-shadow: 0 0 16px rgba(14, 165, 233, 0.15);
     }
 
     .mood-label {
       font-size: 10px;
-      color: #666688;
+      color: #94a3b8;
       margin-top: 4px;
     }
 
@@ -106,11 +106,11 @@ class MoodCheckin extends LitElement {
 
     .notes-input {
       width: 100%;
-      background: #252540;
-      border: 1px solid #2a2a4a;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
       border-radius: 10px;
       padding: 10px 14px;
-      color: #e0e0e0;
+      color: #1e293b;
       font-size: 16px;
       font-family: inherit;
       outline: none;
@@ -120,8 +120,8 @@ class MoodCheckin extends LitElement {
       box-sizing: border-box;
     }
 
-    .notes-input:focus { border-color: #00d4aa; }
-    .notes-input::placeholder { color: #555566; }
+    .notes-input:focus { border-color: #0ea5e9; }
+    .notes-input::placeholder { color: #94a3b8; }
 
     .actions {
       display: flex;
@@ -130,8 +130,8 @@ class MoodCheckin extends LitElement {
     }
 
     .save-btn {
-      background: #00d4aa;
-      color: #0f0f1a;
+      background: #0ea5e9;
+      color: #f5f7fa;
       border: none;
       border-radius: 10px;
       padding: 10px 28px;
@@ -141,13 +141,13 @@ class MoodCheckin extends LitElement {
       transition: background 0.2s;
     }
 
-    .save-btn:hover { background: #00eabb; }
-    .save-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+    .save-btn:hover { background: #38bdf8; }
+    .save-btn:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
 
     .skip-btn {
       background: transparent;
-      color: #666688;
-      border: 1px solid #2a2a4a;
+      color: #94a3b8;
+      border: 1px solid #e2e8f0;
       border-radius: 10px;
       padding: 10px 20px;
       font-size: 14px;
@@ -155,7 +155,7 @@ class MoodCheckin extends LitElement {
       transition: all 0.2s;
     }
 
-    .skip-btn:hover { border-color: #4a4a6a; color: #aaa; }
+    .skip-btn:hover { border-color: #94a3b8; color: #aaa; }
 
     .wakeup-section {
       margin-bottom: 20px;
@@ -163,7 +163,7 @@ class MoodCheckin extends LitElement {
 
     .wakeup-label {
       font-size: 14px;
-      color: #aaaacc;
+      color: #475569;
       margin-bottom: 10px;
     }
 
@@ -178,9 +178,9 @@ class MoodCheckin extends LitElement {
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      border: 2px solid #2a2a4a;
+      border: 2px solid #e2e8f0;
       background: transparent;
-      color: #aaaacc;
+      color: #475569;
       font-size: 20px;
       cursor: pointer;
       display: flex;
@@ -189,7 +189,7 @@ class MoodCheckin extends LitElement {
       transition: all 0.2s;
     }
 
-    .wakeup-btn:hover { border-color: #00d4aa; color: #00d4aa; }
+    .wakeup-btn:hover { border-color: #0ea5e9; color: #0ea5e9; }
     .wakeup-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
     .wakeup-value {
@@ -199,14 +199,14 @@ class MoodCheckin extends LitElement {
       text-align: center;
     }
 
-    .wakeup-value.good { color: #44ff88; }
-    .wakeup-value.ok { color: #ffaa00; }
-    .wakeup-value.bad { color: #ff4444; }
-    .wakeup-value.none { color: #555566; }
+    .wakeup-value.good { color: #22c55e; }
+    .wakeup-value.ok { color: #f59e0b; }
+    .wakeup-value.bad { color: #ef4444; }
+    .wakeup-value.none { color: #94a3b8; }
 
     .wakeup-skip {
       font-size: 11px;
-      color: #555566;
+      color: #94a3b8;
       margin-top: 6px;
       cursor: pointer;
     }

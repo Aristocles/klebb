@@ -12,8 +12,8 @@ class SupplementsCard extends LitElement {
     :host { display: block; min-width: 0; }
 
     .card {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 16px 20px;
       min-width: 0;
@@ -21,14 +21,14 @@ class SupplementsCard extends LitElement {
       cursor: pointer;
     }
 
-    .card:hover { border-color: #3a3a5a; }
+    .card:hover { border-color: #cbd5e1; }
 
     .title {
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #8888aa;
+      color: #64748b;
       margin: 0;
       display: flex;
       justify-content: space-between;
@@ -44,12 +44,12 @@ class SupplementsCard extends LitElement {
     .count-badge {
       font-size: 11px;
       background: rgba(0, 212, 170, 0.15);
-      color: #00d4aa;
+      color: #0ea5e9;
       padding: 2px 8px;
       border-radius: 10px;
     }
 
-    .chevron { font-size: 12px; color: #8888aa; transition: transform 0.2s; }
+    .chevron { font-size: 12px; color: #64748b; transition: transform 0.2s; }
     .chevron.open { transform: rotate(180deg); }
 
     .list {
@@ -83,7 +83,7 @@ class SupplementsCard extends LitElement {
 
     .dose {
       font-size: 12px;
-      color: #666688;
+      color: #94a3b8;
       margin-left: auto;
       white-space: nowrap;
     }
@@ -98,12 +98,12 @@ class SupplementsCard extends LitElement {
     }
 
     .loading-text {
-      color: #8888aa;
+      color: #64748b;
       font-size: 14px;
     }
 
     .empty-text {
-      color: #666688;
+      color: #94a3b8;
       font-size: 13px;
     }
   `;

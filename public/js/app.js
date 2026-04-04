@@ -77,8 +77,9 @@ class HealthApp extends LitElement {
       display: flex;
       flex-direction: column;
       padding: 0;
-      border-bottom: 1px solid #2a2a4a;
-      background: #121220;
+      border-bottom: 1px solid #e2e8f0;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
       position: sticky;
       top: 0;
       z-index: 40;
@@ -94,13 +95,13 @@ class HealthApp extends LitElement {
       padding: 6px 20px 10px;
       font-size: 1rem;
       font-weight: 600;
-      color: #e0e0e0;
-      border-top: 1px solid #1a1a30;
+      color: #1e293b;
+      border-top: 1px solid #e2e8f0;
     }
     .logo {
       font-size: 1.1rem;
       font-weight: 700;
-      color: #00d4aa;
+      color: #0ea5e9;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -110,7 +111,7 @@ class HealthApp extends LitElement {
       gap: 4px;
     }
     .nav-link {
-      color: #8888aa;
+      color: #64748b;
       text-decoration: none;
       padding: 6px 14px;
       border-radius: 8px;
@@ -122,12 +123,12 @@ class HealthApp extends LitElement {
       font-family: inherit;
     }
     .nav-link:hover {
-      color: #e0e0e0;
-      background: rgba(255,255,255,0.05);
+      color: #1e293b;
+      background: rgba(0,0,0,0.04);
     }
     .nav-link.active {
-      color: #00d4aa;
-      background: rgba(0,212,170,0.1);
+      color: #0ea5e9;
+      background: rgba(14,165,233,0.1);
     }
     main {
       max-width: 1200px;
