@@ -211,7 +211,7 @@ class MoodCheckin extends LitElement {
       cursor: pointer;
     }
 
-    .wakeup-skip:hover { color: #888; }
+    .wakeup-skip:hover { color: var(--text-secondary); }
   `;
 
   static MOODS = [

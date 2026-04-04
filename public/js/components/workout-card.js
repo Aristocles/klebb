@@ -108,7 +108,7 @@ class WorkoutCard extends LitElement {
     }
 
     .week-dot.active { background: rgba(14, 165, 233, 0.15); color: var(--accent); border: 1px solid var(--accent); }
-    .week-dot.rest { background: var(--bg-card); color: #444466; border: 1px solid var(--border); }
+    .week-dot.rest { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border); }
     .week-dot.today-ring { box-shadow: 0 0 0 2px #f5f7fa, 0 0 0 3px var(--accent); }
 
     .week-workout-list {
@@ -125,7 +125,7 @@ class WorkoutCard extends LitElement {
     }
 
     .ww-date { color: var(--text-muted); font-size: 11px; width: 32px; flex-shrink: 0; }
-    .ww-name { color: #ccc; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ww-name { color: var(--text-primary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ww-dur { color: var(--accent); font-weight: 600; flex-shrink: 0; }
     .ww-hr { color: #ff6b6b; font-size: 11px; flex-shrink: 0; }
 
@@ -135,7 +135,7 @@ class WorkoutCard extends LitElement {
       color: var(--text-secondary);
       text-align: center;
     }
-    .comparison strong { color: #ccc; }
+    .comparison strong { color: var(--text-primary); }
     .comparison .up { color: var(--success); }
     .comparison .down { color: #ff6b6b; }
     .comparison .same { color: var(--warning); }

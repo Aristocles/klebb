@@ -74,7 +74,7 @@ class SupplementsCard extends LitElement {
 
     .name {
       font-size: 14px;
-      color: #eeeeff;
+      color: var(--text-primary);
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
