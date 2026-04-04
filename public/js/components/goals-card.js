@@ -49,7 +49,7 @@ class GoalsCard extends LitElement {
 
     .goal-description {
       font-size: 13px;
-      color: #eeeeff;
+      color: var(--text-primary);
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;

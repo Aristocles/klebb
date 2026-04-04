@@ -97,7 +97,7 @@ class WeeklyRings extends LitElement {
     .streak {
       text-align: center;
       font-size: 13px;
-      color: #ccc;
+      color: var(--text-primary);
       margin-top: 4px;
     }
 
@@ -144,7 +144,7 @@ class WeeklyRings extends LitElement {
       text-align: center;
       margin-top: 8px;
     }
-    .goal-text strong { color: #ccc; }
+    .goal-text strong { color: var(--text-primary); }
   `;
 
   constructor() {
@@ -342,7 +342,7 @@ class WeeklyRings extends LitElement {
           </div>
           <div class="split-item">
             <div class="split-label">Total</div>
-            <div class="split-value" style="color:#ccc">${total} / ${totalGoal}</div>
+            <div class="split-value" style="color:var(--text-primary)">${total} / ${totalGoal}</div>
           </div>
         </div>
         ${this._streak > 0 ? html`
