@@ -28,8 +28,8 @@ class WidgetView extends LitElement {
     }
 
     .widget {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 10px;
       padding: 12px;
     }
@@ -39,7 +39,7 @@ class WidgetView extends LitElement {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      color: #8888aa;
+      color: #64748b;
       margin: 0 0 6px 0;
     }
 
@@ -47,7 +47,7 @@ class WidgetView extends LitElement {
     .sleep-value {
       font-size: 22px;
       font-weight: 700;
-      color: #fff;
+      color: #1e293b;
     }
 
     .sleep-good {
@@ -66,7 +66,7 @@ class WidgetView extends LitElement {
     .steps-value {
       font-size: 24px;
       font-weight: 700;
-      color: #00d4aa;
+      color: #0ea5e9;
     }
 
     /* Rings widget */
@@ -77,19 +77,19 @@ class WidgetView extends LitElement {
 
     .ring-bg {
       fill: none;
-      stroke: #2a2a4a;
+      stroke: #e2e8f0;
     }
 
     .ring-cardio {
       fill: none;
-      stroke: #00d4aa;
+      stroke: #0ea5e9;
       stroke-linecap: round;
       transition: stroke-dashoffset 0.6s ease;
     }
 
     .ring-strength {
       fill: none;
-      stroke: #ffaa00;
+      stroke: #f59e0b;
       stroke-linecap: round;
       transition: stroke-dashoffset 0.6s ease;
     }
@@ -97,24 +97,24 @@ class WidgetView extends LitElement {
     /* Appointment widget */
     .appt-text {
       font-size: 13px;
-      color: #e0e0e0;
+      color: #1e293b;
       font-weight: 500;
     }
 
     .appt-date {
       font-size: 11px;
-      color: #00d4aa;
+      color: #0ea5e9;
       margin-top: 2px;
     }
 
     .empty-text {
       font-size: 12px;
-      color: #666688;
+      color: #94a3b8;
     }
 
     .loading-text {
       font-size: 12px;
-      color: #8888aa;
+      color: #64748b;
     }
   `;
 

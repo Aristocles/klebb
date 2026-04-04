@@ -6,36 +6,36 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #0f0f1a;
-  color: #e0e0e0;
+  background: #f5f7fa;
+  color: #1e293b;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 .card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a4a;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 16px 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
 }
 
 .card-title {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #8888aa;
+  color: #64748b;
   margin-bottom: 8px;
 }
 
-.accent-teal { color: #00d4aa; }
-.accent-amber { color: #ffaa00; }
-.accent-red { color: #ff4444; }
-.accent-green { color: #44ff88; }
+.accent-teal { color: #0ea5e9; }
+.accent-amber { color: #f59e0b; }
+.accent-red { color: #ef4444; }
+.accent-green { color: #22c55e; }
 
 /* Progress bar */
 .progress-bar {
-  background: #2a2a4a;
+  background: #e2e8f0;
   border-radius: 6px;
   height: 8px;
   overflow: hidden;
@@ -67,7 +67,7 @@ body {
 
 /* Nav styles */
 .nav-link {
-  color: #8888aa;
+  color: #64748b;
   text-decoration: none;
   padding: 8px 16px;
   border-radius: 8px;
@@ -76,13 +76,13 @@ body {
 }
 
 .nav-link:hover {
-  color: #e0e0e0;
-  background: rgba(255,255,255,0.05);
+  color: #1e293b;
+  background: rgba(0,0,0,0.04);
 }
 
 .nav-link.active {
-  color: #00d4aa;
-  background: rgba(0, 212, 170, 0.1);
+  color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.08);
 }
 
 /* Sparkline */
@@ -98,7 +98,7 @@ body {
 }
 
 .cal-cell:hover {
-  border-color: #00d4aa;
+  border-color: #0ea5e9;
   transform: scale(1.02);
 }
 
@@ -108,11 +108,11 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f0f1a;
+  background: #f5f7fa;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2a2a4a;
+  background: #e2e8f0;
   border-radius: 3px;
 }
 
@@ -127,7 +127,7 @@ body {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.3);
   z-index: 50;
   display: flex;
   justify-content: center;
@@ -137,8 +137,8 @@ body {
 }
 
 .overlay-content {
-  background: #1a1a2e;
-  border: 1px solid #2a2a4a;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
   max-width: 700px;
   width: 95%;

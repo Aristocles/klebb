@@ -11,8 +11,8 @@ class WeightCard extends LitElement {
     :host { display: block; min-width: 0; }
 
     .card {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 16px 20px;
     }
@@ -22,21 +22,21 @@ class WeightCard extends LitElement {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #8888aa;
+      color: #64748b;
       margin: 0 0 8px 0;
     }
 
     .current-weight {
       font-size: 32px;
       font-weight: 700;
-      color: #fff;
+      color: #1e293b;
       margin: 0 0 4px 0;
     }
 
     .unit {
       font-size: 16px;
       font-weight: 400;
-      color: #8888aa;
+      color: #64748b;
     }
 
     .change {
@@ -45,9 +45,9 @@ class WeightCard extends LitElement {
       margin-bottom: 12px;
     }
 
-    .change.down { color: #44ff88; }
-    .change.up { color: #ff4444; }
-    .change.same { color: #ffaa00; }
+    .change.down { color: #22c55e; }
+    .change.up { color: #ef4444; }
+    .change.same { color: #f59e0b; }
 
     .sparkline-container {
       width: 100%;
@@ -61,12 +61,12 @@ class WeightCard extends LitElement {
     }
 
     .loading-text {
-      color: #8888aa;
+      color: #64748b;
       font-size: 14px;
     }
 
     .no-data {
-      color: #666688;
+      color: #94a3b8;
       font-size: 14px;
     }
   `;
@@ -173,7 +173,7 @@ class WeightCard extends LitElement {
               <polyline
                 points="${sparklinePoints}"
                 fill="none"
-                stroke="#00d4aa"
+                stroke="#0ea5e9"
                 stroke-width="1.5"
                 stroke-linecap="round"
                 stroke-linejoin="round"

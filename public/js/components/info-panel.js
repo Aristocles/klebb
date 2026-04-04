@@ -15,7 +15,7 @@ class InfoPanel extends LitElement {
     .overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.4);
       z-index: 100;
       display: flex;
       align-items: center;
@@ -24,8 +24,8 @@ class InfoPanel extends LitElement {
     }
 
     .panel {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 20px 24px;
       max-width: 520px;
@@ -47,14 +47,14 @@ class InfoPanel extends LitElement {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #8888aa;
+      color: #64748b;
       margin: 0;
     }
 
     .close-btn {
       background: none;
       border: none;
-      color: #8888aa;
+      color: #64748b;
       font-size: 18px;
       cursor: pointer;
       padding: 4px 8px;
@@ -63,7 +63,7 @@ class InfoPanel extends LitElement {
     }
 
     .close-btn:hover {
-      color: #e0e0e0;
+      color: #1e293b;
     }
 
     .info-list {
@@ -92,12 +92,12 @@ class InfoPanel extends LitElement {
     .info-title {
       font-size: 15px;
       font-weight: 600;
-      color: #e0e0e0;
+      color: #1e293b;
       margin-bottom: 4px;
     }
 
     .info-title a {
-      color: #00d4aa;
+      color: #0ea5e9;
       text-decoration: none;
     }
 
@@ -107,17 +107,17 @@ class InfoPanel extends LitElement {
 
     .info-summary {
       font-size: 13px;
-      color: #8888aa;
+      color: #64748b;
       line-height: 1.5;
     }
 
     .loading-text {
-      color: #8888aa;
+      color: #64748b;
       font-size: 14px;
     }
 
     .empty-text {
-      color: #666688;
+      color: #94a3b8;
       font-size: 13px;
     }
   `;
