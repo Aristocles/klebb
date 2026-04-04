@@ -115,26 +115,6 @@ class HealthApp extends LitElement {
       align-items: center;
       gap: 8px;
     }
-    .nav-right {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .theme-btn {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text-secondary);
-      font-size: 16px;
-      padding: 5px 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-      line-height: 1;
-    }
-    .theme-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
     .nav-links {
       display: flex;
       gap: 4px;
@@ -193,19 +173,14 @@ class HealthApp extends LitElement {
       ${this.showNav ? html`
         <nav>
           <div class="nav-main">
-            <div class="logo" @click=${() => this._navigate('/')} style="cursor:pointer">
-              <span>🚀</span> EddzHealth
+            <div class="logo" @click=${this._toggleTheme} style="cursor:pointer" title="Toggle theme">
+              <span>${this.theme === 'light' ? '🚀' : '🌙'}</span> EddzHealth
             </div>
-            <div class="nav-right">
-              <div class="nav-links">
-                <button class="nav-link ${this.route === 'today' ? 'active' : ''}" @click=${() => this._navigate('/')}>Today</button>
-                <button class="nav-link ${this.route === 'calendar' || this.route === 'day' ? 'active' : ''}" @click=${() => this._navigate('/calendar')}>Calendar</button>
-                <button class="nav-link ${this.route === 'trends' ? 'active' : ''}" @click=${() => this._navigate('/trends')}>Trends</button>
-                <button class="nav-link ${this.route === 'reports' ? 'active' : ''}" @click=${() => this._navigate('/reports')}>Reports</button>
-              </div>
-              <button class="theme-btn" @click=${this._toggleTheme} title="Toggle theme">
-                ${this.theme === 'light' ? '🌙' : '☀️'}
-              </button>
+            <div class="nav-links">
+              <button class="nav-link ${this.route === 'today' ? 'active' : ''}" @click=${() => this._navigate('/')}>Today</button>
+              <button class="nav-link ${this.route === 'calendar' || this.route === 'day' ? 'active' : ''}" @click=${() => this._navigate('/calendar')}>Calendar</button>
+              <button class="nav-link ${this.route === 'trends' ? 'active' : ''}" @click=${() => this._navigate('/trends')}>Trends</button>
+              <button class="nav-link ${this.route === 'reports' ? 'active' : ''}" @click=${() => this._navigate('/reports')}>Reports</button>
             </div>
           </div>
           ${this.route === 'day' && this.dayDate ? html`
