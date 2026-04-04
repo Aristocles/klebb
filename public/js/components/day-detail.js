@@ -70,37 +70,6 @@ class DayDetail extends LitElement {
       margin: 0 0 20px 0;
     }
 
-    .date-row {
-      z-index: 10;
-      background: #0f0f1a;
-      width: 100%;
-      padding: 8px 0;
-      text-align: center;
-      transition: box-shadow 0.2s;
-    }
-
-    .date-row.pinned {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      padding: 10px 0;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-    }
-
-    .date-row.pinned .date-header {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .date-spacer {
-      display: none;
-    }
-
-    .date-spacer.active {
-      display: block;
-    }
-
     .top-row {
       display: flex;
       align-items: center;
@@ -940,41 +909,26 @@ class DayDetail extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    if (this.date) this._fetchData();
+    if (this.date) {
+      this._fetchData();
+      this._dispatchDate(this.date);
+    }
     this._swipeStartX = 0;
     this._swipeStartY = 0;
     this._boundTouchStart = (e) => this._onTouchStart(e);
     this._boundTouchEnd = (e) => this._onTouchEnd(e);
     this.addEventListener('touchstart', this._boundTouchStart, { passive: true });
     this.addEventListener('touchend', this._boundTouchEnd, { passive: true });
-
-    this._boundScroll = () => this._onScroll();
-    window.addEventListener('scroll', this._boundScroll, { passive: true });
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.removeEventListener('touchstart', this._boundTouchStart);
     this.removeEventListener('touchend', this._boundTouchEnd);
-    window.removeEventListener('scroll', this._boundScroll);
   }
 
-  _onScroll() {
-    const dateRow = this.shadowRoot?.querySelector('.date-row');
-    const spacer = this.shadowRoot?.querySelector('.date-spacer');
-    if (!dateRow) return;
-
-    const rect = this.getBoundingClientRect();
-    // Pin when the component's top scrolls above viewport
-    if (rect.top <= 0) {
-      if (!dateRow.classList.contains('pinned')) {
-        dateRow.classList.add('pinned');
-        if (spacer) { spacer.style.height = dateRow.offsetHeight + 'px'; spacer.classList.add('active'); }
-      }
-    } else {
-      dateRow.classList.remove('pinned');
-      if (spacer) spacer.classList.remove('active');
-    }
+  _dispatchDate(date) {
+    window.dispatchEvent(new CustomEvent('day-date-changed', { detail: { date } }));
   }
 
   _onTouchStart(e) {
@@ -1703,6 +1657,7 @@ class DayDetail extends LitElement {
       history.pushState(null, '', `/day/${newDate}`);
       this.date = newDate;
       this._editingMood = false;
+      this._dispatchDate(newDate);
 
       // Slide in from opposite direction
       this._slideClass = offset > 0 ? 'slide-in-from-right' : 'slide-in-from-left';
@@ -1838,10 +1793,6 @@ class DayDetail extends LitElement {
     if (this._loading) {
       return html`
         <div class="top-bar">
-          <div class="date-row">
-            <div class="date-header">${this.date ? this._formatHeaderDate(this.date) : 'Loading...'}</div>
-          </div>
-          <div class="date-spacer"></div>
           <div class="top-row">
             <button class="nav-btn" @click=${() => this._navigateDay(-1)}>\u25C0</button>
             <button class="today-btn" @click=${this._navigateToToday}>Today</button>
@@ -1858,10 +1809,6 @@ class DayDetail extends LitElement {
 
     return html`
       <div class="top-bar">
-        <div class="date-row">
-          <div class="date-header">${this._formatHeaderDate(this.date)}</div>
-        </div>
-        <div class="date-spacer"></div>
         <div class="top-row">
           <button class="nav-btn" @click=${() => this._navigateDay(-1)}>\u25C0</button>
           <button class="today-btn" @click=${this._navigateToToday}>Today</button>
