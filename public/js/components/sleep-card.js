@@ -15,15 +15,15 @@ class SleepCard extends LitElement {
     :host { display: block; min-width: 0; }
 
     .card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px 20px;
       transition: background 0.3s;
       cursor: pointer;
     }
 
-    .card:hover { border-color: #cbd5e1; }
+    .card:hover { border-color: var(--border-hover); }
 
     .card.quality-good { background: rgba(68, 255, 136, 0.1); }
     .card.quality-ok { background: rgba(255, 170, 0, 0.1); }
@@ -34,7 +34,7 @@ class SleepCard extends LitElement {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #64748b;
+      color: var(--text-secondary);
       margin: 0 0 8px 0;
       display: flex;
       justify-content: space-between;
@@ -51,7 +51,7 @@ class SleepCard extends LitElement {
     .total {
       font-size: 32px;
       font-weight: 700;
-      color: #1e293b;
+      color: var(--text-primary);
       margin: 0 0 12px 0;
     }
 
@@ -65,16 +65,16 @@ class SleepCard extends LitElement {
 
     .bar-segment { height: 100%; transition: width 0.4s ease; }
 
-    .times { font-size: 13px; color: #475569; margin-bottom: 8px; }
-    .stages { font-size: 12px; color: #64748b; }
+    .times { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+    .stages { font-size: 12px; color: var(--text-secondary); }
 
-    .loading-text { color: #64748b; font-size: 14px; }
+    .loading-text { color: var(--text-secondary); font-size: 14px; }
 
     /* Expanded view */
     .expanded {
       margin-top: 16px;
       padding-top: 14px;
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid var(--border);
     }
 
     .week-chart {
@@ -104,18 +104,18 @@ class SleepCard extends LitElement {
 
     .bar-label {
       font-size: 10px;
-      color: #94a3b8;
+      color: var(--text-muted);
     }
 
     .bar-hours {
       font-size: 9px;
-      color: #475569;
+      color: var(--text-secondary);
     }
 
-    .bar-fill-sleep.good { background: #22c55e; }
-    .bar-fill-sleep.ok { background: #f59e0b; }
-    .bar-fill-sleep.bad { background: #ef4444; }
-    .bar-fill-sleep.none { background: #e2e8f0; }
+    .bar-fill-sleep.good { background: var(--success); }
+    .bar-fill-sleep.ok { background: var(--warning); }
+    .bar-fill-sleep.bad { background: var(--danger); }
+    .bar-fill-sleep.none { background: var(--border); }
 
     .week-stats {
       display: flex;
@@ -131,7 +131,7 @@ class SleepCard extends LitElement {
 
     .week-stat-label {
       font-size: 10px;
-      color: #94a3b8;
+      color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -142,9 +142,9 @@ class SleepCard extends LitElement {
       color: #ccc;
     }
 
-    .week-stat-value.good { color: #22c55e; }
-    .week-stat-value.ok { color: #f59e0b; }
-    .week-stat-value.bad { color: #ef4444; }
+    .week-stat-value.good { color: var(--success); }
+    .week-stat-value.ok { color: var(--warning); }
+    .week-stat-value.bad { color: var(--danger); }
 
     @media (max-width: 480px) {
       .total { font-size: 26px; }
@@ -163,12 +163,12 @@ class SleepCard extends LitElement {
 
     .mood-label {
       font-size: 12px;
-      color: #475569;
+      color: var(--text-secondary);
     }
 
     .mood-notes {
       font-size: 11px;
-      color: #94a3b8;
+      color: var(--text-muted);
       font-style: italic;
       margin-left: auto;
       max-width: 60%;
@@ -272,7 +272,7 @@ class SleepCard extends LitElement {
     if (!display) return '';
     const wakeUps = this._mood.wakeUps;
     const hasWakeUps = wakeUps !== null && wakeUps !== undefined;
-    const wakeColor = !hasWakeUps ? '' : wakeUps <= 1 ? '#22c55e' : wakeUps <= 3 ? '#f59e0b' : '#ef4444';
+    const wakeColor = !hasWakeUps ? '' : wakeUps <= 1 ? 'var(--success)' : wakeUps <= 3 ? 'var(--warning)' : 'var(--danger)';
     return html`
       <div class="mood-row">
         <span class="mood-emoji">${display.emoji}</span>
@@ -418,7 +418,7 @@ class SleepCard extends LitElement {
             <div class="bar-segment" style="width:${corePct}%;background:#6366f1"></div>
             <div class="bar-segment" style="width:${remPct}%;background:#a855f7"></div>
             <div class="bar-segment" style="width:${deepPct}%;background:#1e3a5f"></div>
-            <div class="bar-segment" style="width:${awakePct}%;background:#ef4444"></div>
+            <div class="bar-segment" style="width:${awakePct}%;background:var(--danger)"></div>
           </div>
         ` : ''}
         <div class="times">${this._formatTime(d.sleepStart)} → ${this._formatTime(d.sleepEnd)}</div>

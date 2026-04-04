@@ -20,8 +20,8 @@ class HealthChat extends LitElement {
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      background: #0ea5e9;
-      color: #ffffff;
+      background: var(--accent);
+      color: var(--text-inverse);
       border: none;
       font-size: 24px;
       cursor: pointer;
@@ -44,8 +44,8 @@ class HealthChat extends LitElement {
       width: 380px;
       max-width: calc(100vw - 40px);
       max-height: 500px;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: 16px;
       display: flex;
       flex-direction: column;
@@ -56,8 +56,8 @@ class HealthChat extends LitElement {
 
     .chat-header {
       padding: 14px 18px;
-      background: #ffffff;
-      border-bottom: 1px solid #e2e8f0;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 10px;
@@ -70,12 +70,12 @@ class HealthChat extends LitElement {
     .chat-header-text {
       font-size: 14px;
       font-weight: 600;
-      color: #1e293b;
+      color: var(--text-primary);
     }
 
     .chat-header-sub {
       font-size: 11px;
-      color: #94a3b8;
+      color: var(--text-muted);
       margin-left: auto;
     }
 
@@ -101,26 +101,26 @@ class HealthChat extends LitElement {
 
     .msg.user {
       align-self: flex-end;
-      background: #0ea5e9;
-      color: #ffffff;
+      background: var(--accent);
+      color: var(--text-inverse);
       border-bottom-right-radius: 4px;
     }
 
     .msg.assistant {
       align-self: flex-start;
-      background: #f1f5f9;
+      background: var(--bg-input);
       color: #334155;
       border-bottom-left-radius: 4px;
     }
 
-    .msg.assistant strong, .msg.assistant b { color: #0ea5e9; }
-    .msg.assistant em, .msg.assistant i { color: #475569; }
+    .msg.assistant strong, .msg.assistant b { color: var(--accent); }
+    .msg.assistant em, .msg.assistant i { color: var(--text-secondary); }
     .msg.assistant ul, .msg.assistant ol { padding-left: 18px; margin: 4px 0; }
     .msg.assistant li { margin: 2px 0; }
     .msg.assistant p { margin: 4px 0; }
     .msg.assistant p:first-child { margin-top: 0; }
     .msg.assistant p:last-child { margin-bottom: 0; }
-    .msg.assistant code { background: #e2e8f0; padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+    .msg.assistant code { background: var(--border); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
 
     .msg.error {
       align-self: center;
@@ -131,7 +131,7 @@ class HealthChat extends LitElement {
 
     .typing {
       align-self: flex-start;
-      color: #94a3b8;
+      color: var(--text-muted);
       font-size: 12px;
       padding: 8px 14px;
     }
@@ -159,19 +159,19 @@ class HealthChat extends LitElement {
 
     .chat-input-bar {
       padding: 10px 14px;
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid var(--border);
       display: flex;
       gap: 8px;
-      background: #ffffff;
+      background: var(--bg-card);
     }
 
     .chat-input {
       flex: 1;
-      background: #f1f5f9;
-      border: 1px solid #e2e8f0;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 10px 14px;
-      color: #1e293b;
+      color: var(--text-primary);
       font-size: 16px;
       font-family: inherit;
       outline: none;
@@ -180,13 +180,13 @@ class HealthChat extends LitElement {
       max-height: 80px;
     }
 
-    .chat-input:focus { border-color: #0ea5e9; }
+    .chat-input:focus { border-color: var(--accent); }
 
-    .chat-input::placeholder { color: #94a3b8; }
+    .chat-input::placeholder { color: var(--text-muted); }
 
     .send-btn {
-      background: #0ea5e9;
-      color: #ffffff;
+      background: var(--accent);
+      color: var(--text-inverse);
       border: none;
       border-radius: 10px;
       padding: 0 16px;
@@ -197,12 +197,12 @@ class HealthChat extends LitElement {
       flex-shrink: 0;
     }
 
-    .send-btn:hover { background: #38bdf8; }
-    .send-btn:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
+    .send-btn:hover { background: var(--accent-hover); }
+    .send-btn:disabled { background: var(--bg-disabled); color: var(--text-disabled); cursor: not-allowed; }
 
     .empty-state {
       text-align: center;
-      color: #94a3b8;
+      color: var(--text-muted);
       font-size: 13px;
       padding: 40px 20px;
     }
@@ -218,19 +218,19 @@ class HealthChat extends LitElement {
     }
 
     .suggestion {
-      background: #f1f5f9;
-      border: 1px solid #e2e8f0;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 6px 12px;
       font-size: 11px;
-      color: #475569;
+      color: var(--text-secondary);
       cursor: pointer;
       transition: all 0.2s;
     }
 
     .suggestion:hover {
-      border-color: #0ea5e9;
-      color: #0ea5e9;
+      border-color: var(--accent);
+      color: var(--accent);
     }
 
     @media (max-width: 480px) {
