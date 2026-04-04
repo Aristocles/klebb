@@ -352,12 +352,12 @@ class DayDetail extends LitElement {
 
     .supplement-name {
       font-size: 14px;
-      color: #eeeeff;
+      color: var(--text-primary);
     }
 
     .supplement-dose {
       font-size: 12px;
-      color: var(--text-muted);
+      color: var(--text-secondary);
       margin-left: auto;
       white-space: nowrap;
     }
@@ -703,7 +703,7 @@ class DayDetail extends LitElement {
       transform: translate(-50%, -50%);
       font-size: 10px;
       font-weight: 700;
-      color: #ccc;
+      color: var(--text-muted);
       white-space: nowrap;
     }
 
@@ -715,7 +715,7 @@ class DayDetail extends LitElement {
     .peptide-name {
       font-size: 14px;
       font-weight: 600;
-      color: #eeeeff;
+      color: var(--text-primary);
       margin-bottom: 2px;
     }
 
@@ -773,7 +773,7 @@ class DayDetail extends LitElement {
 
     .mounjaro-text {
       font-size: 14px;
-      color: #eeeeff;
+      color: var(--text-primary);
     }
 
     .mounjaro-dose {
@@ -804,7 +804,7 @@ class DayDetail extends LitElement {
 
     .week-dot.inactive {
       background: var(--bg-card);
-      color: #444466;
+      color: var(--text-secondary);
       border: 1px solid var(--border);
     }
 
@@ -845,7 +845,7 @@ class DayDetail extends LitElement {
       width: 22px;
       height: 22px;
       border-radius: 6px;
-      border: 2px solid #444466;
+      border: 2px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1484,7 +1484,7 @@ class DayDetail extends LitElement {
           isInjectionDay, status, phase,
           cycleDay, cycleTotalDays,
           cycleNumber: cycle.cycle_number,
-          color: this._getPeptideColors()[pep.name] || '#888',
+          color: this._getPeptideColors()[pep.name] || 'var(--text-secondary)',
           inOnCycle,
           nextCycleStart: cycle.next_cycle_start,
         });
