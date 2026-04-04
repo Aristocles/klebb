@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>vorHealth - Setup</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: #1a1a2e;
+      border: 1px solid #2a2a4a;
+      border-radius: 20px;
+      padding: 40px 32px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo { font-size: 40px; margin-bottom: 16px; }
+    .title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .subtitle { font-size: 14px; color: #8888aa; margin-bottom: 12px; line-height: 1.5; }
+    .steps {
+      text-align: left;
+      margin: 20px 0 28px;
+      padding: 16px 20px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 12px;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      font-size: 14px;
+      color: #aaaacc;
+    }
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(0, 212, 170, 0.15);
+      color: #00d4aa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: #00d4aa;
+      color: #0f0f1a;
+    }
+    .btn-primary:hover { background: #00eabb; }
+    .btn-primary:disabled { background: #333; color: #666; cursor: not-allowed; }
+    .error {
+      color: #ff6b6b;
+      font-size: 13px;
+      margin-top: 16px;
+      display: none;
+    }
+    .error.show { display: block; }
+    .success {
+      color: #00d4aa;
+      font-size: 14px;
+      margin-top: 16px;
+      display: none;
+    }
+    .success.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">♥</div>
+    <div class="title">EddzHealth Setup</div>
+    <div class="subtitle">Register a passkey to secure your health dashboard</div>
+    <div class="steps">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span>Tap the button below</span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span>Authenticate with Face ID or fingerprint</span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span>You're in. Future logins use biometrics.</span>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="register-btn" onclick="register()">
+      Register Passkey
+    </button>
+    <div class="error" id="error"></div>
+    <div class="success" id="success">✅ Passkey registered! Redirecting...</div>
+  </div>
+
+  <script type="module">
+    import { startRegistration } from 'https://esm.sh/@simplewebauthn/browser@13';
+
+    window.register = async function() {
+      const btn = document.getElementById('register-btn');
+      const error = document.getElementById('error');
+      const success = document.getElementById('success');
+      error.classList.remove('show');
+      success.classList.remove('show');
+      btn.disabled = true;
+      btn.textContent = 'Registering...';
+
+      try {
+        // Get registration options from server
+        const optRes = await fetch('/auth/register/options', { method: 'POST' });
+        const options = await optRes.json();
+        if (options.error) throw new Error(options.error);
+
+        // Start WebAuthn registration (triggers Face ID / biometric)
+        const regResponse = await startRegistration({ optionsJSON: options });
+
+        // Verify with server
+        const verifyRes = await fetch('/auth/register/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(regResponse),
+        });
+        const result = await verifyRes.json();
+
+        if (result.verified) {
+          success.classList.add('show');
+          setTimeout(() => { window.location.href = '/'; }, 1500);
+        } else {
+          throw new Error(result.error || 'Registration failed');
+        }
+      } catch (e) {
+        error.textContent = e.message || 'Registration failed';
+        error.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = 'Register Passkey';
+      }
+    };
+  </script>
+</body>
+</html>
