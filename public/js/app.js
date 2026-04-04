@@ -13,6 +13,7 @@ class HealthApp extends LitElement {
     route: { type: String },
     routeParam: { type: String },
     showNav: { type: Boolean },
+    dayDate: { type: String },
   };
 
   constructor() {
@@ -20,11 +21,15 @@ class HealthApp extends LitElement {
     this.route = 'today';
     this.routeParam = '';
     this.showNav = true;
+    this.dayDate = '';
     this._handleRoute();
     window.addEventListener('popstate', () => this._handleRoute());
     window.addEventListener('navigate', (e) => {
       history.pushState(null, '', e.detail.path);
       this._handleRoute();
+    });
+    window.addEventListener('day-date-changed', (e) => {
+      this.dayDate = e.detail.date;
     });
   }
 
@@ -45,6 +50,7 @@ class HealthApp extends LitElement {
     } else if (path.startsWith('/day/')) {
       this.route = 'day';
       this.routeParam = path.slice(5);
+      this.dayDate = this.routeParam;
       this.showNav = true;
     } else if (path === '/widget') {
       this.route = 'widget';
@@ -60,18 +66,36 @@ class HealthApp extends LitElement {
     this._handleRoute();
   }
 
+  _formatNavDate(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
   static styles = css`
     :host { display: block; }
     nav {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 20px;
+      flex-direction: column;
+      padding: 0;
       border-bottom: 1px solid #2a2a4a;
       background: #121220;
       position: sticky;
       top: 0;
       z-index: 40;
+    }
+    .nav-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+    }
+    .nav-date {
+      text-align: center;
+      padding: 6px 20px 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #e0e0e0;
+      border-top: 1px solid #1a1a30;
     }
     .logo {
       font-size: 1.1rem;
@@ -111,8 +135,12 @@ class HealthApp extends LitElement {
       padding: 20px;
     }
     @media (max-width: 480px) {
-      nav {
+      .nav-main {
         padding: 8px 12px;
+      }
+      .nav-date {
+        padding: 4px 12px 8px;
+        font-size: 0.9rem;
       }
       .logo {
         font-size: 0.95rem;
@@ -134,15 +162,20 @@ class HealthApp extends LitElement {
     return html`
       ${this.showNav ? html`
         <nav>
-          <div class="logo" @click=${() => this._navigate('/')} style="cursor:pointer">
-            <span>🚀</span> EddzHealth
+          <div class="nav-main">
+            <div class="logo" @click=${() => this._navigate('/')} style="cursor:pointer">
+              <span>🚀</span> EddzHealth
+            </div>
+            <div class="nav-links">
+              <button class="nav-link ${this.route === 'today' ? 'active' : ''}" @click=${() => this._navigate('/')}>Today</button>
+              <button class="nav-link ${this.route === 'calendar' || this.route === 'day' ? 'active' : ''}" @click=${() => this._navigate('/calendar')}>Calendar</button>
+              <button class="nav-link ${this.route === 'trends' ? 'active' : ''}" @click=${() => this._navigate('/trends')}>Trends</button>
+              <button class="nav-link ${this.route === 'reports' ? 'active' : ''}" @click=${() => this._navigate('/reports')}>Reports</button>
+            </div>
           </div>
-          <div class="nav-links">
-            <button class="nav-link ${this.route === 'today' ? 'active' : ''}" @click=${() => this._navigate('/')}>Today</button>
-            <button class="nav-link ${this.route === 'calendar' ? 'active' : ''}" @click=${() => this._navigate('/calendar')}>Calendar</button>
-            <button class="nav-link ${this.route === 'trends' ? 'active' : ''}" @click=${() => this._navigate('/trends')}>Trends</button>
-            <button class="nav-link ${this.route === 'reports' ? 'active' : ''}" @click=${() => this._navigate('/reports')}>Reports</button>
-          </div>
+          ${this.route === 'day' && this.dayDate ? html`
+            <div class="nav-date">${this._formatNavDate(this.dayDate)}</div>
+          ` : ''}
         </nav>
       ` : ''}
       <main>
