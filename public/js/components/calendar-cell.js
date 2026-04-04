@@ -22,8 +22,8 @@ class CalendarCell extends LitElement {
 
     .cal-cell {
       min-height: 80px;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 6px 8px;
       cursor: pointer;
@@ -32,12 +32,12 @@ class CalendarCell extends LitElement {
     }
 
     .cal-cell:hover {
-      border-color: #94a3b8;
+      border-color: var(--text-muted);
       background: rgba(255, 255, 255, 0.03);
     }
 
     .cal-cell.today {
-      border-color: #0ea5e9;
+      border-color: var(--accent);
     }
 
     .cal-cell.other-month {
@@ -50,13 +50,13 @@ class CalendarCell extends LitElement {
 
     .date-number {
       font-size: 13px;
-      color: #64748b;
+      color: var(--text-secondary);
       margin-bottom: 4px;
     }
 
     .date-number.bold {
       font-weight: 700;
-      color: #1e293b;
+      color: var(--text-primary);
     }
 
     .icons {
@@ -168,7 +168,7 @@ class CalendarCell extends LitElement {
           ${this.peptidesTaken ? html`<span title="${this.peptideNames.join(', ')}">\u{1F9EA}</span>` : ''}
           ${this.mounjaroTaken ? html`<span>\u{1F489}</span>` : ''}
           ${this.moodEmoji ? html`<span>${this.moodEmoji}</span>` : ''}
-          ${this.wakeUps !== null && this.wakeUps !== undefined ? html`<span style="font-weight:700;color:${this.wakeUps <= 1 ? '#22c55e' : this.wakeUps <= 3 ? '#f59e0b' : '#ef4444'}">Z</span>` : ''}
+          ${this.wakeUps !== null && this.wakeUps !== undefined ? html`<span style="font-weight:700;color:${this.wakeUps <= 1 ? 'var(--success)' : this.wakeUps <= 3 ? 'var(--warning)' : 'var(--danger)'}">Z</span>` : ''}
         </div>
       </div>
     `;

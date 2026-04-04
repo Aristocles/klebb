@@ -12,8 +12,8 @@ class GoalsCard extends LitElement {
     :host { display: block; min-width: 0; }
 
     .card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px 20px;
     }
@@ -23,7 +23,7 @@ class GoalsCard extends LitElement {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #64748b;
+      color: var(--text-secondary);
       margin: 0 0 12px 0;
     }
 
@@ -58,12 +58,12 @@ class GoalsCard extends LitElement {
 
     .goal-values {
       font-size: 12px;
-      color: #64748b;
+      color: var(--text-secondary);
     }
 
     .bar-track {
       height: 8px;
-      background: #e2e8f0;
+      background: var(--border);
       border-radius: 4px;
       overflow: hidden;
     }
@@ -79,16 +79,16 @@ class GoalsCard extends LitElement {
     }
 
     .bar-fill.muted {
-      background: #cbd5e1;
+      background: var(--border-hover);
     }
 
     .loading-text {
-      color: #64748b;
+      color: var(--text-secondary);
       font-size: 14px;
     }
 
     .empty-text {
-      color: #94a3b8;
+      color: var(--text-muted);
       font-size: 13px;
     }
   `;

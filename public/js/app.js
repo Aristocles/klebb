@@ -14,6 +14,7 @@ class HealthApp extends LitElement {
     routeParam: { type: String },
     showNav: { type: Boolean },
     dayDate: { type: String },
+    theme: { type: String },
   };
 
   constructor() {
@@ -22,6 +23,8 @@ class HealthApp extends LitElement {
     this.routeParam = '';
     this.showNav = true;
     this.dayDate = '';
+    this.theme = localStorage.getItem('eddzhealth-theme') || 'light';
+    document.documentElement.setAttribute('data-theme', this.theme);
     this._handleRoute();
     window.addEventListener('popstate', () => this._handleRoute());
     window.addEventListener('navigate', (e) => {
@@ -31,6 +34,12 @@ class HealthApp extends LitElement {
     window.addEventListener('day-date-changed', (e) => {
       this.dayDate = e.detail.date;
     });
+  }
+
+  _toggleTheme() {
+    this.theme = this.theme === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', this.theme);
+    localStorage.setItem('eddzhealth-theme', this.theme);
   }
 
   _handleRoute() {
@@ -77,9 +86,9 @@ class HealthApp extends LitElement {
       display: flex;
       flex-direction: column;
       padding: 0;
-      border-bottom: 1px solid #e2e8f0;
-      background: #ffffff;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-nav);
+      box-shadow: var(--shadow-nav);
       position: sticky;
       top: 0;
       z-index: 40;
@@ -95,23 +104,43 @@ class HealthApp extends LitElement {
       padding: 6px 20px 10px;
       font-size: 1rem;
       font-weight: 600;
-      color: #1e293b;
-      border-top: 1px solid #e2e8f0;
+      color: var(--text-primary);
+      border-top: 1px solid var(--border-subtle);
     }
     .logo {
       font-size: 1.1rem;
       font-weight: 700;
-      color: #0ea5e9;
+      color: var(--accent);
       display: flex;
       align-items: center;
       gap: 8px;
+    }
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .theme-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 16px;
+      padding: 5px 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      line-height: 1;
+    }
+    .theme-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
     }
     .nav-links {
       display: flex;
       gap: 4px;
     }
     .nav-link {
-      color: #64748b;
+      color: var(--text-secondary);
       text-decoration: none;
       padding: 6px 14px;
       border-radius: 8px;
@@ -123,12 +152,12 @@ class HealthApp extends LitElement {
       font-family: inherit;
     }
     .nav-link:hover {
-      color: #1e293b;
-      background: rgba(0,0,0,0.04);
+      color: var(--text-primary);
+      background: var(--bg-hover);
     }
     .nav-link.active {
-      color: #0ea5e9;
-      background: rgba(14,165,233,0.1);
+      color: var(--accent);
+      background: var(--accent-bg);
     }
     main {
       max-width: 1200px;
@@ -167,11 +196,16 @@ class HealthApp extends LitElement {
             <div class="logo" @click=${() => this._navigate('/')} style="cursor:pointer">
               <span>🚀</span> EddzHealth
             </div>
-            <div class="nav-links">
-              <button class="nav-link ${this.route === 'today' ? 'active' : ''}" @click=${() => this._navigate('/')}>Today</button>
-              <button class="nav-link ${this.route === 'calendar' || this.route === 'day' ? 'active' : ''}" @click=${() => this._navigate('/calendar')}>Calendar</button>
-              <button class="nav-link ${this.route === 'trends' ? 'active' : ''}" @click=${() => this._navigate('/trends')}>Trends</button>
-              <button class="nav-link ${this.route === 'reports' ? 'active' : ''}" @click=${() => this._navigate('/reports')}>Reports</button>
+            <div class="nav-right">
+              <div class="nav-links">
+                <button class="nav-link ${this.route === 'today' ? 'active' : ''}" @click=${() => this._navigate('/')}>Today</button>
+                <button class="nav-link ${this.route === 'calendar' || this.route === 'day' ? 'active' : ''}" @click=${() => this._navigate('/calendar')}>Calendar</button>
+                <button class="nav-link ${this.route === 'trends' ? 'active' : ''}" @click=${() => this._navigate('/trends')}>Trends</button>
+                <button class="nav-link ${this.route === 'reports' ? 'active' : ''}" @click=${() => this._navigate('/reports')}>Reports</button>
+              </div>
+              <button class="theme-btn" @click=${this._toggleTheme} title="Toggle theme">
+                ${this.theme === 'light' ? '🌙' : '☀️'}
+              </button>
             </div>
           </div>
           ${this.route === 'day' && this.dayDate ? html`

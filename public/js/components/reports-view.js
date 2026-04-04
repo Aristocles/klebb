@@ -13,7 +13,7 @@ class ReportsView extends LitElement {
     h2 {
       font-size: 1.4rem;
       font-weight: 700;
-      color: #1e293b;
+      color: var(--text-primary);
       margin: 0 0 20px 0;
     }
 
@@ -24,8 +24,8 @@ class ReportsView extends LitElement {
     }
 
     .report-card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px 20px;
       cursor: pointer;
@@ -36,26 +36,26 @@ class ReportsView extends LitElement {
 
     .report-card:hover {
       background: #1e1e38;
-      border-color: #0ea5e9;
+      border-color: var(--accent);
     }
 
     .report-title {
       font-size: 15px;
       font-weight: 600;
-      color: #1e293b;
+      color: var(--text-primary);
       margin-bottom: 4px;
     }
 
     .report-meta {
       font-size: 12px;
-      color: #64748b;
+      color: var(--text-secondary);
       display: flex;
       gap: 12px;
       align-items: center;
     }
 
     .report-date {
-      color: #0ea5e9;
+      color: var(--accent);
     }
 
     .report-type {
@@ -68,12 +68,12 @@ class ReportsView extends LitElement {
     }
 
     .empty-text {
-      color: #94a3b8;
+      color: var(--text-muted);
       font-size: 14px;
     }
 
     .loading-text {
-      color: #64748b;
+      color: var(--text-secondary);
       font-size: 14px;
     }
   `;
