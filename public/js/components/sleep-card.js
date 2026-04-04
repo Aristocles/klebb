@@ -320,11 +320,17 @@ class SleepCard extends LitElement {
     if (!this._weekData) return html`<div class="expanded"><div class="loading-text">Loading...</div></div>`;
 
     const days = this._getWeekDays();
-    const maxHours = 10;
     const totals = days.map(d => this._getSleepTotal(d));
-    const avg = totals.filter(t => t > 0);
-    const avgHours = avg.length > 0 ? avg.reduce((a, b) => a + b, 0) / avg.length : 0;
+    const activeTotals = totals.filter(t => t > 0);
+    const avgHours = activeTotals.length > 0 ? activeTotals.reduce((a, b) => a + b, 0) / activeTotals.length : 0;
     const avgClass = avgHours >= 7.5 ? 'good' : avgHours >= 6 ? 'ok' : 'bad';
+
+    // Dynamic range: floor at 4h (or 1h below min), ceiling at max+0.5h
+    // This makes differences much more visually pronounced
+    const minSleep = activeTotals.length > 0 ? Math.min(...activeTotals) : 0;
+    const maxSleep = activeTotals.length > 0 ? Math.max(...activeTotals) : 10;
+    const chartFloor = Math.max(0, Math.min(4, minSleep - 1));
+    const chartCeil = Math.max(maxSleep + 0.5, chartFloor + 4);
 
     // Bed/wake consistency
     const bedTimes = [];
@@ -362,7 +368,7 @@ class SleepCard extends LitElement {
         <div class="week-chart">
           ${days.map((d, i) => {
             const total = totals[i];
-            const pct = Math.min((total / maxHours) * 100, 100);
+            const pct = total > 0 ? Math.min(((total - chartFloor) / (chartCeil - chartFloor)) * 100, 100) : 0;
             const quality = this._barQuality(total);
             return html`
               <div class="day-bar">
