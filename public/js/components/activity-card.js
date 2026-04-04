@@ -122,7 +122,7 @@ class ActivityCard extends LitElement {
     .week-stat-value {
       font-size: 16px;
       font-weight: 700;
-      color: #ccc;
+      color: var(--text-primary);
     }
 
     .best-day {
