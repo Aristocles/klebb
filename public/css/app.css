@@ -1,0 +1,147 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0f0f1a;
+  color: #e0e0e0;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.card {
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.card-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8888aa;
+  margin-bottom: 8px;
+}
+
+.accent-teal { color: #00d4aa; }
+.accent-amber { color: #ffaa00; }
+.accent-red { color: #ff4444; }
+.accent-green { color: #44ff88; }
+
+/* Progress bar */
+.progress-bar {
+  background: #2a2a4a;
+  border-radius: 6px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.5s ease;
+}
+
+/* Sleep stage bar */
+.sleep-bar {
+  display: flex;
+  height: 24px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.sleep-bar > div {
+  transition: width 0.5s ease;
+}
+
+/* Ring animation */
+@keyframes ring-fill {
+  from { stroke-dashoffset: var(--circumference); }
+  to { stroke-dashoffset: var(--offset); }
+}
+
+/* Nav styles */
+.nav-link {
+  color: #8888aa;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+
+.nav-link:hover {
+  color: #e0e0e0;
+  background: rgba(255,255,255,0.05);
+}
+
+.nav-link.active {
+  color: #00d4aa;
+  background: rgba(0, 212, 170, 0.1);
+}
+
+/* Sparkline */
+.sparkline {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Calendar cell hover */
+.cal-cell {
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cal-cell:hover {
+  border-color: #00d4aa;
+  transform: scale(1.02);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f0f1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a4a;
+  border-radius: 3px;
+}
+
+/* Chart containers */
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 300px;
+}
+
+/* Overlay */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 5vh;
+  overflow-y: auto;
+}
+
+.overlay-content {
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 16px;
+  max-width: 700px;
+  width: 95%;
+  padding: 24px;
+  margin-bottom: 5vh;
+}

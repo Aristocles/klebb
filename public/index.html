@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EddzHealth</title>
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="/icons/icon-120.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="EddzHealth">
+  <meta name="theme-color" content="#00d4aa">
+  <style>
+    .ptr-indicator {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 0;
+      background: #0f0f1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      z-index: 9999;
+      transition: height 0.2s;
+      color: #00d4aa;
+      font-size: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .ptr-indicator.pulling { transition: none; }
+    .ptr-indicator .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #2a2a4a;
+      border-top-color: #00d4aa;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .ptr-indicator.refreshing .spinner {
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#0f0f1a',
+            card: '#1a1a2e',
+            border: '#2a2a4a',
+            primary: '#e0e0e0',
+            secondary: '#8888aa',
+            teal: '#00d4aa',
+            amber: '#ffaa00',
+            red: '#ff4444',
+            green: '#44ff88',
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="bg-bg text-primary min-h-screen font-sans">
+  <health-app></health-app>
+
+  <script type="module" src="/js/app.js"></script>
+  <div class="ptr-indicator" id="ptr"><div class="spinner"></div><span>Pull to refresh</span></div>
+  <script>
+  (function() {
+    const ptr = document.getElementById('ptr');
+    let startY = 0, pulling = false, threshold = 80;
+
+    function isAtTop() {
+      // Check both window scroll and any scrollable parent
+      if (window.scrollY > 0) return false;
+      if (document.documentElement.scrollTop > 0) return false;
+      if (document.body.scrollTop > 0) return false;
+      return true;
+    }
+
+    document.addEventListener('touchstart', e => {
+      if (isAtTop()) {
+        startY = e.touches[0].clientY;
+        pulling = true;
+        ptr.classList.add('pulling');
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', e => {
+      if (!pulling) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy > 10 && isAtTop()) {
+        const h = Math.min((dy - 10) * 0.4, threshold);
+        ptr.style.height = h + 'px';
+        ptr.querySelector('span').textContent = h >= threshold ? 'Release to refresh' : 'Pull to refresh';
+        if (h > 5) {
+          e.preventDefault();
+        }
+      } else if (dy <= 0) {
+        pulling = false;
+        ptr.classList.remove('pulling');
+        ptr.style.height = '0';
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
+      if (!pulling) return;
+      pulling = false;
+      ptr.classList.remove('pulling');
+      const h = parseInt(ptr.style.height) || 0;
+      if (h >= threshold) {
+        ptr.style.height = '50px';
+        ptr.classList.add('refreshing');
+        ptr.querySelector('span').textContent = 'Refreshing...';
+        setTimeout(() => window.location.reload(), 300);
+      } else {
+        ptr.style.height = '0';
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
