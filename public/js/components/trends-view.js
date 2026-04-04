@@ -42,7 +42,7 @@ class TrendsView extends LitElement {
     .title {
       font-size: 1.4rem;
       font-weight: 600;
-      color: #e0e0e0;
+      color: #1e293b;
       margin: 0;
     }
 
@@ -52,25 +52,25 @@ class TrendsView extends LitElement {
     }
 
     .period-btn {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 20px;
       padding: 6px 16px;
       font-size: 13px;
       font-weight: 500;
-      color: #8888aa;
+      color: #64748b;
       cursor: pointer;
       transition: all 0.2s;
     }
 
     .period-btn:hover {
-      border-color: #00d4aa;
-      color: #e0e0e0;
+      border-color: #0ea5e9;
+      color: #1e293b;
     }
 
     .period-btn.active {
-      background: #00d4aa;
-      border-color: #00d4aa;
+      background: #0ea5e9;
+      border-color: #0ea5e9;
       color: #0a0a1a;
     }
 
@@ -87,8 +87,8 @@ class TrendsView extends LitElement {
     }
 
     .chart-card {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 16px;
     }
@@ -98,19 +98,19 @@ class TrendsView extends LitElement {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #8888aa;
+      color: #64748b;
       margin: 0 0 4px 0;
     }
 
     .chart-avg {
       font-size: 13px;
       font-weight: 600;
-      color: #e0e0e0;
+      color: #1e293b;
       margin: 0 0 12px 0;
     }
 
     .chart-avg span {
-      color: #00d4aa;
+      color: #0ea5e9;
     }
 
     .chart-container {
@@ -125,14 +125,14 @@ class TrendsView extends LitElement {
     }
 
     .loading-text {
-      color: #8888aa;
+      color: #64748b;
       font-size: 14px;
       text-align: center;
       padding: 40px 0;
     }
 
     .no-data {
-      color: #666688;
+      color: #94a3b8;
       font-size: 13px;
       text-align: center;
       padding: 40px 0;
@@ -238,7 +238,7 @@ class TrendsView extends LitElement {
     // Build correlated data: mood + sleep on same date
     const points = [];
     const moodLabels = { 1: 'Awful', 2: 'Tired', 3: 'Meh', 4: 'Good', 5: 'Great' };
-    const moodColors = { 1: '#ff4444', 2: '#ff8844', 3: '#ffaa00', 4: '#44ff88', 5: '#00d4aa' };
+    const moodColors = { 1: '#ef4444', 2: '#ff8844', 3: '#f59e0b', 4: '#22c55e', 5: '#0ea5e9' };
 
     for (const sleep of (this._sleepData || [])) {
       const date = (sleep.date || '').substring(0, 10);
@@ -267,12 +267,12 @@ class TrendsView extends LitElement {
         scales: {
           x: {
             ...this._baseChartOptions(false).scales.x,
-            title: { display: true, text: 'Sleep (hours)', color: '#8888aa', font: { size: 10 } },
+            title: { display: true, text: 'Sleep (hours)', color: '#64748b', font: { size: 10 } },
             min: 0,
           },
           y: {
             ...this._baseChartOptions(false).scales.y,
-            title: { display: true, text: 'Mood', color: '#8888aa', font: { size: 10 } },
+            title: { display: true, text: 'Mood', color: '#64748b', font: { size: 10 } },
             min: 0.5, max: 5.5,
             ticks: {
               ...this._baseChartOptions(false).scales.y.ticks,
@@ -340,17 +340,17 @@ class TrendsView extends LitElement {
         legend: {
           display: showLegend,
           labels: {
-            color: '#8888aa',
+            color: '#64748b',
             font: { size: 11 },
             boxWidth: 12,
             padding: 8,
           },
         },
         tooltip: {
-          backgroundColor: '#1a1a2e',
-          titleColor: '#e0e0e0',
-          bodyColor: '#8888aa',
-          borderColor: '#2a2a4a',
+          backgroundColor: '#ffffff',
+          titleColor: '#1e293b',
+          bodyColor: '#64748b',
+          borderColor: '#e2e8f0',
           borderWidth: 1,
           padding: 8,
           cornerRadius: 8,
@@ -359,28 +359,28 @@ class TrendsView extends LitElement {
       scales: {
         x: {
           ticks: {
-            color: '#8888aa',
+            color: '#64748b',
             font: { size: 10 },
             maxRotation: 45,
             maxTicksLimit: 12,
           },
           grid: {
-            color: '#2a2a4a',
+            color: '#e2e8f0',
           },
           border: {
-            color: '#2a2a4a',
+            color: '#e2e8f0',
           },
         },
         y: {
           ticks: {
-            color: '#8888aa',
+            color: '#64748b',
             font: { size: 10 },
           },
           grid: {
-            color: '#2a2a4a',
+            color: '#e2e8f0',
           },
           border: {
-            color: '#2a2a4a',
+            color: '#e2e8f0',
           },
         },
       },
@@ -409,7 +409,7 @@ class TrendsView extends LitElement {
     const values = this._weightData.map(d => d.kg);
 
     const gradient = ctx.createLinearGradient(0, 0, 0, 220);
-    gradient.addColorStop(0, 'rgba(0, 212, 170, 0.3)');
+    gradient.addColorStop(0, 'rgba(14, 165, 233, 0.2)');
     gradient.addColorStop(1, 'rgba(0, 212, 170, 0.0)');
 
     this._destroyChart('weightChart');
@@ -419,13 +419,13 @@ class TrendsView extends LitElement {
         labels,
         datasets: [{
           data: values,
-          borderColor: '#00d4aa',
+          borderColor: '#0ea5e9',
           backgroundColor: gradient,
           fill: true,
           tension: 0.3,
           pointRadius: 2,
-          pointBackgroundColor: '#00d4aa',
-          pointBorderColor: '#00d4aa',
+          pointBackgroundColor: '#0ea5e9',
+          pointBorderColor: '#0ea5e9',
           pointHoverRadius: 4,
           borderWidth: 2,
         }],
@@ -484,7 +484,7 @@ class TrendsView extends LitElement {
             title: {
               display: true,
               text: 'hours',
-              color: '#8888aa',
+              color: '#64748b',
               font: { size: 10 },
             },
           },
@@ -515,13 +515,13 @@ class TrendsView extends LitElement {
         labels,
         datasets: [{
           data: values,
-          borderColor: '#ff4444',
+          borderColor: '#ef4444',
           backgroundColor: 'rgba(255, 68, 68, 0.1)',
           fill: false,
           tension: 0.3,
           pointRadius: 2,
-          pointBackgroundColor: '#ff4444',
-          pointBorderColor: '#ff4444',
+          pointBackgroundColor: '#ef4444',
+          pointBorderColor: '#ef4444',
           pointHoverRadius: 4,
           borderWidth: 2,
           spanGaps: true,
@@ -549,13 +549,13 @@ class TrendsView extends LitElement {
         labels,
         datasets: [{
           data: values,
-          borderColor: '#44ff88',
+          borderColor: '#22c55e',
           backgroundColor: 'rgba(68, 255, 136, 0.1)',
           fill: false,
           tension: 0.3,
           pointRadius: 2,
-          pointBackgroundColor: '#44ff88',
-          pointBorderColor: '#44ff88',
+          pointBackgroundColor: '#22c55e',
+          pointBorderColor: '#22c55e',
           pointHoverRadius: 4,
           borderWidth: 2,
           spanGaps: true,
@@ -596,7 +596,7 @@ class TrendsView extends LitElement {
           {
             type: 'line',
             data: movingAvg,
-            borderColor: '#00d4aa',
+            borderColor: '#0ea5e9',
             backgroundColor: 'transparent',
             borderWidth: 2,
             pointRadius: 0,
@@ -650,7 +650,7 @@ class TrendsView extends LitElement {
         labels,
         datasets: [{
           data: values,
-          backgroundColor: '#ffaa00',
+          backgroundColor: '#f59e0b',
           borderRadius: 4,
         }],
       },
@@ -679,8 +679,8 @@ class TrendsView extends LitElement {
     const labels = this._moodData.map(d => this._formatDateLabel(d.date));
     const values = this._moodData.map(d => d.mood || null);
 
-    const moodColors = { 1: '#ff4444', 2: '#ff8844', 3: '#ffaa00', 4: '#88cc44', 5: '#44ff88' };
-    const pointColors = values.map(v => moodColors[v] || '#8888aa');
+    const moodColors = { 1: '#ef4444', 2: '#ff8844', 3: '#f59e0b', 4: '#88cc44', 5: '#22c55e' };
+    const pointColors = values.map(v => moodColors[v] || '#64748b');
 
     this._destroyChart('moodChart');
     this._charts['moodChart'] = new Chart(ctx, {
@@ -733,7 +733,7 @@ class TrendsView extends LitElement {
     const ctx = canvas.getContext('2d');
     const labels = filtered.map(d => this._formatDateLabel(d.date));
     const values = filtered.map(d => d.wakeUps);
-    const barColors = values.map(v => v <= 1 ? '#44ff88' : v <= 3 ? '#ffaa00' : '#ff4444');
+    const barColors = values.map(v => v <= 1 ? '#22c55e' : v <= 3 ? '#f59e0b' : '#ef4444');
 
     // 7-day moving average
     const movingAvg = values.map((_, i) => {

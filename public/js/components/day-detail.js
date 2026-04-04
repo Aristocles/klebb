@@ -79,9 +79,9 @@ class DayDetail extends LitElement {
 
     .calendar-btn {
       background: none;
-      border: 1px solid #2a2a4a;
+      border: 1px solid #e2e8f0;
       border-radius: 8px;
-      color: #8888aa;
+      color: #64748b;
       font-size: 13px;
       padding: 6px 14px;
       cursor: pointer;
@@ -92,15 +92,15 @@ class DayDetail extends LitElement {
     }
 
     .calendar-btn:hover {
-      color: #e0e0e0;
-      border-color: #4a4a6a;
+      color: #1e293b;
+      border-color: #94a3b8;
     }
 
     .today-btn {
       background: none;
-      border: 1px solid #2a2a4a;
+      border: 1px solid #e2e8f0;
       border-radius: 8px;
-      color: #8888aa;
+      color: #64748b;
       font-size: 13px;
       padding: 6px 14px;
       cursor: pointer;
@@ -108,14 +108,14 @@ class DayDetail extends LitElement {
     }
 
     .today-btn:hover {
-      color: #e0e0e0;
-      border-color: #4a4a6a;
+      color: #1e293b;
+      border-color: #94a3b8;
     }
 
     .date-header {
       font-size: 20px;
       font-weight: 700;
-      color: #fff;
+      color: #1e293b;
       margin: 0;
       text-align: center;
       flex: 1;
@@ -123,9 +123,9 @@ class DayDetail extends LitElement {
 
     .nav-btn {
       background: none;
-      border: 1px solid #2a2a4a;
+      border: 1px solid #e2e8f0;
       border-radius: 8px;
-      color: #8888aa;
+      color: #64748b;
       font-size: 18px;
       padding: 6px 12px;
       cursor: pointer;
@@ -134,8 +134,8 @@ class DayDetail extends LitElement {
     }
 
     .nav-btn:hover {
-      color: #e0e0e0;
-      border-color: #4a4a6a;
+      color: #1e293b;
+      border-color: #94a3b8;
     }
 
     .cards {
@@ -145,8 +145,8 @@ class DayDetail extends LitElement {
     }
 
     .card {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 16px 20px;
     }
@@ -156,12 +156,12 @@ class DayDetail extends LitElement {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #8888aa;
+      color: #64748b;
       margin: 0 0 12px 0;
     }
 
     .loading-text {
-      color: #8888aa;
+      color: #64748b;
       font-size: 14px;
     }
 
@@ -169,7 +169,7 @@ class DayDetail extends LitElement {
     .sleep-total {
       font-size: 32px;
       font-weight: 700;
-      color: #fff;
+      color: #1e293b;
       margin: 0 0 12px 0;
     }
 
@@ -188,19 +188,19 @@ class DayDetail extends LitElement {
 
     .sleep-times {
       font-size: 13px;
-      color: #aaaacc;
+      color: #475569;
       margin-bottom: 8px;
     }
 
     .sleep-stages {
       font-size: 12px;
-      color: #8888aa;
+      color: #64748b;
     }
 
     /* Workouts */
     .workout-item {
       padding: 10px 0;
-      border-bottom: 1px solid #2a2a4a;
+      border-bottom: 1px solid #e2e8f0;
     }
 
     .workout-item:last-child {
@@ -223,7 +223,7 @@ class DayDetail extends LitElement {
     .workout-name {
       font-size: 15px;
       font-weight: 600;
-      color: #e0e0e0;
+      color: #1e293b;
       flex: 1;
     }
 
@@ -234,7 +234,7 @@ class DayDetail extends LitElement {
 
     .workout-meta {
       font-size: 13px;
-      color: #8888aa;
+      color: #64748b;
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
@@ -247,11 +247,11 @@ class DayDetail extends LitElement {
     }
 
     .workout-time {
-      color: #aaaacc;
+      color: #475569;
     }
 
     .workout-duration {
-      color: #00d4aa;
+      color: #0ea5e9;
       font-weight: 600;
     }
 
@@ -260,7 +260,7 @@ class DayDetail extends LitElement {
     }
 
     .workout-cal {
-      color: #ffaa00;
+      color: #f59e0b;
     }
 
     /* Activity */
@@ -277,7 +277,7 @@ class DayDetail extends LitElement {
 
     .stat-label {
       font-size: 11px;
-      color: #8888aa;
+      color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-bottom: 4px;
@@ -294,8 +294,8 @@ class DayDetail extends LitElement {
       opacity: 0.7;
     }
 
-    .steps-color { color: #00d4aa; }
-    .distance-color { color: #ffaa00; }
+    .steps-color { color: #0ea5e9; }
+    .distance-color { color: #f59e0b; }
     .energy-color { color: #6366f1; }
 
     /* Vitals */
@@ -312,7 +312,7 @@ class DayDetail extends LitElement {
 
     .vital-label {
       font-size: 11px;
-      color: #8888aa;
+      color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-bottom: 4px;
@@ -357,7 +357,7 @@ class DayDetail extends LitElement {
 
     .supplement-dose {
       font-size: 12px;
-      color: #666688;
+      color: #94a3b8;
       margin-left: auto;
       white-space: nowrap;
     }
@@ -388,12 +388,12 @@ class DayDetail extends LitElement {
     .info-title {
       font-size: 14px;
       font-weight: 600;
-      color: #e0e0e0;
+      color: #1e293b;
       margin-bottom: 2px;
     }
 
     .info-title a {
-      color: #00d4aa;
+      color: #0ea5e9;
       text-decoration: none;
     }
 
@@ -403,7 +403,7 @@ class DayDetail extends LitElement {
 
     .info-summary {
       font-size: 13px;
-      color: #8888aa;
+      color: #64748b;
       line-height: 1.4;
     }
 
@@ -411,25 +411,25 @@ class DayDetail extends LitElement {
     .weight-value {
       font-size: 28px;
       font-weight: 700;
-      color: #fff;
+      color: #1e293b;
     }
 
     .weight-unit {
       font-size: 14px;
       font-weight: 400;
-      color: #8888aa;
+      color: #64748b;
     }
 
     .empty-text {
-      color: #666688;
+      color: #94a3b8;
       font-size: 13px;
     }
 
     .edit-mood-btn {
       background: none;
-      border: 1px solid #2a2a4a;
+      border: 1px solid #e2e8f0;
       border-radius: 10px;
-      color: #8888aa;
+      color: #64748b;
       font-size: 18px;
       cursor: pointer;
       padding: 6px 10px;
@@ -440,7 +440,7 @@ class DayDetail extends LitElement {
       gap: 4px;
     }
 
-    .edit-mood-btn:hover { border-color: #00d4aa; color: #00d4aa; }
+    .edit-mood-btn:hover { border-color: #0ea5e9; color: #0ea5e9; }
 
     .edit-mood-btn .btn-label {
       font-size: 11px;
@@ -465,12 +465,12 @@ class DayDetail extends LitElement {
     .mood-display-label {
       font-size: 15px;
       font-weight: 600;
-      color: #e0e0e0;
+      color: #1e293b;
     }
 
     .mood-display-notes {
       font-size: 13px;
-      color: #8888aa;
+      color: #64748b;
       margin-top: 2px;
     }
 
@@ -487,7 +487,7 @@ class DayDetail extends LitElement {
     .mood-editor-title {
       font-size: 16px;
       font-weight: 600;
-      color: #e0e0e0;
+      color: #1e293b;
       margin-bottom: 16px;
     }
 
@@ -508,7 +508,7 @@ class DayDetail extends LitElement {
       width: 48px;
       height: 48px;
       border-radius: 50%;
-      border: 2px solid #2a2a4a;
+      border: 2px solid #e2e8f0;
       background: transparent;
       font-size: 24px;
       cursor: pointer;
@@ -518,17 +518,17 @@ class DayDetail extends LitElement {
       justify-content: center;
     }
 
-    .mood-editor .mood-btn:hover { border-color: #4a4a6a; transform: scale(1.1); }
-    .mood-editor .mood-btn.selected { border-color: #00d4aa; background: rgba(0,212,170,0.1); transform: scale(1.15); }
-    .mood-editor .mood-label { font-size: 9px; color: #666688; margin-top: 3px; }
+    .mood-editor .mood-btn:hover { border-color: #94a3b8; transform: scale(1.1); }
+    .mood-editor .mood-btn.selected { border-color: #0ea5e9; background: rgba(14,165,233,0.1); transform: scale(1.15); }
+    .mood-editor .mood-label { font-size: 9px; color: #94a3b8; margin-top: 3px; }
 
     .mood-editor .notes-input {
       width: 100%;
-      background: #252540;
-      border: 1px solid #2a2a4a;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
       border-radius: 10px;
       padding: 10px 14px;
-      color: #e0e0e0;
+      color: #1e293b;
       font-size: 16px;
       font-family: inherit;
       outline: none;
@@ -538,8 +538,8 @@ class DayDetail extends LitElement {
       box-sizing: border-box;
     }
 
-    .mood-editor .notes-input:focus { border-color: #00d4aa; }
-    .mood-editor .notes-input::placeholder { color: #555566; }
+    .mood-editor .notes-input:focus { border-color: #0ea5e9; }
+    .mood-editor .notes-input::placeholder { color: #94a3b8; }
 
     .mood-editor .wakeup-row {
       display: flex;
@@ -551,16 +551,16 @@ class DayDetail extends LitElement {
 
     .mood-editor .wakeup-label {
       font-size: 13px;
-      color: #aaaacc;
+      color: #475569;
     }
 
     .mood-editor .wakeup-btn {
       width: 34px;
       height: 34px;
       border-radius: 50%;
-      border: 2px solid #2a2a4a;
+      border: 2px solid #e2e8f0;
       background: transparent;
-      color: #aaaacc;
+      color: #475569;
       font-size: 18px;
       cursor: pointer;
       display: flex;
@@ -568,7 +568,7 @@ class DayDetail extends LitElement {
       justify-content: center;
     }
 
-    .mood-editor .wakeup-btn:hover { border-color: #00d4aa; color: #00d4aa; }
+    .mood-editor .wakeup-btn:hover { border-color: #0ea5e9; color: #0ea5e9; }
 
     .mood-editor .wakeup-value {
       font-size: 22px;
@@ -577,10 +577,10 @@ class DayDetail extends LitElement {
       text-align: center;
     }
 
-    .mood-editor .wakeup-value.good { color: #44ff88; }
-    .mood-editor .wakeup-value.ok { color: #ffaa00; }
-    .mood-editor .wakeup-value.bad { color: #ff4444; }
-    .mood-editor .wakeup-value.none { color: #555566; }
+    .mood-editor .wakeup-value.good { color: #22c55e; }
+    .mood-editor .wakeup-value.ok { color: #f59e0b; }
+    .mood-editor .wakeup-value.bad { color: #ef4444; }
+    .mood-editor .wakeup-value.none { color: #94a3b8; }
 
     .mood-editor .editor-actions {
       display: flex;
@@ -589,8 +589,8 @@ class DayDetail extends LitElement {
     }
 
     .mood-editor .save-btn {
-      background: #00d4aa;
-      color: #0f0f1a;
+      background: #0ea5e9;
+      color: #f5f7fa;
       border: none;
       border-radius: 10px;
       padding: 8px 24px;
@@ -599,24 +599,24 @@ class DayDetail extends LitElement {
       cursor: pointer;
     }
 
-    .mood-editor .save-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
-    .mood-editor .save-btn:hover:not(:disabled) { background: #00eabb; }
+    .mood-editor .save-btn:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
+    .mood-editor .save-btn:hover:not(:disabled) { background: #38bdf8; }
 
     .mood-editor .cancel-btn {
       background: transparent;
-      color: #666688;
-      border: 1px solid #2a2a4a;
+      color: #94a3b8;
+      border: 1px solid #e2e8f0;
       border-radius: 10px;
       padding: 8px 18px;
       font-size: 13px;
       cursor: pointer;
     }
 
-    .mood-editor .cancel-btn:hover { border-color: #4a4a6a; color: #aaa; }
+    .mood-editor .cancel-btn:hover { border-color: #94a3b8; color: #aaa; }
 
     .mood-editor .clear-btn {
       background: transparent;
-      color: #ff4444;
+      color: #ef4444;
       border: 1px solid #442222;
       border-radius: 10px;
       padding: 8px 18px;
@@ -624,16 +624,16 @@ class DayDetail extends LitElement {
       cursor: pointer;
     }
 
-    .mood-editor .clear-btn:hover { border-color: #ff4444; }
+    .mood-editor .clear-btn:hover { border-color: #ef4444; }
 
     /* Notes card */
     .notes-textarea {
       width: 100%;
-      background: #252540;
-      border: 1px solid #2a2a4a;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
       border-radius: 10px;
       padding: 12px 14px;
-      color: #e0e0e0;
+      color: #1e293b;
       font-size: 16px;
       font-family: inherit;
       outline: none;
@@ -643,19 +643,19 @@ class DayDetail extends LitElement {
       line-height: 1.5;
     }
 
-    .notes-textarea:focus { border-color: #00d4aa; }
-    .notes-textarea::placeholder { color: #555566; }
+    .notes-textarea:focus { border-color: #0ea5e9; }
+    .notes-textarea::placeholder { color: #94a3b8; }
 
     .notes-status {
       font-size: 11px;
-      color: #555566;
+      color: #94a3b8;
       margin-top: 6px;
       text-align: right;
       transition: color 0.2s;
     }
 
-    .notes-status.saving { color: #ffaa00; }
-    .notes-status.saved { color: #44ff88; }
+    .notes-status.saving { color: #f59e0b; }
+    .notes-status.saved { color: #22c55e; }
 
     /* Peptides / Injections */
     .peptide-grid {
@@ -685,7 +685,7 @@ class DayDetail extends LitElement {
 
     .cycle-ring-bg {
       fill: none;
-      stroke: #2a2a4a;
+      stroke: #e2e8f0;
       stroke-width: 4;
     }
 
@@ -721,13 +721,13 @@ class DayDetail extends LitElement {
 
     .peptide-dose {
       font-size: 12px;
-      color: #8888aa;
+      color: #64748b;
       margin-bottom: 2px;
     }
 
     .peptide-cycle-text {
       font-size: 11px;
-      color: #666688;
+      color: #94a3b8;
     }
 
     .peptide-status {
@@ -740,17 +740,17 @@ class DayDetail extends LitElement {
 
     .status-active {
       background: rgba(0, 212, 170, 0.15);
-      color: #00d4aa;
+      color: #0ea5e9;
     }
 
     .status-off {
       background: rgba(136, 136, 170, 0.15);
-      color: #8888aa;
+      color: #64748b;
     }
 
     .status-loading {
       background: rgba(255, 170, 0, 0.15);
-      color: #ffaa00;
+      color: #f59e0b;
     }
 
     .status-maint {
@@ -763,7 +763,7 @@ class DayDetail extends LitElement {
       align-items: center;
       gap: 10px;
       padding: 8px 0;
-      border-top: 1px solid #2a2a4a;
+      border-top: 1px solid #e2e8f0;
       margin-top: 4px;
     }
 
@@ -778,7 +778,7 @@ class DayDetail extends LitElement {
 
     .mounjaro-dose {
       font-size: 12px;
-      color: #8888aa;
+      color: #64748b;
       margin-left: auto;
     }
 
@@ -803,24 +803,24 @@ class DayDetail extends LitElement {
     }
 
     .week-dot.inactive {
-      background: #1a1a2e;
+      background: #ffffff;
       color: #444466;
-      border: 1px solid #2a2a4a;
+      border: 1px solid #e2e8f0;
     }
 
     .week-dot.active {
-      border: 2px solid var(--dot-color, #00d4aa);
-      color: var(--dot-color, #00d4aa);
+      border: 2px solid var(--dot-color, #0ea5e9);
+      color: var(--dot-color, #0ea5e9);
       background: transparent;
     }
 
     .week-dot.today-dot {
-      box-shadow: 0 0 0 2px #0f0f1a, 0 0 0 3px #00d4aa;
+      box-shadow: 0 0 0 2px #f5f7fa, 0 0 0 3px #0ea5e9;
     }
 
     .week-dot.active.today-dot {
-      background: var(--dot-color, #00d4aa);
-      color: #0f0f1a;
+      background: var(--dot-color, #0ea5e9);
+      color: #f5f7fa;
     }
 
     /* Injection checkbox */
@@ -831,14 +831,14 @@ class DayDetail extends LitElement {
       margin-top: 8px;
       padding: 8px 12px;
       border-radius: 8px;
-      background: rgba(0, 0, 0, 0.2);
+      background: rgba(0, 0, 0, 0.08);
       cursor: pointer;
       user-select: none;
       transition: background 0.2s;
     }
 
     .injection-check:hover {
-      background: rgba(0, 0, 0, 0.35);
+      background: rgba(0, 0, 0, 0.15);
     }
 
     .injection-checkbox {
@@ -854,13 +854,13 @@ class DayDetail extends LitElement {
     }
 
     .injection-checkbox.checked {
-      background: #00d4aa;
-      border-color: #00d4aa;
+      background: #0ea5e9;
+      border-color: #0ea5e9;
     }
 
     .injection-checkbox .check-icon {
       display: none;
-      color: #0f0f1a;
+      color: #f5f7fa;
       font-size: 14px;
       font-weight: 700;
     }
@@ -871,12 +871,12 @@ class DayDetail extends LitElement {
 
     .injection-check-label {
       font-size: 13px;
-      color: #aaaacc;
+      color: #475569;
     }
 
     .injection-check-time {
       font-size: 11px;
-      color: #666688;
+      color: #94a3b8;
       margin-left: auto;
     }
   `;
@@ -1094,7 +1094,7 @@ class DayDetail extends LitElement {
           <div class="bar-segment" style="width:${corePct}%;background:#6366f1"></div>
           <div class="bar-segment" style="width:${remPct}%;background:#a855f7"></div>
           <div class="bar-segment" style="width:${deepPct}%;background:#1e3a5f"></div>
-          <div class="bar-segment" style="width:${awakePct}%;background:#ff4444"></div>
+          <div class="bar-segment" style="width:${awakePct}%;background:#ef4444"></div>
         </div>
         <div class="sleep-times">
           ${this._formatTime(d.sleepStart)} \u2192 ${this._formatTime(d.sleepEnd)}
@@ -1149,11 +1149,11 @@ class DayDetail extends LitElement {
     const display = this._mood ? this._getMoodDisplay(this._mood.mood) : null;
     const wakeUps = this._mood?.wakeUps;
     const hasWakeUps = wakeUps !== null && wakeUps !== undefined;
-    const wakeColor = !hasWakeUps ? '' : wakeUps <= 1 ? '#44ff88' : wakeUps <= 3 ? '#ffaa00' : '#ff4444';
+    const wakeColor = !hasWakeUps ? '' : wakeUps <= 1 ? '#22c55e' : wakeUps <= 3 ? '#f59e0b' : '#ef4444';
     const canEdit = !this._isFutureDate();
 
     return html`
-      <div class="mood-display" style="margin-top:12px;padding-top:12px;border-top:1px solid #2a2a4a;">
+      <div class="mood-display" style="margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;">
         ${display ? html`
           <span class="mood-display-emoji">${display.emoji}</span>
           <div class="mood-display-info">
@@ -1166,7 +1166,7 @@ class DayDetail extends LitElement {
             ` : ''}
           </div>
         ` : html`
-          <div class="mood-display-info" style="color:#555566;font-size:13px;">No mood recorded</div>
+          <div class="mood-display-info" style="color:#94a3b8;font-size:13px;">No mood recorded</div>
         `}
         ${canEdit ? html`
           <button class="edit-mood-btn" @click=${this._startEditMood} title="Edit mood" style="margin-left:auto;">\u{1F4DD}</button>
@@ -1585,7 +1585,7 @@ class DayDetail extends LitElement {
                   <div class="peptide-name">${pep.name}</div>
                   ${pep.isInjectionDay
                     ? html`<div class="peptide-dose">${pep.dose_label}${pep.dose_units ? ' (' + pep.dose_units + 'u)' : ''}</div>`
-                    : html`<div class="peptide-dose" style="color:#555">${pep.status === 'off' ? 'Next: ' + (pep.nextCycleStart || 'TBD') : 'Rest day'}</div>`}
+                    : html`<div class="peptide-dose" style="color:#94a3b8">${pep.status === 'off' ? 'Next: ' + (pep.nextCycleStart || 'TBD') : 'Rest day'}</div>`}
                   <div class="peptide-cycle-text">${pep.inOnCycle
                     ? 'Cycle ' + pep.cycleNumber + ' - Day ' + pep.cycleDay + ' of ' + pep.cycleTotalDays
                     : 'Off cycle - Day ' + pep.cycleDay + ' of ' + pep.cycleTotalDays}</div>
@@ -1730,7 +1730,7 @@ class DayDetail extends LitElement {
 
     const wakeUps = this._mood.wakeUps;
     const hasWakeUps = wakeUps !== null && wakeUps !== undefined;
-    const wakeColor = !hasWakeUps ? '' : wakeUps <= 1 ? '#44ff88' : wakeUps <= 3 ? '#ffaa00' : '#ff4444';
+    const wakeColor = !hasWakeUps ? '' : wakeUps <= 1 ? '#22c55e' : wakeUps <= 3 ? '#f59e0b' : '#ef4444';
 
     return html`
       <div class="card">

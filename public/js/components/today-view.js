@@ -19,12 +19,12 @@ class TodayView extends LitElement {
     .date-header {
       font-size: 1.4rem;
       font-weight: 600;
-      color: #e0e0e0;
+      color: #1e293b;
       margin: 0 0 20px 0;
     }
 
     .date-header .date {
-      color: #00d4aa;
+      color: #0ea5e9;
     }
 
     .grid {
@@ -50,8 +50,8 @@ class TodayView extends LitElement {
     }
 
     .upcoming-card {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 16px 20px;
     }
@@ -61,7 +61,7 @@ class TodayView extends LitElement {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #8888aa;
+      color: #64748b;
       margin: 0 0 12px 0;
     }
 
@@ -79,23 +79,23 @@ class TodayView extends LitElement {
 
     .upcoming-label {
       font-size: 12px;
-      color: #8888aa;
+      color: #64748b;
     }
 
     .upcoming-value {
       font-size: 14px;
-      color: #e0e0e0;
+      color: #1e293b;
       font-weight: 500;
     }
 
     .upcoming-date {
       font-size: 12px;
-      color: #00d4aa;
+      color: #0ea5e9;
     }
 
     .nothing-scheduled {
       font-size: 13px;
-      color: #666688;
+      color: #94a3b8;
     }
   `;
 
