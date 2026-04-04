@@ -8,8 +8,8 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f5f7fa;
-      color: #1e293b;
+      background: var(--bg-page);
+      color: var(--text-primary);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -18,7 +18,7 @@
     }
     .card {
       background: #ffffff;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       border-radius: 20px;
       padding: 40px 32px;
       max-width: 420px;
@@ -27,7 +27,7 @@
     }
     .logo { font-size: 40px; margin-bottom: 16px; }
     .title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
-    .subtitle { font-size: 14px; color: #64748b; margin-bottom: 12px; line-height: 1.5; }
+    .subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5; }
     .steps {
       text-align: left;
       margin: 20px 0 28px;
@@ -48,7 +48,7 @@
       height: 28px;
       border-radius: 50%;
       background: rgba(0, 212, 170, 0.15);
-      color: #0ea5e9;
+      color: var(--accent);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -67,8 +67,8 @@
       transition: all 0.2s;
     }
     .btn-primary {
-      background: #0ea5e9;
-      color: #f5f7fa;
+      background: var(--accent);
+      color: var(--text-inverse);
     }
     .btn-primary:hover { background: #38bdf8; }
     .btn-primary:disabled { background: #333; color: #666; cursor: not-allowed; }
@@ -80,13 +80,14 @@
     }
     .error.show { display: block; }
     .success {
-      color: #0ea5e9;
+      color: var(--accent);
       font-size: 14px;
       margin-top: 16px;
       display: none;
     }
     .success.show { display: block; }
   </style>
+  <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
   <div class="card">

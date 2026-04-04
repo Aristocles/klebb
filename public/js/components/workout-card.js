@@ -16,21 +16,21 @@ class WorkoutCard extends LitElement {
     :host { display: block; min-width: 0; }
 
     .card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px 20px;
       cursor: pointer;
     }
 
-    .card:hover { border-color: #cbd5e1; }
+    .card:hover { border-color: var(--border-hover); }
 
     .title {
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #64748b;
+      color: var(--text-secondary);
       margin: 0 0 8px 0;
       display: flex;
       justify-content: space-between;
@@ -40,7 +40,7 @@ class WorkoutCard extends LitElement {
     .chevron { font-size: 12px; transition: transform 0.2s; }
     .chevron.open { transform: rotate(180deg); }
 
-    .rest-day { font-size: 18px; color: #94a3b8; display: flex; align-items: center; gap: 8px; }
+    .rest-day { font-size: 18px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
     .rest-emoji { font-size: 28px; }
 
     .intensity-banner { text-align: center; font-size: 36px; margin-bottom: 12px; }
@@ -52,7 +52,7 @@ class WorkoutCard extends LitElement {
       align-items: center;
       gap: 10px;
       padding: 8px 0;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid var(--border);
     }
 
     .workout-row:last-child { border-bottom: none; padding-bottom: 0; }
@@ -62,31 +62,31 @@ class WorkoutCard extends LitElement {
       flex: 1;
       font-size: 14px;
       font-weight: 500;
-      color: #1e293b;
+      color: var(--text-primary);
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .workout-duration { font-size: 13px; font-weight: 600; color: #0ea5e9; flex-shrink: 0; }
+    .workout-duration { font-size: 13px; font-weight: 600; color: var(--accent); flex-shrink: 0; }
     .workout-hr { font-size: 12px; color: #ff6b6b; flex-shrink: 0; }
 
-    .loading-text { color: #64748b; font-size: 14px; }
+    .loading-text { color: var(--text-secondary); font-size: 14px; }
 
     .summary {
       font-size: 12px;
-      color: #64748b;
+      color: var(--text-secondary);
       margin-top: 8px;
       padding-top: 8px;
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid var(--border);
     }
 
     /* Expanded */
     .expanded {
       margin-top: 16px;
       padding-top: 14px;
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid var(--border);
     }
 
     .week-dots {
@@ -107,9 +107,9 @@ class WorkoutCard extends LitElement {
       font-weight: 700;
     }
 
-    .week-dot.active { background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: 1px solid #0ea5e9; }
-    .week-dot.rest { background: #ffffff; color: #444466; border: 1px solid #e2e8f0; }
-    .week-dot.today-ring { box-shadow: 0 0 0 2px #f5f7fa, 0 0 0 3px #0ea5e9; }
+    .week-dot.active { background: rgba(14, 165, 233, 0.15); color: var(--accent); border: 1px solid var(--accent); }
+    .week-dot.rest { background: var(--bg-card); color: #444466; border: 1px solid var(--border); }
+    .week-dot.today-ring { box-shadow: 0 0 0 2px #f5f7fa, 0 0 0 3px var(--accent); }
 
     .week-workout-list {
       display: flex;
@@ -124,21 +124,21 @@ class WorkoutCard extends LitElement {
       font-size: 13px;
     }
 
-    .ww-date { color: #94a3b8; font-size: 11px; width: 32px; flex-shrink: 0; }
+    .ww-date { color: var(--text-muted); font-size: 11px; width: 32px; flex-shrink: 0; }
     .ww-name { color: #ccc; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .ww-dur { color: #0ea5e9; font-weight: 600; flex-shrink: 0; }
+    .ww-dur { color: var(--accent); font-weight: 600; flex-shrink: 0; }
     .ww-hr { color: #ff6b6b; font-size: 11px; flex-shrink: 0; }
 
     .comparison {
       margin-top: 12px;
       font-size: 12px;
-      color: #64748b;
+      color: var(--text-secondary);
       text-align: center;
     }
     .comparison strong { color: #ccc; }
-    .comparison .up { color: #22c55e; }
+    .comparison .up { color: var(--success); }
     .comparison .down { color: #ff6b6b; }
-    .comparison .same { color: #f59e0b; }
+    .comparison .same { color: var(--warning); }
   `;
 
   constructor() {

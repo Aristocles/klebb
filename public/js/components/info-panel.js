@@ -24,8 +24,8 @@ class InfoPanel extends LitElement {
     }
 
     .panel {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 20px 24px;
       max-width: 520px;
@@ -47,14 +47,14 @@ class InfoPanel extends LitElement {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #64748b;
+      color: var(--text-secondary);
       margin: 0;
     }
 
     .close-btn {
       background: none;
       border: none;
-      color: #64748b;
+      color: var(--text-secondary);
       font-size: 18px;
       cursor: pointer;
       padding: 4px 8px;
@@ -63,7 +63,7 @@ class InfoPanel extends LitElement {
     }
 
     .close-btn:hover {
-      color: #1e293b;
+      color: var(--text-primary);
     }
 
     .info-list {
@@ -92,12 +92,12 @@ class InfoPanel extends LitElement {
     .info-title {
       font-size: 15px;
       font-weight: 600;
-      color: #1e293b;
+      color: var(--text-primary);
       margin-bottom: 4px;
     }
 
     .info-title a {
-      color: #0ea5e9;
+      color: var(--accent);
       text-decoration: none;
     }
 
@@ -107,17 +107,17 @@ class InfoPanel extends LitElement {
 
     .info-summary {
       font-size: 13px;
-      color: #64748b;
+      color: var(--text-secondary);
       line-height: 1.5;
     }
 
     .loading-text {
-      color: #64748b;
+      color: var(--text-secondary);
       font-size: 14px;
     }
 
     .empty-text {
-      color: #94a3b8;
+      color: var(--text-muted);
       font-size: 13px;
     }
   `;

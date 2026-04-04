@@ -20,14 +20,14 @@
       left: 0;
       right: 0;
       height: 0;
-      background: #f5f7fa;
+      background: var(--bg-page);
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
       z-index: 9999;
       transition: height 0.2s;
-      color: #0ea5e9;
+      color: var(--accent);
       font-size: 14px;
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     }
@@ -36,7 +36,7 @@
       width: 20px;
       height: 20px;
       border: 2px solid #e2e8f0;
-      border-top-color: #0ea5e9;
+      border-top-color: var(--accent);
       border-radius: 50%;
       margin-right: 8px;
     }
@@ -45,29 +45,9 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            bg: '#f5f7fa',
-            card: '#ffffff',
-            border: '#e2e8f0',
-            primary: '#1e293b',
-            secondary: '#64748b',
-            teal: '#0ea5e9',
-            amber: '#f59e0b',
-            red: '#ef4444',
-            green: '#22c55e',
-          }
-        }
-      }
-    }
-  </script>
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body class="bg-bg text-primary min-h-screen font-sans">
+<body>
   <health-app></health-app>
 
   <script type="module" src="/js/app.js"></script>

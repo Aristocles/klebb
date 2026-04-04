@@ -30,16 +30,16 @@ class CalendarView extends LitElement {
     .month-label {
       font-size: 20px;
       font-weight: 700;
-      color: #1e293b;
+      color: var(--text-primary);
       min-width: 200px;
       text-align: center;
     }
 
     .nav-btn {
       background: none;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       border-radius: 8px;
-      color: #64748b;
+      color: var(--text-secondary);
       font-size: 18px;
       padding: 6px 12px;
       cursor: pointer;
@@ -47,15 +47,15 @@ class CalendarView extends LitElement {
     }
 
     .nav-btn:hover {
-      color: #1e293b;
-      border-color: #94a3b8;
+      color: var(--text-primary);
+      border-color: var(--text-muted);
     }
 
     .today-btn {
       background: none;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       border-radius: 8px;
-      color: #64748b;
+      color: var(--text-secondary);
       font-size: 13px;
       padding: 6px 14px;
       cursor: pointer;
@@ -63,8 +63,8 @@ class CalendarView extends LitElement {
     }
 
     .today-btn:hover {
-      color: #1e293b;
-      border-color: #94a3b8;
+      color: var(--text-primary);
+      border-color: var(--text-muted);
     }
 
     .dow-header {
@@ -80,7 +80,7 @@ class CalendarView extends LitElement {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #64748b;
+      color: var(--text-secondary);
       padding: 4px 0;
     }
 
@@ -91,7 +91,7 @@ class CalendarView extends LitElement {
     }
 
     .loading-text {
-      color: #64748b;
+      color: var(--text-secondary);
       font-size: 14px;
       text-align: center;
       padding: 40px 0;
