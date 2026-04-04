@@ -1676,6 +1676,7 @@ class DayDetail extends LitElement {
     history.pushState(null, '', `/day/${todayStr}`);
     this.date = todayStr;
     this._editingMood = false;
+    this._dispatchDate(todayStr);
     this._fetchData();
   }
 
