@@ -230,14 +230,7 @@ class TrendsView extends LitElement {
 
     .pep-dot.off-schedule {
       height: 100%;
-      opacity: 0.7;
-      background-image: repeating-linear-gradient(
-        45deg,
-        transparent,
-        transparent 2px,
-        rgba(255,255,255,0.3) 2px,
-        rgba(255,255,255,0.3) 4px
-      );
+      opacity: 0.45;
     }
 
     .pep-dot.inactive {
@@ -1251,7 +1244,7 @@ class TrendsView extends LitElement {
               <div class="pep-legend-dot" style="background:transparent;border:1.5px solid var(--accent)"></div> Missed
             </div>
             <div class="pep-legend-item">
-              <div class="pep-legend-dot" style="background:var(--accent);opacity:0.7;background-image:repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(255,255,255,0.3) 2px,rgba(255,255,255,0.3) 4px)"></div> Off-schedule
+              <div class="pep-legend-dot" style="background:var(--accent);opacity:0.45"></div> Off-schedule
             </div>
             <div class="pep-legend-item">
               <div class="pep-legend-dot" style="background:var(--border);opacity:0.4;height:6px;align-self:flex-end"></div> No injection
