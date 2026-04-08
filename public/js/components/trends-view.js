@@ -18,12 +18,18 @@ function loadChartJs() {
 class TrendsView extends LitElement {
   _themeColors() {
     const s = getComputedStyle(document.documentElement);
+    const get = (v, fb) => s.getPropertyValue(v).trim() || fb;
     return {
-      text: s.getPropertyValue('--text-secondary').trim() || '#64748b',
-      grid: s.getPropertyValue('--chart-grid').trim() || '#e2e8f0',
-      bg: s.getPropertyValue('--bg-card').trim() || '#ffffff',
-      title: s.getPropertyValue('--text-primary').trim() || '#1e293b',
-      body: s.getPropertyValue('--text-secondary').trim() || '#64748b',
+      text: get('--text-secondary', '#64748b'),
+      grid: get('--chart-grid', '#e2e8f0'),
+      bg: get('--bg-card', '#ffffff'),
+      title: get('--text-primary', '#1e293b'),
+      body: get('--text-secondary', '#64748b'),
+      accent: get('--accent', '#00d4aa'),
+      danger: get('--danger', '#ff4444'),
+      success: get('--success', '#44ff88'),
+      warning: get('--warning', '#ffaa00'),
+      accentDark: get('--accent-dark', '#0284c7'),
     };
   }
 
@@ -167,11 +173,20 @@ class TrendsView extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._init();
+    // Re-render charts when theme changes
+    this._themeObserver = new MutationObserver(() => {
+      if (this._chartsReady) {
+        this._destroyAllCharts();
+        this.updateComplete.then(() => this._renderAllCharts());
+      }
+    });
+    this._themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this._destroyAllCharts();
+    if (this._themeObserver) this._themeObserver.disconnect();
   }
 
   async _init() {
@@ -240,6 +255,7 @@ class TrendsView extends LitElement {
 
     await this.updateComplete;
     this._renderAllCharts();
+    this._chartsReady = true;
   }
 
   _renderMoodSleepChart() {
@@ -249,7 +265,8 @@ class TrendsView extends LitElement {
     // Build correlated data: mood + sleep on same date
     const points = [];
     const moodLabels = { 1: 'Awful', 2: 'Tired', 3: 'Meh', 4: 'Good', 5: 'Great' };
-    const moodColors = { 1: 'var(--danger)', 2: '#ff8844', 3: 'var(--warning)', 4: 'var(--success)', 5: 'var(--accent)' };
+    const tc = this._themeColors();
+    const moodColors = { 1: tc.danger, 2: '#ff8844', 3: tc.warning, 4: tc.success, 5: tc.accent };
 
     for (const sleep of (this._sleepData || [])) {
       const date = (sleep.date || '').substring(0, 10);
@@ -416,12 +433,13 @@ class TrendsView extends LitElement {
     if (!canvas || !this._weightData || this._weightData.length === 0) return;
 
     const ctx = canvas.getContext('2d');
+    const tc = this._themeColors();
     const labels = this._weightData.map(d => this._formatDateLabel(d.date));
     const values = this._weightData.map(d => d.kg);
 
     const gradient = ctx.createLinearGradient(0, 0, 0, 220);
-    gradient.addColorStop(0, 'rgba(14, 165, 233, 0.2)');
-    gradient.addColorStop(1, 'rgba(0, 212, 170, 0.0)');
+    gradient.addColorStop(0, tc.accent + '33');
+    gradient.addColorStop(1, tc.accent + '00');
 
     this._destroyChart('weightChart');
     this._charts['weightChart'] = new Chart(ctx, {
@@ -430,13 +448,13 @@ class TrendsView extends LitElement {
         labels,
         datasets: [{
           data: values,
-          borderColor: 'var(--accent)',
+          borderColor: tc.accent,
           backgroundColor: gradient,
           fill: true,
           tension: 0.3,
           pointRadius: 2,
-          pointBackgroundColor: 'var(--accent)',
-          pointBorderColor: 'var(--accent)',
+          pointBackgroundColor: tc.accent,
+          pointBorderColor: tc.accent,
           pointHoverRadius: 4,
           borderWidth: 2,
         }],
@@ -476,7 +494,7 @@ class TrendsView extends LitElement {
           {
             label: 'Deep',
             data: deepValues,
-            backgroundColor: '#1e3a5f',
+            backgroundColor: '#3b82f6',
             borderRadius: 2,
           },
         ],
@@ -509,6 +527,7 @@ class TrendsView extends LitElement {
     if (!canvas || !this._vitalsData || this._vitalsData.length === 0) return;
 
     const ctx = canvas.getContext('2d');
+    const tc = this._themeColors();
     const filtered = this._vitalsData.filter(d =>
       (d.heart_rate?.avg) || (d.walking_heart_rate_average?.avg)
     );
@@ -526,13 +545,13 @@ class TrendsView extends LitElement {
         labels,
         datasets: [{
           data: values,
-          borderColor: 'var(--danger)',
+          borderColor: tc.danger,
           backgroundColor: 'rgba(255, 68, 68, 0.1)',
           fill: false,
           tension: 0.3,
           pointRadius: 2,
-          pointBackgroundColor: 'var(--danger)',
-          pointBorderColor: 'var(--danger)',
+          pointBackgroundColor: tc.danger,
+          pointBorderColor: tc.danger,
           pointHoverRadius: 4,
           borderWidth: 2,
           spanGaps: true,
@@ -547,6 +566,7 @@ class TrendsView extends LitElement {
     if (!canvas || !this._vitalsData || this._vitalsData.length === 0) return;
 
     const ctx = canvas.getContext('2d');
+    const tc = this._themeColors();
     const filtered = this._vitalsData.filter(d => d.heart_rate_variability?.avg);
     if (filtered.length === 0) return;
 
@@ -560,13 +580,13 @@ class TrendsView extends LitElement {
         labels,
         datasets: [{
           data: values,
-          borderColor: 'var(--success)',
+          borderColor: tc.success,
           backgroundColor: 'rgba(68, 255, 136, 0.1)',
           fill: false,
           tension: 0.3,
           pointRadius: 2,
-          pointBackgroundColor: 'var(--success)',
-          pointBorderColor: 'var(--success)',
+          pointBackgroundColor: tc.success,
+          pointBorderColor: tc.success,
           pointHoverRadius: 4,
           borderWidth: 2,
           spanGaps: true,
@@ -581,6 +601,7 @@ class TrendsView extends LitElement {
     if (!canvas || !this._activityData || this._activityData.length === 0) return;
 
     const ctx = canvas.getContext('2d');
+    const tc = this._themeColors();
     const labels = this._activityData.map(d => this._formatDateLabel(d.date));
     const values = this._activityData.map(d => d.step_count?.total || 0);
 
@@ -600,14 +621,14 @@ class TrendsView extends LitElement {
           {
             type: 'bar',
             data: values,
-            backgroundColor: 'rgba(0, 212, 170, 0.5)',
+            backgroundColor: tc.accent + '80',
             borderRadius: 2,
             order: 2,
           },
           {
             type: 'line',
             data: movingAvg,
-            borderColor: 'var(--accent)',
+            borderColor: tc.accent,
             backgroundColor: 'transparent',
             borderWidth: 2,
             pointRadius: 0,
@@ -626,6 +647,7 @@ class TrendsView extends LitElement {
     if (!canvas || !this._workoutsData) return;
 
     const ctx = canvas.getContext('2d');
+    const tc = this._themeColors();
 
     // Aggregate workouts per week
     const weekMap = {};
@@ -661,7 +683,7 @@ class TrendsView extends LitElement {
         labels,
         datasets: [{
           data: values,
-          backgroundColor: 'var(--warning)',
+          backgroundColor: tc.warning,
           borderRadius: 4,
         }],
       },
@@ -687,10 +709,11 @@ class TrendsView extends LitElement {
     if (!canvas || !this._moodData || this._moodData.length === 0) return;
 
     const ctx = canvas.getContext('2d');
+    const tc = this._themeColors();
     const labels = this._moodData.map(d => this._formatDateLabel(d.date));
     const values = this._moodData.map(d => d.mood || null);
 
-    const moodColors = { 1: 'var(--danger)', 2: '#ff8844', 3: 'var(--warning)', 4: '#88cc44', 5: 'var(--success)' };
+    const moodColors = { 1: tc.danger, 2: '#ff8844', 3: tc.warning, 4: '#88cc44', 5: tc.success };
     const pointColors = values.map(v => moodColors[v] || '#64748b');
 
     this._destroyChart('moodChart');
@@ -742,9 +765,10 @@ class TrendsView extends LitElement {
     if (filtered.length === 0) return;
 
     const ctx = canvas.getContext('2d');
+    const tc = this._themeColors();
     const labels = filtered.map(d => this._formatDateLabel(d.date));
     const values = filtered.map(d => d.wakeUps);
-    const barColors = values.map(v => v <= 1 ? 'var(--success)' : v <= 3 ? 'var(--warning)' : 'var(--danger)');
+    const barColors = values.map(v => v <= 1 ? tc.success : v <= 3 ? tc.warning : tc.danger);
 
     // 7-day moving average
     const movingAvg = values.map((_, i) => {
