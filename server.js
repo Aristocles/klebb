@@ -157,19 +157,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Redirect to setup or login if not authenticated
-  // NOTE: Auth disabled until HTTPS + passkey setup is complete
-  // if (!isAuthenticated(req) && !isPublicPath(pathname)) {
-  //   if (pathname.startsWith('/api/')) {
-  //     res.writeHead(401, { 'Content-Type': 'application/json' });
-  //     res.end(JSON.stringify({ error: 'Unauthorized' }));
-  //     return;
-  //   }
-  //   // Redirect to login page (or setup if no credentials yet)
-  //   const redirect = isSetup() ? '/login.html' : '/setup.html';
-  //   res.writeHead(302, { 'Location': redirect });
-  //   res.end();
-  //   return;
-  // }
+  if (!isAuthenticated(req) && !isPublicPath(pathname)) {
+    if (pathname.startsWith('/api/')) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+    // Redirect to login page (or setup if no credentials yet)
+    const redirect = isSetup() ? '/login.html' : '/setup.html';
+    res.writeHead(302, { 'Location': redirect });
+    res.end();
+    return;
+  }
 
   // If setup is not done, redirect non-setup pages to setup
   if (!isSetup() && pathname !== '/setup.html' && !isPublicPath(pathname) && !pathname.startsWith('/api/')) {
