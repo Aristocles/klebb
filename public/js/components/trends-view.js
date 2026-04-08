@@ -154,6 +154,165 @@ class TrendsView extends LitElement {
       text-align: center;
       padding: 40px 0;
     }
+
+    /* Peptide Timeline */
+    .pep-group {
+      margin-bottom: 20px;
+    }
+    .pep-group:last-child { margin-bottom: 0; }
+
+    .pep-group-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .pep-group-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .pep-group-timing {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+
+    .pep-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .pep-label {
+      width: 80px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pep-timeline {
+      display: flex;
+      gap: 2px;
+      flex: 1;
+      align-items: flex-end;
+      height: 24px;
+    }
+
+    .pep-dot {
+      flex: 1;
+      min-width: 3px;
+      max-width: 12px;
+      border-radius: 2px;
+      transition: height 0.2s, opacity 0.2s;
+    }
+
+    .pep-dot.taken {
+      height: 100%;
+      opacity: 1;
+    }
+
+    .pep-dot.scheduled {
+      height: 40%;
+      opacity: 0.25;
+    }
+
+    .pep-dot.off {
+      height: 20%;
+      opacity: 0.08;
+    }
+
+    .pep-dot.rest {
+      height: 0;
+    }
+
+    .pep-cycle-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .pep-cycle-badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--bg-input);
+      color: var(--text-secondary);
+    }
+
+    .pep-cycle-badge.active {
+      color: var(--success);
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    .pep-cycle-badge.off-cycle {
+      color: var(--warning);
+      background: rgba(245, 158, 11, 0.1);
+    }
+
+    .pep-dose-info {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .pep-legend {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .pep-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .pep-legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    .pep-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .pep-stat {
+      text-align: center;
+      padding: 8px;
+      background: var(--bg-input);
+      border-radius: 8px;
+    }
+
+    .pep-stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .pep-stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
   `;
 
   constructor() {
@@ -215,13 +374,15 @@ class TrendsView extends LitElement {
     const end = today();
 
     try {
-      const [sleepData, vitalsData, activityData, weightData, workoutsData, moodData] = await Promise.all([
+      const [sleepData, vitalsData, activityData, weightData, workoutsData, moodData, peptidesData, injectionLogData] = await Promise.all([
         api.sleepRange(start, end),
         api.vitalsRange(start, end),
         api.activityRange(start, end),
         api.weightRange(start, end),
         api.workoutsRange(start, end),
         api.moodRange(start, end),
+        api.peptides(),
+        api.injectionLogAll(),
       ]);
 
       // Range APIs return { "YYYY-MM-DD": data } objects — convert to sorted arrays
@@ -241,6 +402,8 @@ class TrendsView extends LitElement {
       }).flat();
       this._moodData = moodData || {};
       this._moodData = this._rangeToArray(moodData, (date, entry) => ({ date, ...entry }));
+      this._peptidesData = peptidesData;
+      this._injectionLog = injectionLogData || {};
     } catch {
       this._sleepData = [];
       this._vitalsData = [];
@@ -249,6 +412,8 @@ class TrendsView extends LitElement {
       this._workoutsData = [];
       this._moodData = {};
       this._moodData = [];
+      this._peptidesData = null;
+      this._injectionLog = {};
     }
 
     this.loading = false;
@@ -887,6 +1052,197 @@ class TrendsView extends LitElement {
     return { weightAvg, sleepAvg, hrAvg, hrvAvg, stepsAvg, workoutsPerWeek, totalWorkouts, moodSleepCorr, moodSleepPoints };
   }
 
+  _getPeptideColors() {
+    return {
+      'BPC-157': '#2e8b57',
+      'TB-500': '#4682b4',
+      'CJC-1295/Ipamorelin Blend': '#9467bd',
+      'Epithalon': '#d68910',
+      'Tesamorelin': '#e74c3c',
+      'Semax': '#e67e22',
+      'Selank': '#1abc9c',
+      'NAD+': '#f39c12',
+      'Mounjaro': '#e74c3c',
+    };
+  }
+
+  _getDaysInRange(start, end) {
+    const days = [];
+    const d = new Date(start + 'T00:00:00');
+    const endDate = new Date(end + 'T00:00:00');
+    while (d <= endDate) {
+      days.push(d.toLocaleDateString('en-CA'));
+      d.setDate(d.getDate() + 1);
+    }
+    return days;
+  }
+
+  _isPeptideScheduledOnDate(pep, dateStr) {
+    const dayName = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short' });
+    const sched = pep.schedule;
+    if (!sched) return false;
+
+    // Check if date is within any cycle
+    const cycle = (pep.cycles || []).find(c => dateStr >= c.start_date && dateStr <= (c.off_end || c.end_date));
+    if (!cycle) return false;
+
+    const inOnCycle = dateStr >= cycle.start_date && dateStr <= cycle.end_date;
+    const inOffCycle = cycle.off_start && cycle.off_end && dateStr >= cycle.off_start && dateStr <= cycle.off_end;
+
+    if (inOffCycle) return 'off';
+    if (!inOnCycle) return false;
+
+    if (sched.type === 'daily_straight') return 'scheduled';
+    if (sched.type === 'on_off') return sched.on_days?.includes(dayName) ? 'scheduled' : 'rest';
+    if (sched.type === 'phased') {
+      const cycleStart = new Date(cycle.start_date + 'T00:00:00');
+      const current = new Date(dateStr + 'T00:00:00');
+      const weekNum = Math.floor((current - cycleStart) / (7 * 86400000)) + 1;
+      const loadingWeeks = sched.loading?.duration_weeks || 4;
+      if (weekNum <= loadingWeeks) {
+        return sched.loading?.days?.includes(dayName) ? 'scheduled' : 'rest';
+      } else {
+        return sched.maintenance?.days?.includes(dayName) ? 'scheduled' : 'rest';
+      }
+    }
+    return false;
+  }
+
+  _renderPeptideTimeline() {
+    if (!this._peptidesData?.peptides) return '';
+
+    const peptides = this._peptidesData.peptides;
+    const groups = this._peptidesData.injection_groups || [];
+    const log = this._injectionLog || {};
+    const colors = this._getPeptideColors();
+    const start = this._getStartDate();
+    const end = today();
+    const days = this._getDaysInRange(start, end);
+
+    // Build group cards
+    const groupCards = groups.map(group => {
+      const groupPeptides = group.peptides.map(name => peptides.find(p => p.name === name)).filter(Boolean);
+      if (groupPeptides.length === 0) return '';
+
+      // Calculate stats for this group
+      let totalTaken = 0;
+      let totalScheduled = 0;
+
+      const pepRows = groupPeptides.map(pep => {
+        const color = colors[pep.name] || 'var(--accent)';
+        let taken = 0;
+        let scheduled = 0;
+
+        const dots = days.map(d => {
+          const wasTaken = log[d]?.[pep.name]?.taken;
+          const status = this._isPeptideScheduledOnDate(pep, d);
+
+          if (wasTaken) {
+            taken++;
+            totalTaken++;
+            return { status: 'taken', color };
+          }
+          if (status === 'scheduled') {
+            scheduled++;
+            totalScheduled++;
+            return { status: 'scheduled', color };
+          }
+          if (status === 'off') return { status: 'off', color };
+          if (status === 'rest') return { status: 'rest', color };
+          return { status: 'none', color };
+        });
+
+        // Current cycle info
+        const todayStr = today();
+        const currentCycle = (pep.cycles || []).find(c =>
+          todayStr >= c.start_date && todayStr <= (c.off_end || c.end_date)
+        );
+
+        let cycleStatus = null;
+        if (currentCycle) {
+          const inOn = todayStr >= currentCycle.start_date && todayStr <= currentCycle.end_date;
+          const startD = new Date((inOn ? currentCycle.start_date : currentCycle.off_start) + 'T00:00:00');
+          const endD = new Date((inOn ? currentCycle.end_date : currentCycle.off_end) + 'T00:00:00');
+          const todayD = new Date(todayStr + 'T00:00:00');
+          const dayNum = Math.floor((todayD - startD) / 86400000) + 1;
+          const totalDays = Math.floor((endD - startD) / 86400000) + 1;
+          cycleStatus = {
+            inOn,
+            cycleNumber: currentCycle.cycle_number,
+            dayNum,
+            totalDays,
+          };
+        }
+
+        return { pep, dots, taken, scheduled, color, cycleStatus };
+      });
+
+      const compliance = totalScheduled + totalTaken > 0
+        ? Math.round((totalTaken / (totalScheduled + totalTaken)) * 100)
+        : 0;
+
+      return html`
+        <div class="chart-card">
+          <div class="pep-group">
+            <div class="pep-group-header">
+              <div class="pep-group-name">${group.name}</div>
+              <div class="pep-group-timing">${group.timing}</div>
+            </div>
+
+            ${pepRows.map(row => html`
+              <div class="pep-row">
+                <div class="pep-label" style="color:${row.color}">${row.pep.name}</div>
+                <div class="pep-timeline">
+                  ${row.dots.map(d => html`
+                    <div class="pep-dot ${d.status}" style="background:${d.color}"></div>
+                  `)}
+                </div>
+              </div>
+              <div class="pep-dose-info">
+                ${row.pep.dose_mg}mg (${row.pep.dose_units}u) ${row.pep.route}
+                ${row.cycleStatus ? html`
+                  <span class="pep-cycle-badge ${row.cycleStatus.inOn ? 'active' : 'off-cycle'}">
+                    ${row.cycleStatus.inOn ? 'On' : 'Off'} cycle ${row.cycleStatus.cycleNumber}
+                    \u2022 Day ${row.cycleStatus.dayNum}/${row.cycleStatus.totalDays}
+                  </span>
+                ` : ''}
+              </div>
+            `)}
+
+            <div class="pep-stats">
+              <div class="pep-stat">
+                <div class="pep-stat-value">${totalTaken}</div>
+                <div class="pep-stat-label">Taken</div>
+              </div>
+              <div class="pep-stat">
+                <div class="pep-stat-value">${totalScheduled}</div>
+                <div class="pep-stat-label">Missed</div>
+              </div>
+              <div class="pep-stat">
+                <div class="pep-stat-value">${compliance}%</div>
+                <div class="pep-stat-label">Compliance</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pep-legend">
+            <div class="pep-legend-item">
+              <div class="pep-legend-dot" style="background:var(--accent);opacity:1"></div> Taken
+            </div>
+            <div class="pep-legend-item">
+              <div class="pep-legend-dot" style="background:var(--accent);opacity:0.25"></div> Scheduled
+            </div>
+            <div class="pep-legend-item">
+              <div class="pep-legend-dot" style="background:var(--accent);opacity:0.08"></div> Off cycle
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    return groupCards;
+  }
+
   render() {
     const avgs = this._getAverages();
     return html`
@@ -993,6 +1349,8 @@ class TrendsView extends LitElement {
                 : html`<div class="no-data">No weight data</div>`}
             </div>
           </div>
+
+          ${this._renderPeptideTimeline()}
         </div>
       `}
     `;
