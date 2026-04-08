@@ -100,6 +100,7 @@ function isPublicPath(pathname) {
     '/auth/',
     '/login',
     '/setup',
+    '/api/',
   ];
   return publicPaths.some(p => pathname.startsWith(p));
 }
