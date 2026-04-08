@@ -220,18 +220,30 @@ class TrendsView extends LitElement {
       opacity: 1;
     }
 
-    .pep-dot.scheduled {
-      height: 40%;
-      opacity: 0.25;
+    .pep-dot.missed {
+      height: 100%;
+      opacity: 1;
+      background: transparent !important;
+      border: 1.5px solid;
+      box-sizing: border-box;
     }
 
-    .pep-dot.off {
-      height: 20%;
-      opacity: 0.08;
+    .pep-dot.off-schedule {
+      height: 100%;
+      opacity: 0.7;
+      background-image: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 2px,
+        rgba(255,255,255,0.3) 2px,
+        rgba(255,255,255,0.3) 4px
+      );
     }
 
-    .pep-dot.rest {
-      height: 0;
+    .pep-dot.inactive {
+      height: 30%;
+      background: var(--border) !important;
+      opacity: 0.4;
     }
 
     .pep-cycle-info {
@@ -1126,30 +1138,36 @@ class TrendsView extends LitElement {
 
       // Calculate stats for this group
       let totalTaken = 0;
-      let totalScheduled = 0;
+      let totalMissed = 0;
 
       const pepRows = groupPeptides.map(pep => {
         const color = colors[pep.name] || 'var(--accent)';
         let taken = 0;
-        let scheduled = 0;
+        let missed = 0;
+        let offSchedule = 0;
 
         const dots = days.map(d => {
           const wasTaken = log[d]?.[pep.name]?.taken;
           const status = this._isPeptideScheduledOnDate(pep, d);
+          const isScheduledDay = status === 'scheduled';
+          const isInactive = status === 'off' || status === 'rest' || status === false;
 
-          if (wasTaken) {
+          if (wasTaken && isScheduledDay) {
             taken++;
             totalTaken++;
             return { status: 'taken', color };
           }
-          if (status === 'scheduled') {
-            scheduled++;
-            totalScheduled++;
-            return { status: 'scheduled', color };
+          if (wasTaken && !isScheduledDay) {
+            offSchedule++;
+            return { status: 'off-schedule', color };
           }
-          if (status === 'off') return { status: 'off', color };
-          if (status === 'rest') return { status: 'rest', color };
-          return { status: 'none', color };
+          if (isScheduledDay && !wasTaken) {
+            missed++;
+            totalMissed++;
+            return { status: 'missed', color };
+          }
+          // Off-cycle, rest day, or outside any cycle
+          return { status: 'inactive', color };
         });
 
         // Current cycle info
@@ -1174,11 +1192,11 @@ class TrendsView extends LitElement {
           };
         }
 
-        return { pep, dots, taken, scheduled, color, cycleStatus };
+        return { pep, dots, taken, missed, offSchedule, color, cycleStatus };
       });
 
-      const compliance = totalScheduled + totalTaken > 0
-        ? Math.round((totalTaken / (totalScheduled + totalTaken)) * 100)
+      const compliance = totalMissed + totalTaken > 0
+        ? Math.round((totalTaken / (totalMissed + totalTaken)) * 100)
         : 0;
 
       return html`
@@ -1194,7 +1212,7 @@ class TrendsView extends LitElement {
                 <div class="pep-label" style="color:${row.color}">${row.pep.name}</div>
                 <div class="pep-timeline">
                   ${row.dots.map(d => html`
-                    <div class="pep-dot ${d.status}" style="background:${d.color}"></div>
+                    <div class="pep-dot ${d.status}" style="${d.status === 'missed' ? `border-color:${d.color}` : `background:${d.color}`}"></div>
                   `)}
                 </div>
               </div>
@@ -1215,7 +1233,7 @@ class TrendsView extends LitElement {
                 <div class="pep-stat-label">Taken</div>
               </div>
               <div class="pep-stat">
-                <div class="pep-stat-value">${totalScheduled}</div>
+                <div class="pep-stat-value">${totalMissed}</div>
                 <div class="pep-stat-label">Missed</div>
               </div>
               <div class="pep-stat">
@@ -1227,13 +1245,16 @@ class TrendsView extends LitElement {
 
           <div class="pep-legend">
             <div class="pep-legend-item">
-              <div class="pep-legend-dot" style="background:var(--accent);opacity:1"></div> Taken
+              <div class="pep-legend-dot" style="background:var(--accent)"></div> Taken
             </div>
             <div class="pep-legend-item">
-              <div class="pep-legend-dot" style="background:var(--accent);opacity:0.25"></div> Scheduled
+              <div class="pep-legend-dot" style="background:transparent;border:1.5px solid var(--accent)"></div> Missed
             </div>
             <div class="pep-legend-item">
-              <div class="pep-legend-dot" style="background:var(--accent);opacity:0.08"></div> Off cycle
+              <div class="pep-legend-dot" style="background:var(--accent);opacity:0.7;background-image:repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(255,255,255,0.3) 2px,rgba(255,255,255,0.3) 4px)"></div> Off-schedule
+            </div>
+            <div class="pep-legend-item">
+              <div class="pep-legend-dot" style="background:var(--border);opacity:0.4;height:6px;align-self:flex-end"></div> No injection
             </div>
           </div>
         </div>
