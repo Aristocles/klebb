@@ -109,7 +109,7 @@ class HealthChat extends LitElement {
     .msg.assistant {
       align-self: flex-start;
       background: var(--bg-input);
-      color: #334155;
+      color: var(--text-primary);
       border-bottom-left-radius: 4px;
     }
 
