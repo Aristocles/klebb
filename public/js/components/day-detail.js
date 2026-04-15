@@ -1071,7 +1071,22 @@ class DayDetail extends LitElement {
   }
 
   _renderSleep() {
-    if (!this._sleep) return '';
+    // Always render mood even if no sleep data
+    if (!this._sleep) {
+      // Show mood-only card if mood exists or if we can edit
+      const hasMood = this._mood && this._mood.mood;
+      const canEdit = !this._isFutureDate();
+      if (hasMood || canEdit) {
+        return html`
+          <div class="card">
+            <div class="section-title">Sleep</div>
+            <div style="color:var(--text-muted);font-size:13px;">No sleep data yet</div>
+            ${this._renderMoodInline()}
+          </div>
+        `;
+      }
+      return '';
+    }
 
     const d = this._sleep;
     const total = d.totalSleep || 0;
