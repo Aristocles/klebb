@@ -382,6 +382,9 @@ print(json.dumps(results))
           console.error('Mood POST error:', e.message);
           return sendJSON(res, { error: e.message || 'Invalid request' }, 400);
         }
+      });
+      return;
+    }
 
     // DELETE /api/mood/:date
     if (parts[0] === 'mood' && parts.length === 2 && req.method === 'DELETE') {
@@ -390,7 +393,7 @@ print(json.dumps(results))
         let data = {};
         try { data = readJSONFile(filePath) || {}; } catch {}
         delete data[parts[1]];
-        writeJSONFile(filePath, data);
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
         return sendJSON(res, { ok: true });
       } catch (e) {
         return sendJSON(res, { error: e.message }, 400);
@@ -419,14 +422,11 @@ print(json.dumps(results))
           } else {
             delete data[parts[1]];
           }
-          writeJSONFile(filePath, data);
+          fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
           return sendJSON(res, { ok: true });
         } catch (e) {
           return sendJSON(res, { error: e.message }, 400);
         }
-      });
-      return;
-    }
       });
       return;
     }
@@ -462,8 +462,10 @@ print(json.dumps(results))
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${CHAT_GATEWAY_TOKEN}`,
               'Content-Length': Buffer.byteLength(payload),
+              'Connection': 'close',
             },
             rejectUnauthorized: false, // self-signed TLS
+            agent: false, // disable keep-alive — stale pooled connections hang on self-signed gateways
           };
 
           const proxyReq = https.request(options, (proxyRes) => {
@@ -486,7 +488,7 @@ print(json.dumps(results))
             sendJSON(res, { error: 'Gateway unavailable' }, 502);
           });
 
-          proxyReq.setTimeout(60000, () => {
+          proxyReq.setTimeout(120000, () => {
             proxyReq.destroy();
             sendJSON(res, { error: 'Request timed out' }, 504);
           });
