@@ -257,6 +257,27 @@ class HealthChat extends LitElement {
     this._messages = [];
     this._input = '';
     this._loading = false;
+    this._abortController = null;
+
+    // When the user switches apps and comes back, any in-flight fetch may
+    // have been killed by the browser. Reset _loading so the input isn't
+    // permanently disabled.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && this._loading) {
+        // Abort the zombie request if it still exists
+        if (this._abortController) {
+          this._abortController.abort();
+          this._abortController = null;
+        }
+        this._loading = false;
+        // Remove the stale "typing" indicator; if the last message was from
+        // the user (i.e. we never got a reply), add a gentle nudge.
+        const last = this._messages[this._messages.length - 1];
+        if (last && last.role === 'user') {
+          this._messages = [...this._messages, { role: 'error', content: 'Connection interrupted — send your message again' }];
+        }
+      }
+    });
   }
 
   _toggle() {
@@ -280,14 +301,21 @@ class HealthChat extends LitElement {
     this._scrollToBottom();
 
     try {
+      // Abort any previous in-flight request
+      if (this._abortController) this._abortController.abort();
+      this._abortController = new AbortController();
+      const timeoutId = setTimeout(() => this._abortController?.abort(), 90000); // 90s timeout
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: this._messages.filter(m => m.role !== 'error'),
         }),
+        signal: this._abortController.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await res.json();
 
       if (data.error) {
@@ -296,10 +324,12 @@ class HealthChat extends LitElement {
         this._messages = [...this._messages, { role: 'assistant', content: data.reply }];
       }
     } catch (e) {
-      this._messages = [...this._messages, { role: 'error', content: 'Failed to connect' }];
+      const msg = e.name === 'AbortError' ? 'Request timed out — try again' : 'Failed to connect';
+      this._messages = [...this._messages, { role: 'error', content: msg }];
     }
 
     this._loading = false;
+    this._abortController = null;
     this._scrollToBottom();
   }
 

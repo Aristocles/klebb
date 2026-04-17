@@ -10,7 +10,7 @@ const { isAuthenticated, isPublicPath, handleAuthRoutes, isSetup } = require('./
 const OPENCLAW_HOST = 'localhost';
 const OPENCLAW_PORT = 18789;
 const OPENCLAW_TOKEN = '782159633d98b7c2f67e77fcb1ff87b30884e7275d81e5f9';
-const OPENCLAW_MODEL = 'amazon-bedrock/global.anthropic.claude-opus-4-6-v1';
+const OPENCLAW_MODEL = 'amazon-bedrock/global.anthropic.claude-sonnet-4-6';
 
 const HEALTH_SYSTEM_PROMPT = `You are Axis, a health assistant embedded in Eddy's vorHealth dashboard.
 You have access to Eddy's health data files at ~/axis/workspace/.private/health/data/.
@@ -382,6 +382,9 @@ print(json.dumps(results))
           console.error('Mood POST error:', e.message);
           return sendJSON(res, { error: e.message || 'Invalid request' }, 400);
         }
+      });
+      return;
+    }
 
     // DELETE /api/mood/:date
     if (parts[0] === 'mood' && parts.length === 2 && req.method === 'DELETE') {
@@ -390,7 +393,7 @@ print(json.dumps(results))
         let data = {};
         try { data = readJSONFile(filePath) || {}; } catch {}
         delete data[parts[1]];
-        writeJSONFile(filePath, data);
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
         return sendJSON(res, { ok: true });
       } catch (e) {
         return sendJSON(res, { error: e.message }, 400);
@@ -419,14 +422,11 @@ print(json.dumps(results))
           } else {
             delete data[parts[1]];
           }
-          writeJSONFile(filePath, data);
+          fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
           return sendJSON(res, { ok: true });
         } catch (e) {
           return sendJSON(res, { error: e.message }, 400);
         }
-      });
-      return;
-    }
       });
       return;
     }
@@ -462,8 +462,10 @@ print(json.dumps(results))
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${OPENCLAW_TOKEN}`,
               'Content-Length': Buffer.byteLength(payload),
+              'Connection': 'close',
             },
             rejectUnauthorized: false, // self-signed TLS
+            agent: false, // disable keep-alive — stale pooled connections hang on self-signed gateways
           };
 
           const proxyReq = https.request(options, (proxyRes) => {
@@ -486,7 +488,7 @@ print(json.dumps(results))
             sendJSON(res, { error: 'Gateway unavailable' }, 502);
           });
 
-          proxyReq.setTimeout(60000, () => {
+          proxyReq.setTimeout(120000, () => {
             proxyReq.destroy();
             sendJSON(res, { error: 'Request timed out' }, 504);
           });
