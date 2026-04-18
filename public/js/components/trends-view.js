@@ -1064,8 +1064,7 @@ class TrendsView extends LitElement {
       'CJC-1295/Ipamorelin Blend': '#9467bd',
       'Epithalon': '#d68910',
       'Tesamorelin': '#e74c3c',
-      'Semax': '#e67e22',
-      'Selank': '#1abc9c',
+
       'NAD+': '#f39c12',
       'Mounjaro': '#e74c3c',
     };

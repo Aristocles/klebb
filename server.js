@@ -101,29 +101,82 @@ function renderReportPage(title, htmlContent) {
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${title} — Health Dashboard</title>
 <style>
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; max-width: 900px; margin: 0 auto; padding: 20px; line-height: 1.7; }
-h1, h2, h3, h4 { color: #00d4aa; margin-top: 1.5em; }
-h1 { border-bottom: 2px solid #2a2a4a; padding-bottom: 10px; }
-h2 { border-bottom: 1px solid #2a2a4a; padding-bottom: 6px; }
-a { color: #00d4aa; text-decoration: none; }
+:root {
+  --bg: #f5f7fa;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --heading: #0ea5e9;
+  --border: #e2e8f0;
+  --code-bg: #e2e8f0;
+  --strong: #b45309;
+  --em: #475569;
+  --link: #0ea5e9;
+  --row-even: rgba(226, 232, 240, 0.5);
+  --row-hover: rgba(14, 165, 233, 0.08);
+  --quote: #64748b;
+}
+html[data-theme="dark"] {
+  --bg: #0f0f1a;
+  --text: #e0e0e0;
+  --text-muted: #8888aa;
+  --heading: #00d4aa;
+  --border: #2a2a4a;
+  --code-bg: #1a1a2e;
+  --strong: #ffaa00;
+  --em: #ccccdd;
+  --link: #00d4aa;
+  --row-even: rgba(26, 26, 46, 0.5);
+  --row-hover: rgba(0, 212, 170, 0.08);
+  --quote: #8888aa;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #0f0f1a;
+    --text: #e0e0e0;
+    --text-muted: #8888aa;
+    --heading: #00d4aa;
+    --border: #2a2a4a;
+    --code-bg: #1a1a2e;
+    --strong: #ffaa00;
+    --em: #ccccdd;
+    --link: #00d4aa;
+    --row-even: rgba(26, 26, 46, 0.5);
+    --row-hover: rgba(0, 212, 170, 0.08);
+    --quote: #8888aa;
+  }
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); max-width: 900px; margin: 0 auto; padding: 20px; line-height: 1.7; }
+h1, h2, h3, h4 { color: var(--heading); margin-top: 1.5em; }
+h1 { border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+h2 { border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
-code { background: #1a1a2e; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
-pre { background: #1a1a2e; padding: 16px; border-radius: 8px; overflow-x: auto; }
+code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; color: var(--text); }
+pre { background: var(--code-bg); padding: 16px; border-radius: 8px; overflow-x: auto; }
 pre code { padding: 0; background: none; }
 ul, ol { padding-left: 24px; }
 li { margin: 4px 0; }
-hr { border: none; border-top: 1px solid #2a2a4a; margin: 2em 0; }
-strong { color: #ffaa00; }
-em { color: #ccccdd; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+strong { color: var(--strong); }
+em { color: var(--em); }
 table { width: 100%; border-collapse: collapse; margin: 16px 0; }
-th { background: #1a1a2e; color: #00d4aa; text-align: left; padding: 10px 12px; border: 1px solid #2a2a4a; font-weight: 600; }
-td { padding: 8px 12px; border: 1px solid #2a2a4a; }
-tr:nth-child(even) { background: rgba(26, 26, 46, 0.5); }
-tr:hover { background: rgba(0, 212, 170, 0.05); }
-blockquote { border-left: 3px solid #00d4aa; padding-left: 16px; margin: 16px 0; color: #8888aa; }
-.back-link { display: inline-block; margin-bottom: 20px; color: #8888aa; font-size: 0.9em; }
-.back-link:hover { color: #00d4aa; }
+th { background: var(--code-bg); color: var(--heading); text-align: left; padding: 10px 12px; border: 1px solid var(--border); font-weight: 600; }
+td { padding: 8px 12px; border: 1px solid var(--border); color: var(--text); }
+tr:nth-child(even) { background: var(--row-even); }
+tr:hover { background: var(--row-hover); }
+blockquote { border-left: 3px solid var(--heading); padding-left: 16px; margin: 16px 0; color: var(--quote); }
+.back-link { display: inline-block; margin-bottom: 20px; color: var(--text-muted); font-size: 0.9em; }
+.back-link:hover { color: var(--heading); }
 </style>
+<script>
+// Respect app theme preference (from localStorage key 'eddzhealth-theme')
+(function() {
+  try {
+    var t = localStorage.getItem('eddzhealth-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+})();
+</script>
 </head>
 <body>
 <a href="/" class="back-link">← Back to Dashboard</a>
@@ -505,7 +558,10 @@ print(json.dumps(results))
     // GET /api/reports — list available report files
     if (parts[0] === 'reports' && parts.length === 1) {
       try {
-        const files = fs.readdirSync(REPORTS_DIR).filter(f => f.endsWith('.md') && !f.startsWith('.'));
+        // Exclude system prompt / internal files
+        const EXCLUDED = new Set(['PEPI_SYSTEM_PROMPT_FOR_ONYX.md', 'PROFILE.md']);
+        const files = fs.readdirSync(REPORTS_DIR)
+          .filter(f => f.endsWith('.md') && !f.startsWith('.') && !EXCLUDED.has(f));
         const reports = files.map(f => {
           const name = f.replace(/\.md$/, '');
           const content = fs.readFileSync(path.join(REPORTS_DIR, f), 'utf8');
