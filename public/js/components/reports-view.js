@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { api } from '../api.js';
+import './pepi-report.js';
 
 class ReportsView extends LitElement {
   static properties = {
@@ -35,7 +36,7 @@ class ReportsView extends LitElement {
     }
 
     .report-card:hover {
-      background: #1e1e38;
+      background: var(--bg-hover);
       border-color: var(--accent);
     }
 
@@ -59,8 +60,8 @@ class ReportsView extends LitElement {
     }
 
     .report-type {
-      background: rgba(99, 102, 241, 0.15);
-      color: #818cf8;
+      background: var(--bg-input);
+      color: var(--accent);
       padding: 2px 8px;
       border-radius: 10px;
       font-size: 11px;
@@ -124,12 +125,14 @@ class ReportsView extends LitElement {
     if (this._reports.length === 0) {
       return html`
         <h2>📋 Reports</h2>
-        <div class="empty-text">No reports available</div>
+        <pepi-report></pepi-report>
+        <div class="empty-text">No other reports available</div>
       `;
     }
 
     return html`
       <h2>📋 Reports</h2>
+      <pepi-report></pepi-report>
       <div class="reports-grid">
         ${this._reports.map(r => html`
           <a class="report-card" href="${r.url}" target="_blank">

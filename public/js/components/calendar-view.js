@@ -278,6 +278,8 @@ class CalendarView extends LitElement {
 
       for (const cycle of pep.cycles) {
         if (!cycle.start_date || !cycle.end_date) continue;
+        // Skip completed/abandoned cycles — they're kept for posterity but don't render on calendar
+        if (cycle.status === 'completed' || cycle.status === 'abandoned') continue;
         if (dateStr < cycle.start_date || dateStr > cycle.end_date) continue;
 
         const sched = pep.schedule;

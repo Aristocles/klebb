@@ -259,22 +259,30 @@ class HealthChat extends LitElement {
     this._loading = false;
     this._abortController = null;
 
-    // When the user switches apps and comes back, any in-flight fetch may
-    // have been killed by the browser. Reset _loading so the input isn't
-    // permanently disabled.
+    // When the user switches apps and comes back, the underlying TCP/TLS
+    // connection is often dead but the browser doesn't know yet.  Any
+    // subsequent fetch() reuses the stale socket and hangs for minutes.
+    //
+    // Fix: (1) abort any zombie request, (2) warm up a fresh connection
+    // with a lightweight probe so the next real request goes through
+    // immediately, (3) reset UI state.
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && this._loading) {
-        // Abort the zombie request if it still exists
-        if (this._abortController) {
-          this._abortController.abort();
-          this._abortController = null;
-        }
-        this._loading = false;
-        // Remove the stale "typing" indicator; if the last message was from
-        // the user (i.e. we never got a reply), add a gentle nudge.
-        const last = this._messages[this._messages.length - 1];
-        if (last && last.role === 'user') {
-          this._messages = [...this._messages, { role: 'error', content: 'Connection interrupted — send your message again' }];
+      if (document.visibilityState === 'visible') {
+        // Always warm the connection when coming back to the app, even if
+        // there's no in-flight request.  A cheap GET to /api/config opens a
+        // fresh TCP socket so the next chat POST doesn't hang.
+        fetch('/api/config', { cache: 'no-store' }).catch(() => {});
+
+        if (this._loading) {
+          if (this._abortController) {
+            this._abortController.abort();
+            this._abortController = null;
+          }
+          this._loading = false;
+          const last = this._messages[this._messages.length - 1];
+          if (last && last.role === 'user') {
+            this._messages = [...this._messages, { role: 'error', content: 'Connection interrupted - send your message again' }];
+          }
         }
       }
     });
@@ -291,6 +299,27 @@ class HealthChat extends LitElement {
     });
   }
 
+  async _fetchChat(messages, timeoutMs = 90000) {
+    if (this._abortController) this._abortController.abort();
+    this._abortController = new AbortController();
+    const timeoutId = setTimeout(() => this._abortController?.abort(), timeoutMs);
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Connection': 'close' },
+        body: JSON.stringify({ messages }),
+        signal: this._abortController.signal,
+        cache: 'no-store',
+      });
+      clearTimeout(timeoutId);
+      return await res.json();
+    } catch (e) {
+      clearTimeout(timeoutId);
+      throw e;
+    }
+  }
+
   async _send() {
     const text = this._input.trim();
     if (!text || this._loading) return;
@@ -300,23 +329,20 @@ class HealthChat extends LitElement {
     this._loading = true;
     this._scrollToBottom();
 
+    const chatMessages = this._messages.filter(m => m.role !== 'error');
+
     try {
-      // Abort any previous in-flight request
-      if (this._abortController) this._abortController.abort();
-      this._abortController = new AbortController();
-      const timeoutId = setTimeout(() => this._abortController?.abort(), 90000); // 90s timeout
-
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: this._messages.filter(m => m.role !== 'error'),
-        }),
-        signal: this._abortController.signal,
-      });
-
-      clearTimeout(timeoutId);
-      const data = await res.json();
+      // First attempt with a short 15s timeout.  If the TCP socket is stale
+      // (common after app-switch on mobile), this fails fast instead of
+      // hanging for minutes.  A retry with a full 90s timeout follows.
+      let data;
+      try {
+        data = await this._fetchChat(chatMessages, 15000);
+      } catch (firstErr) {
+        // First attempt failed (likely stale connection).  Retry once with
+        // the full timeout - the browser will open a fresh socket.
+        data = await this._fetchChat(chatMessages, 90000);
+      }
 
       if (data.error) {
         this._messages = [...this._messages, { role: 'error', content: data.error }];
@@ -324,7 +350,7 @@ class HealthChat extends LitElement {
         this._messages = [...this._messages, { role: 'assistant', content: data.reply }];
       }
     } catch (e) {
-      const msg = e.name === 'AbortError' ? 'Request timed out — try again' : 'Failed to connect';
+      const msg = e.name === 'AbortError' ? 'Request timed out - try again' : 'Failed to connect';
       this._messages = [...this._messages, { role: 'error', content: msg }];
     }
 
