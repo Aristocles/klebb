@@ -94,19 +94,33 @@ function clearSessionCookie(res) {
 function isAuthenticated(req) {
   // If no credentials registered yet, allow everything (setup mode)
   if (!isSetup()) return true;
+  // Server-to-server: Bearer token from AGENT_API_TOKEN env
+  const agentToken = process.env.AGENT_API_TOKEN;
+  if (agentToken) {
+    const auth = req.headers['authorization'];
+    if (auth && auth.startsWith('Bearer ') && auth.slice(7).trim() === agentToken) {
+      return true;
+    }
+  }
   return validateSession(getSessionToken(req));
 }
 
 // Public paths that don't need auth
 function isPublicPath(pathname) {
+  // Public paths don't require auth. /api is NOT public — see isAuthenticated
+  // for the full gate (session or AGENT_API_TOKEN bearer).
   const publicPaths = [
     '/auth/',
     '/login',
     '/setup',
     '/register',
-    '/api/',
+    '/css/',
+    '/js/',
+    '/icons/',
+    '/manifest.json',
+    '/favicon.ico',
   ];
-  return publicPaths.some(p => pathname.startsWith(p));
+  return publicPaths.some(p => pathname === p || pathname.startsWith(p));
 }
 
 async function handleAuthRoutes(req, res, pathname) {
