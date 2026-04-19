@@ -7,6 +7,8 @@ import './components/widget-view.js';
 import './components/reports-view.js';
 import './components/health-chat.js';
 import './components/mood-checkin.js';
+// v2 manifest-driven DateView (opt-in via ?v2=1 or localStorage flag)
+import './components/eh-date-view.js';
 
 class HealthApp extends LitElement {
   static properties = {
@@ -15,6 +17,7 @@ class HealthApp extends LitElement {
     showNav: { type: Boolean },
     dayDate: { type: String },
     theme: { type: String },
+    v2: { type: Boolean },
   };
 
   constructor() {
@@ -24,6 +27,14 @@ class HealthApp extends LitElement {
     this.showNav = true;
     this.dayDate = '';
     this.theme = localStorage.getItem('eddzhealth-theme') || 'light';
+    // v2 opt-in: ?v2=1 in URL, or persisted flag in localStorage.
+    // Enables manifest-driven DateView for /, /day/:date. Everything
+    // else (calendar, trends, reports) keeps the legacy components
+    // until their M3b+ replacements land.
+    const urlV2 = new URLSearchParams(window.location.search).get('v2');
+    if (urlV2 === '1') localStorage.setItem('eddzhealth-v2', '1');
+    if (urlV2 === '0') localStorage.removeItem('eddzhealth-v2');
+    this.v2 = localStorage.getItem('eddzhealth-v2') === '1';
     document.documentElement.setAttribute('data-theme', this.theme);
     this._handleRoute();
     window.addEventListener('popstate', () => this._handleRoute());
@@ -189,11 +200,15 @@ class HealthApp extends LitElement {
         </nav>
       ` : ''}
       <main>
-        ${this.route === 'today' ? html`<today-view></today-view>` : ''}
+        ${this.route === 'today' ? (this.v2
+          ? html`<eh-date-view></eh-date-view>`
+          : html`<today-view></today-view>`) : ''}
         ${this.route === 'calendar' ? html`<calendar-view></calendar-view>` : ''}
         ${this.route === 'trends' ? html`<trends-view></trends-view>` : ''}
         ${this.route === 'reports' ? html`<reports-view></reports-view>` : ''}
-        ${this.route === 'day' ? html`<day-detail .date=${this.routeParam}></day-detail>` : ''}
+        ${this.route === 'day' ? (this.v2
+          ? html`<eh-date-view .date=${this.routeParam}></eh-date-view>`
+          : html`<day-detail .date=${this.routeParam}></day-detail>`) : ''}
         ${this.route === 'widget' ? html`<widget-view></widget-view>` : ''}
       </main>
       <health-chat></health-chat>
