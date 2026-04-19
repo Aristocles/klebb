@@ -59,6 +59,33 @@ function readJSONFile(filePath) {
   }
 }
 
+// Legacy-aware helper: returns the data block if the file is a v2 manifest,
+// otherwise the raw parsed content. Lets legacy endpoints keep working
+// after migration without rewriting each handler.
+function readLegacyJSONFile(filePath) {
+  const data = readJSONFile(filePath);
+  if (data && typeof data === 'object' && data.$schema === 'eddzhealth.datafile.v1') {
+    return data.data;
+  }
+  return data;
+}
+
+// Legacy-aware write: preserves meta/description/schema when writing back
+// to a v2 manifest file; otherwise writes the raw value.
+function writeLegacyJSONFile(filePath, newData) {
+  const existing = readJSONFile(filePath);
+  if (existing && typeof existing === 'object' && existing.$schema === 'eddzhealth.datafile.v1') {
+    const merged = { ...existing, data: newData };
+    const tmp = filePath + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(merged, null, 2));
+    fs.renameSync(tmp, filePath);
+    return;
+  }
+  const tmp = filePath + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(newData, null, 2));
+  fs.renameSync(tmp, filePath);
+}
+
 function listDatesInDir(dir) {
   try {
     return fs.readdirSync(dir)
@@ -375,7 +402,14 @@ const server = http.createServer(async (req, res) => {
 
     if (parts.length === 1 && simpleFiles[parts[0]]) {
       const data = readJSONFile(path.join(DATA_DIR, simpleFiles[parts[0]]));
-      if (data) return sendJSON(res, data);
+      if (data) {
+        // Transparent v2 unwrap: if the file is a v2 manifest, return only
+        // the data block to keep legacy clients (and the current UI) happy.
+        if (data && typeof data === 'object' && data.$schema === 'eddzhealth.datafile.v1') {
+          return sendJSON(res, data.data);
+        }
+        return sendJSON(res, data);
+      }
       return send404(res);
     }
 
@@ -417,13 +451,13 @@ const server = http.createServer(async (req, res) => {
 
     // GET /api/injection-log — get all injection check-offs
     if (parts[0] === 'injection-log' && parts.length === 1 && req.method === 'GET') {
-      const data = readJSONFile(path.join(DATA_DIR, 'injection-log.json'));
+      const data = readLegacyJSONFile(path.join(DATA_DIR, 'injection-log.json'));
       return sendJSON(res, data || {});
     }
 
     // GET /api/injection-log/range/:start/:end — get injection log for date range
     if (parts[0] === 'injection-log' && parts[1] === 'range' && parts.length === 4 && req.method === 'GET') {
-      const data = readJSONFile(path.join(DATA_DIR, 'injection-log.json')) || {};
+      const data = readLegacyJSONFile(path.join(DATA_DIR, 'injection-log.json')) || {};
       const [, , start, end] = parts;
       const result = {};
       for (const [date, entries] of Object.entries(data)) {
@@ -442,7 +476,7 @@ const server = http.createServer(async (req, res) => {
           const { peptide, taken } = JSON.parse(body);
           if (!peptide) return sendJSON(res, { error: 'peptide required' }, 400);
           const filePath = path.join(DATA_DIR, 'injection-log.json');
-          const data = readJSONFile(filePath) || {};
+          const data = readLegacyJSONFile(filePath) || {};
           const date = parts[1];
           if (!data[date]) data[date] = {};
           if (taken) {
@@ -451,7 +485,35 @@ const server = http.createServer(async (req, res) => {
             delete data[date][peptide];
             if (Object.keys(data[date]).length === 0) delete data[date];
           }
-          fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+          writeLegacyJSONFile(filePath, data);
+
+          // Write-through to v2 peptides manifest (if present) so the new
+          // schedule-timeline/adherence-report see the same check-offs.
+          try {
+            const peptidesPath = path.join(DATA_DIR, 'peptides.json');
+            const raw = readJSONFile(peptidesPath);
+            if (raw && raw.$schema === 'eddzhealth.datafile.v1') {
+              const items = Array.isArray(raw.data?.items) ? raw.data.items : [];
+              const item = items.find(i => i.name === peptide);
+              if (item) {
+                item.doses = Array.isArray(item.doses) ? item.doses : [];
+                const idx = item.doses.findIndex(d => d.scheduledDate === date);
+                if (taken) {
+                  const now = new Date().toISOString();
+                  if (idx >= 0) item.doses[idx] = { ...item.doses[idx], takenAt: now };
+                  else item.doses.push({ scheduledDate: date, takenAt: now });
+                } else if (idx >= 0) {
+                  item.doses.splice(idx, 1);
+                }
+                const tmp = peptidesPath + '.tmp';
+                fs.writeFileSync(tmp, JSON.stringify(raw, null, 2));
+                fs.renameSync(tmp, peptidesPath);
+              }
+            }
+          } catch (syncErr) {
+            console.warn('[sync] peptides manifest update failed:', syncErr.message);
+          }
+
           return sendJSON(res, { ok: true, date, peptide, taken: !!taken });
         } catch (e) {
           console.error('injection-log POST error:', e.message);
@@ -463,7 +525,7 @@ const server = http.createServer(async (req, res) => {
 
     // GET /api/injection-log/:date — get injection check-offs for a specific date
     if (parts[0] === 'injection-log' && parts.length === 2 && req.method === 'GET') {
-      const data = readJSONFile(path.join(DATA_DIR, 'injection-log.json'));
+      const data = readLegacyJSONFile(path.join(DATA_DIR, 'injection-log.json'));
       const dateLog = (data || {})[parts[1]] || {};
       return sendJSON(res, dateLog);
     }
@@ -521,7 +583,7 @@ print(json.dumps(results))
 
     // GET /api/mood/range/:start/:end — get mood for date range
     if (parts[0] === 'mood' && parts[1] === 'range' && parts.length === 4 && req.method === 'GET') {
-      const data = readJSONFile(path.join(DATA_DIR, 'mood.json')) || {};
+      const data = readLegacyJSONFile(path.join(DATA_DIR, 'mood.json')) || {};
       const [, , start, end] = parts;
       const result = {};
       for (const [date, entry] of Object.entries(data)) {
@@ -532,7 +594,7 @@ print(json.dumps(results))
 
     // GET /api/mood/:date — get mood check-in for a date
     if (parts[0] === 'mood' && parts.length === 2 && req.method === 'GET') {
-      const data = readJSONFile(path.join(DATA_DIR, 'mood.json'));
+      const data = readLegacyJSONFile(path.join(DATA_DIR, 'mood.json'));
       const entry = (data || {})[parts[1]] || null;
       return sendJSON(res, entry);
     }
@@ -547,16 +609,16 @@ print(json.dumps(results))
           if (!mood) return sendJSON(res, { error: 'mood required' }, 400);
           const filePath = path.join(DATA_DIR, 'mood.json');
           let data = {};
-          try { data = readJSONFile(filePath) || {}; } catch {}
+          try { data = readLegacyJSONFile(filePath) || {}; } catch {}
           const entry = { mood, notes: notes || '', time: new Date().toISOString() };
           if (wakeUps !== null && wakeUps !== undefined) entry.wakeUps = wakeUps;
           data[parts[1]] = entry;
           try {
-            fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+            writeLegacyJSONFile(filePath, data);
           } catch (writeErr) {
             // If file doesn't exist or isn't writable, try creating it fresh
             console.error('Mood write error, attempting create:', writeErr.message);
-            fs.writeFileSync(filePath, JSON.stringify(data, null, 2), { mode: 0o666 });
+            writeLegacyJSONFile(filePath, data);
           }
           return sendJSON(res, { ok: true });
         } catch (e) {
@@ -572,9 +634,9 @@ print(json.dumps(results))
       try {
         const filePath = path.join(DATA_DIR, 'mood.json');
         let data = {};
-        try { data = readJSONFile(filePath) || {}; } catch {}
+        try { data = readLegacyJSONFile(filePath) || {}; } catch {}
         delete data[parts[1]];
-        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+        writeLegacyJSONFile(filePath, data);
         return sendJSON(res, { ok: true });
       } catch (e) {
         return sendJSON(res, { error: e.message }, 400);
@@ -584,7 +646,7 @@ print(json.dumps(results))
     // GET /api/notes/:date
     if (parts[0] === 'notes' && parts.length === 2 && req.method === 'GET') {
       const filePath = path.join(DATA_DIR, 'daily-notes.json');
-      const data = readJSONFile(filePath) || {};
+      const data = readLegacyJSONFile(filePath) || {};
       return sendJSON(res, data[parts[1]] || { text: '' });
     }
 
@@ -597,13 +659,13 @@ print(json.dumps(results))
           const { text } = JSON.parse(body);
           const filePath = path.join(DATA_DIR, 'daily-notes.json');
           let data = {};
-          try { data = readJSONFile(filePath) || {}; } catch {}
+          try { data = readLegacyJSONFile(filePath) || {}; } catch {}
           if (text && text.trim()) {
             data[parts[1]] = { text: text.trim(), updated: new Date().toISOString() };
           } else {
             delete data[parts[1]];
           }
-          fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+          writeLegacyJSONFile(filePath, data);
           return sendJSON(res, { ok: true });
         } catch (e) {
           return sendJSON(res, { error: e.message }, 400);
