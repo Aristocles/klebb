@@ -1,0 +1,47 @@
+{
+  "$schema": "eddzhealth.datafile.v1",
+  "meta": {
+    "id": "bp",
+    "label": "Blood Pressure",
+    "emoji": "💓",
+    "category": "vitals",
+    "order": 30,
+    "view": {
+      "enabled": true,
+      "component": "metric-card",
+      "dateContext": "latest",
+      "display": {
+        "primary": "latest.systolic",
+        "secondary": "latest.diastolic",
+        "format": "{systolic}/{diastolic}",
+        "unit": "mmHg",
+        "subtitle": "Logged {date}",
+        "thresholds": [
+          { "max": 120, "colour": "#44ff88", "label": "Optimal" },
+          { "max": 130, "colour": "#ffaa00", "label": "Elevated" },
+          { "max": 180, "colour": "#ff4444", "label": "High" }
+        ]
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "title": "Blood pressure",
+      "xAxis": "date",
+      "series": [
+        { "field": "systolic",  "label": "Systolic" },
+        { "field": "diastolic", "label": "Diastolic" }
+      ],
+      "yAxisLabel": "mmHg"
+    },
+    "calendar": { "enabled": true, "component": "day-marker", "marker": "💓" },
+    "writeable": {
+      "fromWebapp": true,
+      "pastAllowed": true,
+      "todayAllowed": true,
+      "futureAllowed": false
+    }
+  },
+  "description": "Blood pressure log. Append entries as { date: 'YYYY-MM-DD', time?: 'HH:MM', systolic: number, diastolic: number, notes?: string }. Don't modify existing entries — append only.",
+  "data": []
+}

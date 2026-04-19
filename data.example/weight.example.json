@@ -1,0 +1,36 @@
+{
+  "$schema": "eddzhealth.datafile.v1",
+  "meta": {
+    "id": "weight",
+    "label": "Weight",
+    "emoji": "⚖️",
+    "category": "vitals",
+    "order": 20,
+    "view": {
+      "enabled": true,
+      "component": "metric-card",
+      "dateContext": "latest",
+      "display": {
+        "primary": "latest.kg",
+        "unit": "kg",
+        "subtitle": "Logged {date}"
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "title": "Weight",
+      "xAxis": "date",
+      "series": [{ "field": "kg", "label": "kg" }],
+      "yAxisLabel": "kg"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "pastAllowed": true,
+      "todayAllowed": true,
+      "futureAllowed": false
+    }
+  },
+  "description": "Body weight log. Append new entries as { date: 'YYYY-MM-DD', kg: number, notes?: string }. Keep chronological.",
+  "data": []
+}
