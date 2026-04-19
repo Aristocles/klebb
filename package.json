@@ -1,15 +1,18 @@
 {
-  "name": "webapp",
-  "version": "1.0.0",
-  "description": "",
+  "name": "eddzhealth",
+  "version": "2.0.0-dev",
+  "description": "Generic manifest-driven health dashboard",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "invite": "node scripts/invite.js",
+    "revoke": "node scripts/revoke.js",
+    "list": "node scripts/list.js"
   },
-  "keywords": [],
+  "keywords": ["health", "dashboard", "webauthn"],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.0",
