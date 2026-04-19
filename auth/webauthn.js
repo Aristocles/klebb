@@ -9,13 +9,15 @@ const {
   verifyAuthenticationResponse,
 } = require('@simplewebauthn/server');
 
-// Config
-const RP_NAME = 'EddzHealth';
-const RP_ID = 'axis.vorignet.com';
-const ORIGIN = 'https://eddzhealth.axis.vorignet.com';
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const CREDENTIALS_FILE = path.join(DATA_DIR, 'webauthn-credentials.json');
-const SESSIONS_FILE = path.join(DATA_DIR, 'webauthn-sessions.json');
+const PATHS = require('../config/paths');
+const ENV = require('../config/env');
+
+// Config — all env-driven; defaults preserve Eddy's existing passkey
+const RP_NAME = ENV.WEBAUTHN_RP_NAME;
+const RP_ID = ENV.WEBAUTHN_RP_ID;
+const ORIGIN = ENV.WEBAUTHN_ORIGIN;
+const CREDENTIALS_FILE = PATHS.WEBAUTHN_CREDENTIALS_FILE;
+const SESSIONS_FILE = PATHS.WEBAUTHN_SESSIONS_FILE;
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 // Pending challenges (in-memory, short-lived)

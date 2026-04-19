@@ -5,34 +5,26 @@ const path = require('path');
 const { marked } = require('marked');
 const { execSync } = require('child_process');
 const { isAuthenticated, isPublicPath, handleAuthRoutes, isSetup } = require('./auth/webauthn');
+const PATHS = require('./config/paths');
+const ENV = require('./config/env');
 
-// OpenClaw gateway config
-const OPENCLAW_HOST = 'localhost';
-const OPENCLAW_PORT = 18789;
-const OPENCLAW_TOKEN = '782159633d98b7c2f67e77fcb1ff87b30884e7275d81e5f9';
-const OPENCLAW_MODEL = 'amazon-bedrock/global.anthropic.claude-sonnet-4-6';
+// OpenClaw gateway config (now env-driven; defaults preserve existing Axis behaviour)
+const OPENCLAW_HOST = ENV.OPENCLAW_HOST;
+const OPENCLAW_PORT = ENV.OPENCLAW_PORT;
+const OPENCLAW_TOKEN = ENV.OPENCLAW_TOKEN;
+const OPENCLAW_MODEL = ENV.OPENCLAW_MODEL;
 
-const HEALTH_SYSTEM_PROMPT = `You are Axis, a health assistant embedded in Eddy's vorHealth dashboard.
-You have access to Eddy's health data files at ~/axis/workspace/.private/health/data/.
-Key files: supplements.json, peptides.json, weight.json, config.json, injection-log.json, bloods.json, appointments.json.
-Auto-export data (from Apple Health): auto-export/sleep/, auto-export/workouts/, auto-export/vitals/, auto-export/activity/.
-
-You can help Eddy with:
-- Adding/updating supplements, weight entries, appointments
-- Answering questions about his health data, peptide cycles, supplement schedule
-- Looking up blood work results and trends
-- Checking injection schedules and logs
-
-Keep responses concise. You're in a small chat widget, not a full conversation.
-Use simple formatting: bullet lists with - dashes, **bold** for emphasis. No headers (#). No tables.
-Use Australian English. Be direct and helpful.`;
+const HEALTH_SYSTEM_PROMPT = ENV.HEALTH_SYSTEM_PROMPT;
 
 
-const PORT = 10002;
-const HOST = '0.0.0.0';
-const DATA_DIR = path.join(process.env.HOME, 'axis/workspace/.private/health/data');
+const PORT = ENV.PORT;
+const HOST = ENV.HOST;
+const DATA_DIR = PATHS.DATA_DIR;
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const REPORTS_DIR = path.join(DATA_DIR, '..');
+const REPORTS_DIR = PATHS.REPORTS_DIR;
+
+// Ensure writable dirs exist
+PATHS.ensureWritableDirs();
 
 // Configure marked for GFM (tables, etc.)
 marked.setOptions({ gfm: true, breaks: true });
