@@ -713,6 +713,12 @@ print(json.dumps(results))
     return send404(res);
   }
 
+  // /register -> serve setup.html (keeps the URL clean for invite links)
+  if (pathname === '/register') {
+    const fp = path.join(PUBLIC_DIR, 'setup.html');
+    return serveStaticFile(res, fp) || send404(res);
+  }
+
   // Report routes: /report/<name> serves REPORTS_DIR/<name>.md as styled HTML
   if (pathname.startsWith('/report/')) {
     const reportName = pathname.replace('/report/', '').replace(/[^a-zA-Z0-9_-]/g, '');

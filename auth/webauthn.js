@@ -11,6 +11,7 @@ const {
 
 const PATHS = require('../config/paths');
 const ENV = require('../config/env');
+const invites = require('./invites');
 
 // Config — all env-driven; defaults preserve Eddy's existing passkey
 const RP_NAME = ENV.WEBAUTHN_RP_NAME;
@@ -52,10 +53,10 @@ function isSetup() {
   return Object.keys(creds.users).length > 0;
 }
 
-function createSession() {
+function createSession(userId) {
   const token = crypto.randomBytes(32).toString('hex');
   const sessions = loadSessions();
-  sessions[token] = { created: Date.now(), lastSeen: Date.now() };
+  sessions[token] = { created: Date.now(), lastSeen: Date.now(), userId: userId || null };
   saveSessions(sessions);
   return token;
 }
@@ -102,6 +103,7 @@ function isPublicPath(pathname) {
     '/auth/',
     '/login',
     '/setup',
+    '/register',
     '/api/',
   ];
   return publicPaths.some(p => pathname.startsWith(p));
@@ -126,23 +128,73 @@ async function handleAuthRoutes(req, res, pathname) {
     return sendJSON(res, { setup, authenticated });
   }
 
+  // GET /auth/register/available?code=X — tell the client whether /register
+  // is usable right now (bootstrap OR valid invite OR legacy-add-device).
+  // Returns { available: true/false, reason, label? }
+  if (pathname === '/auth/register/available' && req.method === 'GET') {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const code = url.searchParams.get('code');
+    if (code) {
+      const inv = invites.validateInvite(code);
+      if (inv) return sendJSON(res, { available: true, reason: 'invite', label: inv.label });
+      return sendJSON(res, { available: false, reason: 'invalid-invite' });
+    }
+    if (!isSetup()) return sendJSON(res, { available: true, reason: 'bootstrap' });
+    if (validateSession(getSessionToken(req)) && !invites.requireInviteForRegistration()) {
+      return sendJSON(res, { available: true, reason: 'add-device' });
+    }
+    return sendJSON(res, { available: false, reason: 'closed' });
+  }
+
   // POST /auth/register/options — generate registration options
+  // Body may include: { code?: string, label?: string }
+  // Registration is gated by:
+  //   (a) a valid unused invite code, OR
+  //   (b) no credentials exist yet (bootstrap first user), OR
+  //   (c) already authenticated AND requireInviteForRegistration === false (legacy)
   if (pathname === '/auth/register/options' && req.method === 'POST') {
-    // Only allow registration if no credentials exist yet (first setup)
-    // or if already authenticated (adding another device)
-    if (isSetup() && !validateSession(getSessionToken(req))) {
-      return sendJSON(res, { error: 'Unauthorized' }, 401);
+    const rawBody = await readBody(req);
+    let body = {};
+    try { body = rawBody ? JSON.parse(rawBody) : {}; } catch {}
+
+    let label = (body.label || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 32);
+    let usedInvite = null;
+
+    // Path A: invite code supplied
+    if (body.code) {
+      const inv = invites.validateInvite(body.code);
+      if (!inv) {
+        invites.recordAuthEvent({ kind: 'register.invalid-code', code: body.code, ip: req.socket?.remoteAddress });
+        return sendJSON(res, { error: 'Invalid or expired invite' }, 403);
+      }
+      label = inv.label;
+      usedInvite = inv;
+    }
+    // Path B: bootstrap — no credentials exist yet; first registration wins
+    else if (!isSetup()) {
+      if (!label) label = 'user';
+    }
+    // Path C: authenticated + legacy mode — adding device to existing account
+    else if (validateSession(getSessionToken(req))) {
+      if (invites.requireInviteForRegistration()) {
+        return sendJSON(res, { error: 'Invite required' }, 403);
+      }
+      // Use the existing primary label if present; for legacy Eddy that's "eddy"
+      if (!label) label = Object.keys(loadCredentials().users || {})[0] || 'user';
+    }
+    else {
+      // No code, no session, already set up → reject
+      return sendJSON(res, { error: 'Registration closed' }, 403);
     }
 
     const creds = loadCredentials();
-    const userId = 'eddy'; // single user app
-    const existingCreds = creds.users[userId]?.credentials || [];
+    const existingCreds = creds.users[label]?.credentials || [];
 
     const options = await generateRegistrationOptions({
       rpName: RP_NAME,
       rpID: RP_ID,
-      userName: 'Eddy',
-      userDisplayName: 'Eddy',
+      userName: label,
+      userDisplayName: label,
       attestationType: 'none',
       excludeCredentials: existingCreds.map(c => ({
         id: c.id,
@@ -150,34 +202,42 @@ async function handleAuthRoutes(req, res, pathname) {
       })),
       authenticatorSelection: {
         residentKey: 'preferred',
-        userVerification: 'preferred',
+        userVerification: 'required',   // stricter: require biometric every time
       },
     });
 
-    pendingChallenges.set(userId, options.challenge);
-    setTimeout(() => pendingChallenges.delete(userId), 120000); // 2 min expiry
+    pendingChallenges.set(label, {
+      challenge: options.challenge,
+      code: body.code || null,
+      label,
+      expires: Date.now() + 120000,
+    });
+    setTimeout(() => pendingChallenges.delete(label), 120000);
 
     return sendJSON(res, options);
   }
 
   // POST /auth/register/verify — verify registration
+  // Body must include: { label?: string, code?: string, ...attestationResponse }
   if (pathname === '/auth/register/verify' && req.method === 'POST') {
-    if (isSetup() && !validateSession(getSessionToken(req))) {
-      return sendJSON(res, { error: 'Unauthorized' }, 401);
-    }
-
     const body = JSON.parse(await readBody(req));
-    const userId = 'eddy';
-    const challenge = pendingChallenges.get(userId);
-
-    if (!challenge) {
+    const label = body.label && String(body.label).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 32);
+    // Determine pending challenge — look up by label if provided, else use first entry
+    let key = label;
+    if (!key) {
+      // Fallback: legacy client that didn't send label; if there's only one pending challenge use that.
+      const keys = Array.from(pendingChallenges.keys());
+      if (keys.length === 1) key = keys[0];
+    }
+    const pending = key ? pendingChallenges.get(key) : null;
+    if (!pending) {
       return sendJSON(res, { error: 'Challenge expired' }, 400);
     }
 
     try {
       const verification = await verifyRegistrationResponse({
         response: body,
-        expectedChallenge: challenge,
+        expectedChallenge: pending.challenge,
         expectedOrigin: ORIGIN,
         expectedRPID: RP_ID,
       });
@@ -185,6 +245,7 @@ async function handleAuthRoutes(req, res, pathname) {
       if (verification.verified && verification.registrationInfo) {
         const { credential } = verification.registrationInfo;
         const creds = loadCredentials();
+        const userId = pending.label || label || 'user';
         if (!creds.users[userId]) {
           creds.users[userId] = { credentials: [] };
         }
@@ -196,11 +257,19 @@ async function handleAuthRoutes(req, res, pathname) {
           registeredAt: new Date().toISOString(),
         });
         saveCredentials(creds);
-        pendingChallenges.delete(userId);
+        pendingChallenges.delete(key);
 
-        const token = createSession();
+        // Consume the invite if one was used
+        if (pending.code) {
+          invites.consumeInvite(pending.code);
+          invites.recordAuthEvent({ kind: 'register.success', label: userId, code: pending.code });
+        } else {
+          invites.recordAuthEvent({ kind: 'register.success', label: userId, bootstrap: true });
+        }
+
+        const token = createSession(userId);
         setSessionCookie(res, token);
-        return sendJSON(res, { verified: true });
+        return sendJSON(res, { verified: true, label: userId });
       }
 
       return sendJSON(res, { error: 'Verification failed' }, 400);
@@ -210,27 +279,32 @@ async function handleAuthRoutes(req, res, pathname) {
     }
   }
 
-  // POST /auth/login/options — generate authentication options
+  // POST /auth/login/options — generate authentication options across all registered users
   if (pathname === '/auth/login/options' && req.method === 'POST') {
     const creds = loadCredentials();
-    const userId = 'eddy';
-    const userCreds = creds.users[userId]?.credentials || [];
+    // Flatten all credentials so any registered device can log in
+    const allCreds = [];
+    for (const userId of Object.keys(creds.users || {})) {
+      for (const c of creds.users[userId].credentials || []) {
+        allCreds.push(c);
+      }
+    }
 
-    if (userCreds.length === 0) {
+    if (allCreds.length === 0) {
       return sendJSON(res, { error: 'No credentials registered' }, 400);
     }
 
     const options = await generateAuthenticationOptions({
       rpID: RP_ID,
-      allowCredentials: userCreds.map(c => ({
+      allowCredentials: allCreds.map(c => ({
         id: c.id,
         type: 'public-key',
       })),
-      userVerification: 'preferred',
+      userVerification: 'required',   // stricter: biometric required every time
     });
 
-    pendingChallenges.set(userId + '_login', options.challenge);
-    setTimeout(() => pendingChallenges.delete(userId + '_login'), 120000);
+    pendingChallenges.set('__login', { challenge: options.challenge, expires: Date.now() + 120000 });
+    setTimeout(() => pendingChallenges.delete('__login'), 120000);
 
     return sendJSON(res, options);
   }
@@ -238,25 +312,30 @@ async function handleAuthRoutes(req, res, pathname) {
   // POST /auth/login/verify — verify authentication
   if (pathname === '/auth/login/verify' && req.method === 'POST') {
     const body = JSON.parse(await readBody(req));
-    const userId = 'eddy';
-    const challenge = pendingChallenges.get(userId + '_login');
+    const pending = pendingChallenges.get('__login');
 
-    if (!challenge) {
+    if (!pending) {
       return sendJSON(res, { error: 'Challenge expired' }, 400);
     }
 
+    // Find the credential across all users
     const creds = loadCredentials();
-    const userCreds = creds.users[userId]?.credentials || [];
-    const credential = userCreds.find(c => c.id === body.id);
+    let matchedUser = null;
+    let credential = null;
+    for (const userId of Object.keys(creds.users || {})) {
+      const hit = (creds.users[userId].credentials || []).find(c => c.id === body.id);
+      if (hit) { matchedUser = userId; credential = hit; break; }
+    }
 
     if (!credential) {
+      invites.recordAuthEvent({ kind: 'login.unknown-credential', id: body.id, ip: req.socket?.remoteAddress });
       return sendJSON(res, { error: 'Unknown credential' }, 400);
     }
 
     try {
       const verification = await verifyAuthenticationResponse({
         response: body,
-        expectedChallenge: challenge,
+        expectedChallenge: pending.challenge,
         expectedOrigin: ORIGIN,
         expectedRPID: RP_ID,
         credential: {
@@ -270,11 +349,12 @@ async function handleAuthRoutes(req, res, pathname) {
         // Update counter
         credential.counter = verification.authenticationInfo.newCounter;
         saveCredentials(creds);
-        pendingChallenges.delete(userId + '_login');
+        pendingChallenges.delete('__login');
+        invites.recordAuthEvent({ kind: 'login.success', label: matchedUser });
 
-        const token = createSession();
+        const token = createSession(matchedUser);
         setSessionCookie(res, token);
-        return sendJSON(res, { verified: true });
+        return sendJSON(res, { verified: true, label: matchedUser });
       }
 
       return sendJSON(res, { error: 'Verification failed' }, 400);
