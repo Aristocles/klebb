@@ -7,6 +7,7 @@ const { execSync } = require('child_process');
 const { isAuthenticated, isPublicPath, handleAuthRoutes, isSetup } = require('./auth/webauthn');
 const PATHS = require('./config/paths');
 const ENV = require('./config/env');
+const registry = require('./manifests/registry');
 
 // OpenClaw gateway config (now env-driven; defaults preserve existing Axis behaviour)
 const OPENCLAW_HOST = ENV.OPENCLAW_HOST;
@@ -225,6 +226,59 @@ const server = http.createServer(async (req, res) => {
   // API routes
   if (pathname.startsWith('/api/')) {
     const parts = pathname.slice(5).split('/'); // strip /api/
+
+    // === Manifest endpoints (v2) ===
+    // These take precedence over legacy flat endpoints when a manifest file exists.
+
+    // GET /api/manifests — list of all registered manifests
+    if (parts[0] === 'manifests' && parts.length === 1 && req.method === 'GET') {
+      return sendJSON(res, { entries: registry.list(), errors: registry.errors() });
+    }
+
+    // GET /api/views/:viewName — cards that opt into a named view
+    if (parts[0] === 'views' && parts.length === 2 && req.method === 'GET') {
+      const viewName = parts[1];
+      const valid = ['view', 'trends', 'calendar', 'reports', 'dayDetail'];
+      if (!valid.includes(viewName)) return send404(res, 'unknown view');
+      return sendJSON(res, { cards: registry.listForView(viewName) });
+    }
+
+    // GET /api/manifests/:id — full manifest
+    if (parts[0] === 'manifests' && parts.length === 2 && req.method === 'GET') {
+      const entry = registry.get(parts[1]);
+      if (!entry) return send404(res, 'manifest not found');
+      return sendJSON(res, entry);
+    }
+
+    // GET /api/manifests/:id/data — data block only
+    if (parts[0] === 'manifests' && parts.length === 3 && parts[2] === 'data' && req.method === 'GET') {
+      const entry = registry.get(parts[1]);
+      if (!entry) return send404(res, 'manifest not found');
+      return sendJSON(res, { data: entry.data });
+    }
+
+    // POST /api/manifests/:id/data — full rewrite (honours meta.writeable.fromWebapp)
+    if (parts[0] === 'manifests' && parts.length === 3 && parts[2] === 'data' && req.method === 'POST') {
+      const entry = registry.get(parts[1]);
+      if (!entry) return send404(res, 'manifest not found');
+      const w = entry.meta.writeable;
+      if (!w || !w.fromWebapp) return sendJSON(res, { error: 'not writeable from webapp' }, 403);
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        try {
+          const parsed = JSON.parse(body);
+          if (!('data' in parsed)) return sendJSON(res, { error: 'missing data field in body' }, 400);
+          registry.writeData(parts[1], parsed.data);
+          return sendJSON(res, { ok: true, id: parts[1] });
+        } catch (e) {
+          return sendJSON(res, { error: e.message || 'invalid request' }, 400);
+        }
+      });
+      return;
+    }
+
+    // === End manifest endpoints ===
 
     // Simple JSON file endpoints
     const simpleFiles = {
@@ -625,6 +679,13 @@ print(json.dumps(results))
 
 server.listen(PORT, HOST, () => {
   console.log(`Health dashboard running at http://${HOST}:${PORT}`);
+  // Initialise manifest registry (discovers + watches data files)
+  try {
+    const stats = registry.init();
+    console.log(`[manifest] loaded ${stats.count} card(s); ${stats.errors} error(s)`);
+  } catch (e) {
+    console.error('[manifest] init failed:', e.message);
+  }
   // Ensure mood.json exists and is writable
   const moodPath = path.join(DATA_DIR, 'mood.json');
   try {
