@@ -1,0 +1,22 @@
+{
+  "$schema": "eddzhealth.datafile.v1",
+  "meta": {
+    "id": "mood",
+    "label": "Mood",
+    "emoji": "🙂",
+    "order": 60,
+    "view": {
+      "enabled": true,
+      "component": "quick-action-card",
+      "dateContext": "exact-date"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "pastAllowed": true,
+      "todayAllowed": true,
+      "futureAllowed": false
+    }
+  },
+  "description": "Daily mood check-ins. Data is an object keyed by date: { 'YYYY-MM-DD': { mood: 'good'|'okay'|'low', notes?: string, time: ISO } }.",
+  "data": {}
+}

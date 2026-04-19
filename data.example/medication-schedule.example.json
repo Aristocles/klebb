@@ -1,0 +1,64 @@
+{
+  "$schema": "eddzhealth.datafile.v1",
+  "meta": {
+    "id": "medication-schedule",
+    "label": "Medication Schedule",
+    "emoji": "💊",
+    "category": "health",
+    "order": 40,
+    "view": {
+      "enabled": true,
+      "component": "checklist-card",
+      "dateContext": "exact-date"
+    },
+    "trends": {
+      "enabled": true,
+      "component": "schedule-timeline",
+      "groupBy": "groups",
+      "itemsPath": "items"
+    },
+    "reports": {
+      "enabled": true,
+      "component": "adherence-report",
+      "showCompliance": true,
+      "showInventory": true
+    },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": "💊"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "pastAllowed": true,
+      "todayAllowed": true,
+      "futureAllowed": false
+    }
+  },
+  "description": "Scheduled medications or treatments (oral, topical, drops, etc). Each item has a schedule and records check-offs. Groups can stack multiple items. Example below uses post-cataract-surgery eye drops. To log a dose taken, append to the item's doses[] with { scheduledDate: 'YYYY-MM-DD', takenAt: ISO }. Mark a missed dose by leaving takenAt null. Keep items.name unique within the file.",
+  "data": {
+    "groups": [
+      {
+        "id": "post-op-eye",
+        "label": "Post-op eye drops",
+        "items": ["prednisolone", "moxifloxacin"]
+      }
+    ],
+    "items": [
+      {
+        "name": "prednisolone",
+        "dose": "1 drop, L eye",
+        "schedule": { "frequency": "daily", "times_per_day": 4 },
+        "cycles": [{ "type": "on", "start": "2026-04-10", "end": "2026-05-10" }],
+        "doses": []
+      },
+      {
+        "name": "moxifloxacin",
+        "dose": "1 drop, L eye",
+        "schedule": { "frequency": "daily", "times_per_day": 4 },
+        "cycles": [{ "type": "on", "start": "2026-04-10", "end": "2026-04-24" }],
+        "doses": []
+      }
+    ]
+  }
+}

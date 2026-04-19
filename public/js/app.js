@@ -9,6 +9,8 @@ import './components/health-chat.js';
 import './components/mood-checkin.js';
 // v2 manifest-driven DateView (opt-in via ?v2=1 or localStorage flag)
 import './components/eh-date-view.js';
+import './components/eh-settings-view.js';
+import './components/eh-setup-wizard.js';
 
 class HealthApp extends LitElement {
   static properties = {
@@ -74,6 +76,12 @@ class HealthApp extends LitElement {
       this.showNav = true;
     } else if (path === '/widget') {
       this.route = 'widget';
+      this.showNav = false;
+    } else if (path === '/settings') {
+      this.route = 'settings';
+      this.showNav = true;
+    } else if (path === '/setup') {
+      this.route = 'setup';
       this.showNav = false;
     } else {
       this.route = 'today';
@@ -210,6 +218,8 @@ class HealthApp extends LitElement {
           ? html`<eh-date-view .date=${this.routeParam}></eh-date-view>`
           : html`<day-detail .date=${this.routeParam}></day-detail>`) : ''}
         ${this.route === 'widget' ? html`<widget-view></widget-view>` : ''}
+        ${this.route === 'settings' ? html`<eh-settings-view></eh-settings-view>` : ''}
+        ${this.route === 'setup' ? html`<eh-setup-wizard></eh-setup-wizard>` : ''}
       </main>
       <health-chat></health-chat>
       <mood-checkin></mood-checkin>

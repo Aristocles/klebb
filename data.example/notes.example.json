@@ -1,0 +1,22 @@
+{
+  "$schema": "eddzhealth.datafile.v1",
+  "meta": {
+    "id": "notes",
+    "label": "Notes",
+    "emoji": "📝",
+    "order": 80,
+    "view": {
+      "enabled": true,
+      "component": "notes-card",
+      "dateContext": "exact-date"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "pastAllowed": true,
+      "todayAllowed": true,
+      "futureAllowed": true
+    }
+  },
+  "description": "Freeform daily notes. Data is an object keyed by date: { 'YYYY-MM-DD': { text: string, updated: ISO } }. Writing past, today, and future is permitted.",
+  "data": {}
+}
