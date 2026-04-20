@@ -21,7 +21,11 @@
           { "max": 130, "colour": "#ffaa00", "label": "Elevated" },
           { "max": 180, "colour": "#ff4444", "label": "High" }
         ]
-      }
+      },
+      "inputs": [
+        { "name": "systolic",  "type": "number", "label": "Systolic",  "min": 50, "max": 250, "required": true, "placeholder": "120" },
+        { "name": "diastolic", "type": "number", "label": "Diastolic", "min": 30, "max": 150, "required": true, "placeholder": "80"  }
+      ]
     },
     "trends": {
       "enabled": true,
