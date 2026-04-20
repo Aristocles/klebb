@@ -7,6 +7,10 @@ class HealthChat extends LitElement {
     _messages: { state: true },
     _input: { state: true },
     _loading: { state: true },
+    _voiceMode: { state: true },
+    _recording: { state: true },
+    _speaking: { state: true },
+    _voiceAvailable: { state: true },
   };
 
   static styles = css`
@@ -200,6 +204,73 @@ class HealthChat extends LitElement {
     .send-btn:hover { background: var(--accent-hover); }
     .send-btn:disabled { background: var(--bg-disabled); color: var(--text-disabled); cursor: not-allowed; }
 
+    /* Voice mode */
+    .mode-btn {
+      margin-left: auto;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .mode-btn.active {
+      background: var(--accent);
+      color: var(--text-inverse, var(--bg-card));
+      border-color: var(--accent);
+    }
+    .chat-header-sub { margin-left: 0; }
+    .voice-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 18px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+    .mic-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent);
+      color: var(--text-inverse, var(--bg-card));
+      cursor: pointer;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+      box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+    }
+    .mic-btn:hover { transform: scale(1.05); }
+    .mic-btn.recording {
+      background: #ff4466;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    .mic-btn.speaking {
+      background: var(--accent-amber, #ffaa00);
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; animation: none; }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(255, 68, 102, 0.3); }
+      50%      { transform: scale(1.08); box-shadow: 0 4px 16px rgba(255, 68, 102, 0.55); }
+    }
+    .voice-status {
+      font-size: 12px;
+      color: var(--text-secondary);
+      flex: 1;
+    }
+
     .empty-state {
       text-align: center;
       color: var(--text-muted);
@@ -258,6 +329,14 @@ class HealthChat extends LitElement {
     this._input = '';
     this._loading = false;
     this._abortController = null;
+    this._voiceMode = false;
+    this._recording = false;
+    this._speaking = false;
+    this._mediaRecorder = null;
+    this._recordedChunks = [];
+    this._currentAudio = null;
+    this._voiceAvailable = false;
+    this._checkVoiceAvailability();
 
     // When the user switches apps and comes back, the underlying TCP/TLS
     // connection is often dead but the browser doesn't know yet.  Any
@@ -308,7 +387,7 @@ class HealthChat extends LitElement {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Connection': 'close' },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({ messages, voiceMode: this._voiceMode }),
         signal: this._abortController.signal,
         cache: 'no-store',
       });
@@ -357,6 +436,174 @@ class HealthChat extends LitElement {
     this._loading = false;
     this._abortController = null;
     this._scrollToBottom();
+  }
+
+  // --- Voice mode ---
+
+  async _checkVoiceAvailability() {
+    try {
+      const r = await fetch('/api/voice/config');
+      if (r.ok) {
+        const s = await r.json();
+        this._voiceAvailable = !!s.enabled;
+      }
+    } catch {}
+  }
+
+  async _toggleVoiceMode() {
+    if (this._voiceMode) {
+      // Exit voice mode — stop any playback + recording
+      this._stopSpeaking();
+      if (this._recording) this._stopRecording();
+      this._voiceMode = false;
+      return;
+    }
+    // Entering voice mode — request mic permission upfront
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop());
+      this._voiceMode = true;
+    } catch (e) {
+      this._messages = [...this._messages, { role: 'error', content: 'Microphone access denied — can\'t start voice mode.' }];
+    }
+  }
+
+  async _startRecording() {
+    if (this._loading || this._speaking) return;
+    if (this._recording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Prefer webm/opus — widely supported + small
+      let mime = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mime)) {
+        mime = 'audio/webm';
+        if (!MediaRecorder.isTypeSupported(mime)) mime = '';
+      }
+      this._recordedChunks = [];
+      this._mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
+      this._mediaRecorder.addEventListener('dataavailable', e => {
+        if (e.data && e.data.size > 0) this._recordedChunks.push(e.data);
+      });
+      this._mediaRecorder.addEventListener('stop', async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(this._recordedChunks, { type: mime || 'audio/webm' });
+        this._recordedChunks = [];
+        this._mediaRecorder = null;
+        await this._handleRecordedBlob(blob);
+      });
+      this._mediaRecorder.start();
+      this._recording = true;
+    } catch (e) {
+      console.error('[voice] start recording failed', e);
+      this._messages = [...this._messages, { role: 'error', content: 'Couldn\'t start recording' }];
+    }
+  }
+
+  _stopRecording() {
+    if (!this._recording) return;
+    try {
+      this._mediaRecorder?.stop();
+    } catch {}
+    this._recording = false;
+  }
+
+  async _handleRecordedBlob(blob) {
+    // Send the audio bytes to the ASR endpoint
+    this._loading = true;
+    this.requestUpdate();
+    try {
+      const res = await fetch('/api/voice/asr', {
+        method: 'POST',
+        headers: { 'Content-Type': blob.type || 'audio/webm' },
+        body: blob,
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const text = (data.text || '').trim();
+      if (!text) {
+        this._messages = [...this._messages, { role: 'error', content: '(didn\'t catch that — try again)' }];
+        this._loading = false;
+        return;
+      }
+      // Push user message + fire the existing send path
+      this._messages = [...this._messages, { role: 'user', content: text }];
+      this._scrollToBottom();
+      const chatMessages = this._messages.filter(m => m.role !== 'error');
+      let replyData;
+      try {
+        replyData = await this._fetchChat(chatMessages, 15000);
+      } catch {
+        replyData = await this._fetchChat(chatMessages, 90000);
+      }
+      if (replyData.error) {
+        this._messages = [...this._messages, { role: 'error', content: replyData.error }];
+      } else {
+        this._messages = [...this._messages, { role: 'assistant', content: replyData.reply }];
+        this._scrollToBottom();
+        // Speak the reply
+        await this._speak(replyData.reply);
+      }
+    } catch (e) {
+      this._messages = [...this._messages, { role: 'error', content: `Voice error: ${e.message}` }];
+    } finally {
+      this._loading = false;
+      this._scrollToBottom();
+    }
+  }
+
+  async _speak(text) {
+    if (!text) return;
+    this._stopSpeaking();
+    this._speaking = true;
+    try {
+      const res = await fetch('/api/voice/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error(`tts HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      this._currentAudio = audio;
+      audio.addEventListener('ended', () => {
+        this._speaking = false;
+        URL.revokeObjectURL(url);
+        this._currentAudio = null;
+        this.requestUpdate();
+      });
+      audio.addEventListener('error', () => {
+        this._speaking = false;
+        URL.revokeObjectURL(url);
+        this._currentAudio = null;
+        this.requestUpdate();
+      });
+      await audio.play();
+    } catch (e) {
+      console.error('[voice] tts failed', e);
+      this._speaking = false;
+      this.requestUpdate();
+    }
+  }
+
+  _stopSpeaking() {
+    if (this._currentAudio) {
+      try { this._currentAudio.pause(); } catch {}
+      this._currentAudio = null;
+    }
+    this._speaking = false;
+  }
+
+  _toggleMicTap() {
+    // Tap-to-toggle recording
+    if (this._speaking) {
+      // Interrupt Axis — tap during speech stops playback AND starts listening
+      this._stopSpeaking();
+      this._startRecording();
+      return;
+    }
+    if (this._recording) this._stopRecording();
+    else this._startRecording();
   }
 
   _handleKeydown(e) {
@@ -447,24 +694,51 @@ class HealthChat extends LitElement {
           <div class="chat-header">
             <span class="chat-header-icon">\u26A1</span>
             <span class="chat-header-text">Axis</span>
-            <span class="chat-header-sub">Health Assistant</span>
+            <span class="chat-header-sub">${this._voiceMode ? 'Voice mode' : 'Health Assistant'}</span>
+            ${this._voiceAvailable ? html`
+              <button
+                class="mode-btn ${this._voiceMode ? 'active' : ''}"
+                @click=${this._toggleVoiceMode}
+                title=${this._voiceMode ? 'Exit voice mode' : 'Start voice chat'}
+                aria-label="toggle voice mode"
+              >${this._voiceMode ? '\u{1F4AC}' : '\u{1F3A4}'}</button>
+            ` : ''}
           </div>
           <div class="chat-messages">
             ${this._renderMessages()}
           </div>
-          <div class="chat-input-bar">
-            <input
-              class="chat-input"
-              placeholder="Ask about your health..."
-              .value=${this._input}
-              @input=${(e) => this._input = e.target.value}
-              @keydown=${this._handleKeydown}
-              ?disabled=${this._loading}
-            />
-            <button class="send-btn" @click=${this._send} ?disabled=${this._loading || !this._input.trim()}>
-              \u2191
-            </button>
-          </div>
+          ${this._voiceMode ? html`
+            <div class="voice-bar">
+              <button
+                class="mic-btn ${this._recording ? 'recording' : ''} ${this._speaking ? 'speaking' : ''}"
+                @click=${this._toggleMicTap}
+                ?disabled=${this._loading && !this._speaking && !this._recording}
+                title=${this._recording ? 'Stop listening' : (this._speaking ? 'Interrupt and speak' : 'Tap to speak')}
+              >
+                ${this._recording ? '\u{1F534}' : (this._speaking ? '\u{1F508}' : '\u{1F3A4}')}
+              </button>
+              <div class="voice-status">
+                ${this._recording ? 'Listening… tap to stop' :
+                  this._speaking ? 'Axis is speaking… tap to interrupt' :
+                  this._loading ? 'Thinking…' :
+                  'Tap the mic to speak'}
+              </div>
+            </div>
+          ` : html`
+            <div class="chat-input-bar">
+              <input
+                class="chat-input"
+                placeholder="Ask about your health..."
+                .value=${this._input}
+                @input=${(e) => this._input = e.target.value}
+                @keydown=${this._handleKeydown}
+                ?disabled=${this._loading}
+              />
+              <button class="send-btn" @click=${this._send} ?disabled=${this._loading || !this._input.trim()}>
+                \u2191
+              </button>
+            </div>
+          `}
         </div>
       ` : ''}
       <button class="fab ${this._open ? 'open' : ''}" @click=${this._toggle}>

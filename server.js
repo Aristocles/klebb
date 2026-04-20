@@ -9,6 +9,7 @@ const PATHS = require('./config/paths');
 const ENV = require('./config/env');
 const registry = require('./manifests/registry');
 const wizard = require('./setup/wizard');
+const voice = require('./voice/fish');
 
 // chat-gateway gateway config (now env-driven; defaults preserve existing Axis behaviour)
 const CHAT_GATEWAY_HOST = ENV.CHAT_GATEWAY_HOST;
@@ -733,19 +734,35 @@ print(json.dumps(results))
     }
 
     // POST /api/chat — proxy to chat-gateway gateway chat completions
+    // Body: { messages: [...], voiceMode?: boolean }
+    //   voiceMode=true → append "keep replies short/conversational" to system prompt
     if (parts[0] === 'chat' && parts.length === 1 && req.method === 'POST') {
       let body = '';
       req.on('data', c => body += c);
       req.on('end', () => {
         try {
-          const { messages } = JSON.parse(body);
+          const parsed = JSON.parse(body);
+          const { messages, voiceMode } = parsed;
           if (!Array.isArray(messages) || messages.length === 0) {
             return sendJSON(res, { error: 'messages required' }, 400);
           }
 
+          let systemPrompt = HEALTH_SYSTEM_PROMPT;
+          if (voiceMode) {
+            systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Axis'}. ` +
+              `Voice mode is active: your reply will be spoken aloud via TTS, not read on screen. ` +
+              `STRICT RULES for voice mode:\n` +
+              `- Reply in 1-3 short sentences. 40 words MAXIMUM.\n` +
+              `- No bullet points, no markdown, no code, no headings.\n` +
+              `- Speak naturally, like a quick voice note.\n` +
+              `- Spell out abbreviations (BP -> "blood pressure"; HRV -> "heart rate variability").\n` +
+              `- If the answer is long, give the headline + "ask me for details to hear more".\n\n` +
+              HEALTH_SYSTEM_PROMPT;
+          }
+
           // Prepend system prompt
           const fullMessages = [
-            { role: 'system', content: HEALTH_SYSTEM_PROMPT },
+            { role: 'system', content: systemPrompt },
             ...messages,
           ];
 
@@ -802,6 +819,65 @@ print(json.dumps(results))
       });
       return;
     }
+
+    // === Voice endpoints ===
+
+    // GET /api/voice/config — current Fish Audio status (backend tier, credit, voiceId)
+    if (parts[0] === 'voice' && parts[1] === 'config' && parts.length === 2 && req.method === 'GET') {
+      voice.getStatus().then(s => sendJSON(res, s)).catch(e => sendJSON(res, { error: e.message }, 500));
+      return;
+    }
+
+    // POST /api/voice/tts — body { text } -> audio/mpeg stream
+    if (parts[0] === 'voice' && parts[1] === 'tts' && parts.length === 2 && req.method === 'POST') {
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', async () => {
+        try {
+          const { text } = JSON.parse(body);
+          if (!text || typeof text !== 'string' || !text.trim()) {
+            return sendJSON(res, { error: 'text required' }, 400);
+          }
+          const capped = text.slice(0, 4000);
+          const { stream, contentType } = await voice.ttsStream({ text: capped });
+          res.writeHead(200, {
+            'Content-Type': contentType || 'audio/mpeg',
+            'Cache-Control': 'no-store',
+          });
+          stream.pipe(res);
+        } catch (e) {
+          console.error('[voice] tts error:', e.message);
+          return sendJSON(res, { error: e.message || 'tts failed' }, 500);
+        }
+      });
+      return;
+    }
+
+    // POST /api/voice/asr — body: raw audio bytes -> { text }
+    if (parts[0] === 'voice' && parts[1] === 'asr' && parts.length === 2 && req.method === 'POST') {
+      const chunks = [];
+      let total = 0;
+      const MAX = 20 * 1024 * 1024;
+      req.on('data', c => {
+        total += c.length;
+        if (total > MAX) { req.destroy(); return; }
+        chunks.push(c);
+      });
+      req.on('end', async () => {
+        try {
+          const audio = Buffer.concat(chunks);
+          if (audio.length === 0) return sendJSON(res, { error: 'empty audio' }, 400);
+          const { text, duration } = await voice.asr({ audio, language: 'en' });
+          return sendJSON(res, { text, duration });
+        } catch (e) {
+          console.error('[voice] asr error:', e.message);
+          return sendJSON(res, { error: e.message || 'asr failed' }, 500);
+        }
+      });
+      return;
+    }
+
+    // === End voice endpoints ===
 
     // GET /api/reports — list available report files
     if (parts[0] === 'reports' && parts.length === 1) {
