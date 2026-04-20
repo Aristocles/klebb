@@ -40,14 +40,17 @@ const HEALTH_HOME = resolveHealthHome();
 // For new installs pointing at the new skeleton, same layout applies
 const DATA_DIR = process.env.HEALTH_DATA_DIR || path.join(HEALTH_HOME, 'data');
 
-// Reports dir: legacy had reports alongside data/ (at $HEALTH_HOME root).
-// New layout moves them under data/reports for true encapsulation.
-// Fall back to $HEALTH_HOME for legacy compatibility (where DEBRIEF-*.md lived).
+// Reports dir resolution, in priority order:
+//   1. HEALTH_REPORTS_DIR env var (explicit override)
+//   2. $HEALTH_HOME/reports/ (new canonical location — used by Chuck's instance)
+//   3. $HEALTH_HOME/data/reports/ (alt location where some deployments put it)
+//   4. $HEALTH_HOME/ (legacy — where Eddy's DEBRIEF-*.md etc lived pre-migration)
 function resolveReportsDir() {
   if (process.env.HEALTH_REPORTS_DIR) return process.env.HEALTH_REPORTS_DIR;
+  const canonical = path.join(HEALTH_HOME, 'reports');
+  if (fs.existsSync(canonical)) return canonical;
   const modern = path.join(DATA_DIR, 'reports');
   if (fs.existsSync(modern)) return modern;
-  // Legacy: markdown reports at $HEALTH_HOME root (e.g. DEBRIEF-2026-03-12.md)
   return HEALTH_HOME;
 }
 const REPORTS_DIR = resolveReportsDir();
