@@ -83,11 +83,16 @@ function getSessionToken(req) {
 }
 
 function setSessionCookie(res, token) {
-  res.setHeader('Set-Cookie', `vorhealth_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_MAX_AGE / 1000}`);
+  // Secure flag is critical for modern browsers when the origin is HTTPS.
+  // HttpOnly blocks JS access. SameSite=Lax is the sensible default for
+  // a single-origin app (strict would break registration redirects).
+  const secureFlag = (process.env.WEBAUTHN_ORIGIN || ENV.WEBAUTHN_ORIGIN || '').startsWith('https://') ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `vorhealth_session=${token}; Path=/; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=${SESSION_MAX_AGE / 1000}`);
 }
 
 function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', 'vorhealth_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+  const secureFlag = (process.env.WEBAUTHN_ORIGIN || ENV.WEBAUTHN_ORIGIN || '').startsWith('https://') ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `vorhealth_session=; Path=/; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=0`);
 }
 
 // Auth middleware: returns true if request is authenticated (or route is public)
