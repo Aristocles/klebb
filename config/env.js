@@ -82,14 +82,29 @@ function getSessionSecret() {
 const DEBUG_LOG = process.env.HEALTH_DEBUG === '1';
 
 // --- Health system prompt (used by chat proxy) ---
-// Default prompt kept for Eddy's instance. Chuck's instance overrides via env file.
+// --- Health data paths (as seen by the chat AGENT, which may run in a different
+//     container/user than the webapp). These are used in the system prompt so
+//     the agent knows where to find data files.
+//
+//     Eddy's instance: agent is Axis, running on this host. Data lives at
+//       ~/axis/workspace/.private/health/data/ from his view.
+//     Chuck's instance: agent is Onyx, running inside a container. Data lives
+//       at ~/workspace/health/ from her view (bind-mounted from the host at
+//       /home/minecraft/onyx/workspace/health/).
+//
+//     Each webapp instance sets HEALTH_AGENT_DATA_PATH in its systemd env file.
+const HEALTH_AGENT_DATA_PATH = process.env.HEALTH_AGENT_DATA_PATH || '~/axis/workspace/.private/health/data';
+const HEALTH_AGENT_REPORTS_PATH = process.env.HEALTH_AGENT_REPORTS_PATH || '~/axis/workspace/.private/health';
+
+// Default prompt. Uses HEALTH_AGENT_DATA_PATH so the agent looks in the
+// right place depending on which instance is serving the chat.
 const DEFAULT_HEALTH_SYSTEM_PROMPT = `You are ${CHAT_AGENT_NAME}, a health assistant embedded in the ${INSTANCE_NAME} dashboard.
 
 You have direct filesystem access to the user's health data. ALWAYS read the source files before answering — never guess from memory or prior knowledge.
 
 ## Data location (READ these, don't assume)
 
-Primary data dir: \`~/axis/workspace/.private/health/data/\`
+Primary data dir: \`${HEALTH_AGENT_DATA_PATH}/\`
 
 Each data file is a v2 manifest with this shape:
 \`\`\`
@@ -101,7 +116,7 @@ Each data file is a v2 manifest with this shape:
 }
 \`\`\`
 
-Key files you'll actually read:
+Key files you may find in the data dir (not all always present — list the dir first to see what's there):
 - \`peptides.json\` — scheduled items. data = { items: [...], groups: [...] }.
   Each item has: name, schedule { frequency, on_days, off_days, dayOfWeek, ... },
   cycles: [{type: 'on'|'off', start, end}], doses: [{scheduledDate, takenAt}],
@@ -110,29 +125,23 @@ Key files you'll actually read:
   To check what's SCHEDULED for YYYY-MM-DD, evaluate each item's schedule
   against the day (day-of-week for on_off, weekly dayOfWeek, etc) within
   its active cycle.
-- \`supplements.json\` — data = { current: [...], past: [...] } per-supplement fields.
+- \`supplements.json\` — data = { current: [...], past: [...] }.
 - \`weight.json\` — data = [{date, kg, note}, ...] sorted by date.
-- \`bp.json\` (if present) — data = [{date, time?, systolic, diastolic, hr?, notes?}].
+- \`bp.json\` — data = [{date, time?, systolic, diastolic, hr?, notes?}].
 - \`mood.json\` — data keyed by date: { 'YYYY-MM-DD': { mood, notes, time, wakeUps } }.
-- \`notes.json\` — freeform daily notes keyed by date: { 'YYYY-MM-DD': { text, updated } }.
+- \`notes.json\` — freeform daily notes keyed by date.
 - \`appointments.json\` — data = [{date, type, location, status, note}].
 - \`bloods.json\` — data = [{date, tests, results, ...}].
 - \`goals.json\` — data = [{id, description, metric, target, unit}].
-- \`greeting.json\` — rotating motivational messages (not usually relevant).
+- \`greeting.json\` — rotating motivational messages.
 
-Legacy NOTE: \`injection-log.json\` was merged into \`peptides.json\` in April 2026
-migration. If you read peptides.items[].doses[] you have the full history.
-The legacy file may still exist in \`data/_archive/migration-2026-04-19/\` but is
-frozen.
+Some instances may have auto-export data (one JSON per date) under:
+- \`${HEALTH_AGENT_DATA_PATH}/auto-export/sleep/YYYY-MM-DD.json\`
+- \`${HEALTH_AGENT_DATA_PATH}/auto-export/workouts/YYYY-MM-DD.json\`
+- \`${HEALTH_AGENT_DATA_PATH}/auto-export/vitals/YYYY-MM-DD.json\`
+- \`${HEALTH_AGENT_DATA_PATH}/auto-export/activity/YYYY-MM-DD.json\`
 
-Auto-export (Apple Health) data — one JSON file per date:
-- \`data/auto-export/sleep/YYYY-MM-DD.json\`
-- \`data/auto-export/workouts/YYYY-MM-DD.json\`
-- \`data/auto-export/vitals/YYYY-MM-DD.json\`
-- \`data/auto-export/activity/YYYY-MM-DD.json\`
-
-Reports (markdown): \`~/axis/workspace/.private/health/DEBRIEF-*.md\`, \`PROFILE.md\`,
-\`bloods-report-*.md\`. Longer-form context.
+Reports (markdown): \`${HEALTH_AGENT_REPORTS_PATH}/\` contains PROFILE.md, DEBRIEF-*.md, bloods-*.md, etc. Longer-form context.
 
 ## Workflow
 
@@ -152,7 +161,13 @@ if you need to query 'today'. Don't assume from training data.
 Simple markdown: bullet lists with - dashes, **bold** for emphasis. No headers (#),
 no tables. Australian English. Direct and helpful.`;
 
-const HEALTH_SYSTEM_PROMPT = process.env.HEALTH_SYSTEM_PROMPT || DEFAULT_HEALTH_SYSTEM_PROMPT;
+const HEALTH_SYSTEM_PROMPT = (() => {
+  const file = process.env.HEALTH_SYSTEM_PROMPT_FILE;
+  if (file) {
+    try { return require('fs').readFileSync(file, 'utf8'); } catch {}
+  }
+  return process.env.HEALTH_SYSTEM_PROMPT || DEFAULT_HEALTH_SYSTEM_PROMPT;
+})();
 
 module.exports = {
   PORT,
