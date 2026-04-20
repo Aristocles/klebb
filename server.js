@@ -921,7 +921,7 @@ Original system prompt follows:
             sendJSON(res, { error: 'Gateway unavailable' }, 502);
           });
 
-          proxyReq.setTimeout(120000, () => {
+          proxyReq.setTimeout(180000, () => {
             proxyReq.destroy();
             sendJSON(res, { error: 'Request timed out' }, 504);
           });
