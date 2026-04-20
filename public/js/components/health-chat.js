@@ -450,7 +450,36 @@ class HealthChat extends LitElement {
     } catch {}
   }
 
+  // iOS Safari blocks audio playback unless it's initiated from within a
+  // user-gesture handler, AND the first play must be on an unlocked
+  // AudioContext. Call this from the tap that enters voice mode so later
+  // TTS playback (which happens async after the round-trip) works.
+  _unlockAudio() {
+    try {
+      if (!this._audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) this._audioCtx = new AC();
+      }
+      if (this._audioCtx && this._audioCtx.state === 'suspended') {
+        this._audioCtx.resume();
+      }
+      // Play a silent buffer to fully unlock
+      if (this._audioCtx && !this._audioUnlocked) {
+        const buf = this._audioCtx.createBuffer(1, 1, 22050);
+        const src = this._audioCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(this._audioCtx.destination);
+        src.start(0);
+        this._audioUnlocked = true;
+      }
+    } catch (e) {
+      console.warn('[voice] audio unlock failed', e);
+    }
+  }
+
   async _toggleVoiceMode() {
+    // Run audio unlock FIRST while we're still inside the user gesture
+    this._unlockAudio();
     if (this._voiceMode) {
       // Exit voice mode — stop any playback + recording
       this._stopSpeaking();
@@ -555,6 +584,7 @@ class HealthChat extends LitElement {
     if (!text) return;
     this._stopSpeaking();
     this._speaking = true;
+    this.requestUpdate();
     try {
       const res = await fetch('/api/voice/tts', {
         method: 'POST',
@@ -562,26 +592,54 @@ class HealthChat extends LitElement {
         body: JSON.stringify({ text }),
       });
       if (!res.ok) throw new Error(`tts HTTP ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      this._currentAudio = audio;
-      audio.addEventListener('ended', () => {
-        this._speaking = false;
-        URL.revokeObjectURL(url);
-        this._currentAudio = null;
-        this.requestUpdate();
-      });
-      audio.addEventListener('error', () => {
-        this._speaking = false;
-        URL.revokeObjectURL(url);
-        this._currentAudio = null;
-        this.requestUpdate();
-      });
-      await audio.play();
+      const arrayBuf = await res.arrayBuffer();
+
+      // Prefer the Web Audio API path — iOS Safari allows this once the
+      // AudioContext is unlocked (done on first tap). `new Audio()` is
+      // unreliable on iOS even after a gesture.
+      if (this._audioCtx) {
+        if (this._audioCtx.state === 'suspended') {
+          try { await this._audioCtx.resume(); } catch {}
+        }
+        const decoded = await new Promise((resolve, reject) => {
+          // decodeAudioData can take either callback or promise; Safari older
+          // versions only do callbacks so we use the callback form.
+          this._audioCtx.decodeAudioData(arrayBuf.slice(0), resolve, reject);
+        });
+        const source = this._audioCtx.createBufferSource();
+        source.buffer = decoded;
+        source.connect(this._audioCtx.destination);
+        this._currentAudioSource = source;
+        source.onended = () => {
+          this._speaking = false;
+          this._currentAudioSource = null;
+          this.requestUpdate();
+        };
+        source.start(0);
+      } else {
+        // Fallback to HTMLAudioElement if AudioContext isn't available
+        const blob = new Blob([arrayBuf], { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        this._currentAudio = audio;
+        audio.addEventListener('ended', () => {
+          this._speaking = false;
+          URL.revokeObjectURL(url);
+          this._currentAudio = null;
+          this.requestUpdate();
+        });
+        audio.addEventListener('error', () => {
+          this._speaking = false;
+          URL.revokeObjectURL(url);
+          this._currentAudio = null;
+          this.requestUpdate();
+        });
+        await audio.play();
+      }
     } catch (e) {
-      console.error('[voice] tts failed', e);
+      console.error('[voice] tts play failed', e);
       this._speaking = false;
+      this._messages = [...this._messages, { role: 'error', content: `Playback failed: ${e.message}` }];
       this.requestUpdate();
     }
   }
@@ -591,10 +649,15 @@ class HealthChat extends LitElement {
       try { this._currentAudio.pause(); } catch {}
       this._currentAudio = null;
     }
+    if (this._currentAudioSource) {
+      try { this._currentAudioSource.stop(0); } catch {}
+      this._currentAudioSource = null;
+    }
     this._speaking = false;
   }
 
   _toggleMicTap() {
+    this._unlockAudio();
     // Tap-to-toggle recording
     if (this._speaking) {
       // Interrupt Axis — tap during speech stops playback AND starts listening
