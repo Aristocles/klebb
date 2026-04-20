@@ -1,16 +1,22 @@
+// public/js/app.js
+// EddzHealth v2 app shell. Manifest-driven throughout. Legacy v1 views
+// (today-view, day-detail, calendar-view, trends-view, widget-view) have
+// been retired — they were hardcoded for Eddy's Apple Watch data shape
+// and couldn't render Chuck's manifest data.
+
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
-import './components/today-view.js';
-import './components/calendar-view.js';
-import './components/trends-view.js';
-import './components/day-detail.js';
-import './components/widget-view.js';
-import './components/reports-view.js';
+
+// v2 views — all manifest-driven
+import './components/eh-date-view.js';        // / and /day/:date
+import './components/eh-calendar-view.js';    // /calendar
+import './components/eh-trends-view.js';      // /trends
+import './components/eh-reports-view.js';     // /reports
+import './components/eh-settings-view.js';    // /settings
+import './components/eh-setup-wizard.js';     // /setup
+
+// Shared widgets
 import './components/health-chat.js';
 import './components/mood-checkin.js';
-// v2 manifest-driven DateView (opt-in via ?v2=1 or localStorage flag)
-import './components/eh-date-view.js';
-import './components/eh-settings-view.js';
-import './components/eh-setup-wizard.js';
 
 class HealthApp extends LitElement {
   static properties = {
@@ -19,7 +25,6 @@ class HealthApp extends LitElement {
     showNav: { type: Boolean },
     dayDate: { type: String },
     theme: { type: String },
-    v2: { type: Boolean },
   };
 
   constructor() {
@@ -29,14 +34,6 @@ class HealthApp extends LitElement {
     this.showNav = true;
     this.dayDate = '';
     this.theme = localStorage.getItem('eddzhealth-theme') || 'light';
-    // v2 opt-in: ?v2=1 in URL, or persisted flag in localStorage.
-    // Enables manifest-driven DateView for /, /day/:date. Everything
-    // else (calendar, trends, reports) keeps the legacy components
-    // until their M3b+ replacements land.
-    const urlV2 = new URLSearchParams(window.location.search).get('v2');
-    if (urlV2 === '1') localStorage.setItem('eddzhealth-v2', '1');
-    if (urlV2 === '0') localStorage.removeItem('eddzhealth-v2');
-    this.v2 = localStorage.getItem('eddzhealth-v2') === '1';
     document.documentElement.setAttribute('data-theme', this.theme);
     this._handleRoute();
     window.addEventListener('popstate', () => this._handleRoute());
@@ -60,7 +57,7 @@ class HealthApp extends LitElement {
     if (path === '/' || path === '') {
       this.route = 'today';
       this.showNav = true;
-    } else if (path === '/calendar') {
+    } else if (path === '/calendar' || path.startsWith('/calendar/')) {
       this.route = 'calendar';
       this.showNav = true;
     } else if (path === '/trends') {
@@ -75,7 +72,8 @@ class HealthApp extends LitElement {
       this.dayDate = this.routeParam;
       this.showNav = true;
     } else if (path === '/widget') {
-      this.route = 'widget';
+      // Widget route retained for backward compatibility — routes to date-view today
+      this.route = 'today';
       this.showNav = false;
     } else if (path === '/settings') {
       this.route = 'settings';
@@ -118,14 +116,6 @@ class HealthApp extends LitElement {
       justify-content: space-between;
       padding: 12px 20px;
     }
-    .nav-date {
-      text-align: center;
-      padding: 6px 20px 10px;
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--text-primary);
-      border-top: 1px solid var(--border-subtle);
-    }
     .logo {
       font-size: 1.1rem;
       font-weight: 700;
@@ -164,26 +154,11 @@ class HealthApp extends LitElement {
       padding: 20px;
     }
     @media (max-width: 480px) {
-      .nav-main {
-        padding: 8px 12px;
-      }
-      .nav-date {
-        padding: 4px 12px 8px;
-        font-size: 0.9rem;
-      }
-      .logo {
-        font-size: 0.95rem;
-      }
-      .nav-links {
-        gap: 2px;
-      }
-      .nav-link {
-        font-size: 0.75rem;
-        padding: 5px 8px;
-      }
-      main {
-        padding: 12px;
-      }
+      .nav-main { padding: 8px 12px; }
+      .logo { font-size: 0.95rem; }
+      .nav-links { gap: 2px; }
+      .nav-link { font-size: 0.75rem; padding: 5px 8px; }
+      main { padding: 12px; }
     }
   `;
 
@@ -196,28 +171,21 @@ class HealthApp extends LitElement {
               <span>${this.theme === 'light' ? '🚀' : '🌙'}</span> EddzHealth
             </div>
             <div class="nav-links">
-              <button class="nav-link ${this.route === 'today' ? 'active' : ''}" @click=${() => this._navigate('/')}>Today</button>
-              <button class="nav-link ${this.route === 'calendar' || this.route === 'day' ? 'active' : ''}" @click=${() => this._navigate('/calendar')}>Calendar</button>
+              <button class="nav-link ${this.route === 'today' || this.route === 'day' ? 'active' : ''}" @click=${() => this._navigate('/')}>Today</button>
+              <button class="nav-link ${this.route === 'calendar' ? 'active' : ''}" @click=${() => this._navigate('/calendar')}>Calendar</button>
               <button class="nav-link ${this.route === 'trends' ? 'active' : ''}" @click=${() => this._navigate('/trends')}>Trends</button>
               <button class="nav-link ${this.route === 'reports' ? 'active' : ''}" @click=${() => this._navigate('/reports')}>Reports</button>
+              <button class="nav-link ${this.route === 'settings' ? 'active' : ''}" @click=${() => this._navigate('/settings')}>⚙️</button>
             </div>
           </div>
-          ${this.route === 'day' && this.dayDate ? html`
-            <div class="nav-date">${this._formatNavDate(this.dayDate)}</div>
-          ` : ''}
         </nav>
       ` : ''}
       <main>
-        ${this.route === 'today' ? (this.v2
-          ? html`<eh-date-view></eh-date-view>`
-          : html`<today-view></today-view>`) : ''}
-        ${this.route === 'calendar' ? html`<calendar-view></calendar-view>` : ''}
-        ${this.route === 'trends' ? html`<trends-view></trends-view>` : ''}
-        ${this.route === 'reports' ? html`<reports-view></reports-view>` : ''}
-        ${this.route === 'day' ? (this.v2
-          ? html`<eh-date-view .date=${this.routeParam}></eh-date-view>`
-          : html`<day-detail .date=${this.routeParam}></day-detail>`) : ''}
-        ${this.route === 'widget' ? html`<widget-view></widget-view>` : ''}
+        ${this.route === 'today' ? html`<eh-date-view></eh-date-view>` : ''}
+        ${this.route === 'day' ? html`<eh-date-view .date=${this.routeParam}></eh-date-view>` : ''}
+        ${this.route === 'calendar' ? html`<eh-calendar-view></eh-calendar-view>` : ''}
+        ${this.route === 'trends' ? html`<eh-trends-view></eh-trends-view>` : ''}
+        ${this.route === 'reports' ? html`<eh-reports-view></eh-reports-view>` : ''}
         ${this.route === 'settings' ? html`<eh-settings-view></eh-settings-view>` : ''}
         ${this.route === 'setup' ? html`<eh-setup-wizard></eh-setup-wizard>` : ''}
       </main>
