@@ -1175,20 +1175,4 @@ server.listen(PORT, HOST, () => {
   } catch (e) {
     console.error('[manifest] init failed:', e.message);
   }
-  // Ensure mood.json exists and is writable
-  const moodPath = path.join(DATA_DIR, 'mood.json');
-  try {
-    if (!fs.existsSync(moodPath)) {
-      fs.writeFileSync(moodPath, '{}', { mode: 0o644 });
-      console.log('Created mood.json');
-    } else {
-      // Test write access
-      const data = JSON.parse(fs.readFileSync(moodPath, 'utf8'));
-      fs.writeFileSync(moodPath, JSON.stringify(data, null, 2));
-    }
-  } catch (e) {
-    console.error('mood.json access issue:', e.message, '- recreating');
-    try { fs.unlinkSync(moodPath); } catch {}
-    fs.writeFileSync(moodPath, '{}', { mode: 0o644 });
-  }
 });
