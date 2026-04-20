@@ -586,9 +586,46 @@ class HealthChat extends LitElement {
         src.start(0);
         this._audioUnlocked = true;
       }
+      // Also activate the shared HTMLAudioElement. iOS considers an
+      // <audio> element 'user-activated' once its .play() is called inside
+      // a user gesture — even if you immediately pause. After that, later
+      // programmatic .play() calls (even seconds later, after async work)
+      // are allowed on that same element.
+      this._ensureSharedAudioEl();
+      if (this._sharedAudioEl) {
+        try {
+          const p = this._sharedAudioEl.play();
+          if (p && typeof p.then === 'function') {
+            p.then(() => {
+              try { this._sharedAudioEl.pause(); } catch {}
+              try { this._sharedAudioEl.currentTime = 0; } catch {}
+            }).catch(() => {});
+          } else {
+            try { this._sharedAudioEl.pause(); } catch {}
+          }
+        } catch {}
+      }
     } catch (e) {
       console.warn('[voice] audio unlock failed', e);
     }
+  }
+
+  _ensureSharedAudioEl() {
+    if (this._sharedAudioEl) return;
+    // Create a singleton <audio> element that outlives individual messages.
+    // Lives in the shadow root so it's subject to the component lifecycle,
+    // but not tied to any one message's render.
+    const el = document.createElement('audio');
+    el.preload = 'auto';
+    el.playsInline = true; // critical for iOS: play inline, don't full-screen
+    el.setAttribute('playsinline', 'playsinline');
+    el.setAttribute('webkit-playsinline', 'webkit-playsinline');
+    // Add a minimal silent mp3 data URI so .play() on the unlock call has
+    // actual audio content to satisfy iOS's media-activation requirement.
+    el.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAADAAAB7wCTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5PKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr///////////////////////////////////////////8AAAAATGF2YzYwLjMxAAAAAAAAAAAAAAAAJAKjAAAAAAAAAe8wbOiSAAAAAAD/+xDEAAPAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/7EsQpg8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/7EMRTg8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+    // Append to the shadow DOM so it's live
+    (this.renderRoot || this).appendChild(el);
+    this._sharedAudioEl = el;
   }
 
   async _toggleVoiceMode() {
@@ -694,7 +731,9 @@ class HealthChat extends LitElement {
     }
   }
 
-  // Fetch TTS for a message, cache the blob, attach to the message's audio el, auto-play.
+  // Fetch TTS for a message, cache the blob, play it through the shared audio element.
+  // The shared element is pre-unlocked on the user's mic tap, so iOS Safari
+  // allows this async play() call even after the gesture has 'expired'.
   async _prepareAndPlayAudio(msgId, text) {
     if (!text || !msgId) return;
     // Stop whatever's currently playing
@@ -713,35 +752,31 @@ class HealthChat extends LitElement {
       if (!res.ok) throw new Error(`tts HTTP ${res.status}`);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      // Cache for replay
       this._audioCache.set(msgId, { blobUrl: url, duration: null });
 
-      // Wait for the audio element to render (Lit re-renders after requestUpdate)
-      await this.updateComplete;
-      const audioEl = this.renderRoot?.querySelector(`audio[data-msg="${msgId}"]`);
-      if (!audioEl) {
-        throw new Error('audio element not found');
-      }
-      audioEl.src = url;
+      this._ensureSharedAudioEl();
+      const audioEl = this._sharedAudioEl;
       audioEl.playbackRate = this._playbackSpeed;
+      audioEl.src = url;
       this._activeAudioEl = audioEl;
 
-      // Wire events
+      const onTimeUpdate = () => this.requestUpdate();
       const onEnded = () => {
         audioEl.removeEventListener('ended', onEnded);
         audioEl.removeEventListener('error', onError);
+        audioEl.removeEventListener('timeupdate', onTimeUpdate);
         this._speaking = false;
         this._playingMsgId = null;
         this._activeAudioEl = null;
         this.requestUpdate();
-        // Auto-continue listening if still in voice mode
         if (this._voiceMode && this._autoContinue && !this._recording) {
           setTimeout(() => this._startRecording(), 250);
         }
       };
-      const onError = (e) => {
+      const onError = () => {
         audioEl.removeEventListener('ended', onEnded);
         audioEl.removeEventListener('error', onError);
+        audioEl.removeEventListener('timeupdate', onTimeUpdate);
         this._speaking = false;
         this._playingMsgId = null;
         this._activeAudioEl = null;
@@ -749,16 +784,18 @@ class HealthChat extends LitElement {
       };
       audioEl.addEventListener('ended', onEnded);
       audioEl.addEventListener('error', onError);
+      audioEl.addEventListener('timeupdate', onTimeUpdate);
 
-      // Auto-play attempt
+      // Auto-play — the shared element was pre-unlocked by _unlockAudio()
+      // at mic-tap time, so iOS should allow this.
       try {
         await audioEl.play();
       } catch (e) {
-        // iOS may reject if gesture too old — user can still tap play
         console.warn('[voice] autoplay rejected', e.message);
         this._speaking = false;
         this._playingMsgId = null;
         this.requestUpdate();
+        // Fallback: user can tap the inline play button in the bubble.
       }
     } catch (e) {
       console.error('[voice] tts fetch failed', e);
@@ -769,47 +806,51 @@ class HealthChat extends LitElement {
     }
   }
 
-  // Called from the "▶/⏸" button in a message bubble
+  // Called from the inline play/pause button in a message bubble.
+  // Uses the shared audio element so iOS playback unlock carries through.
   async _toggleMessagePlayback(msgId, msgContent) {
     this._unlockAudio();
-    // If this message is already playing, pause it
-    if (this._playingMsgId === msgId && this._activeAudioEl) {
-      if (this._activeAudioEl.paused) {
-        try { await this._activeAudioEl.play(); } catch {}
+    this._ensureSharedAudioEl();
+    const audioEl = this._sharedAudioEl;
+
+    // If this message is already playing, pause/resume it
+    if (this._playingMsgId === msgId && this._activeAudioEl === audioEl) {
+      if (audioEl.paused) {
+        try { await audioEl.play(); } catch {}
         this._speaking = true;
       } else {
-        this._activeAudioEl.pause();
+        audioEl.pause();
         this._speaking = false;
       }
       this.requestUpdate();
       return;
     }
+
     // Different message — stop current, start this one
     this._stopSpeaking();
-    // If we have cached audio for it, just attach + play
     const cached = this._audioCache.get(msgId);
     if (cached) {
       this._speaking = true;
       this._playingMsgId = msgId;
+      audioEl.playbackRate = this._playbackSpeed;
+      audioEl.src = cached.blobUrl;
+      audioEl.currentTime = 0;
+      this._activeAudioEl = audioEl;
+      const onEnded = () => {
+        audioEl.removeEventListener('ended', onEnded);
+        this._speaking = false;
+        this._playingMsgId = null;
+        this._activeAudioEl = null;
+        this.requestUpdate();
+        if (this._voiceMode && this._autoContinue && !this._recording) {
+          setTimeout(() => this._startRecording(), 250);
+        }
+      };
+      const onTimeUpdate = () => this.requestUpdate();
+      audioEl.addEventListener('ended', onEnded, { once: true });
+      audioEl.addEventListener('timeupdate', onTimeUpdate);
+      try { await audioEl.play(); } catch {}
       this.requestUpdate();
-      await this.updateComplete;
-      const audioEl = this.renderRoot?.querySelector(`audio[data-msg="${msgId}"]`);
-      if (audioEl) {
-        audioEl.src = cached.blobUrl;
-        audioEl.playbackRate = this._playbackSpeed;
-        audioEl.currentTime = 0;
-        this._activeAudioEl = audioEl;
-        audioEl.addEventListener('ended', () => {
-          this._speaking = false;
-          this._playingMsgId = null;
-          this._activeAudioEl = null;
-          this.requestUpdate();
-          if (this._voiceMode && this._autoContinue && !this._recording) {
-            setTimeout(() => this._startRecording(), 250);
-          }
-        }, { once: true });
-        try { await audioEl.play(); } catch {}
-      }
       return;
     }
     // Not yet cached — fetch TTS + play
@@ -817,14 +858,16 @@ class HealthChat extends LitElement {
   }
 
   _seekMessage(msgId, seconds) {
-    const audioEl = this.renderRoot?.querySelector(`audio[data-msg="${msgId}"]`);
-    if (!audioEl || !isFinite(audioEl.duration)) return;
+    const audioEl = this._sharedAudioEl;
+    if (!audioEl || this._playingMsgId !== msgId) return;
+    if (!isFinite(audioEl.duration)) return;
     audioEl.currentTime = Math.max(0, Math.min(audioEl.duration, audioEl.currentTime + seconds));
   }
 
   _seekToPercent(msgId, percent) {
-    const audioEl = this.renderRoot?.querySelector(`audio[data-msg="${msgId}"]`);
-    if (!audioEl || !isFinite(audioEl.duration)) return;
+    const audioEl = this._sharedAudioEl;
+    if (!audioEl || this._playingMsgId !== msgId) return;
+    if (!isFinite(audioEl.duration)) return;
     audioEl.currentTime = audioEl.duration * Math.max(0, Math.min(1, percent));
   }
 
@@ -844,6 +887,7 @@ class HealthChat extends LitElement {
   _stopSpeaking() {
     if (this._activeAudioEl) {
       try { this._activeAudioEl.pause(); } catch {}
+      // Don't null the shared element — just detach from it
       this._activeAudioEl = null;
     }
     if (this._currentAudio) {
@@ -964,12 +1008,6 @@ class HealthChat extends LitElement {
 
     return html`
       <div class="audio-player">
-        <audio
-          data-msg="${msg.id}"
-          preload="metadata"
-          @timeupdate=${() => this.requestUpdate()}
-          @loadedmetadata=${() => this.requestUpdate()}
-        ></audio>
         <button
           class="play-btn"
           @click=${() => this._toggleMessagePlayback(msg.id, msg.content)}
