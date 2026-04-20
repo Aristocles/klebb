@@ -25,6 +25,7 @@ class HealthApp extends LitElement {
     showNav: { type: Boolean },
     dayDate: { type: String },
     theme: { type: String },
+    _instanceName: { state: true },
   };
 
   constructor() {
@@ -34,8 +35,10 @@ class HealthApp extends LitElement {
     this.showNav = true;
     this.dayDate = '';
     this.theme = localStorage.getItem('eddzhealth-theme') || 'light';
+    this._instanceName = 'EddzHealth';
     document.documentElement.setAttribute('data-theme', this.theme);
     this._handleRoute();
+    this._loadInstance();
     window.addEventListener('popstate', () => this._handleRoute());
     window.addEventListener('navigate', (e) => {
       history.pushState(null, '', e.detail.path);
@@ -44,6 +47,16 @@ class HealthApp extends LitElement {
     window.addEventListener('day-date-changed', (e) => {
       this.dayDate = e.detail.date;
     });
+  }
+
+  async _loadInstance() {
+    try {
+      const r = await fetch('/api/instance');
+      if (r.ok) {
+        const j = await r.json();
+        if (j.name) this._instanceName = j.name;
+      }
+    } catch {}
   }
 
   _toggleTheme() {
@@ -168,7 +181,7 @@ class HealthApp extends LitElement {
         <nav>
           <div class="nav-main">
             <div class="logo" @click=${this._toggleTheme} style="cursor:pointer" title="Toggle theme">
-              <span>${this.theme === 'light' ? '🚀' : '🌙'}</span> EddzHealth
+              <span>${this.theme === 'light' ? '🚀' : '🌙'}</span> ${this._instanceName}
             </div>
             <div class="nav-links">
               <button class="nav-link ${this.route === 'today' || this.route === 'day' ? 'active' : ''}" @click=${() => this._navigate('/')}>Today</button>

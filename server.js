@@ -934,6 +934,17 @@ Original system prompt follows:
 
     // === Voice endpoints ===
 
+    // GET /api/instance — branding + runtime identity (for frontend)
+    if (parts[0] === 'instance' && parts.length === 1 && req.method === 'GET') {
+      return sendJSON(res, {
+        name: ENV.INSTANCE_NAME,
+        chatAgent: {
+          name: ENV.CHAT_AGENT_NAME,
+          emoji: ENV.CHAT_AGENT_EMOJI,
+        },
+      });
+    }
+
     // GET /api/voice/config — current Fish Audio status (backend tier, credit, voiceId)
     if (parts[0] === 'voice' && parts[1] === 'config' && parts.length === 2 && req.method === 'GET') {
       voice.getStatus().then(s => sendJSON(res, s)).catch(e => sendJSON(res, { error: e.message }, 500));
