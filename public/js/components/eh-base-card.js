@@ -16,6 +16,38 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 
+// Module-level data cache: id -> { data, fetchedAt, inflight }
+// TTL: 20 seconds. Cuts duplicate fetches when the same card gets
+// re-mounted during navigation (date switches, tab switches).
+const _dataCache = new Map();
+const DATA_TTL_MS = 20000;
+
+async function fetchManifestData(id) {
+  const now = Date.now();
+  const cached = _dataCache.get(id);
+  if (cached && now - cached.fetchedAt < DATA_TTL_MS && !cached.inflight) {
+    return cached.data;
+  }
+  if (cached && cached.inflight) {
+    // Another caller is already fetching; wait on that promise
+    return cached.inflight;
+  }
+  const p = (async () => {
+    const res = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const body = await res.json();
+    _dataCache.set(id, { data: body.data, fetchedAt: Date.now(), inflight: null });
+    return body.data;
+  })();
+  _dataCache.set(id, { data: cached?.data ?? null, fetchedAt: cached?.fetchedAt ?? 0, inflight: p });
+  return p;
+}
+
+// Exported for writes — after a card POSTs data, invalidate its cache entry
+export function invalidateManifestCache(id) {
+  _dataCache.delete(id);
+}
+
 export class EhBaseCard extends LitElement {
   static properties = {
     card: { type: Object },          // { id, meta, viewConfig }
@@ -48,10 +80,7 @@ export class EhBaseCard extends LitElement {
     this.loading = true;
     this.error = null;
     try {
-      const res = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const body = await res.json();
-      this.data = body.data;
+      this.data = await fetchManifestData(this.card.id);
     } catch (e) {
       this.error = e.message || 'fetch failed';
     } finally {

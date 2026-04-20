@@ -71,7 +71,11 @@ export class EhViewRenderer extends LitElement {
   }
 
   updated(changed) {
-    if (changed.has('view') || changed.has('date') || changed.has('dateMode')) {
+    // The card LIST only depends on the view name — not the date.
+    // Don't re-fetch /api/views/:name when only the date changed; just
+    // update the date/dateMode props on the child cards (Lit handles that
+    // via the standard property reactivity in render()).
+    if (changed.has('view')) {
       this._fetchCards();
     }
   }
