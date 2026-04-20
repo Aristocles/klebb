@@ -112,7 +112,31 @@ function getDateRange(dir, start, end) {
 function getWeightRange(start, end) {
   const weights = readJSONFile(path.join(DATA_DIR, 'weight.json'));
   if (!weights) return [];
-  return weights.filter(w => w.date >= start && w.date <= end);
+  // Unwrap v2 manifest
+  const arr = (weights && weights.$schema === 'eddzhealth.datafile.v1') ? weights.data : weights;
+  if (!Array.isArray(arr)) return [];
+  return arr.filter(w => w.date >= start && w.date <= end);
+}
+
+// Synthesise the legacy injection-log.json shape { 'YYYY-MM-DD': { 'PeptideName': { taken: true, time: ISO } } }
+// from the v2 peptides.json data.items[].doses[]. Called by the legacy
+// injection-log endpoints after migration has archived the original file.
+function synthesiseLegacyInjectionLog() {
+  const raw = readJSONFile(path.join(DATA_DIR, 'peptides.json'));
+  if (!raw) return {};
+  const items = (raw && raw.$schema === 'eddzhealth.datafile.v1')
+    ? ((raw.data && raw.data.items) || [])
+    : (raw.peptides || []);
+  const result = {};
+  for (const item of items) {
+    if (!Array.isArray(item.doses)) continue;
+    for (const d of item.doses) {
+      if (!d.takenAt || !d.scheduledDate) continue;
+      if (!result[d.scheduledDate]) result[d.scheduledDate] = {};
+      result[d.scheduledDate][item.name] = { taken: true, time: d.takenAt };
+    }
+  }
+  return result;
 }
 
 function renderReportPage(title, htmlContent) {
@@ -406,7 +430,28 @@ const server = http.createServer(async (req, res) => {
         // Transparent v2 unwrap: if the file is a v2 manifest, return only
         // the data block to keep legacy clients (and the current UI) happy.
         if (data && typeof data === 'object' && data.$schema === 'eddzhealth.datafile.v1') {
-          return sendJSON(res, data.data);
+          let payload = data.data;
+          // Special-case: the legacy frontend expects peptides.json to have
+          // 'peptides' and 'injection_groups' keys. The v2 manifest uses
+          // 'items' and 'groups'. Alias them back here for the legacy UI.
+          if (parts[0] === 'peptides' && payload && typeof payload === 'object') {
+            const aliased = {
+              ...payload,
+              peptides: Array.isArray(payload.items) ? payload.items : (payload.peptides || []),
+              injection_groups: Array.isArray(payload.groups)
+                ? payload.groups.map(g => ({
+                    name: g.label || g.name || g.id,
+                    peptides: g.items || g.peptides || [],
+                    timing: g.timing,
+                    draw_order: g.draw_order,
+                    max_units: g.max_units,
+                    notes: g.notes,
+                  }))
+                : (payload.injection_groups || []),
+            };
+            return sendJSON(res, aliased);
+          }
+          return sendJSON(res, payload);
         }
         return sendJSON(res, data);
       }
@@ -450,14 +495,22 @@ const server = http.createServer(async (req, res) => {
     }
 
     // GET /api/injection-log — get all injection check-offs
+    // Prefers legacy injection-log.json if present; otherwise synthesises the
+    // legacy shape from peptides.items[].doses[] (after migration).
     if (parts[0] === 'injection-log' && parts.length === 1 && req.method === 'GET') {
-      const data = readLegacyJSONFile(path.join(DATA_DIR, 'injection-log.json'));
-      return sendJSON(res, data || {});
+      const legacy = readLegacyJSONFile(path.join(DATA_DIR, 'injection-log.json'));
+      if (legacy && Object.keys(legacy).length > 0) {
+        return sendJSON(res, legacy);
+      }
+      return sendJSON(res, synthesiseLegacyInjectionLog());
     }
 
     // GET /api/injection-log/range/:start/:end — get injection log for date range
     if (parts[0] === 'injection-log' && parts[1] === 'range' && parts.length === 4 && req.method === 'GET') {
-      const data = readLegacyJSONFile(path.join(DATA_DIR, 'injection-log.json')) || {};
+      let data = readLegacyJSONFile(path.join(DATA_DIR, 'injection-log.json')) || {};
+      if (Object.keys(data).length === 0) {
+        data = synthesiseLegacyInjectionLog();
+      }
       const [, , start, end] = parts;
       const result = {};
       for (const [date, entries] of Object.entries(data)) {
@@ -526,7 +579,12 @@ const server = http.createServer(async (req, res) => {
     // GET /api/injection-log/:date — get injection check-offs for a specific date
     if (parts[0] === 'injection-log' && parts.length === 2 && req.method === 'GET') {
       const data = readLegacyJSONFile(path.join(DATA_DIR, 'injection-log.json'));
-      const dateLog = (data || {})[parts[1]] || {};
+      let dateLog = (data || {})[parts[1]] || null;
+      if (!dateLog) {
+        // Fallback to synthesised view
+        const synth = synthesiseLegacyInjectionLog();
+        dateLog = synth[parts[1]] || {};
+      }
       return sendJSON(res, dateLog);
     }
 
