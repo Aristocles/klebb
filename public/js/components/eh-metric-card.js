@@ -274,22 +274,28 @@ export class EhMetricCard extends EhBaseCard {
 
     const cfg = this._config;
     const disp = cfg.display || {};
+    const record = this._recordForView();
 
-    const primary = this._resolve(disp.primary);
-    const secondary = disp.secondary ? this._resolve(disp.secondary) : null;
+    const primary = this._resolveFromRecord(disp.primary, record);
+    const secondary = disp.secondary ? this._resolveFromRecord(disp.secondary, record) : null;
     const unit = disp.unit || '';
 
-    // format: template string with {field} tokens from the source record
+    // format: template string with {field} tokens from the viewed record
     let primaryStr = primary;
-    if (disp.format && this._latestRecord()) {
+    if (disp.format && record) {
       primaryStr = disp.format.replace(/\{(\w+)\}/g, (_, k) => {
-        const v = this._latestRecord()[k];
+        const v = record[k];
         return v === undefined || v === null ? '—' : v;
       });
     }
 
+    // If no record for this date, primary is meaningless
+    if (!record && (disp.primary || '').startsWith('latest.')) {
+      primaryStr = '—';
+    }
+
     const thresh = this._findThreshold(Number(primary), disp.thresholds || []);
-    const subtitle = disp.subtitle ? this._interpolate(disp.subtitle) : null;
+    const subtitle = disp.subtitle ? this._interpolateFromRecord(disp.subtitle, record) : null;
 
     return html`
       <div>
@@ -360,7 +366,41 @@ export class EhMetricCard extends EhBaseCard {
     `;
   }
 
+  // The record to display. Prioritises the viewed date:
+  //   - If viewing a specific date and an entry exists for it → show that entry.
+  //   - If viewing today and dateContext is 'latest' → show the most recent entry overall.
+  //   - If viewing today with no dateContext specified → latest entry.
+  //   - Otherwise → null (no reading for this day).
+  _recordForView() {
+    const d = this.data;
+    if (!d) return null;
+    const viewed = this.date;
+    // Array shape: each entry has a .date
+    if (Array.isArray(d)) {
+      const exact = d.find(e => e && e.date === viewed);
+      if (exact) return exact;
+      // No entry for this date. On today, fall back to latest.
+      if (this.dateMode === 'today' && (this._config?.dateContext === 'latest' || !this._config?.dateContext)) {
+        return d.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0] || null;
+      }
+      return null;
+    }
+    // Date-keyed object shape: { 'YYYY-MM-DD': {...} }
+    if (d && typeof d === 'object') {
+      if (d[viewed]) return d[viewed];
+      if (this.dateMode === 'today' && (this._config?.dateContext === 'latest' || !this._config?.dateContext)) {
+        const keys = Object.keys(d).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+        const latest = keys[keys.length - 1];
+        return latest ? d[latest] : null;
+      }
+      return null;
+    }
+    return null;
+  }
+
   _latestRecord() {
+    // Kept for backwards compatibility with _resolve (used for 'count'/'sum'
+    // aggregates that shouldn't care about date). Prefer _recordForView().
     const d = this.data;
     if (!Array.isArray(d) || d.length === 0) return null;
     if (d[0]?.date) {
@@ -387,8 +427,32 @@ export class EhMetricCard extends EhBaseCard {
     return null;
   }
 
+  // Variant of _resolve that pulls 'latest.field' from a specific record
+  // (used to render the entry for the viewed date).
+  _resolveFromRecord(spec, record) {
+    if (!spec) return null;
+    if (typeof spec !== 'string') return spec;
+    if (spec.startsWith('literal:')) return spec.slice(8);
+    if (spec === 'count') return Array.isArray(this.data) ? this.data.length : 0;
+    if (spec.startsWith('latest.')) {
+      const field = spec.slice(7);
+      return record ? record[field] : null;
+    }
+    if (spec.startsWith('sum.')) {
+      const field = spec.slice(4);
+      if (!Array.isArray(this.data)) return null;
+      return this.data.reduce((s, e) => s + (Number(e[field]) || 0), 0);
+    }
+    return null;
+  }
+
   _interpolate(str) {
     const r = this._latestRecord() || {};
+    return String(str).replace(/\{(\w+)\}/g, (_, k) => r[k] ?? '');
+  }
+
+  _interpolateFromRecord(str, record) {
+    const r = record || {};
     return String(str).replace(/\{(\w+)\}/g, (_, k) => r[k] ?? '');
   }
 
