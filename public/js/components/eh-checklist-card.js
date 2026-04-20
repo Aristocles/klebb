@@ -65,44 +65,99 @@ export class EhChecklistCard extends EhBaseCard {
     if (!d) return [];
     if (Array.isArray(d)) return d; // simple list
     if (Array.isArray(d.items)) return d.items;
+    // Supplements-style shape: { current: [...], past: [...] }.
+    // Treat 'current' as the active list.
+    if (Array.isArray(d.current)) return d.current;
     return [];
   }
 
   _isDue(item) {
-    // If item has no schedule, assume always-visible
-    if (!item.schedule && !item.cycles) return true;
-    return !!isScheduledOnDate(item, this.date);
-  }
-
-  _isDone(item) {
-    if (!Array.isArray(item.doses)) return item.taken === true;
-    const match = item.doses.find(d => d.scheduledDate === this.date);
-    return !!(match && match.takenAt);
+    // If item explicitly has a schedule or cycle envelope, use schedule rules.
+    if (item.schedule || item.cycles) return !!isScheduledOnDate(item, this.date);
+    // Legacy / supplement-style: 'frequency' string as a coarse hint.
+    const freq = (item.frequency || '').toLowerCase();
+    if (!freq) return true;             // no schedule info → always show
+    if (freq === 'daily') return true;
+    if (freq === 'as needed') return false;
+    if (freq === 'weekly') {
+      // Weekly on a specific day if declared; else Monday default
+      const cfgDay = (item.day || 'Mon').toString().slice(0, 3).toLowerCase();
+      const dayNames = ['sun','mon','tue','wed','thu','fri','sat'];
+      const todayName = dayNames[new Date(this.date + 'T00:00:00').getDay()];
+      return todayName === cfgDay;
+    }
+    if (/^every\s+(\d+)/.test(freq)) {
+      const n = parseInt(freq.match(/^every\s+(\d+)/)[1], 10);
+      if (item.startDate) {
+        const start = new Date(item.startDate + 'T00:00:00');
+        const d = new Date(this.date + 'T00:00:00');
+        const diff = Math.round((d - start) / 86400000);
+        return diff >= 0 && diff % n === 0;
+      }
+      return true;
+    }
+    return true;
   }
 
   async _toggle(item) {
     if (!this._canWrite) return;
-    if (!Array.isArray(this.data?.items)) {
-      // Simple shape: { taken }
-      item.taken = !item.taken;
-      this.requestUpdate();
+    const d = this.data;
+
+    // Identify which container to update (items[] / current[] / top-level array)
+    let listPath = null;
+    if (Array.isArray(d)) listPath = null;               // flat array
+    else if (Array.isArray(d?.items)) listPath = 'items';
+    else if (Array.isArray(d?.current)) listPath = 'current';
+
+    // For simple non-dose shapes (no doses[], just a taken flag), toggle directly.
+    const hasDoses = Array.isArray(item.doses);
+    if (!hasDoses && (typeof item.taken === 'boolean' || !item.schedule)) {
+      // For supplements and other always-shown items without a doses[] array,
+      // store checkoff on the item via a `takenDates: [YYYY-MM-DD, ...]` array.
+      const taken = Array.isArray(item.takenDates) ? [...item.takenDates] : [];
+      const has = taken.includes(this.date);
+      const newTaken = has ? taken.filter(x => x !== this.date) : [...taken, this.date];
+      const updatedItem = { ...item, takenDates: newTaken };
+      this._updateItem(item, updatedItem, listPath);
       await this._persist();
       return;
     }
+
+    // doses[] shape (peptides-style)
     const now = new Date().toISOString();
-    const doses = Array.isArray(item.doses) ? [...item.doses] : [];
-    const idx = doses.findIndex(d => d.scheduledDate === this.date);
+    const doses = hasDoses ? [...item.doses] : [];
+    const idx = doses.findIndex(dd => dd.scheduledDate === this.date);
     if (idx >= 0) {
-      // toggle
       if (doses[idx].takenAt) doses[idx] = { ...doses[idx], takenAt: null };
       else doses[idx] = { ...doses[idx], takenAt: now };
     } else {
       doses.push({ scheduledDate: this.date, takenAt: now });
     }
-    // Update item in place
-    const updatedItems = this.data.items.map(it => it === item ? { ...it, doses } : it);
-    this.data = { ...this.data, items: updatedItems };
+    this._updateItem(item, { ...item, doses }, listPath);
     await this._persist();
+  }
+
+  _updateItem(oldItem, newItem, listPath) {
+    const d = this.data;
+    if (Array.isArray(d)) {
+      this.data = d.map(it => it === oldItem ? newItem : it);
+    } else if (listPath) {
+      this.data = {
+        ...d,
+        [listPath]: d[listPath].map(it => it === oldItem ? newItem : it),
+      };
+    }
+  }
+
+  _isDone(item) {
+    // Prefer doses[] if present (peptides)
+    if (Array.isArray(item.doses)) {
+      const match = item.doses.find(d => d.scheduledDate === this.date);
+      return !!(match && match.takenAt);
+    }
+    // Fallback: takenDates array (supplements / simple daily checklist)
+    if (Array.isArray(item.takenDates)) return item.takenDates.includes(this.date);
+    return item.taken === true;
   }
 
   async _persist() {
@@ -137,6 +192,7 @@ export class EhChecklistCard extends EhBaseCard {
               ></span>
               <span class="name">${item.name}</span>
               ${item.dose ? html`<span class="item-meta">${item.dose}</span>` : ''}
+              ${item.timing && !item.dose ? html`<span class="item-meta">${item.timing}</span>` : ''}
             </li>
           `;
         })}
