@@ -11,6 +11,9 @@ class HealthChat extends LitElement {
     _recording: { state: true },
     _speaking: { state: true },
     _voiceAvailable: { state: true },
+    _playbackSpeed: { state: true },
+    _autoContinue: { state: true },
+    _playingMsgId: { state: true },
   };
 
   static styles = css`
@@ -271,6 +274,102 @@ class HealthChat extends LitElement {
       flex: 1;
     }
 
+    /* Inline audio player in assistant messages */
+    .audio-player {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 6px 8px;
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 20px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .audio-player audio { display: none; }
+    .audio-player .play-btn,
+    .audio-player .skip-btn {
+      background: var(--accent);
+      color: var(--text-inverse, white);
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.1s;
+    }
+    .audio-player .play-btn:hover,
+    .audio-player .skip-btn:hover { transform: scale(1.08); }
+    .audio-player .skip-btn {
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+    .audio-player .skip-btn:hover { color: var(--accent); }
+    .audio-player .play-btn:disabled { opacity: 0.5; cursor: wait; }
+    .audio-player .scrubber {
+      flex: 1;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+      min-width: 40px;
+    }
+    .audio-player .scrubber-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.1s linear;
+    }
+    .audio-player .time {
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+      font-size: 10px;
+    }
+    .audio-player .spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: audio-spin 0.6s linear infinite;
+    }
+    @keyframes audio-spin { to { transform: rotate(360deg); } }
+
+    /* Chat-level controls: speed + auto-continue toggle */
+    .voice-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 14px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-card);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .vc-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 3px 8px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 10px;
+      font-family: inherit;
+      font-variant-numeric: tabular-nums;
+    }
+    .vc-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .vc-btn.active { background: var(--accent); color: var(--text-inverse, white); border-color: var(--accent); }
+
     .empty-state {
       text-align: center;
       color: var(--text-muted);
@@ -336,6 +435,14 @@ class HealthChat extends LitElement {
     this._recordedChunks = [];
     this._currentAudio = null;
     this._voiceAvailable = false;
+    this._playbackSpeed = parseFloat(localStorage.getItem('eddzhealth-playback-speed') || '1');
+    this._autoContinue = localStorage.getItem('eddzhealth-autocontinue') !== '0'; // default on
+    this._playingMsgId = null;
+    this._msgCounter = 0;
+    // Map of msgId -> { blobUrl, duration }
+    this._audioCache = new Map();
+    // Currently-active <audio> element (bound to a specific message)
+    this._activeAudioEl = null;
     this._checkVoiceAvailability();
 
     // When the user switches apps and comes back, the underlying TCP/TLS
@@ -403,7 +510,7 @@ class HealthChat extends LitElement {
     const text = this._input.trim();
     if (!text || this._loading) return;
 
-    this._messages = [...this._messages, { role: 'user', content: text }];
+    this._addMsg('user', text);
     this._input = '';
     this._loading = true;
     this._scrollToBottom();
@@ -426,7 +533,7 @@ class HealthChat extends LitElement {
       if (data.error) {
         this._messages = [...this._messages, { role: 'error', content: data.error }];
       } else {
-        this._messages = [...this._messages, { role: 'assistant', content: data.reply }];
+        this._addMsg('assistant', data.reply);
       }
     } catch (e) {
       const msg = e.name === 'AbortError' ? 'Request timed out - try again' : 'Failed to connect';
@@ -436,6 +543,13 @@ class HealthChat extends LitElement {
     this._loading = false;
     this._abortController = null;
     this._scrollToBottom();
+  }
+
+  // Append a message with a stable id. Audio cache + play state key off this id.
+  _addMsg(role, content) {
+    const id = `m${++this._msgCounter}-${Date.now()}`;
+    this._messages = [...this._messages, { id, role, content }];
+    return id;
   }
 
   // --- Voice mode ---
@@ -555,7 +669,7 @@ class HealthChat extends LitElement {
         return;
       }
       // Push user message + fire the existing send path
-      this._messages = [...this._messages, { role: 'user', content: text }];
+      this._addMsg('user', text);
       this._scrollToBottom();
       const chatMessages = this._messages.filter(m => m.role !== 'error');
       let replyData;
@@ -567,10 +681,10 @@ class HealthChat extends LitElement {
       if (replyData.error) {
         this._messages = [...this._messages, { role: 'error', content: replyData.error }];
       } else {
-        this._messages = [...this._messages, { role: 'assistant', content: replyData.reply }];
+        const replyId = this._addMsg('assistant', replyData.reply);
         this._scrollToBottom();
-        // Speak the reply
-        await this._speak(replyData.reply);
+        // Fetch the audio and auto-play
+        await this._prepareAndPlayAudio(replyId, replyData.reply);
       }
     } catch (e) {
       this._messages = [...this._messages, { role: 'error', content: `Voice error: ${e.message}` }];
@@ -580,71 +694,158 @@ class HealthChat extends LitElement {
     }
   }
 
-  async _speak(text) {
-    if (!text) return;
+  // Fetch TTS for a message, cache the blob, attach to the message's audio el, auto-play.
+  async _prepareAndPlayAudio(msgId, text) {
+    if (!text || !msgId) return;
+    // Stop whatever's currently playing
     this._stopSpeaking();
     this._speaking = true;
+    this._playingMsgId = msgId;
     this.requestUpdate();
+
     try {
+      // Fetch the audio
       const res = await fetch('/api/voice/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       });
       if (!res.ok) throw new Error(`tts HTTP ${res.status}`);
-      const arrayBuf = await res.arrayBuffer();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      // Cache for replay
+      this._audioCache.set(msgId, { blobUrl: url, duration: null });
 
-      // Prefer the Web Audio API path — iOS Safari allows this once the
-      // AudioContext is unlocked (done on first tap). `new Audio()` is
-      // unreliable on iOS even after a gesture.
-      if (this._audioCtx) {
-        if (this._audioCtx.state === 'suspended') {
-          try { await this._audioCtx.resume(); } catch {}
+      // Wait for the audio element to render (Lit re-renders after requestUpdate)
+      await this.updateComplete;
+      const audioEl = this.renderRoot?.querySelector(`audio[data-msg="${msgId}"]`);
+      if (!audioEl) {
+        throw new Error('audio element not found');
+      }
+      audioEl.src = url;
+      audioEl.playbackRate = this._playbackSpeed;
+      this._activeAudioEl = audioEl;
+
+      // Wire events
+      const onEnded = () => {
+        audioEl.removeEventListener('ended', onEnded);
+        audioEl.removeEventListener('error', onError);
+        this._speaking = false;
+        this._playingMsgId = null;
+        this._activeAudioEl = null;
+        this.requestUpdate();
+        // Auto-continue listening if still in voice mode
+        if (this._voiceMode && this._autoContinue && !this._recording) {
+          setTimeout(() => this._startRecording(), 250);
         }
-        const decoded = await new Promise((resolve, reject) => {
-          // decodeAudioData can take either callback or promise; Safari older
-          // versions only do callbacks so we use the callback form.
-          this._audioCtx.decodeAudioData(arrayBuf.slice(0), resolve, reject);
-        });
-        const source = this._audioCtx.createBufferSource();
-        source.buffer = decoded;
-        source.connect(this._audioCtx.destination);
-        this._currentAudioSource = source;
-        source.onended = () => {
-          this._speaking = false;
-          this._currentAudioSource = null;
-          this.requestUpdate();
-        };
-        source.start(0);
-      } else {
-        // Fallback to HTMLAudioElement if AudioContext isn't available
-        const blob = new Blob([arrayBuf], { type: 'audio/mpeg' });
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        this._currentAudio = audio;
-        audio.addEventListener('ended', () => {
-          this._speaking = false;
-          URL.revokeObjectURL(url);
-          this._currentAudio = null;
-          this.requestUpdate();
-        });
-        audio.addEventListener('error', () => {
-          this._speaking = false;
-          URL.revokeObjectURL(url);
-          this._currentAudio = null;
-          this.requestUpdate();
-        });
-        await audio.play();
+      };
+      const onError = (e) => {
+        audioEl.removeEventListener('ended', onEnded);
+        audioEl.removeEventListener('error', onError);
+        this._speaking = false;
+        this._playingMsgId = null;
+        this._activeAudioEl = null;
+        this.requestUpdate();
+      };
+      audioEl.addEventListener('ended', onEnded);
+      audioEl.addEventListener('error', onError);
+
+      // Auto-play attempt
+      try {
+        await audioEl.play();
+      } catch (e) {
+        // iOS may reject if gesture too old — user can still tap play
+        console.warn('[voice] autoplay rejected', e.message);
+        this._speaking = false;
+        this._playingMsgId = null;
+        this.requestUpdate();
       }
     } catch (e) {
-      console.error('[voice] tts play failed', e);
+      console.error('[voice] tts fetch failed', e);
       this._speaking = false;
-      this._messages = [...this._messages, { role: 'error', content: `Playback failed: ${e.message}` }];
+      this._playingMsgId = null;
+      this._messages = [...this._messages, { role: 'error', content: `TTS failed: ${e.message}` }];
       this.requestUpdate();
     }
   }
 
+  // Called from the "▶/⏸" button in a message bubble
+  async _toggleMessagePlayback(msgId, msgContent) {
+    this._unlockAudio();
+    // If this message is already playing, pause it
+    if (this._playingMsgId === msgId && this._activeAudioEl) {
+      if (this._activeAudioEl.paused) {
+        try { await this._activeAudioEl.play(); } catch {}
+        this._speaking = true;
+      } else {
+        this._activeAudioEl.pause();
+        this._speaking = false;
+      }
+      this.requestUpdate();
+      return;
+    }
+    // Different message — stop current, start this one
+    this._stopSpeaking();
+    // If we have cached audio for it, just attach + play
+    const cached = this._audioCache.get(msgId);
+    if (cached) {
+      this._speaking = true;
+      this._playingMsgId = msgId;
+      this.requestUpdate();
+      await this.updateComplete;
+      const audioEl = this.renderRoot?.querySelector(`audio[data-msg="${msgId}"]`);
+      if (audioEl) {
+        audioEl.src = cached.blobUrl;
+        audioEl.playbackRate = this._playbackSpeed;
+        audioEl.currentTime = 0;
+        this._activeAudioEl = audioEl;
+        audioEl.addEventListener('ended', () => {
+          this._speaking = false;
+          this._playingMsgId = null;
+          this._activeAudioEl = null;
+          this.requestUpdate();
+          if (this._voiceMode && this._autoContinue && !this._recording) {
+            setTimeout(() => this._startRecording(), 250);
+          }
+        }, { once: true });
+        try { await audioEl.play(); } catch {}
+      }
+      return;
+    }
+    // Not yet cached — fetch TTS + play
+    await this._prepareAndPlayAudio(msgId, msgContent);
+  }
+
+  _seekMessage(msgId, seconds) {
+    const audioEl = this.renderRoot?.querySelector(`audio[data-msg="${msgId}"]`);
+    if (!audioEl || !isFinite(audioEl.duration)) return;
+    audioEl.currentTime = Math.max(0, Math.min(audioEl.duration, audioEl.currentTime + seconds));
+  }
+
+  _seekToPercent(msgId, percent) {
+    const audioEl = this.renderRoot?.querySelector(`audio[data-msg="${msgId}"]`);
+    if (!audioEl || !isFinite(audioEl.duration)) return;
+    audioEl.currentTime = audioEl.duration * Math.max(0, Math.min(1, percent));
+  }
+
+  _cyclePlaybackSpeed() {
+    const speeds = [1, 1.25, 1.5, 2];
+    const idx = speeds.indexOf(this._playbackSpeed);
+    this._playbackSpeed = speeds[(idx + 1) % speeds.length];
+    localStorage.setItem('eddzhealth-playback-speed', String(this._playbackSpeed));
+    if (this._activeAudioEl) this._activeAudioEl.playbackRate = this._playbackSpeed;
+  }
+
+  _toggleAutoContinue() {
+    this._autoContinue = !this._autoContinue;
+    localStorage.setItem('eddzhealth-autocontinue', this._autoContinue ? '1' : '0');
+  }
+
   _stopSpeaking() {
+    if (this._activeAudioEl) {
+      try { this._activeAudioEl.pause(); } catch {}
+      this._activeAudioEl = null;
+    }
     if (this._currentAudio) {
       try { this._currentAudio.pause(); } catch {}
       this._currentAudio = null;
@@ -654,6 +855,7 @@ class HealthChat extends LitElement {
       this._currentAudioSource = null;
     }
     this._speaking = false;
+    this._playingMsgId = null;
   }
 
   _toggleMicTap() {
@@ -738,7 +940,12 @@ class HealthChat extends LitElement {
     return html`
       ${this._messages.map(m => {
         if (m.role === 'assistant') {
-          return html`<div class="msg assistant">${unsafeHTML(this._parseMarkdown(m.content))}</div>`;
+          return html`
+            <div class="msg assistant">
+              ${unsafeHTML(this._parseMarkdown(m.content))}
+              ${m.id && this._voiceAvailable ? this._renderAudioPlayer(m) : ''}
+            </div>
+          `;
         }
         return html`<div class="msg ${m.role}">${m.content}</div>`;
       })}
@@ -748,6 +955,54 @@ class HealthChat extends LitElement {
         </div>
       ` : ''}
     `;
+  }
+
+  _renderAudioPlayer(msg) {
+    const isPlaying = this._playingMsgId === msg.id && this._activeAudioEl && !this._activeAudioEl.paused;
+    const isLoading = this._playingMsgId === msg.id && !this._activeAudioEl;
+    const hasCachedAudio = this._audioCache.has(msg.id);
+
+    return html`
+      <div class="audio-player">
+        <audio
+          data-msg="${msg.id}"
+          preload="metadata"
+          @timeupdate=${() => this.requestUpdate()}
+          @loadedmetadata=${() => this.requestUpdate()}
+        ></audio>
+        <button
+          class="play-btn"
+          @click=${() => this._toggleMessagePlayback(msg.id, msg.content)}
+          ?disabled=${isLoading}
+          aria-label=${isPlaying ? 'pause' : 'play'}
+          title=${isPlaying ? 'Pause' : (hasCachedAudio ? 'Play' : 'Generate + play')}
+        >${isLoading ? html`<span class="spinner"></span>` : (isPlaying ? '\u23F8' : '\u25B6')}</button>
+        ${this._playingMsgId === msg.id && this._activeAudioEl ? html`
+          <button class="skip-btn" @click=${() => this._seekMessage(msg.id, -10)} title="Back 10s">\u23EA</button>
+          <div class="scrubber" @click=${(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            this._seekToPercent(msg.id, pct);
+          }}>
+            <div class="scrubber-fill" style="width:${this._progressPercent(this._activeAudioEl)}%"></div>
+          </div>
+          <button class="skip-btn" @click=${() => this._seekMessage(msg.id, 10)} title="Forward 10s">\u23E9</button>
+          <span class="time">${this._formatTime(this._activeAudioEl.currentTime)} / ${this._formatTime(this._activeAudioEl.duration)}</span>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  _progressPercent(audioEl) {
+    if (!audioEl || !isFinite(audioEl.duration) || audioEl.duration === 0) return 0;
+    return (audioEl.currentTime / audioEl.duration) * 100;
+  }
+
+  _formatTime(s) {
+    if (!isFinite(s) || s < 0) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
   }
 
   render() {
@@ -771,6 +1026,14 @@ class HealthChat extends LitElement {
             ${this._renderMessages()}
           </div>
           ${this._voiceMode ? html`
+            <div class="voice-controls">
+              <button class="vc-btn" @click=${this._cyclePlaybackSpeed} title="Playback speed">
+                ${this._playbackSpeed}x
+              </button>
+              <button class="vc-btn ${this._autoContinue ? 'active' : ''}" @click=${this._toggleAutoContinue} title="Auto-start listening after Axis replies">
+                ${this._autoContinue ? 'Auto-continue: on' : 'Auto-continue: off'}
+              </button>
+            </div>
             <div class="voice-bar">
               <button
                 class="mic-btn ${this._recording ? 'recording' : ''} ${this._speaking ? 'speaking' : ''}"
