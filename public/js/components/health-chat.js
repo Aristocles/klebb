@@ -504,9 +504,10 @@ class HealthChat extends LitElement {
     this._scrollToBottom();
     const chatMessages = this._messages.filter(m => m.role !== 'error');
     try {
-      let data;
-      try { data = await this._fetchChat(chatMessages, false, 15000); }
-      catch { data = await this._fetchChat(chatMessages, false, 90000); }
+      // Single request, generous timeout. Earlier two-phase retry was meant
+      // for stale TCP sockets after visibility-change; in practice it caused
+      // confusing "Gateway unavailable" errors on slow (tool-using) replies.
+      const data = await this._fetchChat(chatMessages, false, 120000);
       if (data.error) this._pushError(data.error);
       else this._addMsg('assistant', data.reply);
     } catch (e) {
@@ -619,8 +620,11 @@ class HealthChat extends LitElement {
       // Chat (voice mode)
       const chatMessages = this._messages.filter(m => m.role !== 'error');
       let replyData;
-      try { replyData = await this._fetchChat(chatMessages, true, 15000); }
-      catch { replyData = await this._fetchChat(chatMessages, true, 90000); }
+      try { replyData = await this._fetchChat(chatMessages, true, 120000); }
+      catch (e) {
+        this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
+        return;
+      }
 
       if (replyData.error) {
         this._pushError(replyData.error);
