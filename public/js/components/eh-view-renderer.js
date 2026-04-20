@@ -11,6 +11,7 @@ import './eh-metric-card.js';
 import './eh-notes-card.js';
 import './eh-greeting-banner.js';
 import './eh-checklist-card.js';
+import './eh-schedule-card.js';
 import './eh-markdown-doc.js';
 import './eh-line-chart.js';
 import './eh-schedule-timeline.js';

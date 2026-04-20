@@ -260,7 +260,7 @@ function buildPeptidesManifest() {
       order: 40,
       view: {
         enabled: true,
-        component: 'checklist-card',
+        component: 'schedule-card',
         dateContext: 'exact-date',
       },
       trends: {
