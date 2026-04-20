@@ -29,9 +29,12 @@ const BACKENDS = {
   'speech-1.6':  { header: 'speech-1.6', name: 'speech-1.6' },
 };
 
-// Load ~/.env if FISH_AUDIO_API_KEY isn't already set (dev convenience)
+// Load ~/.env if FISH_AUDIO_API_KEY isn't already set (dev convenience).
+// Tests can set EDDZHEALTH_SKIP_HOME_ENV=1 to disable this auto-load.
 function loadHomeEnv() {
-  if (process.env.FISH_AUDIO_API_KEY) return;
+  if (process.env.EDDZHEALTH_SKIP_HOME_ENV === '1') return;
+  // An explicit empty string means "use no key" — respect that.
+  if ('FISH_AUDIO_API_KEY' in process.env) return;
   try {
     const txt = fs.readFileSync(path.join(os.homedir(), '.env'), 'utf8');
     for (const line of txt.split('\n')) {
