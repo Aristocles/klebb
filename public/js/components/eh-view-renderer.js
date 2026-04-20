@@ -8,6 +8,7 @@ import { resolveRenderer } from '../renderer-registry.js';
 // Ensure all core renderers are loaded
 import './eh-unknown-card.js';
 import './eh-metric-card.js';
+import './eh-generic-card.js';
 import './eh-notes-card.js';
 import './eh-greeting-banner.js';
 import './eh-checklist-card.js';
@@ -61,6 +62,14 @@ export class EhViewRenderer extends LitElement {
       text-align: center;
       color: var(--text-muted, var(--text-secondary));
       font-size: 13px;
+      line-height: 1.5;
+    }
+    .empty code {
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      background: var(--bg-muted, rgba(255,255,255,0.04));
+      padding: 2px 6px;
+      border-radius: 4px;
     }
     .slot-top {
       grid-column: 1 / -1;
@@ -117,7 +126,20 @@ export class EhViewRenderer extends LitElement {
       return html`<div class="loading">Failed to load: ${this._error}</div>`;
     }
     if (!this.cards || this.cards.length === 0) {
-      return html`<div class="empty">No cards for this view.</div>`;
+      return html`
+        <div class="empty">
+          <p>No cards yet.</p>
+          <p style="margin-top:8px;">
+            Drop a manifest file into <code>$HEALTH_HOME/data/</code> to add
+            one, or
+            <a href="https://github.com/makeitbreakitfixit/eddzhealth/blob/main/docs/CARDS.md"
+               target="_blank" rel="noopener"
+               style="color: var(--accent); text-decoration: underline;">
+              read the docs →
+            </a>
+          </p>
+        </div>
+      `;
     }
     // Render into a grid; ensure slot="top" cards span the full row
     return html`

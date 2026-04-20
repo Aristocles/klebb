@@ -1,160 +1,212 @@
-# EddzHealth Data File Manifest — v1
+# Manifest schema — `eddzhealth.datafile.v1`
 
-All structured data in `$HEALTH_HOME/data/*.json` follows this single schema. The app is a generic renderer; each file declares how it wants to appear across the different views.
+This is the machine-readable spec for the v2 manifest format used by the
+EddzHealth dashboard. For the human-friendly tour, see
+[`docs/CARDS.md`](./docs/CARDS.md).
 
-## Top-level structure
+---
 
-```jsonc
+## File structure
+
+```json
 {
-  "$schema": "eddzhealth.datafile.v1",
-  "meta": { /* rendering manifest — required */ },
-  "description": "Human-readable instructions for AI writers (optional but recommended)",
-  "schema": { /* optional JSON Schema for the data block */ },
-  "data": [ /* records, object, or anything the renderer component understands */ ]
+  "$schema":     "eddzhealth.datafile.v1",
+  "meta":        { /* required */ },
+  "description": "free text (optional)",
+  "schema":      { /* optional hint for validators */ },
+  "data":        /* required; array or object; card-specific */
 }
 ```
 
-### Required fields
+- `$schema`: must be `"eddzhealth.datafile.v1"` for the file to load.
+- `meta`: required object, shape below.
+- `description`: optional prose. Shown under the title in Settings. Preserved
+  verbatim on writes.
+- `schema`: optional hint for external validators (the registry itself
+  doesn't enforce it).
+- `data`: required. Array, object, or primitive; see the renderer's
+  expectations.
 
-- `$schema` — must be exactly `"eddzhealth.datafile.v1"`. Unknown versions are logged + skipped.
-- `meta.id` — unique identifier (lowercase, alphanumeric + hyphens, matches the filename stem)
-- `meta.label` — human display name
-
-Everything else is optional; omitting a view section means the card is not rendered in that view.
+---
 
 ## `meta`
 
-```jsonc
-"meta": {
-  "id": "bp",
-  "label": "Blood Pressure",
-  "emoji": "💓",
-  "category": "vitals",               // optional grouping hint; future use
-  "order": 10,                         // optional sort hint within a view (lower = first)
+```json
+{
+  "id":       "weight",              // required, matches filename stem
+  "label":   "Weight",                // required, human-readable title
+  "emoji":    "⚖️",                   // optional, prefixed to title
+  "order":    100,                    // optional int, lower = earlier
+  "enabled":  true,                   // optional bool, default true;
+                                      //   false hides card from EVERY view
+  "view":     { ... },                // optional view config
+  "trends":   { ... },                // optional trends config
+  "calendar": { ... },                // optional calendar config
+  "reports":  { ... },                // optional reports config
+  "writeable": { ... }                // optional input config
+}
+```
 
-  "view":     { /* DateView / Today */ },
-  "trends":   { /* Trends page */ },
-  "calendar": { /* Calendar month-view markers */ },
-  "reports":  { /* Reports page */ },
-  "dayDetail":{ /* Expanded detail when card is tapped */ },
+### Master `meta.enabled`
 
-  "writeable": {
-    "fromWebapp": true,
-    "pastAllowed": true,
-    "todayAllowed": true,
-    "futureAllowed": false
+`meta.enabled: false` hides the card from all views (Today, Trends,
+Calendar, Reports). Settings still shows it so you can re-enable. Absent
+or `true` means the card participates according to its per-view config.
+
+### View config (`meta.view`, `meta.trends`, etc.)
+
+All view configs share the same shape:
+
+```json
+{
+  "enabled":     true,                // required — opts card into this view
+  "component":   "generic-card",      // required — renderer name
+  "order":       5,                   // view-specific sort override
+  "slot":        "top",               // "top" spans the full row
+  "dateContext": "viewedDate",        // "viewedDate" | "latest"
+  "expanded":    false,               // allow click-to-expand
+  "display":     { ... },             // template config (generic-card)
+  "source":      "other-card-id"      // virtual/computed cards only
+}
+```
+
+### `display` (generic-card)
+
+Used by `component: "generic-card"` to render rows without custom code.
+
+```json
+{
+  "template":       "{kg:round(1)} kg",
+  "secondary":      "{notes|(no notes)}",
+  "emptyHeadline":  "No weight today",
+  "emojiMap": {
+    "mood": { "1": "😩", "5": "😄" }
   }
 }
 ```
 
-### View sections — common properties
-
-Each of `view`, `trends`, `calendar`, `reports`, `dayDetail` can contain:
-
-- `enabled` — boolean (default `false`). If missing or false, nothing renders for that view.
-- `component` — string, name of a built-in renderer. See the renderer catalogue below.
-- `order` — integer, display order within the view (lower first).
-- `dateContext` — one of `"exact-date"` | `"latest"` | `"week-of"` | `"rolling-30d"` | `"rolling-90d"` | `"rolling-365d"` | `"night-before"` | `"month-of"`.
-- `slot` — optional string (for `view` only). Reserved slots: `"top"` (greeting/banner), `"bottom"`.
-- Component-specific fields — see renderer catalogue.
+Template syntax:
+- `{key}` → `row[key]`
+- `{key:round(N)}` → round to N decimals
+- `{key:emoji}` → look up in `emojiMap[key]`
+- `{key|default}` → fallback when empty
+- `{key?yes:no}` → ternary on truthiness
+- `{nested.path}` → dotted access
+- Missing keys render as empty string
 
 ### `writeable`
 
-Controls whether the webapp offers input/edit controls for this card.
-
-- `fromWebapp` — if false, the card is read-only in the UI regardless of date.
-- `pastAllowed`, `todayAllowed`, `futureAllowed` — per-date-mode gates. Notes-type cards often set all three to true; measurement cards typically allow past + today only.
-
-## Data block
-
-Free-form — the chosen renderer determines the expected shape. Common patterns:
-
-- **Array of entries** (measurement cards): `[ { date, ... }, ... ]`
-- **Object keyed by date** (notes, mood): `{ "YYYY-MM-DD": { ... } }`
-- **Items with schedule + doses** (medication schedule, any recurring protocol):
-  ```jsonc
-  {
-    "groups": [ { "id": "...", "label": "...", "items": ["a","b"] } ],
-    "items": [
-      {
-        "name": "prednisolone",
-        "schedule": { /* see schedule.md */ },
-        "cycles": [ { "type": "on", "start": "2026-04-10", "end": "2026-05-10" } ],
-        "doses": [ { "scheduledDate": "2026-04-10", "takenAt": "2026-04-10T08:15:00+10:00" } ]
-      }
-    ]
-  }
-  ```
-
-## Schedule rules
-
-Used by any card with recurring items (medication schedule, workouts, habits). Support:
-
-- `frequency: "daily"` — every day in cycle
-- `frequency: "weekly"` + `dayOfWeek: "saturday"`
-- `frequency: "every_n_days"` + `nDays: 3` + `startDate: "YYYY-MM-DD"`
-- `frequency: "on_off"` + `on_days: ["Mon","Tue","Wed","Thu","Fri"]` + `off_days: ["Sat","Sun"]`
-- `frequency: "phased"` with `loading: { duration_weeks, days[] }` + `maintenance: { days[] }`
-- `times_per_day` — optional, for within-day repetition (e.g. 4 for QID eye drops)
-
-Cycles envelope the schedule:
-```jsonc
-"cycles": [
-  { "type": "on",  "start": "2026-04-01", "end": "2026-06-01" },
-  { "type": "off", "start": "2026-06-02", "end": "2026-07-31" }
-]
-```
-
-For ongoing protocols with no end date, omit `end` (treated as "until further notice").
-
-## Reserved paths
-
-Server ignores these when scanning `data/` for manifest files:
-
-- `data/_virtual/` — composite/derived cards (no `data` block; `source:` declares what they aggregate)
-- `data/_archive/` — disabled files kept for restore
-- `data/_meta/` — app-internal state (e.g. per-file `lastRotatedDate` stamps)
-- Anything starting with `.` (dotfiles)
-- Anything not ending in `.json`
-
-## Legacy non-manifest files
-
-Some existing files don't (yet) follow the manifest schema. During migration they're wrapped into manifest form and archived. The server also supports reading a few legacy shapes transparently so nothing breaks mid-migration.
-
-See `MIGRATION.md` for the v1→v2 data transformation rules.
-
-## Error handling
-
-- Missing `$schema` → file skipped, warning logged, not rendered anywhere.
-- Unknown `$schema` version → file skipped, warning logged.
-- Unknown `component` name → card shows small inline error placeholder + console warning.
-- Corrupt JSON → file skipped, warning logged. Never crashes the server.
-
-## Example: minimal manifest
-
-```jsonc
+```json
 {
-  "$schema": "eddzhealth.datafile.v1",
-  "meta": {
-    "id": "weight",
-    "label": "Weight",
-    "emoji": "⚖️",
-    "view": {
-      "enabled": true,
-      "component": "metric-card-with-sparkline",
-      "dateContext": "latest"
-    },
-    "trends": { "enabled": true, "component": "line-chart" },
-    "writeable": { "fromWebapp": true, "pastAllowed": true, "todayAllowed": true, "futureAllowed": false }
-  },
-  "description": "Body weight log. Append new entries as { date, kg, notes? }.",
-  "data": [
-    { "date": "2026-04-01", "kg": 91.2 },
-    { "date": "2026-04-14", "kg": 90.8 }
+  "fromWebapp":        true,
+  "todayAllowed":      true,
+  "pastAllowed":       true,
+  "futureAllowed":     false,
+  "maxReadingsPerDay": 1,
+  "inputs": [
+    {
+      "key":         "kg",
+      "type":        "number",
+      "label":       "Weight (kg)",
+      "placeholder": "85.0",
+      "required":    true,
+      "min":         0,
+      "max":         500,
+      "step":        0.1
+    }
   ]
 }
 ```
 
+`maxReadingsPerDay` defaults to `1` (upsert: the new entry replaces the
+existing entry for that date). Values `>1` append and keep the N most
+recent same-day entries.
+
+### Input types
+
+| type | extra fields |
+|------|--------------|
+| `number` | `min`, `max`, `step`, `placeholder` |
+| `text` | `maxLength`, `placeholder` |
+| `textarea` | `rows`, `maxLength`, `placeholder` |
+| `select` | `options: [string]` or `[{value,label}]`, `placeholder` |
+| `emoji-picker` | `emojis: [...]`, `emitIndex: true` |
+| `colour` / `color` | — |
+| `checkbox` | — |
+| `date` | — |
+| `time` | — |
+| `rating` | `min`, `max` (1..5 default) |
+
+All support: `key` (required), `label`, `required`, `default`, `help`.
+
+---
+
+## Built-in renderers
+
+Use one of these names in `meta.view.component` / `meta.trends.component`:
+
+| name | card shape |
+|------|-----------|
+| `generic-card` | Zero-code headline + secondary + input form |
+| `metric-card` | Big number + optional secondary (hand-rolled) |
+| `notes-card` | Freeform text |
+| `schedule-card` | Peptide/medication schedule |
+| `checklist-card` | Daily checklist |
+| `markdown-doc` | Static markdown content |
+| `line-chart` | Trends line chart |
+| `schedule-timeline` | Gantt-style timeline |
+| `table-list` | Tabular data |
+| `adherence-report` | Med adherence summary |
+| `greeting-banner` | Top-of-page greeting |
+
+Unknown renderer names fall back to `eh-unknown-card`, which shows an
+inline warning but keeps the dashboard running.
+
+---
+
+## Data block conventions
+
+Most cards use an array of dated entries:
+
+```json
+"data": [
+  { "date": "2026-04-20", "kg": 85.5 },
+  { "date": "2026-04-21", "kg": 86.0 }
+]
+```
+
+Single-document cards use an object:
+
+```json
+"data": { "markdown": "## Heading\n\nContent..." }
+```
+
+The registry imposes no schema on `data`. Your renderer + your writer must
+agree.
+
+---
+
+## Rules and conventions
+
+1. **Filename = id.** The filename without `.json` should match `meta.id`.
+   This isn't enforced but simplifies debugging.
+2. **Reserved directory.** `$HEALTH_HOME/data/_archive/` is not scanned
+   (reserved for legacy archive migration). Any other subdir is recursed.
+3. **Unique ids.** Two files with the same `meta.id` cause one to win and
+   the other to be logged as an error.
+4. **Legacy compatibility.** Files without `$schema` are silently skipped
+   — they may still be valid flat JSON consumed by legacy integrations.
+5. **Empty data hides the card.** Cards with `data: []` or `data: {}` do
+   not render in views (avoids "ghost" cards). Write a dummy entry or
+   just wait until real data exists.
+
+---
+
 ## Versioning
 
-Breaking schema changes bump to `v2`. Files continue to be loaded by their declared version so old and new can coexist during migration. A migration helper script per transition lives at `scripts/migrate-vN-to-vN+1.js`.
+The only supported schema is `eddzhealth.datafile.v1`. Future breaking
+changes will bump to v2 and ship a migration script.
+
+Non-breaking additions (new optional fields, new input types, new
+renderers) do NOT require a version bump — v1 manifests are
+forward-compatible as long as they don't rely on fields introduced later.
