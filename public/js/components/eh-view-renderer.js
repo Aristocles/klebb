@@ -13,6 +13,9 @@ import './eh-greeting-banner.js';
 import './eh-checklist-card.js';
 import './eh-markdown-doc.js';
 import './eh-line-chart.js';
+import './eh-schedule-timeline.js';
+import './eh-adherence-report.js';
+import './eh-table-list.js';
 
 export class EhViewRenderer extends LitElement {
   static properties = {
