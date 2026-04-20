@@ -1,4 +1,4 @@
-// eh-metric-card.js — single big number + optional secondary + subtitle
+// eh-metric-card.js — single big number + optional secondary + subtitle.
 // Config (meta.view.display):
 //   primary:   "latest.field" | "count" | "sum.field" | "literal:X"
 //   secondary: same pattern (optional)
@@ -6,12 +6,40 @@
 //   unit:      "mmHg" etc.
 //   subtitle:  "Last reading: {date}"    — optional; supports {field} tokens
 //   thresholds: [{ max, colour, label }] — applied to primary value
+//
+// Inline input form (meta.view.inputs):
+//   If meta.view.inputs is a non-empty array of field descriptors, the card
+//   shows an "Edit" link that opens a small inline form. Submitting appends
+//   a new entry to the data array (or replaces today's entry if the schema
+//   is a date-keyed object). Writeable rules gate the Edit link.
+//
+//   Field descriptor shape:
+//     { name, label, type: "number"|"text", required?, min?, max?, placeholder?, step? }
 
 import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
 import { registerRenderer } from '../renderer-registry.js';
 
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 export class EhMetricCard extends EhBaseCard {
+  static properties = {
+    ...EhBaseCard.properties,
+    _editing: { state: true },
+    _draft: { state: true },
+    _saving: { state: true },
+  };
+
+  constructor() {
+    super();
+    this._editing = false;
+    this._draft = {};
+    this._saving = false;
+  }
+
   static styles = [
     EhBaseCard.styles,
     css`
@@ -44,10 +72,173 @@ export class EhMetricCard extends EhBaseCard {
         font-size: 10px;
         font-weight: 600;
       }
+      .edit-link {
+        font-size: 11px;
+        color: var(--accent);
+        cursor: pointer;
+        margin-top: 8px;
+        display: inline-block;
+      }
+      .edit-link:hover { text-decoration: underline; }
+
+      /* Edit form */
+      .form {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .field-row {
+        display: flex;
+        gap: 8px;
+      }
+      .field-row .field { flex: 1; }
+      .field label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .field input, .field textarea {
+        background: var(--bg-input, var(--bg-card));
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 8px;
+        font-family: inherit;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+      .field input:focus, .field textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .field textarea {
+        min-height: 40px;
+        resize: vertical;
+      }
+      .btn-row {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+      button {
+        background: var(--accent);
+        color: var(--bg-card);
+        border: none;
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      button.ghost {
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+      }
+      button[disabled] { opacity: 0.5; cursor: not-allowed; }
+      .err {
+        color: #ff4466;
+        font-size: 11px;
+      }
     `,
   ];
 
+  get _inputs() {
+    const i = this._config?.inputs;
+    return Array.isArray(i) && i.length > 0 ? i : null;
+  }
+
+  get _canEdit() {
+    return !!this._inputs && this._canWrite;
+  }
+
+  _startEdit() {
+    if (!this._canEdit) return;
+    const draft = {};
+    for (const f of this._inputs) draft[f.name] = '';
+    this._draft = draft;
+    this._editing = true;
+  }
+
+  _cancelEdit() {
+    this._editing = false;
+    this._draft = {};
+  }
+
+  _setField(name, value) {
+    this._draft = { ...this._draft, [name]: value };
+  }
+
+  _validate() {
+    for (const f of this._inputs) {
+      const v = this._draft[f.name];
+      if (f.required && (v === '' || v === null || v === undefined)) {
+        return `${f.label || f.name} is required`;
+      }
+      if (f.type === 'number' && v !== '' && v !== null && v !== undefined) {
+        const n = Number(v);
+        if (Number.isNaN(n)) return `${f.label || f.name} must be a number`;
+        if (f.min !== undefined && n < f.min) return `${f.label || f.name} must be ≥ ${f.min}`;
+        if (f.max !== undefined && n > f.max) return `${f.label || f.name} must be ≤ ${f.max}`;
+      }
+    }
+    return null;
+  }
+
+  async _saveEntry() {
+    const err = this._validate();
+    if (err) { this.error = err; return; }
+    this._saving = true;
+    try {
+      // Build the new entry. Coerce numbers; preserve text.
+      const entry = { date: this.date };
+      for (const f of this._inputs) {
+        let v = this._draft[f.name];
+        if (v === '' || v === null || v === undefined) continue;
+        if (f.type === 'number') v = Number(v);
+        entry[f.name] = v;
+      }
+      entry.loggedAt = new Date().toISOString();
+
+      // Decide how to merge: array-append for arrays, date-keyed for objects.
+      let newData;
+      if (Array.isArray(this.data)) {
+        newData = [...this.data, entry];
+      } else if (this.data && typeof this.data === 'object' && !Array.isArray(this.data)) {
+        newData = { ...this.data, [this.date]: entry };
+      } else {
+        newData = [entry];
+      }
+
+      const res = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: newData }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      this.data = newData;
+      this._editing = false;
+      this._draft = {};
+      this.error = null;
+    } catch (e) {
+      this.error = e.message;
+    } finally {
+      this._saving = false;
+    }
+  }
+
   renderCard() {
+    if (this._editing) return this._renderForm();
+
     const cfg = this._config;
     const disp = cfg.display || {};
 
@@ -64,9 +255,7 @@ export class EhMetricCard extends EhBaseCard {
       });
     }
 
-    // threshold lookup
     const thresh = this._findThreshold(Number(primary), disp.thresholds || []);
-
     const subtitle = disp.subtitle ? this._interpolate(disp.subtitle) : null;
 
     return html`
@@ -77,13 +266,64 @@ export class EhMetricCard extends EhBaseCard {
         ${thresh ? html`<span class="threshold-chip" style="background:${thresh.colour}22;color:${thresh.colour}">${thresh.label}</span>` : ''}
       </div>
       ${subtitle ? html`<div class="subtitle">${subtitle}</div>` : ''}
+      ${this._canEdit ? html`<span class="edit-link" @click=${this._startEdit}>＋ Add reading</span>` : ''}
+    `;
+  }
+
+  _renderForm() {
+    const inputs = this._inputs;
+    const twoCol = inputs.length === 2 && inputs.every(f => f.type === 'number');
+    return html`
+      <div class="form">
+        ${twoCol
+          ? html`
+              <div class="field-row">
+                ${inputs.map(f => this._renderField(f))}
+              </div>
+            `
+          : inputs.map(f => this._renderField(f))}
+        ${this.error ? html`<div class="err">${this.error}</div>` : ''}
+        <div class="btn-row">
+          <button class="ghost" @click=${this._cancelEdit} ?disabled=${this._saving}>Cancel</button>
+          <button @click=${this._saveEntry} ?disabled=${this._saving}>
+            ${this._saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderField(f) {
+    const val = this._draft[f.name] ?? '';
+    return html`
+      <div class="field">
+        <label>${f.label || f.name}</label>
+        ${f.type === 'text' && (f.multiline || (f.placeholder && f.placeholder.length > 40))
+          ? html`
+              <textarea
+                placeholder=${f.placeholder || ''}
+                .value=${val}
+                @input=${e => this._setField(f.name, e.target.value)}
+              ></textarea>
+            `
+          : html`
+              <input
+                type=${f.type === 'number' ? 'number' : 'text'}
+                placeholder=${f.placeholder || ''}
+                min=${f.min ?? ''}
+                max=${f.max ?? ''}
+                step=${f.step ?? (f.type === 'number' ? '1' : '')}
+                .value=${val}
+                @input=${e => this._setField(f.name, e.target.value)}
+              />
+            `}
+      </div>
     `;
   }
 
   _latestRecord() {
     const d = this.data;
     if (!Array.isArray(d) || d.length === 0) return null;
-    // If entries have a date field, return the max by date
     if (d[0]?.date) {
       return d.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
     }
@@ -123,6 +363,5 @@ export class EhMetricCard extends EhBaseCard {
 }
 customElements.define('eh-metric-card', EhMetricCard);
 registerRenderer('metric-card', 'eh-metric-card');
-// metric-card-with-input is a superset; register an alias for now (input form lands in M3b).
 registerRenderer('metric-card-with-input', 'eh-metric-card');
 registerRenderer('metric-card-with-sparkline', 'eh-metric-card');
