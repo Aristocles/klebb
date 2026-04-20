@@ -140,7 +140,13 @@ function reload() {
 function list() {
   const arr = [];
   for (const [id, entry] of _entries) {
-    arr.push({ id, meta: entry.meta, description: entry.description, hasData: entry.data !== null });
+    arr.push({
+      id,
+      meta: entry.meta,
+      description: entry.description,
+      hasData: entry.data !== null,
+      enabled: entry.meta.enabled !== false,
+    });
   }
   // Sort by meta.order asc, then label
   arr.sort((a, b) => {
@@ -187,10 +193,38 @@ function writeData(id, newData) {
   return true;
 }
 
-// Has a card opted into a particular view?
+// Has a card opted into a particular view? Respects the master meta.enabled
+// switch (when explicitly set to false, card is hidden everywhere).
 function isEnabledIn(entry, viewName) {
+  // Master disable: meta.enabled: false hides the card from ALL views.
+  // Absent or true: fall through to per-view enabled check.
+  if (entry.meta.enabled === false) return false;
   const v = entry.meta[viewName];
   return !!(v && v.enabled === true && v.component);
+}
+
+// Is the card master-enabled (visible anywhere)? Used for Settings listing.
+function isMasterEnabled(entry) {
+  return entry.meta.enabled !== false;
+}
+
+// Toggle the master meta.enabled flag on a card and persist to disk.
+// Preserves all other meta + data + description. Returns the new state.
+function setMasterEnabled(id, enabled) {
+  const entry = _entries.get(id);
+  if (!entry) throw new Error(`unknown manifest: ${id}`);
+  entry.meta = { ...entry.meta, enabled: !!enabled };
+  const full = {
+    $schema: entry.version,
+    meta: entry.meta,
+  };
+  if (entry.description) full.description = entry.description;
+  if (entry.schema) full.schema = entry.schema;
+  if (entry.data !== null) full.data = entry.data;
+  const tmp = entry.source + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(full, null, 2));
+  fs.renameSync(tmp, entry.source);
+  return !!enabled;
 }
 
 // Filter for a specific view, returning shape the frontend can consume directly.
@@ -240,4 +274,6 @@ module.exports = {
   data,
   writeData,
   errors,
+  isMasterEnabled,
+  setMasterEnabled,
 };

@@ -8,7 +8,6 @@ const { isAuthenticated, isPublicPath, handleAuthRoutes, isSetup } = require('./
 const PATHS = require('./config/paths');
 const ENV = require('./config/env');
 const registry = require('./manifests/registry');
-const wizard = require('./setup/wizard');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 
@@ -407,86 +406,46 @@ const server = http.createServer(async (req, res) => {
 
     // === End manifest endpoints ===
 
-    // === Setup wizard + Settings endpoints ===
+    // === Settings endpoints ===
+    //
+    // No install/wizard. Files in $HEALTH_HOME/data/ are the source of truth.
+    // Settings just lists them and provides per-card master enable/disable
+    // (flips meta.enabled in the file).
 
-    // GET /api/setup — is this a first-run, and what options are available?
-    if (parts[0] === 'setup' && parts.length === 1 && req.method === 'GET') {
-      return sendJSON(res, {
-        firstRun: wizard.isFirstRun(),
-        options: wizard.listOptions(),
-      });
-    }
-
-    // POST /api/setup/install — body: { ids: [...] } — materialise chosen files
-    if (parts[0] === 'setup' && parts[1] === 'install' && parts.length === 2 && req.method === 'POST') {
-      let body = '';
-      req.on('data', c => body += c);
-      req.on('end', () => {
-        try {
-          const { ids } = JSON.parse(body || '{}');
-          if (!Array.isArray(ids)) return sendJSON(res, { error: 'ids[] required' }, 400);
-          const result = wizard.installSelected(ids);
-          try { registry.reload(); } catch {}
-          return sendJSON(res, result);
-        } catch (e) {
-          return sendJSON(res, { error: e.message }, 400);
-        }
-      });
-      return;
-    }
-
-    // GET /api/settings/cards — list cards with enabled state + archive status
+    // GET /api/settings/cards — list all discovered cards with enabled state
     if (parts[0] === 'settings' && parts[1] === 'cards' && parts.length === 2 && req.method === 'GET') {
-      const cards = registry.list().map(c => ({ id: c.id, label: c.meta.label, emoji: c.meta.emoji || null, hasData: c.hasData }));
-      // Also include archived cards
-      let archived = [];
-      try {
-        const archiveDir = PATHS.ARCHIVE_DIR;
-        if (fs.existsSync(archiveDir)) {
-          const items = fs.readdirSync(archiveDir).filter(f => f.endsWith('.json'));
-          archived = items.map(f => ({ file: f }));
-        }
-      } catch {}
-      return sendJSON(res, { active: cards, archived });
+      const cards = registry.list().map(c => ({
+        id: c.id,
+        label: c.meta.label,
+        emoji: c.meta.emoji || null,
+        description: c.description || null,
+        enabled: c.enabled,
+        hasData: c.hasData,
+      }));
+      return sendJSON(res, { cards });
     }
 
-    // POST /api/settings/cards/:id/archive — archive the card (moves to _archive/)
-    if (parts[0] === 'settings' && parts[1] === 'cards' && parts.length === 4 && parts[3] === 'archive' && req.method === 'POST') {
+    // POST /api/settings/cards/:id/enable — set meta.enabled: true
+    if (parts[0] === 'settings' && parts[1] === 'cards' && parts.length === 4 && parts[3] === 'enable' && req.method === 'POST') {
       try {
-        const entry = registry.get(parts[2]);
-        if (!entry) return send404(res, 'card not found');
-        const src = path.join(DATA_DIR, `${parts[2]}.json`);
-        const archiveDir = PATHS.ARCHIVE_DIR;
-        fs.mkdirSync(archiveDir, { recursive: true });
-        const stamp = new Date().toISOString().slice(0, 10);
-        const dst = path.join(archiveDir, `${parts[2]}.${stamp}.json`);
-        fs.renameSync(src, dst);
-        registry.reload();
-        return sendJSON(res, { ok: true, archivedTo: path.basename(dst) });
+        registry.setMasterEnabled(parts[2], true);
+        return sendJSON(res, { ok: true, enabled: true });
       } catch (e) {
-        return sendJSON(res, { error: e.message }, 500);
+        return sendJSON(res, { error: e.message }, e.message.includes('unknown') ? 404 : 500);
       }
     }
 
-    // POST /api/settings/cards/:id/restore?file=archived-filename — pull from archive
-    if (parts[0] === 'settings' && parts[1] === 'cards' && parts.length === 4 && parts[3] === 'restore' && req.method === 'POST') {
+    // POST /api/settings/cards/:id/disable — set meta.enabled: false
+    if (parts[0] === 'settings' && parts[1] === 'cards' && parts.length === 4 && parts[3] === 'disable' && req.method === 'POST') {
       try {
-        const fileParam = url.searchParams.get('file');
-        if (!fileParam) return sendJSON(res, { error: 'file query param required' }, 400);
-        const src = path.join(PATHS.ARCHIVE_DIR, fileParam);
-        if (!src.startsWith(PATHS.ARCHIVE_DIR)) return sendJSON(res, { error: 'invalid file' }, 400);
-        if (!fs.existsSync(src)) return send404(res, 'archived file not found');
-        const dst = path.join(DATA_DIR, `${parts[2]}.json`);
-        if (fs.existsSync(dst)) return sendJSON(res, { error: 'card already active' }, 409);
-        fs.renameSync(src, dst);
-        registry.reload();
-        return sendJSON(res, { ok: true });
+        registry.setMasterEnabled(parts[2], false);
+        return sendJSON(res, { ok: true, enabled: false });
       } catch (e) {
-        return sendJSON(res, { error: e.message }, 500);
+        return sendJSON(res, { error: e.message }, e.message.includes('unknown') ? 404 : 500);
       }
     }
 
-    // === End setup + settings endpoints ===
+    // === End settings endpoints ===
 
     // Simple JSON file endpoints
     const simpleFiles = {
