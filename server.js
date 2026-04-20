@@ -883,7 +883,10 @@ Original system prompt follows:
             agent: false, // disable keep-alive — stale pooled connections hang on self-signed gateways
           };
 
-          const proxyReq = https.request(options, (proxyRes) => {
+          // Pick http or https based on CHAT_GATEWAY_TLS. Chuck's Onyx is plain HTTP
+          // on 127.0.0.1:4100; Eddy's Axis is HTTPS with self-signed on :18789.
+          const transport = ENV.CHAT_GATEWAY_TLS ? https : http;
+          const proxyReq = transport.request(options, (proxyRes) => {
             let data = '';
             proxyRes.on('data', c => data += c);
             proxyRes.on('end', () => {
