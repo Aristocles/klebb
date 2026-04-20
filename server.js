@@ -3,7 +3,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { marked } = require('marked');
-const { execSync } = require('child_process');
+const { execSync, spawn } = require('child_process');
 const { isAuthenticated, isPublicPath, handleAuthRoutes, isSetup } = require('./auth/webauthn');
 const PATHS = require('./config/paths');
 const ENV = require('./config/env');
@@ -117,6 +117,36 @@ function getWeightRange(start, end) {
   const arr = (weights && weights.$schema === 'eddzhealth.datafile.v1') ? weights.data : weights;
   if (!Array.isArray(arr)) return [];
   return arr.filter(w => w.date >= start && w.date <= end);
+}
+
+// Pipe a buffer of any audio into ffmpeg and get mp3 back on stdout.
+// Used for iOS Safari / AAC inputs that Fish ASR rejects.
+function transcodeToMp3(inputBuf) {
+  return new Promise((resolve, reject) => {
+    const ff = spawn('ffmpeg', [
+      '-loglevel', 'error',
+      '-i', 'pipe:0',
+      '-vn',                        // no video
+      '-acodec', 'libmp3lame',
+      '-ab', '64k',
+      '-ac', '1',                   // mono is plenty for speech
+      '-ar', '16000',               // 16kHz is plenty for speech ASR
+      '-f', 'mp3',
+      'pipe:1',
+    ], { stdio: ['pipe', 'pipe', 'pipe'] });
+
+    const outChunks = [];
+    let stderr = '';
+    ff.stdout.on('data', c => outChunks.push(c));
+    ff.stderr.on('data', c => stderr += c.toString());
+    ff.on('error', reject);
+    ff.on('close', code => {
+      if (code !== 0) return reject(new Error(`ffmpeg exit ${code}: ${stderr.slice(0, 300)}`));
+      resolve(Buffer.concat(outChunks));
+    });
+    ff.stdin.on('error', () => {}); // ignore EPIPE if ffmpeg dies early
+    ff.stdin.end(inputBuf);
+  });
 }
 
 // Synthesise the legacy injection-log.json shape { 'YYYY-MM-DD': { 'PeptideName': { taken: true, time: ISO } } }
@@ -865,8 +895,29 @@ print(json.dumps(results))
       });
       req.on('end', async () => {
         try {
-          const audio = Buffer.concat(chunks);
+          let audio = Buffer.concat(chunks);
           if (audio.length === 0) return sendJSON(res, { error: 'empty audio' }, 400);
+
+          // Fish ASR is fussy about input codec (accepts mp3/wav cleanly; rejects
+          // mp4/aac from iOS Safari and webm/opus from Chrome). Simplest path:
+          // normalise everything to mp3 with ffmpeg. Only skip if the body looks
+          // like a plain mp3 already.
+          const incomingType = (req.headers['content-type'] || '').toLowerCase();
+          const isMp3 =
+            incomingType.includes('mpeg') ||
+            incomingType === 'audio/mp3' ||
+            (audio.length >= 3 && audio[0] === 0xff && (audio[1] & 0xe0) === 0xe0) || // MPEG sync
+            (audio.length >= 3 && audio.slice(0, 3).toString() === 'ID3');             // ID3 tag
+
+          if (!isMp3) {
+            try {
+              audio = await transcodeToMp3(audio);
+            } catch (tErr) {
+              console.error('[voice] ffmpeg transcode failed:', tErr.message);
+              return sendJSON(res, { error: 'audio transcode failed: ' + tErr.message }, 500);
+            }
+          }
+
           const { text, duration } = await voice.asr({ audio, language: 'en' });
           return sendJSON(res, { text, duration });
         } catch (e) {
