@@ -161,10 +161,29 @@ export class EhMetricCard extends EhBaseCard {
     return !!this._inputs && this._canWrite;
   }
 
+  // "per-date" (default): upsert by date — one entry per day, editing
+  // the existing one if it exists.
+  // "append": accumulate entries, no deduplication (old behaviour).
+  get _entryMode() {
+    return this._config?.entryMode || 'per-date';
+  }
+
+  // Find the existing entry for the viewed date (array shape only).
+  // Returns { entry, index } or null.
+  _existingForDate() {
+    if (!Array.isArray(this.data)) return null;
+    const idx = this.data.findIndex(e => e.date === this.date);
+    return idx >= 0 ? { entry: this.data[idx], index: idx } : null;
+  }
+
   _startEdit() {
     if (!this._canEdit) return;
     const draft = {};
-    for (const f of this._inputs) draft[f.name] = '';
+    // Pre-fill from the existing entry for this date (if any, in per-date mode)
+    const existing = this._entryMode === 'per-date' ? this._existingForDate() : null;
+    for (const f of this._inputs) {
+      draft[f.name] = existing?.entry?.[f.name] ?? '';
+    }
     this._draft = draft;
     this._editing = true;
   }
@@ -209,11 +228,25 @@ export class EhMetricCard extends EhBaseCard {
       }
       entry.loggedAt = new Date().toISOString();
 
-      // Decide how to merge: array-append for arrays, date-keyed for objects.
+      // Decide how to merge based on data shape + entry mode.
       let newData;
       if (Array.isArray(this.data)) {
-        newData = [...this.data, entry];
+        if (this._entryMode === 'per-date') {
+          // Upsert: replace any existing entry for this date.
+          const idx = this.data.findIndex(e => e.date === this.date);
+          if (idx >= 0) {
+            // Preserve fields the form doesn't touch (e.g. notes logged earlier)
+            const merged = { ...this.data[idx], ...entry };
+            newData = this.data.map((e, i) => i === idx ? merged : e);
+          } else {
+            newData = [...this.data, entry];
+          }
+        } else {
+          // append mode — no dedup
+          newData = [...this.data, entry];
+        }
       } else if (this.data && typeof this.data === 'object' && !Array.isArray(this.data)) {
+        // Date-keyed object — always upsert
         newData = { ...this.data, [this.date]: entry };
       } else {
         newData = [entry];
@@ -266,8 +299,14 @@ export class EhMetricCard extends EhBaseCard {
         ${thresh ? html`<span class="threshold-chip" style="background:${thresh.colour}22;color:${thresh.colour}">${thresh.label}</span>` : ''}
       </div>
       ${subtitle ? html`<div class="subtitle">${subtitle}</div>` : ''}
-      ${this._canEdit ? html`<span class="edit-link" @click=${this._startEdit}>＋ Add reading</span>` : ''}
+      ${this._canEdit ? html`<span class="edit-link" @click=${this._startEdit}>${this._editLinkLabel()}</span>` : ''}
     `;
+  }
+
+  _editLinkLabel() {
+    const hasExisting = this._existingForDate() !== null
+      || (this.data && typeof this.data === 'object' && !Array.isArray(this.data) && this.data[this.date]);
+    return hasExisting ? 'Edit' : 'Add';
   }
 
   _renderForm() {
