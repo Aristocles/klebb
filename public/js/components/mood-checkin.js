@@ -295,7 +295,7 @@ class MoodCheckin extends LitElement {
     return html`
       <div class="overlay">
         <div class="modal">
-          <div class="greeting">${this._getGreeting()}, Eddy</div>
+          <div class="greeting">${this._getGreeting()}</div>
           <div class="question">How are you feeling?</div>
           <div class="moods">
             ${MoodCheckin.MOODS.map(m => html`
