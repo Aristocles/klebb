@@ -12,7 +12,6 @@ import './components/eh-calendar-view.js';    // /calendar
 import './components/eh-trends-view.js';      // /trends
 import './components/eh-reports-view.js';     // /reports
 import './components/eh-settings-view.js';    // /settings
-import './components/eh-setup-wizard.js';     // /setup
 
 // Shared widgets
 import './components/health-chat.js';
@@ -91,9 +90,6 @@ class HealthApp extends LitElement {
     } else if (path === '/settings') {
       this.route = 'settings';
       this.showNav = true;
-    } else if (path === '/setup') {
-      this.route = 'setup';
-      this.showNav = false;
     } else {
       this.route = 'today';
       this.showNav = true;
@@ -200,7 +196,6 @@ class HealthApp extends LitElement {
         ${this.route === 'trends' ? html`<eh-trends-view></eh-trends-view>` : ''}
         ${this.route === 'reports' ? html`<eh-reports-view></eh-reports-view>` : ''}
         ${this.route === 'settings' ? html`<eh-settings-view></eh-settings-view>` : ''}
-        ${this.route === 'setup' ? html`<eh-setup-wizard></eh-setup-wizard>` : ''}
       </main>
       <health-chat></health-chat>
       <mood-checkin></mood-checkin>

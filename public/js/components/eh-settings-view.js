@@ -1,41 +1,27 @@
 // public/js/components/eh-settings-view.js
-// Settings view for v2.
+// Settings view (v2, post-Phase-0).
 //
-// Shows a unified checklist of ALL known card types:
-//   - Checkbox state reflects the live installed state (file exists in $HEALTH_HOME/data/).
-//   - Check a box + Save → install the card if missing (copies from data.example/).
-//   - Uncheck a box + Save → archive the card (moves to data/_archive/).
-//   - Cards discovered in data/ that aren't in the catalog are shown at the bottom
-//     (read-only; user can still archive them via a chip).
-//
-// Also shows archived cards with a one-click restore button.
+// Shows every card discovered in $HEALTH_HOME/data/ with a master enable/disable
+// toggle. Toggling flips meta.enabled inside the file — no moving files, no
+// archive dir. To remove a card entirely, delete the file (via chat/shell).
+// To add a card, drop a valid manifest file into $HEALTH_HOME/data/ — see CARDS.md.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 
 export class EhSettingsView extends LitElement {
   static properties = {
-    _catalog: { state: true },       // [{ id, label, blurb }] from /api/setup
-    _active: { state: true },        // Set<id> currently installed
-    _archived: { state: true },      // [{ file }]
-    _selected: { state: true },      // Set<id> user's desired state
-    _extraActive: { state: true },   // cards in active but not in catalog
+    _cards: { state: true },
     _loading: { state: true },
-    _saving: { state: true },
     _error: { state: true },
-    _saved: { state: true },
+    _busyId: { state: true },
   };
 
   constructor() {
     super();
-    this._catalog = [];
-    this._active = new Set();
-    this._archived = [];
-    this._selected = new Set();
-    this._extraActive = [];
+    this._cards = [];
     this._loading = true;
-    this._saving = false;
     this._error = null;
-    this._saved = false;
+    this._busyId = null;
   }
 
   connectedCallback() {
@@ -47,27 +33,10 @@ export class EhSettingsView extends LitElement {
     this._loading = true;
     this._error = null;
     try {
-      const [setupRes, cardsRes] = await Promise.all([
-        fetch('/api/setup'),
-        fetch('/api/settings/cards'),
-      ]);
-      if (!setupRes.ok) throw new Error(`/api/setup HTTP ${setupRes.status}`);
-      if (!cardsRes.ok) throw new Error(`/api/settings/cards HTTP ${cardsRes.status}`);
-      const setup = await setupRes.json();
-      const cards = await cardsRes.json();
-
-      this._catalog = setup.options || [];
-      this._active = new Set((cards.active || []).map(c => c.id));
-      this._archived = cards.archived || [];
-
-      // Cards installed but not in the wizard catalog (manually added by Onyx,
-      // migrated from legacy, etc). Show them separately so the user still has
-      // a way to archive them.
-      const catalogIds = new Set(this._catalog.map(c => c.id));
-      this._extraActive = (cards.active || []).filter(c => !catalogIds.has(c.id));
-
-      // Initial selection = currently installed
-      this._selected = new Set(this._active);
+      const r = await fetch('/api/settings/cards');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const { cards } = await r.json();
+      this._cards = Array.isArray(cards) ? cards : [];
     } catch (e) {
       this._error = e.message;
     } finally {
@@ -75,79 +44,23 @@ export class EhSettingsView extends LitElement {
     }
   }
 
-  _toggle(id) {
-    if (this._selected.has(id)) this._selected.delete(id);
-    else this._selected.add(id);
-    this._saved = false;
-    this.requestUpdate();
-  }
-
-  _hasChanges() {
-    if (this._selected.size !== this._active.size) return true;
-    for (const id of this._selected) if (!this._active.has(id)) return true;
-    return false;
-  }
-
-  _diff() {
-    const toInstall = [];
-    const toArchive = [];
-    for (const id of this._selected) if (!this._active.has(id)) toInstall.push(id);
-    for (const id of this._active) if (!this._selected.has(id)) toArchive.push(id);
-    return { toInstall, toArchive };
-  }
-
-  async _save() {
-    const { toInstall, toArchive } = this._diff();
-    if (toInstall.length === 0 && toArchive.length === 0) return;
-    this._saving = true;
+  async _toggle(card) {
+    this._busyId = card.id;
     this._error = null;
-    this._saved = false;
     try {
-      if (toInstall.length > 0) {
-        const r = await fetch('/api/setup/install', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: toInstall }),
-        });
-        if (!r.ok) throw new Error(`install HTTP ${r.status}`);
-      }
-      for (const id of toArchive) {
-        const r = await fetch(`/api/settings/cards/${encodeURIComponent(id)}/archive`, { method: 'POST' });
-        if (!r.ok) throw new Error(`archive ${id}: HTTP ${r.status}`);
-      }
-      this._saved = true;
+      const action = card.enabled ? 'disable' : 'enable';
+      const r = await fetch(`/api/settings/cards/${encodeURIComponent(card.id)}/${action}`, { method: 'POST' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       await this._load();
     } catch (e) {
       this._error = e.message;
     } finally {
-      this._saving = false;
-    }
-  }
-
-  async _archiveExtra(id) {
-    if (!confirm(`Archive "${id}"?`)) return;
-    try {
-      const r = await fetch(`/api/settings/cards/${encodeURIComponent(id)}/archive`, { method: 'POST' });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      await this._load();
-    } catch (e) {
-      this._error = e.message;
-    }
-  }
-
-  async _restore(file) {
-    const id = file.split('.')[0];
-    try {
-      const r = await fetch(`/api/settings/cards/${encodeURIComponent(id)}/restore?file=${encodeURIComponent(file)}`, { method: 'POST' });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      await this._load();
-    } catch (e) {
-      this._error = e.message;
+      this._busyId = null;
     }
   }
 
   static styles = css`
-    :host { display: block; max-width: 560px; margin: 0 auto; }
+    :host { display: block; max-width: 640px; margin: 0 auto; }
     h2 {
       font-size: 1.2rem;
       color: var(--text-primary);
@@ -157,181 +70,134 @@ export class EhSettingsView extends LitElement {
       color: var(--text-secondary);
       font-size: 13px;
       margin-bottom: 16px;
+      line-height: 1.5;
     }
-    .option {
+    .lede a {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+    .card {
       display: flex;
-      align-items: flex-start;
-      gap: 12px;
+      align-items: center;
+      gap: 14px;
       padding: 12px 14px;
       border: 1px solid var(--border);
       border-radius: 10px;
       margin-bottom: 8px;
-      cursor: pointer;
-      transition: border-color 0.15s;
+      background: var(--bg-card);
     }
-    .option:hover { border-color: var(--accent); }
-    .option.selected {
-      border-color: var(--accent);
-      background: var(--accent-bg, rgba(14,165,233,0.06));
-    }
-    .check {
-      width: 18px;
-      height: 18px;
-      border: 2px solid var(--border);
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      margin-top: 2px;
-      color: var(--bg-card);
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .option.selected .check {
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-    .option.selected .check::before { content: '✓'; }
-    .option-label {
+    .card.disabled { opacity: 0.55; }
+    .card-main { flex: 1; min-width: 0; }
+    .card-title {
       font-size: 14px;
       font-weight: 600;
       color: var(--text-primary);
     }
-    .option-blurb {
+    .card-sub {
       font-size: 12px;
       color: var(--text-secondary);
       margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    .badge {
-      display: inline-block;
+    .id {
+      font-family: ui-monospace, monospace;
       font-size: 10px;
-      font-weight: 600;
-      padding: 1px 6px;
-      border-radius: 8px;
-      margin-left: 6px;
-      vertical-align: middle;
-    }
-    .badge.installed {
-      background: var(--accent-bg, rgba(14,165,233,0.15));
-      color: var(--accent);
-    }
-    .actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      justify-content: flex-end;
-      margin-top: 18px;
-    }
-    button {
-      background: var(--accent);
-      color: var(--bg-card);
-      border: none;
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    button.ghost {
-      background: transparent;
-      color: var(--text-secondary);
-      border: 1px solid var(--border);
-    }
-    button.ghost:hover { border-color: var(--accent); color: var(--accent); }
-    button[disabled] { opacity: 0.5; cursor: not-allowed; }
-    .saved-msg { color: var(--accent); font-size: 12px; }
-    .error { color: #ff4466; font-size: 12px; padding: 8px 0; }
-    .extra-row, .archived-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 6px;
-    }
-    .extra-label { font-size: 13px; color: var(--text-primary); }
-    .archived-file { font-family: monospace; font-size: 11px; color: var(--text-muted, var(--text-secondary)); }
-    .subtle {
-      font-size: 11px;
       color: var(--text-muted, var(--text-secondary));
-      margin-top: 4px;
+      opacity: 0.6;
+      margin-left: 6px;
+    }
+    .toggle {
+      appearance: none;
+      width: 44px;
+      height: 24px;
+      border-radius: 12px;
+      background: var(--border);
+      position: relative;
+      cursor: pointer;
+      border: none;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      transition: transform 0.15s;
+    }
+    .toggle[aria-pressed="true"] {
+      background: var(--accent);
+    }
+    .toggle[aria-pressed="true"]::after {
+      transform: translateX(20px);
+    }
+    .toggle[disabled] { opacity: 0.5; cursor: wait; }
+    .empty {
+      padding: 24px;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+    }
+    .empty code {
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      background: var(--bg-muted, rgba(255,255,255,0.04));
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .error { color: #ff4466; font-size: 12px; padding: 8px 0; }
+    .docs-link {
+      display: inline-block;
+      margin-top: 18px;
+      font-size: 12px;
+      color: var(--text-secondary);
     }
   `;
 
   render() {
     if (this._loading) return html`<div class="lede">Loading…</div>`;
-    const hasChanges = this._hasChanges();
-    const { toInstall, toArchive } = this._diff();
 
     return html`
       <h2>Cards</h2>
       <div class="lede">
-        Tick the cards you want on your dashboard. Untick to archive; archived
-        cards can be restored below without losing data.
+        Every card is a file in <code>$HEALTH_HOME/data/</code>. Toggle off to
+        hide a card (keeps the data); delete the file to remove it entirely.
+        <a href="https://github.com/makeitbreakitfixit/eddzhealth/blob/main/docs/CARDS.md" target="_blank" rel="noopener">How to add a card →</a>
       </div>
 
-      ${this._catalog.map(opt => {
-        const selected = this._selected.has(opt.id);
-        const installed = this._active.has(opt.id);
-        return html`
-          <div
-            class="option ${selected ? 'selected' : ''}"
-            @click=${() => this._toggle(opt.id)}
-          >
-            <div class="check"></div>
-            <div style="flex:1; min-width:0;">
-              <div class="option-label">
-                ${opt.label}
-                ${installed ? html`<span class="badge installed">Installed</span>` : ''}
-              </div>
-              <div class="option-blurb">${opt.blurb}</div>
+      ${this._cards.length === 0 ? html`
+        <div class="empty">
+          No cards yet. Drop a manifest file into <code>$HEALTH_HOME/data/</code>
+          or ask the chat agent to create one.
+        </div>
+      ` : this._cards.map(c => html`
+        <div class="card ${c.enabled ? '' : 'disabled'}">
+          <div class="card-main">
+            <div class="card-title">
+              ${c.emoji || ''} ${c.label || c.id}
+              <span class="id">${c.id}</span>
             </div>
+            ${c.description ? html`<div class="card-sub">${c.description}</div>` : ''}
           </div>
-        `;
-      })}
+          <button
+            class="toggle"
+            aria-pressed="${c.enabled}"
+            aria-label="${c.enabled ? 'Disable' : 'Enable'} ${c.label || c.id}"
+            ?disabled=${this._busyId === c.id}
+            @click=${() => this._toggle(c)}
+          ></button>
+        </div>
+      `)}
 
-      <div class="actions">
-        ${this._saved && !hasChanges ? html`<span class="saved-msg">✓ Saved</span>` : ''}
-        <button
-          class="ghost"
-          @click=${() => { this._selected = new Set(this._active); this._saved = false; this.requestUpdate(); }}
-          ?disabled=${!hasChanges || this._saving}
-        >Reset</button>
-        <button
-          @click=${this._save}
-          ?disabled=${!hasChanges || this._saving}
-          title="${toInstall.length} to add, ${toArchive.length} to archive"
-        >${this._saving
-          ? 'Saving…'
-          : hasChanges
-            ? `Save (${toInstall.length} add, ${toArchive.length} archive)`
-            : 'No changes'}</button>
-      </div>
       ${this._error ? html`<div class="error">${this._error}</div>` : ''}
-
-      ${this._extraActive.length > 0 ? html`
-        <h2>Other installed cards</h2>
-        <div class="lede">Cards not in the standard catalog (added manually or by an AI integration).</div>
-        ${this._extraActive.map(c => html`
-          <div class="extra-row">
-            <div class="extra-label">${c.emoji || ''} ${c.label || c.id}</div>
-            <button class="ghost" @click=${() => this._archiveExtra(c.id)}>Archive</button>
-          </div>
-        `)}
-      ` : ''}
-
-      ${this._archived.length > 0 ? html`
-        <h2>Archived</h2>
-        ${this._archived.map(a => html`
-          <div class="archived-row">
-            <div class="archived-file">${a.file}</div>
-            <button class="ghost" @click=${() => this._restore(a.file)}>Restore</button>
-          </div>
-        `)}
-      ` : ''}
     `;
   }
 }
