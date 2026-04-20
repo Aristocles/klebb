@@ -163,6 +163,16 @@ async function ttsStream({ text, voiceId, format = 'mp3' }) {
   });
 }
 
+// Buffered TTS — consumes the whole Fish response into a single Buffer.
+// Needed for serving with Content-Length + Range support (required for
+// iOS auto-play). Returns { buffer, contentType }.
+async function ttsBuffer({ text, voiceId, format = 'mp3' }) {
+  const { stream, contentType } = await ttsStream({ text, voiceId, format });
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return { buffer: Buffer.concat(chunks), contentType };
+}
+
 // --- ASR ---
 // Fish's /v1/asr expects a MessagePack-encoded body: { audio: Buffer, language?, ignore_timestamps? }
 // We don't have msgpack in stdlib, so we implement a minimal encoder for this one shape.
@@ -242,6 +252,7 @@ async function asr({ audio, language }) {
 module.exports = {
   getStatus,
   ttsStream,
+  ttsBuffer,
   asr,
   getCurrentBackend,
   fetchCredit,
