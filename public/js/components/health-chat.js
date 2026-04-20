@@ -86,6 +86,8 @@ class HealthChat extends LitElement {
     _recordingStarted: { state: true },
     _playbackSpeed: { state: true },
     _playingMsgId: { state: true },
+    _agentName: { state: true },
+    _agentEmoji: { state: true },
   };
 
   static styles = css`
@@ -395,7 +397,10 @@ class HealthChat extends LitElement {
     this._msgCounter = 0;
     // msgId -> { url, autoplayed }
     this._audioCache = new Map();
+    this._agentName = 'Axis';
+    this._agentEmoji = '\u26A1';
     this._checkVoiceAvailability();
+    this._loadInstance();
     this._stallWatcher();
   }
 
@@ -405,6 +410,19 @@ class HealthChat extends LitElement {
       if (r.ok) {
         const s = await r.json();
         this._voiceAvailable = !!s.enabled;
+      }
+    } catch {}
+  }
+
+  async _loadInstance() {
+    try {
+      const r = await fetch('/api/instance');
+      if (r.ok) {
+        const j = await r.json();
+        if (j.chatAgent) {
+          if (j.chatAgent.name) this._agentName = j.chatAgent.name;
+          if (j.chatAgent.emoji) this._agentEmoji = j.chatAgent.emoji;
+        }
       }
     } catch {}
   }
@@ -803,8 +821,8 @@ class HealthChat extends LitElement {
       ${this._open ? html`
         <div class="chat-panel">
           <div class="chat-header">
-            <span class="chat-header-icon">\u26A1</span>
-            <span class="chat-header-text">Axis</span>
+            <span class="chat-header-icon">${this._agentEmoji}</span>
+            <span class="chat-header-text">${this._agentName}</span>
             ${this._voiceAvailable ? html`
               <button class="speed-btn" @click=${this._cyclePlaybackSpeed} title="Playback speed">${this._playbackSpeed}x</button>
             ` : html`<span class="chat-header-sub">Health Assistant</span>`}
