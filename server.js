@@ -10,6 +10,7 @@ const ENV = require('./config/env');
 const registry = require('./manifests/registry');
 const wizard = require('./setup/wizard');
 const voice = require('./voice/fish');
+const voiceCache = require('./voice/cache');
 
 // OpenClaw gateway config (now env-driven; defaults preserve existing Axis behaviour)
 const OPENCLAW_HOST = ENV.OPENCLAW_HOST;
@@ -119,19 +120,19 @@ function getWeightRange(start, end) {
   return arr.filter(w => w.date >= start && w.date <= end);
 }
 
-// Pipe a buffer of any audio into ffmpeg and get mp3 back on stdout.
-// Used for iOS Safari / AAC inputs that Fish ASR rejects.
-function transcodeToMp3(inputBuf) {
+// Pipe a buffer of any audio into ffmpeg and get 16kHz mono 16-bit WAV back
+// on stdout. This is the format Fish ASR accepts most reliably (advertised
+// opus/mp4 support both reject in practice).
+function transcodeToWav(inputBuf) {
   return new Promise((resolve, reject) => {
     const ff = spawn('ffmpeg', [
       '-loglevel', 'error',
       '-i', 'pipe:0',
       '-vn',                        // no video
-      '-acodec', 'libmp3lame',
-      '-ab', '64k',
-      '-ac', '1',                   // mono is plenty for speech
-      '-ar', '16000',               // 16kHz is plenty for speech ASR
-      '-f', 'mp3',
+      '-ac', '1',                   // mono
+      '-ar', '16000',               // 16 kHz
+      '-sample_fmt', 's16',         // 16-bit
+      '-f', 'wav',
       'pipe:1',
     ], { stdio: ['pipe', 'pipe', 'pipe'] });
 
@@ -147,6 +148,49 @@ function transcodeToMp3(inputBuf) {
     ff.stdin.on('error', () => {}); // ignore EPIPE if ffmpeg dies early
     ff.stdin.end(inputBuf);
   });
+}
+
+// Extract a { speak, display } JSON object from a model's raw reply.
+// The model is instructed to emit pure JSON, but handle stray text/fences +
+// tool-use intermixing by grabbing the LAST JSON object in the response
+// (that one is always the final answer).
+function extractJsonReply(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  // Strip common markdown fences
+  let s = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  // Try direct parse first (common case: clean JSON reply)
+  try {
+    const obj = JSON.parse(s);
+    if (obj && typeof obj === 'object') return obj;
+  } catch {}
+  // Find all {...} blocks and try each from last to first.
+  // Walk the string and track brace depth to extract balanced objects.
+  const candidates = [];
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (c === '}') {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        candidates.push(s.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+  // Try from last to first (the final answer is usually last)
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    try {
+      const obj = JSON.parse(candidates[i]);
+      if (obj && typeof obj === 'object' && (typeof obj.speak === 'string' || typeof obj.display === 'string')) {
+        return obj;
+      }
+    } catch {}
+  }
+  return null;
 }
 
 // Synthesise the legacy injection-log.json shape { 'YYYY-MM-DD': { 'PeptideName': { taken: true, time: ISO } } }
@@ -779,15 +823,38 @@ print(json.dumps(results))
 
           let systemPrompt = HEALTH_SYSTEM_PROMPT;
           if (voiceMode) {
-            systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Axis'}. ` +
-              `Voice mode is active: your reply will be spoken aloud via TTS, not read on screen. ` +
-              `STRICT RULES for voice mode:\n` +
-              `- Reply in 1-3 short sentences. 40 words MAXIMUM.\n` +
-              `- No bullet points, no markdown, no code, no headings.\n` +
-              `- Speak naturally, like a quick voice note.\n` +
-              `- Spell out abbreviations (BP -> "blood pressure"; HRV -> "heart rate variability").\n` +
-              `- If the answer is long, give the headline + "ask me for details to hear more".\n\n` +
-              HEALTH_SYSTEM_PROMPT;
+            systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Axis'}, a health assistant.
+Voice mode is active: the user is speaking to you and will hear your reply aloud.
+
+OUTPUT FORMAT — MANDATORY:
+Reply with a single JSON object and nothing else. Schema:
+{
+  "speak":   "what should be spoken aloud (plain prose, no markdown, no emoji, no code, no URLs)",
+  "display": "what should appear in the chat bubble (same answer, may include emoji / light markdown / short URLs)"
+}
+
+Voice-reply rules:
+- speak is 1-3 short conversational sentences, 40 words MAX.
+- No bullet points, no markdown, no code blocks, no headings in speak.
+- Spell out abbreviations in speak (BP -> "blood pressure", HRV -> "heart rate variability", kg, lbs).
+- No emoji, no URLs, no file paths in speak.
+- If the answer is long, give the headline in speak + "ask me for details" — never cram.
+
+Conversational allow-list (reply naturally, no disclaimer footer, no "let me check my data"):
+- Thanks / cheers / awesome / nice / good one / ok -> a short friendly ack like "no worries" or "any time".
+- Hi / hey / hello / morning / night -> a matching greeting.
+- Emoji-only or one-word reactions -> a matching short reaction.
+
+NEVER INVENT any of these phrases in either field:
+- "No response from ${process.env.CHAT_AGENT_NAME || 'Axis'}" / "No response from OpenClaw" / similar
+- "Gateway unavailable" / "Loading…" / "Please wait" / anything that reads like a UI state
+- Error-looking lines or apologies for non-errors
+
+Return STRICTLY the JSON object. No leading/trailing text. No markdown fences.
+
+Original system prompt follows:
+
+` + HEALTH_SYSTEM_PROMPT;
           }
 
           // Prepend system prompt
@@ -822,8 +889,23 @@ print(json.dumps(results))
             proxyRes.on('end', () => {
               try {
                 const result = JSON.parse(data);
-                const reply = result.choices?.[0]?.message?.content || 'No response';
-                sendJSON(res, { reply });
+                const rawReply = result.choices?.[0]?.message?.content || '';
+                if (voiceMode) {
+                  // Parse { speak, display } JSON. The model is instructed to
+                  // output nothing but the JSON object; handle stray text + code
+                  // fences defensively.
+                  const parsed = extractJsonReply(rawReply);
+                  if (parsed && (parsed.speak || parsed.display)) {
+                    const speak = (parsed.speak || parsed.display || '').trim();
+                    const display = (parsed.display || parsed.speak || '').trim();
+                    return sendJSON(res, { reply: display, speak });
+                  }
+                  // Fallback if the model didn't produce JSON: use the raw text
+                  // for both (with light emoji stripping for speak)
+                  const speak = rawReply.replace(/\p{Extended_Pictographic}/gu, '').trim();
+                  return sendJSON(res, { reply: rawReply || 'No response', speak });
+                }
+                sendJSON(res, { reply: rawReply || 'No response' });
               } catch (e) {
                 console.error('Chat parse error:', e.message);
                 sendJSON(res, { error: 'Failed to parse response' }, 500);
@@ -858,29 +940,89 @@ print(json.dumps(results))
       return;
     }
 
-    // POST /api/voice/tts — body { text } -> audio/mpeg stream
+    // POST /api/voice/tts — body { text } -> JSON { key, url, contentType, byteLength }
+    // Generates TTS, caches the buffer, returns a GET URL the client can set
+    // as an <audio> src. The GET endpoint below serves with Content-Length +
+    // Range support (critical for iOS auto-play).
     if (parts[0] === 'voice' && parts[1] === 'tts' && parts.length === 2 && req.method === 'POST') {
       let body = '';
       req.on('data', c => body += c);
       req.on('end', async () => {
         try {
-          const { text } = JSON.parse(body);
+          const { text, format } = JSON.parse(body);
           if (!text || typeof text !== 'string' || !text.trim()) {
             return sendJSON(res, { error: 'text required' }, 400);
           }
           const capped = text.slice(0, 4000);
-          const { stream, contentType } = await voice.ttsStream({ text: capped });
-          res.writeHead(200, {
-            'Content-Type': contentType || 'audio/mpeg',
-            'Cache-Control': 'no-store',
+          const fmt = format === 'wav' ? 'wav' : 'mp3';
+          const voiceId = require('./voice/fish').getCurrentBackend ? undefined : undefined;
+          const key = voiceCache.hashKey(capped, 'default', fmt);
+          let entry = voiceCache.get(key);
+          if (!entry) {
+            const { buffer, contentType } = await voice.ttsBuffer({ text: capped, format: fmt });
+            voiceCache.set(key, buffer, contentType || `audio/${fmt === 'wav' ? 'wav' : 'mpeg'}`);
+            entry = voiceCache.get(key);
+          }
+          return sendJSON(res, {
+            key,
+            url: `/api/voice/tts/${key}`,
+            contentType: entry.contentType,
+            byteLength: entry.buffer.length,
           });
-          stream.pipe(res);
         } catch (e) {
           console.error('[voice] tts error:', e.message);
           return sendJSON(res, { error: e.message || 'tts failed' }, 500);
         }
       });
       return;
+    }
+
+    // GET /api/voice/tts/:key — serves cached TTS bytes with full Content-Length
+    // and Range support. iOS's media pipeline probes with Range: bytes=0-1
+    // before issuing the full fetch; we must honour it with 206 Partial Content
+    // or auto-play silently fails.
+    if (parts[0] === 'voice' && parts[1] === 'tts' && parts.length === 3 && req.method === 'GET') {
+      const entry = voiceCache.get(parts[2]);
+      if (!entry) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'not found' }));
+      }
+      const total = entry.buffer.length;
+      const rangeHeader = req.headers['range'];
+
+      // Handle Range: bytes=start-end (end optional)
+      if (rangeHeader) {
+        const m = /^bytes=(\d+)-(\d*)$/.exec(rangeHeader);
+        if (m) {
+          const start = parseInt(m[1], 10);
+          const end = m[2] ? Math.min(parseInt(m[2], 10), total - 1) : total - 1;
+          if (start >= total || start > end) {
+            res.writeHead(416, {
+              'Content-Range': `bytes */${total}`,
+              'Content-Type': entry.contentType,
+            });
+            return res.end();
+          }
+          const chunk = entry.buffer.slice(start, end + 1);
+          res.writeHead(206, {
+            'Content-Type': entry.contentType,
+            'Content-Length': chunk.length,
+            'Content-Range': `bytes ${start}-${end}/${total}`,
+            'Accept-Ranges': 'bytes',
+            'Cache-Control': 'private, max-age=3600',
+          });
+          return res.end(chunk);
+        }
+      }
+
+      // Full response
+      res.writeHead(200, {
+        'Content-Type': entry.contentType,
+        'Content-Length': total,
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'private, max-age=3600',
+      });
+      return res.end(entry.buffer);
     }
 
     // POST /api/voice/asr — body: raw audio bytes -> { text }
@@ -898,20 +1040,18 @@ print(json.dumps(results))
           let audio = Buffer.concat(chunks);
           if (audio.length === 0) return sendJSON(res, { error: 'empty audio' }, 400);
 
-          // Fish ASR is fussy about input codec (accepts mp3/wav cleanly; rejects
-          // mp4/aac from iOS Safari and webm/opus from Chrome). Simplest path:
-          // normalise everything to mp3 with ffmpeg. Only skip if the body looks
-          // like a plain mp3 already.
+          // Fish ASR is fussy about input codec. Transcode everything to
+          // 16kHz mono 16-bit WAV (the only format Fish ASR reliably accepts)
+          // unless the body is already WAV.
           const incomingType = (req.headers['content-type'] || '').toLowerCase();
-          const isMp3 =
-            incomingType.includes('mpeg') ||
-            incomingType === 'audio/mp3' ||
-            (audio.length >= 3 && audio[0] === 0xff && (audio[1] & 0xe0) === 0xe0) || // MPEG sync
-            (audio.length >= 3 && audio.slice(0, 3).toString() === 'ID3');             // ID3 tag
+          const isWav =
+            incomingType.includes('wav') ||
+            incomingType.includes('x-wav') ||
+            (audio.length >= 12 && audio.slice(0, 4).toString() === 'RIFF' && audio.slice(8, 12).toString() === 'WAVE');
 
-          if (!isMp3) {
+          if (!isWav) {
             try {
-              audio = await transcodeToMp3(audio);
+              audio = await transcodeToWav(audio);
             } catch (tErr) {
               console.error('[voice] ffmpeg transcode failed:', tErr.message);
               return sendJSON(res, { error: 'audio transcode failed: ' + tErr.message }, 500);
