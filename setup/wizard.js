@@ -58,31 +58,50 @@ function installSelected(ids) {
   const created = [];
   const skipped = [];
   const errors = [];
+  const wrapped = [];
 
   for (const item of CATALOGUE) {
     if (!ids.includes(item.id)) continue;
     const src = path.join(EXAMPLE_DIR, item.file);
     const dst = path.join(PATHS.DATA_DIR, `${item.id}.json`);
     try {
-      if (fs.existsSync(dst)) { skipped.push(item.id); continue; }
+      // Read the template from data.example/ (our manifest shell)
       const raw = fs.readFileSync(src, 'utf8');
-      const json = JSON.parse(raw);
+      const template = JSON.parse(raw);
 
       // Special-case: greeting gets seeded with the 100+ messages
       if (item.id === 'greeting') {
         try {
           const msgs = JSON.parse(fs.readFileSync(GREETING_MESSAGES, 'utf8'));
-          if (Array.isArray(msgs)) json.data = msgs;
+          if (Array.isArray(msgs)) template.data = msgs;
         } catch {}
       }
 
-      fs.writeFileSync(dst, JSON.stringify(json, null, 2));
+      if (fs.existsSync(dst)) {
+        // File already there — check if it's a v2 manifest. If yes, skip.
+        // If no (legacy flat data), wrap the existing data into our manifest
+        // shell so the registry picks it up, preserving whatever's already there.
+        let existing = null;
+        try { existing = JSON.parse(fs.readFileSync(dst, 'utf8')); } catch {}
+        const isManifest = existing && typeof existing === 'object' && existing.$schema === 'eddzhealth.datafile.v1';
+        if (isManifest) {
+          skipped.push(item.id);
+          continue;
+        }
+        // Legacy — wrap it. Use template meta/description; keep existing data.
+        template.data = (existing !== null && existing !== undefined) ? existing : template.data;
+        fs.writeFileSync(dst, JSON.stringify(template, null, 2));
+        wrapped.push(item.id);
+        continue;
+      }
+
+      fs.writeFileSync(dst, JSON.stringify(template, null, 2));
       created.push(item.id);
     } catch (e) {
       errors.push({ id: item.id, error: e.message });
     }
   }
-  return { created, skipped, errors };
+  return { created, wrapped, skipped, errors };
 }
 
 module.exports = { isFirstRun, listOptions, installSelected, CATALOGUE };
