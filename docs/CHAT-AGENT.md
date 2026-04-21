@@ -21,14 +21,14 @@ Configure via environment variables:
 
 | Var | Default | Purpose |
 |-----|---------|---------|
-| `OPENCLAW_HOST` | `127.0.0.1` | OpenClaw gateway hostname |
+| `OPENCLAW_HOST` | `localhost` | OpenClaw gateway hostname |
 | `OPENCLAW_PORT` | `8787` | Gateway port |
-| `OPENCLAW_TLS` | `0` | `1` to use `https://`, `0` for `http://` |
+| `OPENCLAW_TLS` | auto | `true` to use HTTPS, `false` for HTTP (auto: true for non-localhost) |
 | `OPENCLAW_TOKEN` | — | Bearer token for the gateway |
 | `OPENCLAW_MODEL` | *(gateway default)* | Model id to request |
 | `HEALTH_SYSTEM_PROMPT` | built-in | System prompt sent with each turn |
-| `HEALTH_AGENT_NAME` | `Axis` | Display name shown in the chat UI |
-| `HEALTH_AGENT_AVATAR` | `⚡` | Emoji/char shown as the agent avatar |
+| `CHAT_AGENT_NAME` | `Chat` | Display name shown in the chat UI |
+| `CHAT_AGENT_EMOJI` | `💬` | Emoji/char shown as the agent avatar |
 
 Point these at your OpenClaw instance and the chat just works. The webapp
 itself does NOT know which model is behind the gateway; that's the gateway's
@@ -144,9 +144,8 @@ Scale it up with card discovery (`GET /api/manifests`), schema inspection
 
 ## 4. Reference integration: OpenClaw skill
 
-An example OpenClaw skill that wraps this API lives at the `webapp-sync`
-skill in the Onyx repo (internal reference, not shipped publicly). The
-pattern is:
+A minimal OpenClaw skill wraps this API with a bearer token. The pattern
+is the same as any HTTP client integration:
 
 1. Skill reads `EDDZHEALTH_URL` + `EDDZHEALTH_TOKEN` from env
 2. Intent dispatch: "log weight 85kg" → `POST /api/manifests/weight/data`

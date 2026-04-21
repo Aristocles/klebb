@@ -101,7 +101,7 @@ function removeInvite(code) {
 
 // Returns true if the webapp instance requires an invite even for
 // already-authenticated users (i.e. no self-service "add device").
-// Defaults to true — Chuck's deployment model.
+// Defaults to true (require invite codes for new registrations).
 function requireInviteForRegistration() {
   const cfg = _readConfig();
   const v = cfg.auth && cfg.auth.requireInviteForRegistration;

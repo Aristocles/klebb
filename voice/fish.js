@@ -7,10 +7,10 @@
 //
 // Config is pulled from env:
 //   FISH_AUDIO_API_KEY        (required; loaded from ~/.env or systemd env)
-//   FISH_AUDIO_DEFAULT_VOICE  (reference_id for TTS; Eddy's cloned voice)
+//   FISH_AUDIO_DEFAULT_VOICE  (reference_id for TTS; configure the voice model)
 //   FISH_BACKEND              (optional override: s2-pro|s2|speech-1.6)
 //
-// Tier policy (pinned by Eddy):
+// Tier policy (based on remaining API credit):
 //   credit >= 50%  → s2-pro
 //   credit >= 20%  → s2
 //   else           → speech-1.6

@@ -3,9 +3,8 @@
 // All other modules must import paths from here — no hardcoded absolute paths elsewhere.
 //
 // Precedence:
-//   1. HEALTH_HOME env var (explicit, modern deployment)
-//   2. Legacy hardcoded path at ~/axis/workspace/.private/health (Eddy's existing instance)
-//      — logs a deprecation warning; still works
+//   1. HEALTH_HOME env var (required for production deployments)
+//   2. $HOME/eddzhealth (sensible default for local-dev)
 //
 // Individual paths can also be overridden directly if set:
 //   HEALTH_DATA_DIR, HEALTH_REPORTS_DIR, HEALTH_AUTO_EXPORT_DIR,
@@ -15,42 +14,43 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-const LEGACY_DEFAULT = path.join(os.homedir(), 'axis/workspace/.private/health');
-
 function resolveHealthHome() {
   if (process.env.HEALTH_HOME && process.env.HEALTH_HOME.trim()) {
     return path.resolve(process.env.HEALTH_HOME);
   }
-  // Backward-compat: if legacy path exists, use it with a warning
-  if (fs.existsSync(LEGACY_DEFAULT)) {
-    if (!process.env.HEALTH_HOME_WARNED) {
-      console.warn('[paths] HEALTH_HOME not set; falling back to legacy path:', LEGACY_DEFAULT);
-      console.warn('[paths] Set HEALTH_HOME=/path/to/health in systemd env to migrate.');
-      process.env.HEALTH_HOME_WARNED = '1';
-    }
-    return LEGACY_DEFAULT;
+  const fallback = path.join(os.homedir(), 'eddzhealth');
+  if (!process.env.HEALTH_HOME_WARNED) {
+    console.warn('[paths] HEALTH_HOME not set; defaulting to', fallback);
+    console.warn('[paths] Set HEALTH_HOME in the environment to customise.');
+    process.env.HEALTH_HOME_WARNED = '1';
   }
-  // Otherwise default to $HOME/health
-  return path.join(os.homedir(), 'health');
+  return fallback;
 }
 
 const HEALTH_HOME = resolveHealthHome();
 
-// For legacy installs, data dir sits at <home>/data
-// For new installs pointing at the new skeleton, same layout applies
+// Standard layout:
+//   $HEALTH_HOME/data/           — card manifest files
+//   $HEALTH_HOME/reports/        — markdown reports
+//   $HEALTH_HOME/sessions/       — WebAuthn sessions
+//   $HEALTH_HOME/credentials/    — WebAuthn credentials
+//   $HEALTH_HOME/data/_archive/  — reserved, not scanned
+//   $HEALTH_HOME/data/auto-export/  — HealthAutoExport dumps
+//   $HEALTH_HOME/config.json     — instance config
+
 const DATA_DIR = process.env.HEALTH_DATA_DIR || path.join(HEALTH_HOME, 'data');
 
 // Reports dir resolution, in priority order:
 //   1. HEALTH_REPORTS_DIR env var (explicit override)
-//   2. $HEALTH_HOME/reports/ (new canonical location — used by Chuck's instance)
-//   3. $HEALTH_HOME/data/reports/ (alt location where some deployments put it)
-//   4. $HEALTH_HOME/ (legacy — where Eddy's DEBRIEF-*.md etc lived pre-migration)
+//   2. $HEALTH_HOME/reports/ (canonical location)
+//   3. $HEALTH_HOME/data/reports/ (alt location)
+//   4. $HEALTH_HOME/ (last resort — flat layout)
 function resolveReportsDir() {
   if (process.env.HEALTH_REPORTS_DIR) return process.env.HEALTH_REPORTS_DIR;
   const canonical = path.join(HEALTH_HOME, 'reports');
   if (fs.existsSync(canonical)) return canonical;
-  const modern = path.join(DATA_DIR, 'reports');
-  if (fs.existsSync(modern)) return modern;
+  const under = path.join(DATA_DIR, 'reports');
+  if (fs.existsSync(under)) return under;
   return HEALTH_HOME;
 }
 const REPORTS_DIR = resolveReportsDir();
@@ -61,10 +61,9 @@ const CREDENTIALS_DIR = process.env.HEALTH_CREDENTIALS_DIR || path.join(HEALTH_H
 const ARCHIVE_DIR = process.env.HEALTH_ARCHIVE_DIR || path.join(DATA_DIR, '_archive');
 const CONFIG_PATH = process.env.HEALTH_CONFIG_PATH || path.join(HEALTH_HOME, 'config.json');
 
-// Legacy file locations (still honoured during M1–M6 transition).
-// auth/webauthn used to store credentials + sessions in DATA_DIR as:
-//   webauthn-credentials.json + webauthn-sessions.json
-// We look for those first, fall back to new CREDENTIALS_DIR / SESSIONS_DIR.
+// WebAuthn credentials + sessions. Historical installs may have stored these
+// inside DATA_DIR as `webauthn-credentials.json` / `webauthn-sessions.json`;
+// prefer those if found, otherwise use the modern subdir layout.
 function resolveWebauthnCredentialsFile() {
   const legacy = path.join(DATA_DIR, 'webauthn-credentials.json');
   if (fs.existsSync(legacy)) return legacy;
@@ -84,7 +83,6 @@ const WEBAUTHN_SESSIONS_FILE = resolveWebauthnSessionsFile();
 // Does NOT create HEALTH_HOME itself (bootstrap responsibility).
 function ensureWritableDirs() {
   const toEnsure = [DATA_DIR];
-  // Only create session/credential dirs if we're using the modern locations.
   if (WEBAUTHN_CREDENTIALS_FILE.startsWith(CREDENTIALS_DIR)) toEnsure.push(CREDENTIALS_DIR);
   if (WEBAUTHN_SESSIONS_FILE.startsWith(SESSIONS_DIR)) toEnsure.push(SESSIONS_DIR);
   for (const dir of toEnsure) {
@@ -103,6 +101,5 @@ module.exports = {
   CONFIG_PATH,
   WEBAUTHN_CREDENTIALS_FILE,
   WEBAUTHN_SESSIONS_FILE,
-  LEGACY_DEFAULT,
   ensureWritableDirs,
 };

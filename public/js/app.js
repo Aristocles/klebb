@@ -1,8 +1,8 @@
 // public/js/app.js
 // EddzHealth v2 app shell. Manifest-driven throughout. Legacy v1 views
 // (today-view, day-detail, calendar-view, trends-view, widget-view) have
-// been retired — they were hardcoded for Eddy's Apple Watch data shape
-// and couldn't render Chuck's manifest data.
+// been retired — they were hardcoded for a specific Apple Watch data
+// shape and couldn't render arbitrary manifest data.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 
