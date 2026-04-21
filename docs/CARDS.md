@@ -103,14 +103,14 @@ Fields:
 - `enabled` (bool): include in Today. Default `false` (i.e. absent = not in
   Today).
 - `component` (string): renderer name. Built-ins:
-  - `generic-card` — the zero-code renderer (see below)
-  - `metric-card` — big-number + optional secondary, for vitals
+  - `generic-card` — the zero-code renderer (preferred default, see below)
   - `notes-card` — freeform text notes
   - `schedule-card` — medication/supplement schedule grid
   - `checklist-card` — daily checklist
   - `markdown-doc` — static markdown content
   - `line-chart`, `schedule-timeline`, `table-list`, `adherence-report`,
     `greeting-banner`
+  - `quick-action-card` — mood-style quick picker (date-keyed data)
 - `dateContext` (`"viewedDate"` | `"latest"`, default `"viewedDate"`):
   - `viewedDate` — show the entry matching the date currently on screen
   - `latest` — show the most recent entry regardless of date

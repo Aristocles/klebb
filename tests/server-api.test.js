@@ -14,7 +14,7 @@ function makeWeightManifest(data = []) {
     meta: {
       id: 'weight',
       label: 'Weight',
-      view: { enabled: true, component: 'metric-card', dateContext: 'latest' },
+      view: { enabled: true, component: 'generic-card', dateContext: 'latest' },
       trends: { enabled: true, component: 'line-chart' },
       writeable: { fromWebapp: true, todayAllowed: true, pastAllowed: true, futureAllowed: false },
     },
