@@ -144,7 +144,7 @@ UNIT="klebb@$INSTANCE.service"
 if [[ $DRY_RUN -eq 1 ]]; then
   log "(dry-run) would: systemctl restart $UNIT"
 else
-  if sudo systemctl list-unit-files | grep -q "^klebb@\.service"; then
+  if sudo systemctl cat klebb@.service >/dev/null 2>&1; then
     log "restarting $UNIT"
     sudo systemctl restart "$UNIT" || err "restart failed"
   else
