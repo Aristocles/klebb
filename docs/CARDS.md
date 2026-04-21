@@ -1,6 +1,6 @@
 # Cards — how the dashboard works
 
-EddzHealth is a **file-driven** health dashboard. Every card you see on the
+Klebb is a **file-driven** health dashboard. Every card you see on the
 dashboard is a JSON file in `$HEALTH_HOME/data/`. There's no database, no
 catalog, no "install" step — if the file exists and is a valid manifest, the
 card appears. If you delete the file, the card is gone.
@@ -17,7 +17,7 @@ Want to add a weight-tracking card right now? Create this file:
 **`$HEALTH_HOME/data/weight.json`**
 ```json
 {
-  "$schema": "eddzhealth.datafile.v1",
+  "$schema": "klebb.datafile.v1",
   "meta": {
     "id": "weight",
     "label": "Weight",
@@ -54,7 +54,7 @@ Every card file has the same top-level shape:
 
 ```json
 {
-  "$schema": "eddzhealth.datafile.v1",
+  "$schema": "klebb.datafile.v1",
   "meta":         { ... },            // required
   "description":  "optional prose",
   "data":         []                  // required; shape is card-specific
@@ -283,7 +283,7 @@ drop the `.example`.
 ## Schema version
 
 The `$schema` field identifies the manifest format. The only currently
-supported value is `eddzhealth.datafile.v1`. Files without `$schema` are
+supported value is `klebb.datafile.v1`. Files without `$schema` are
 silently skipped (legacy data may still live in the same directory). Files
 with an unsupported `$schema` are logged as errors but don't crash the
 server.

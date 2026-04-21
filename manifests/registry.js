@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const PATHS = require('../config/paths');
 
-const SUPPORTED_SCHEMAS = ['eddzhealth.datafile.v1'];
+const SUPPORTED_SCHEMAS = ['klebb.datafile.v1'];
 const RESERVED_DIR_PREFIX = '_';
 
 let _entries = new Map();   // id -> { meta, description, schema, data, source, version }
