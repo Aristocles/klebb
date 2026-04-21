@@ -92,6 +92,20 @@ describe('display-template', () => {
       assert.equal(renderTemplate(42, {}), '');
     });
 
+    test('truncate modifier cuts long strings + adds ellipsis', () => {
+      const long = 'This is a very very very very long note that should be truncated';
+      assert.equal(renderTemplate('{note:truncate(20)}', { note: long }), 'This is a very very …');
+    });
+
+    test('truncate modifier is a no-op on short strings', () => {
+      assert.equal(renderTemplate('{note:truncate(50)}', { note: 'short' }), 'short');
+    });
+
+    test('truncate modifier + pipe-default', () => {
+      assert.equal(renderTemplate('{note:truncate(10)|empty}', { note: '' }), 'empty');
+      assert.equal(renderTemplate('{note:truncate(10)|empty}', {}), 'empty');
+    });
+
     test('literal braces with unresolvable key render empty', () => {
       assert.equal(renderTemplate('{xxx}', { yyy: 1 }), '');
     });

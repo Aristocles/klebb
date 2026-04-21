@@ -168,13 +168,24 @@ export class EhInputForm extends LitElement {
           </select>`;
       case 'emoji-picker': {
         const emojis = input.emojis || DEFAULT_EMOJIS;
+        const onPick = (i, e) => {
+          this._update(input.key, input.emitIndex ? i + 1 : e);
+          if (input.autoSubmit) {
+            // Fire a synthetic submit on next tick so the value is picked up
+            // by _onSubmit's state read.
+            setTimeout(() => {
+              // Minimal object mimicking a submit event
+              this._onSubmit({ preventDefault() {}, stopPropagation() {} });
+            }, 0);
+          }
+        };
         return html`
           <div class="emoji-row">
             ${emojis.map((e, i) => html`
               <button
                 type="button"
                 class="emoji ${String(v) === String(i + 1) || v === e ? 'selected' : ''}"
-                @click=${() => this._update(input.key, input.emitIndex ? i + 1 : e)}
+                @click=${() => onPick(i, e)}
                 aria-label="${input.labels?.[i] || e}"
               >${e}</button>
             `)}

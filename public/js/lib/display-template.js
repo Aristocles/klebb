@@ -96,6 +96,13 @@
         if (isEmpty(value)) return fallback ?? '';
         return applyRound(value, roundMatch[1]);
       }
+      const truncateMatch = modifier.match(/^truncate\((\d+)\)$/);
+      if (truncateMatch) {
+        if (isEmpty(value)) return fallback ?? '';
+        const n = parseInt(truncateMatch[1], 10);
+        const s = String(value);
+        return s.length > n ? s.slice(0, n) + '…' : s;
+      }
       // Unknown modifier → ignore
     }
 
