@@ -47,7 +47,7 @@ Group=%i
 WorkingDirectory=/opt/klebb/current
 EnvironmentFile=/etc/klebb-%i.env
 ExecStart=/usr/bin/node server.js
-Restart=on-failure
+Restart=always
 RestartSec=5
 
 # Resource limits
