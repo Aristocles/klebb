@@ -8,23 +8,62 @@
     "order": 30,
     "view": {
       "enabled": true,
-      "component": "metric-card",
-      "dateContext": "latest",
+      "component": "generic-card",
+      "dateContext": "viewedDate",
       "display": {
         "primary": "latest.systolic",
-        "secondary": "latest.diastolic",
+        "secondary": "{notes|}",
         "format": "{systolic}/{diastolic}",
         "unit": "mmHg",
         "subtitle": "Logged {date}",
         "thresholds": [
-          { "max": 120, "colour": "#44ff88", "label": "Optimal" },
-          { "max": 130, "colour": "#ffaa00", "label": "Elevated" },
-          { "max": 180, "colour": "#ff4444", "label": "High" }
-        ]
+          {
+            "ifField": "systolic",
+            "max": 119,
+            "colour": "#44ff88",
+            "label": "Optimal"
+          },
+          {
+            "ifField": "systolic",
+            "max": 129,
+            "colour": "#aaaa44",
+            "label": "Elevated"
+          },
+          {
+            "ifField": "systolic",
+            "max": 139,
+            "colour": "#ff7733",
+            "label": "Stage 1"
+          },
+          {
+            "ifField": "systolic",
+            "max": 999,
+            "colour": "#ff3333",
+            "label": "Stage 2"
+          }
+        ],
+        "template": "{systolic}/{diastolic}",
+        "emptyHeadline": "No BP logged"
       },
       "inputs": [
-        { "name": "systolic",  "type": "number", "label": "Systolic",  "min": 50, "max": 250, "required": true, "placeholder": "120" },
-        { "name": "diastolic", "type": "number", "label": "Diastolic", "min": 30, "max": 150, "required": true, "placeholder": "80"  }
+        {
+          "name": "systolic",
+          "type": "number",
+          "label": "Systolic",
+          "min": 50,
+          "max": 250,
+          "required": true,
+          "placeholder": "120"
+        },
+        {
+          "name": "diastolic",
+          "type": "number",
+          "label": "Diastolic",
+          "min": 30,
+          "max": 150,
+          "required": true,
+          "placeholder": "80"
+        }
       ]
     },
     "trends": {
@@ -33,17 +72,62 @@
       "title": "Blood pressure",
       "xAxis": "date",
       "series": [
-        { "field": "systolic",  "label": "Systolic" },
-        { "field": "diastolic", "label": "Diastolic" }
+        {
+          "field": "systolic",
+          "label": "Systolic"
+        },
+        {
+          "field": "diastolic",
+          "label": "Diastolic"
+        }
       ],
       "yAxisLabel": "mmHg"
     },
-    "calendar": { "enabled": true, "component": "day-marker", "marker": "💓" },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": "💓"
+    },
     "writeable": {
       "fromWebapp": true,
       "pastAllowed": true,
       "todayAllowed": true,
-      "futureAllowed": false
+      "futureAllowed": false,
+      "maxReadingsPerDay": 3,
+      "inputs": [
+        {
+          "key": "systolic",
+          "type": "number",
+          "label": "Systolic (top)",
+          "min": 50,
+          "max": 250,
+          "step": 1,
+          "required": true
+        },
+        {
+          "key": "diastolic",
+          "type": "number",
+          "label": "Diastolic (bottom)",
+          "min": 30,
+          "max": 200,
+          "step": 1,
+          "required": true
+        },
+        {
+          "key": "hr",
+          "type": "number",
+          "label": "Heart rate (bpm)",
+          "min": 30,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "notes",
+          "type": "text",
+          "label": "Notes",
+          "placeholder": "optional"
+        }
+      ]
     }
   },
   "description": "Blood pressure log. Append entries as { date: 'YYYY-MM-DD', time?: 'HH:MM', systolic: number, diastolic: number, notes?: string }. Don't modify existing entries — append only.",
