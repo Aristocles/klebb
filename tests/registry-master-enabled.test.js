@@ -29,7 +29,7 @@ describe('registry master meta.enabled', () => {
             id: 'weight',
             label: 'Weight',
             enabled: false,   // master kill
-            view:   { enabled: true, component: 'metric-card' },
+            view:   { enabled: true, component: 'generic-card' },
             trends: { enabled: true, component: 'line-chart' },
             reports:{ enabled: true, component: 'adherence-report' },
           },
@@ -57,7 +57,7 @@ describe('registry master meta.enabled', () => {
             id: 'weight',
             label: 'Weight',
             // no meta.enabled field at all
-            view: { enabled: true, component: 'metric-card' },
+            view: { enabled: true, component: 'generic-card' },
           },
           data: [{ date: '2026-04-20', kg: 85 }],
         },
@@ -81,7 +81,7 @@ describe('registry master meta.enabled', () => {
             id: 'weight',
             label: 'Weight',
             enabled: true,
-            view: { enabled: true, component: 'metric-card' },
+            view: { enabled: true, component: 'generic-card' },
           },
           data: [{ date: '2026-04-20', kg: 85 }],
         },
@@ -104,7 +104,7 @@ describe('registry master meta.enabled', () => {
           meta: {
             id: 'weight',
             label: 'Weight',
-            view: { enabled: true, component: 'metric-card' },
+            view: { enabled: true, component: 'generic-card' },
           },
           data: [{ date: '2026-04-20', kg: 85 }],
         },
@@ -148,12 +148,12 @@ describe('registry master meta.enabled', () => {
       seed: {
         'a.json': {
           $schema: 'klebb.datafile.v1',
-          meta: { id: 'a', label: 'A', enabled: false, view: { enabled: true, component: 'metric-card' } },
+          meta: { id: 'a', label: 'A', enabled: false, view: { enabled: true, component: 'generic-card' } },
           data: [{ date: '2026-04-20', v: 1 }],
         },
         'b.json': {
           $schema: 'klebb.datafile.v1',
-          meta: { id: 'b', label: 'B', view: { enabled: true, component: 'metric-card' } },
+          meta: { id: 'b', label: 'B', view: { enabled: true, component: 'generic-card' } },
           data: [{ date: '2026-04-20', v: 2 }],
         },
       },
@@ -178,7 +178,7 @@ describe('registry master meta.enabled', () => {
           meta: {
             id: 'keep',
             label: 'Keep',
-            view: { enabled: true, component: 'metric-card' },
+            view: { enabled: true, component: 'generic-card' },
           },
           description: 'must preserve me',
           data: [{ date: '2026-04-20', v: 1 }, { date: '2026-04-21', v: 2 }],
@@ -204,7 +204,7 @@ describe('registry master meta.enabled', () => {
       seed: {
         'weight.json': {
           $schema: 'klebb.datafile.v1',
-          meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'metric-card' } },
+          meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'generic-card' } },
           data: [{ date: '2026-04-20', kg: 85 }],
         },
       },
