@@ -27,7 +27,7 @@ describe('GET /api/instance', () => {
     test('includes instance name', async () => {
       const res = await req(server.baseUrl, '/api/instance');
       assert.ok(res.json.name);
-      assert.equal(res.json.name, 'EddzHealth');
+      assert.equal(res.json.name, 'Klebb');
     });
 
     test('chatAgent name defaults to "Chat"', async () => {

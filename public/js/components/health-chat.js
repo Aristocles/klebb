@@ -1,5 +1,5 @@
 // public/js/components/health-chat.js
-// Floating chat bubble for EddzHealth. Supports:
+// Floating chat bubble for Klebb. Supports:
 //  - Text chat via /api/chat
 //  - Voice chat via /api/voice/tts (POST {text} -> {key,url}; GET /api/voice/tts/:key serves audio)
 //    + /api/voice/asr (POST audio -> {text})
@@ -392,7 +392,7 @@ class HealthChat extends LitElement {
     this._abortController = null;
     this._mediaRecorder = null;
     this._recordedChunks = [];
-    this._playbackSpeed = parseFloat(localStorage.getItem('eddzhealth-playback-speed') || '1');
+    this._playbackSpeed = parseFloat(localStorage.getItem('klebb-playback-speed') || '1');
     this._playingMsgId = null;
     this._msgCounter = 0;
     // msgId -> { url, autoplayed }
@@ -729,7 +729,7 @@ class HealthChat extends LitElement {
     const speeds = [1, 1.25, 1.5, 2];
     const idx = speeds.indexOf(this._playbackSpeed);
     this._playbackSpeed = speeds[(idx + 1) % speeds.length];
-    localStorage.setItem('eddzhealth-playback-speed', String(this._playbackSpeed));
+    localStorage.setItem('klebb-playback-speed', String(this._playbackSpeed));
     const audio = _sharedAudio;
     if (audio) audio.playbackRate = this._playbackSpeed;
   }

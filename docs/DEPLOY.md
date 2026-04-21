@@ -1,6 +1,6 @@
-# DEPLOY.md — Running an EddzHealth instance
+# DEPLOY.md — Running an Klebb instance
 
-This document walks through standing up an EddzHealth instance on a Linux
+This document walks through standing up an Klebb instance on a Linux
 server. It covers:
 
 1. Single-user deploy (you, on your own box)
@@ -27,26 +27,26 @@ No Docker, no build step, no CI dependencies.
 
 ```bash
 # Clone the repo wherever you like — it's the running code directory.
-git clone https://github.com/makeitbreakitfixit/eddzhealth.git /opt/eddzhealth
-cd /opt/eddzhealth
+git clone https://github.com/Aristocles/klebb.git /opt/klebb
+cd /opt/klebb
 npm install --omit=dev
 ```
 
 ### Create the data directory
 
 ```bash
-mkdir -p ~/eddzhealth/data
+mkdir -p ~/klebb/data
 # Optionally start with an example card:
-cp /opt/eddzhealth/data.example/weight.example.json ~/eddzhealth/data/weight.json
+cp /opt/klebb/data.example/weight.example.json ~/klebb/data/weight.json
 ```
 
 ### Environment file
 
-Create `/etc/eddzhealth.env`:
+Create `/etc/klebb.env`:
 
 ```ini
 # Paths
-HEALTH_HOME=/home/you/eddzhealth
+HEALTH_HOME=/home/you/klebb
 
 # Branding
 HEALTH_INSTANCE_NAME=My Health
@@ -80,25 +80,25 @@ HOST=127.0.0.1
 Secure it:
 
 ```bash
-sudo chmod 600 /etc/eddzhealth.env
-sudo chown root:root /etc/eddzhealth.env
+sudo chmod 600 /etc/klebb.env
+sudo chown root:root /etc/klebb.env
 ```
 
 ### systemd unit
 
-Create `/etc/systemd/system/eddzhealth.service`:
+Create `/etc/systemd/system/klebb.service`:
 
 ```ini
 [Unit]
-Description=EddzHealth dashboard
+Description=Klebb dashboard
 After=network.target
 
 [Service]
 Type=simple
 User=you
 Group=you
-WorkingDirectory=/opt/eddzhealth
-EnvironmentFile=/etc/eddzhealth.env
+WorkingDirectory=/opt/klebb
+EnvironmentFile=/etc/klebb.env
 ExecStart=/usr/bin/node server.js
 Restart=on-failure
 RestartSec=5
@@ -107,7 +107,7 @@ RestartSec=5
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/you/eddzhealth
+ReadWritePaths=/home/you/klebb
 
 [Install]
 WantedBy=multi-user.target
@@ -117,8 +117,8 @@ Enable + start:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now eddzhealth
-sudo journalctl -u eddzhealth -f
+sudo systemctl enable --now klebb
+sudo journalctl -u klebb -f
 ```
 
 Expected output:
@@ -130,7 +130,7 @@ Health dashboard running at http://127.0.0.1:8080
 
 ### nginx reverse proxy
 
-`/etc/nginx/sites-available/eddzhealth.conf`:
+`/etc/nginx/sites-available/klebb.conf`:
 
 ```nginx
 server {
@@ -163,7 +163,7 @@ server {
 Enable + reload:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/eddzhealth.conf /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/klebb.conf /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -185,25 +185,25 @@ The webapp is instance-per-user. Each user gets:
 - Their own systemd unit on a unique port
 - Their own subdomain (e.g. `alice.health.example.com`)
 
-The code at `/opt/eddzhealth` is shared (read-only). Per-user config is
+The code at `/opt/klebb` is shared (read-only). Per-user config is
 in environment files.
 
 ### Templated systemd unit
 
-`systemd/eddzhealth@.service` in the repo is a template unit. Install once:
+`systemd/klebb@.service` in the repo is a template unit. Install once:
 
 ```bash
-sudo cp /opt/eddzhealth/systemd/eddzhealth@.service /etc/systemd/system/
+sudo cp /opt/klebb/systemd/klebb@.service /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
 
-Per-instance env file: `/etc/eddzhealth-<instance>.env` (e.g. `/etc/eddzhealth-alice.env`).
+Per-instance env file: `/etc/klebb-<instance>.env` (e.g. `/etc/klebb-alice.env`).
 
 Enable + start a specific instance:
 
 ```bash
-sudo systemctl enable --now eddzhealth@alice
-sudo journalctl -u eddzhealth@alice -f
+sudo systemctl enable --now klebb@alice
+sudo journalctl -u klebb@alice -f
 ```
 
 The `%i` placeholder in the unit expands to the instance name.
@@ -229,10 +229,10 @@ instance, each pointing at its unique port.
 ## 3. Development quickstart
 
 ```bash
-git clone https://github.com/makeitbreakitfixit/eddzhealth.git
-cd eddzhealth
+git clone https://github.com/Aristocles/klebb.git
+cd klebb
 npm install
-export HEALTH_HOME=~/eddzhealth-dev
+export HEALTH_HOME=~/klebb-dev
 mkdir -p $HEALTH_HOME/data
 cp data.example/weight.example.json $HEALTH_HOME/data/weight.json
 npm start
@@ -268,7 +268,7 @@ Mismatch between browser origin and server RP_ID is the #1 cause.
 the browser dev tools to see the error.
 
 **Server starts but dashboard is blank.**
-Look at `journalctl -u eddzhealth -n 100`. Common cause: malformed
+Look at `journalctl -u klebb -n 100`. Common cause: malformed
 manifest file in `$HEALTH_HOME/data/` logs a parse error but doesn't
 crash the server — the offending file just doesn't produce a card.
 

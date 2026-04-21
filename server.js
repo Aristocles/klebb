@@ -65,7 +65,7 @@ function readJSONFile(filePath) {
 // after migration without rewriting each handler.
 function readLegacyJSONFile(filePath) {
   const data = readJSONFile(filePath);
-  if (data && typeof data === 'object' && data.$schema === 'eddzhealth.datafile.v1') {
+  if (data && typeof data === 'object' && data.$schema === 'klebb.datafile.v1') {
     return data.data;
   }
   return data;
@@ -75,7 +75,7 @@ function readLegacyJSONFile(filePath) {
 // to a v2 manifest file; otherwise writes the raw value.
 function writeLegacyJSONFile(filePath, newData) {
   const existing = readJSONFile(filePath);
-  if (existing && typeof existing === 'object' && existing.$schema === 'eddzhealth.datafile.v1') {
+  if (existing && typeof existing === 'object' && existing.$schema === 'klebb.datafile.v1') {
     const merged = { ...existing, data: newData };
     const tmp = filePath + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(merged, null, 2));
@@ -114,7 +114,7 @@ function getWeightRange(start, end) {
   const weights = readJSONFile(path.join(DATA_DIR, 'weight.json'));
   if (!weights) return [];
   // Unwrap v2 manifest
-  const arr = (weights && weights.$schema === 'eddzhealth.datafile.v1') ? weights.data : weights;
+  const arr = (weights && weights.$schema === 'klebb.datafile.v1') ? weights.data : weights;
   if (!Array.isArray(arr)) return [];
   return arr.filter(w => w.date >= start && w.date <= end);
 }
@@ -198,7 +198,7 @@ function extractJsonReply(raw) {
 function synthesiseLegacyInjectionLog() {
   const raw = readJSONFile(path.join(DATA_DIR, 'peptides.json'));
   if (!raw) return {};
-  const items = (raw && raw.$schema === 'eddzhealth.datafile.v1')
+  const items = (raw && raw.$schema === 'klebb.datafile.v1')
     ? ((raw.data && raw.data.items) || [])
     : (raw.peptides || []);
   const result = {};
@@ -288,10 +288,10 @@ blockquote { border-left: 3px solid var(--heading); padding-left: 16px; margin: 
 .back-link:hover { color: var(--heading); }
 </style>
 <script>
-// Respect app theme preference (from localStorage key 'eddzhealth-theme')
+// Respect app theme preference (from localStorage key 'klebb-theme')
 (function() {
   try {
-    var t = localStorage.getItem('eddzhealth-theme');
+    var t = localStorage.getItem('klebb-theme');
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) {}
 })();
@@ -463,7 +463,7 @@ const server = http.createServer(async (req, res) => {
       if (data) {
         // Transparent v2 unwrap: if the file is a v2 manifest, return only
         // the data block to keep legacy clients (and the current UI) happy.
-        if (data && typeof data === 'object' && data.$schema === 'eddzhealth.datafile.v1') {
+        if (data && typeof data === 'object' && data.$schema === 'klebb.datafile.v1') {
           let payload = data.data;
           // Special-case: the legacy frontend expects peptides.json to have
           // 'peptides' and 'injection_groups' keys. The v2 manifest uses
@@ -579,7 +579,7 @@ const server = http.createServer(async (req, res) => {
           try {
             const peptidesPath = path.join(DATA_DIR, 'peptides.json');
             const raw = readJSONFile(peptidesPath);
-            if (raw && raw.$schema === 'eddzhealth.datafile.v1') {
+            if (raw && raw.$schema === 'klebb.datafile.v1') {
               const items = Array.isArray(raw.data?.items) ? raw.data.items : [];
               const item = items.find(i => i.name === peptide);
               if (item) {

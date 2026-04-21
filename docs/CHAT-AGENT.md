@@ -1,6 +1,6 @@
 # Chat agent integration
 
-EddzHealth ships with a chat widget that can write to cards and answer
+Klebb ships with a chat widget that can write to cards and answer
 questions about your data. The widget is **agent-agnostic**: it talks to an
 chat-gateway chat-completions endpoint, which can be backed by whatever model
 you configure.

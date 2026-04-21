@@ -1,10 +1,10 @@
 // config/paths.js
-// Central path + env resolution for EddzHealth.
+// Central path + env resolution for Klebb.
 // All other modules must import paths from here — no hardcoded absolute paths elsewhere.
 //
 // Precedence:
 //   1. HEALTH_HOME env var (required for production deployments)
-//   2. $HOME/eddzhealth (sensible default for local-dev)
+//   2. $HOME/klebb (sensible default for local-dev)
 //
 // Individual paths can also be overridden directly if set:
 //   HEALTH_DATA_DIR, HEALTH_REPORTS_DIR, HEALTH_AUTO_EXPORT_DIR,
@@ -18,7 +18,7 @@ function resolveHealthHome() {
   if (process.env.HEALTH_HOME && process.env.HEALTH_HOME.trim()) {
     return path.resolve(process.env.HEALTH_HOME);
   }
-  const fallback = path.join(os.homedir(), 'eddzhealth');
+  const fallback = path.join(os.homedir(), 'klebb');
   if (!process.env.HEALTH_HOME_WARNED) {
     console.warn('[paths] HEALTH_HOME not set; defaulting to', fallback);
     console.warn('[paths] Set HEALTH_HOME in the environment to customise.');

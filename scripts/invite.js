@@ -37,7 +37,7 @@ if (args.help || !args.label) { usage(); process.exit(args.help ? 0 : 1); }
 const invite = invites.createInvite({ label: args.label, expiresInDays: args.expiresInDays || 3 });
 
 // Work out the registration URL
-const origin = process.env.HEALTH_ORIGIN || ENV.WEBAUTHN_ORIGIN || 'https://eddzhealth.axis.vorignet.com';
+const origin = process.env.HEALTH_ORIGIN || ENV.WEBAUTHN_ORIGIN || 'https://klebb.axis.vorignet.com';
 
 console.log('');
 console.log(`Invite created for "${invite.label}":`);

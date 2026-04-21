@@ -39,7 +39,7 @@ describe('manifest registry', () => {
     const sandbox = createSandbox({
       seed: {
         'weight.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'metric-card' } },
           data: [{ date: '2026-04-20', kg: 85.5 }],
         },
@@ -78,7 +78,7 @@ describe('manifest registry', () => {
     const sandbox = createSandbox({
       seed: {
         'weird.json': {
-          $schema: 'eddzhealth.datafile.v99',
+          $schema: 'klebb.datafile.v99',
           meta: { id: 'weird', label: 'Weird' },
           data: {},
         },
@@ -98,7 +98,7 @@ describe('manifest registry', () => {
     const sandbox = createSandbox({
       seed: {
         'noid.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: { label: 'Missing ID' },
           data: {},
         },
@@ -118,12 +118,12 @@ describe('manifest registry', () => {
     const sandbox = createSandbox({
       seed: {
         'weight.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: { id: 'weight', label: 'Weight A' },
           data: [],
         },
         'weight2.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: { id: 'weight', label: 'Weight B' },
           data: [],
         },
@@ -144,7 +144,7 @@ describe('manifest registry', () => {
     // Put a would-be-valid manifest in _archive — should NOT be picked up
     const archiveFile = path.join(sandbox, 'data', '_archive', 'sneaky.json');
     fs.writeFileSync(archiveFile, JSON.stringify({
-      $schema: 'eddzhealth.datafile.v1',
+      $schema: 'klebb.datafile.v1',
       meta: { id: 'sneaky', label: 'Sneaky' },
       data: [],
     }));
@@ -161,17 +161,17 @@ describe('manifest registry', () => {
     const sandbox = createSandbox({
       seed: {
         'a.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: { id: 'a', label: 'A', view: { enabled: true, component: 'metric-card' } },
           data: [{ date: '2026-04-20', v: 1 }],
         },
         'b.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: { id: 'b', label: 'B', view: { enabled: false, component: 'metric-card' } },
           data: [{ date: '2026-04-20', v: 2 }],
         },
         'c.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: { id: 'c', label: 'C', view: { enabled: true, component: 'metric-card' } },
           data: [],
         },
@@ -194,7 +194,7 @@ describe('manifest registry', () => {
     const sandbox = createSandbox({
       seed: {
         'weight.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'metric-card' } },
           description: 'preserve-me',
           data: [{ date: '2026-04-20', kg: 85 }],
@@ -207,7 +207,7 @@ describe('manifest registry', () => {
       registry.writeData('weight', [{ date: '2026-04-20', kg: 86 }, { date: '2026-04-21', kg: 86.5 }]);
       const raw = fs.readFileSync(path.join(sandbox, 'data', 'weight.json'), 'utf8');
       const parsed = JSON.parse(raw);
-      assert.equal(parsed.$schema, 'eddzhealth.datafile.v1');
+      assert.equal(parsed.$schema, 'klebb.datafile.v1');
       assert.equal(parsed.meta.id, 'weight');
       assert.equal(parsed.description, 'preserve-me');
       assert.equal(parsed.data.length, 2);

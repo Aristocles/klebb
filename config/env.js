@@ -27,7 +27,7 @@ const PORT = parseInt(process.env.PORT || process.env.HEALTH_PORT || '8080', 10)
 const HOST = process.env.HOST || '0.0.0.0';
 
 // --- Branding ---
-const INSTANCE_NAME = process.env.HEALTH_INSTANCE_NAME || 'EddzHealth';
+const INSTANCE_NAME = process.env.HEALTH_INSTANCE_NAME || 'Klebb';
 
 // --- Chat gateway (optional — chat widget disabled if CHAT_GATEWAY_TOKEN unset) ---
 const CHAT_GATEWAY_HOST = process.env.CHAT_GATEWAY_HOST || 'localhost';
@@ -97,7 +97,7 @@ Every card on the user's dashboard corresponds to a JSON manifest file in their 
 Each card file is a v2 manifest:
 \`\`\`
 {
-  "$schema": "eddzhealth.datafile.v1",
+  "$schema": "klebb.datafile.v1",
   "meta": { id, label, view, trends, writeable, ... },
   "description": "instructions for chat agents about this file's data shape",
   "data": <array or object; shape varies per card>
