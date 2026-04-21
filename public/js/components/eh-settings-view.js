@@ -170,7 +170,7 @@ export class EhSettingsView extends LitElement {
       <div class="lede">
         Every card is a file in <code>$HEALTH_HOME/data/</code>. Toggle off to
         hide a card (keeps the data); delete the file to remove it entirely.
-        <a href="https://github.com/makeitbreakitfixit/eddzhealth/blob/main/docs/CARDS.md" target="_blank" rel="noopener">How to add a card →</a>
+        <a href="https://github.com/Aristocles/klebb/blob/main/docs/CARDS.md" target="_blank" rel="noopener">How to add a card →</a>
       </div>
 
       ${this._cards.length === 0 ? html`

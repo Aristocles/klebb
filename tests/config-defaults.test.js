@@ -29,7 +29,7 @@ function freshEnv(overrides = {}) {
   for (const k of strip) delete process.env[k];
   // Need HEALTH_HOME set so paths.js doesn't blow up — point at /tmp to avoid
   // warnings.
-  process.env.HEALTH_HOME = '/tmp/eddzhealth-test-' + Date.now();
+  process.env.HEALTH_HOME = '/tmp/klebb-test-' + Date.now();
   process.env.HEALTH_HOME_WARNED = '1';
   for (const [k, v] of Object.entries(overrides)) {
     process.env[k] = v;
@@ -48,9 +48,9 @@ describe('config/env.js defaults', () => {
     assert.equal(env.CHAT_AGENT_EMOJI, '💬');
   });
 
-  test('INSTANCE_NAME defaults to "EddzHealth"', () => {
+  test('INSTANCE_NAME defaults to "Klebb"', () => {
     const env = freshEnv();
-    assert.equal(env.INSTANCE_NAME, 'EddzHealth');
+    assert.equal(env.INSTANCE_NAME, 'Klebb');
   });
 
   test('WEBAUTHN_RP_ID defaults to "localhost"', () => {

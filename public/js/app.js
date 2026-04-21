@@ -1,5 +1,5 @@
 // public/js/app.js
-// EddzHealth v2 app shell. Manifest-driven throughout. Legacy v1 views
+// Klebb v2 app shell. Manifest-driven throughout. Legacy v1 views
 // (today-view, day-detail, calendar-view, trends-view, widget-view) have
 // been retired — they were hardcoded for a specific Apple Watch data
 // shape and couldn't render arbitrary manifest data.
@@ -33,8 +33,8 @@ class HealthApp extends LitElement {
     this.routeParam = '';
     this.showNav = true;
     this.dayDate = '';
-    this.theme = localStorage.getItem('eddzhealth-theme') || 'light';
-    this._instanceName = 'EddzHealth';
+    this.theme = localStorage.getItem('klebb-theme') || 'light';
+    this._instanceName = 'Klebb';
     document.documentElement.setAttribute('data-theme', this.theme);
     this._handleRoute();
     this._loadInstance();
@@ -61,7 +61,7 @@ class HealthApp extends LitElement {
   _toggleTheme() {
     this.theme = this.theme === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', this.theme);
-    localStorage.setItem('eddzhealth-theme', this.theme);
+    localStorage.setItem('klebb-theme', this.theme);
   }
 
   _handleRoute() {

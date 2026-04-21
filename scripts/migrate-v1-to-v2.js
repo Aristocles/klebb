@@ -40,13 +40,13 @@ function moveToArchive(file) {
 }
 
 function alreadyMigrated(data) {
-  return data && typeof data === 'object' && data.$schema === 'eddzhealth.datafile.v1';
+  return data && typeof data === 'object' && data.$schema === 'klebb.datafile.v1';
 }
 
 // Transformer registry: filename -> function(legacyData) -> manifest
 const TRANSFORMS = {
   'weight.json': (d) => ({
-    $schema: 'eddzhealth.datafile.v1',
+    $schema: 'klebb.datafile.v1',
     meta: {
       id: 'weight',
       label: 'Weight',
@@ -78,7 +78,7 @@ const TRANSFORMS = {
   }),
 
   'mood.json': (d) => ({
-    $schema: 'eddzhealth.datafile.v1',
+    $schema: 'klebb.datafile.v1',
     meta: {
       id: 'mood',
       label: 'Mood',
@@ -93,7 +93,7 @@ const TRANSFORMS = {
   }),
 
   'appointments.json': (d) => ({
-    $schema: 'eddzhealth.datafile.v1',
+    $schema: 'klebb.datafile.v1',
     meta: {
       id: 'appointments',
       label: 'Appointments',
@@ -108,7 +108,7 @@ const TRANSFORMS = {
   }),
 
   'bloods.json': (d) => ({
-    $schema: 'eddzhealth.datafile.v1',
+    $schema: 'klebb.datafile.v1',
     meta: {
       id: 'bloods',
       label: 'Blood Tests',
@@ -123,7 +123,7 @@ const TRANSFORMS = {
   }),
 
   'goals.json': (d) => ({
-    $schema: 'eddzhealth.datafile.v1',
+    $schema: 'klebb.datafile.v1',
     meta: {
       id: 'goals',
       label: 'Goals',
@@ -137,7 +137,7 @@ const TRANSFORMS = {
   }),
 
   'supplements.json': (d) => ({
-    $schema: 'eddzhealth.datafile.v1',
+    $schema: 'klebb.datafile.v1',
     meta: {
       id: 'supplements',
       label: 'Supplements',
@@ -151,7 +151,7 @@ const TRANSFORMS = {
   }),
 
   'symptoms.json': (d) => ({
-    $schema: 'eddzhealth.datafile.v1',
+    $schema: 'klebb.datafile.v1',
     meta: {
       id: 'symptoms',
       label: 'Symptoms',
@@ -165,7 +165,7 @@ const TRANSFORMS = {
   }),
 
   'notes.json': (d) => ({
-    $schema: 'eddzhealth.datafile.v1',
+    $schema: 'klebb.datafile.v1',
     meta: {
       id: 'ad-hoc-notes',
       label: 'Notes archive',
@@ -179,7 +179,7 @@ const TRANSFORMS = {
   }),
 
   'daily-notes.json': (d) => ({
-    $schema: 'eddzhealth.datafile.v1',
+    $schema: 'klebb.datafile.v1',
     meta: {
       id: 'notes',
       label: 'Daily notes',
@@ -193,7 +193,7 @@ const TRANSFORMS = {
   }),
 
   'exercise-manual.json': (d) => ({
-    $schema: 'eddzhealth.datafile.v1',
+    $schema: 'klebb.datafile.v1',
     meta: {
       id: 'exercise-manual',
       label: 'Manual workouts',
@@ -237,7 +237,7 @@ const TRANSFORMS = {
     })) : [];
 
     return {
-      $schema: 'eddzhealth.datafile.v1',
+      $schema: 'klebb.datafile.v1',
       meta: {
         id: 'peptides',
         label: 'Schedule',

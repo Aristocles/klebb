@@ -1,4 +1,4 @@
-# EddzHealth
+# Klebb
 
 A **file-driven**, **manifest-based** personal health dashboard.
 
@@ -17,13 +17,13 @@ Works equally well as:
 ## Quickstart
 
 ```bash
-git clone https://github.com/makeitbreakitfixit/eddzhealth.git
-cd eddzhealth
+git clone https://github.com/Aristocles/klebb.git
+cd klebb
 npm install
 
 # Point HEALTH_HOME at wherever you want your data stored.
 # If empty, no cards will show until you add manifest files.
-export HEALTH_HOME=~/eddzhealth
+export HEALTH_HOME=~/klebb
 mkdir -p $HEALTH_HOME/data
 
 # Optional: copy some example cards to get started
@@ -56,13 +56,13 @@ Minimal environment variables:
 
 | Var | Default | Purpose |
 |-----|---------|---------|
-| `HEALTH_HOME` | `~/eddzhealth` | Root for `data/`, `credentials/`, `sessions/` |
+| `HEALTH_HOME` | `~/klebb` | Root for `data/`, `credentials/`, `sessions/` |
 | `PORT` | `8080` | HTTP listen port |
 | `HOST` | `0.0.0.0` | Bind address |
 | `HEALTH_ORIGIN` | `http://localhost:<PORT>` | Public origin for WebAuthn |
 | `HEALTH_RP_ID` | `localhost` | WebAuthn Relying Party ID (hostname of `HEALTH_ORIGIN`) |
-| `HEALTH_RP_NAME` | `EddzHealth` | WebAuthn RP display name |
-| `HEALTH_INSTANCE_NAME` | `EddzHealth` | Instance name shown in the UI |
+| `HEALTH_RP_NAME` | `Klebb` | WebAuthn RP display name |
+| `HEALTH_INSTANCE_NAME` | `Klebb` | Instance name shown in the UI |
 | `SESSION_SECRET` | *(auto-gen)* | Session signing secret |
 | `AGENT_API_TOKEN` | *(disabled)* | Bearer token for server-to-server card writes |
 | `OPENCLAW_HOST` | `localhost` | Upstream OpenClaw gateway for chat |

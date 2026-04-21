@@ -132,7 +132,7 @@ export class EhViewRenderer extends LitElement {
           <p style="margin-top:8px;">
             Drop a manifest file into <code>$HEALTH_HOME/data/</code> to add
             one, or
-            <a href="https://github.com/makeitbreakitfixit/eddzhealth/blob/main/docs/CARDS.md"
+            <a href="https://github.com/Aristocles/klebb/blob/main/docs/CARDS.md"
                target="_blank" rel="noopener"
                style="color: var(--accent); text-decoration: underline;">
               read the docs →
