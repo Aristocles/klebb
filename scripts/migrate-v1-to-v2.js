@@ -55,7 +55,7 @@ const TRANSFORMS = {
       order: 20,
       view: {
         enabled: true,
-        component: 'metric-card',
+        component: 'generic-card',
         dateContext: 'latest',
         display: {
           primary: 'latest.kg',
@@ -84,7 +84,7 @@ const TRANSFORMS = {
       label: 'Mood',
       emoji: '🙂',
       order: 60,
-      view: { enabled: true, component: 'quick-action-card', dateContext: 'exact-date' },
+      view: { enabled: true, component: 'generic-card', dateContext: 'exact-date' },
       calendar: { enabled: true, component: 'day-marker', marker: '🙂' },
       writeable: { fromWebapp: true, pastAllowed: true, todayAllowed: true, futureAllowed: false },
     },
@@ -185,7 +185,7 @@ const TRANSFORMS = {
       label: 'Daily notes',
       emoji: '📝',
       order: 80,
-      view: { enabled: true, component: 'notes-card', dateContext: 'exact-date' },
+      view: { enabled: true, component: 'generic-card', dateContext: 'exact-date' },
       writeable: { fromWebapp: true, pastAllowed: true, todayAllowed: true, futureAllowed: true },
     },
     description: "Freeform notes keyed by date. { 'YYYY-MM-DD': { text, updated } } — past/today/future writeable.",
