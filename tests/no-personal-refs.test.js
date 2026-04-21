@@ -30,6 +30,7 @@ const SCAN_EXTS = new Set(['.js', '.md', '.html', '.css', '.json']);
 // Files to skip individually (by absolute path from repo root).
 const SKIP_FILES = new Set([
   'package-lock.json',
+  'CHANGELOG.md', // historical notes legitimately mention pre-rename values
   'tests/no-personal-refs.test.js', // this file contains the forbidden strings as data
 ]);
 

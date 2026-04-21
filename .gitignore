@@ -1,9 +1,47 @@
-# Node modules
+# Node
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# OS files
+# OS / editor
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
 
-# Environment
+# Environment files — never commit
 .env
+.env.*
+*.env
+!data.example/*.env    # example files are safe to ship
+
+# Logs
+*.log
+
+# Local dev data (contributors sometimes HEALTH_HOME=./data)
+/data/
+/credentials/
+/sessions/
+/reports/
+
+# Build / release artefacts
+dist/
+coverage/
+*.tgz
+
+# macOS Finder
+.AppleDouble
+.LSOverride
+Icon
+
+# Windows
+$RECYCLE.BIN/
+System Volume Information
+
+# Scratch
+/tmp/
+/scratch/
