@@ -226,7 +226,87 @@ instance, each pointing at its unique port.
 
 ---
 
-## 3. Development quickstart
+## 3. Automated deploys with scripts/deploy.sh
+
+For repeated deploys (e.g. after every change), use the built-in deploy
+script.
+
+### Layout it assumes
+
+The script uses a `releases/` + `current` symlink pattern:
+
+```
+/opt/klebb/
+├── releases/
+│   ├── 2026-04-21T100000Z/      ← release 1
+│   ├── 2026-04-21T130000Z/      ← release 2
+│   └── 2026-04-21T180000Z/      ← release 3 (current)
+└── current → releases/2026-04-21T180000Z   (symlink)
+```
+
+The templated systemd unit (`klebb@.service`) has
+`WorkingDirectory=/opt/klebb/current`, so flipping the symlink is enough
+to change what's running.
+
+### One-line deploy
+
+```bash
+./scripts/deploy.sh --instance eddy
+```
+
+What it does:
+1. Runs `npm test` locally. Bails if any test fails.
+2. Rsyncs the working copy (excluding `.git`, `node_modules`, `tests/`,
+   `.private/`) to a new `releases/<timestamp>/` directory.
+3. Runs `npm install --omit=dev` in the new release.
+4. Flips `current` symlink to the new release.
+5. Restarts `klebb@<instance>.service`.
+6. Smokes the health endpoint; rolls back if it fails.
+7. Prunes old releases (keeps the most recent 5).
+
+### Dry-run first
+
+```bash
+./scripts/deploy.sh --instance eddy --dry-run
+```
+
+Reports every step without making changes. Run this before the first
+real deploy to a new host.
+
+### Rollback
+
+If a deploy succeeds but you realise later that it's broken, swap the
+symlink manually:
+
+```bash
+ls -t /opt/klebb/releases/     # find an earlier release
+sudo ln -sfn /opt/klebb/releases/<earlier>/ /opt/klebb/current
+sudo systemctl restart klebb@eddy
+```
+
+Takes about 2 seconds.
+
+### Environment overrides
+
+```bash
+DEPLOY_ROOT=/custom/path ./scripts/deploy.sh --instance test
+KEEP_RELEASES=10 ./scripts/deploy.sh --instance eddy
+SMOKE_URL=https://klebb.example.com/auth/status ./scripts/deploy.sh --instance eddy
+```
+
+### Pre-flight
+
+Before your first deploy, run:
+
+```bash
+./scripts/verify-install.sh --health-home /home/eddy/klebb-data
+```
+
+It reports on the install state (directory perms, card file shapes,
+legacy schema lingering, etc.) without making changes. Exit code 0
+means healthy; 1 means issues were found.
+
+## 4. Development quickstart
 
 ```bash
 git clone https://github.com/Aristocles/klebb.git
@@ -250,7 +330,7 @@ npm test
 
 ---
 
-## 4. Troubleshooting
+## 5. Troubleshooting
 
 **"No cards yet" on the dashboard.**
 The `$HEALTH_HOME/data/` directory is empty. Drop a valid manifest file in

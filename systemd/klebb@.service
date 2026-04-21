@@ -1,0 +1,73 @@
+# Klebb — Templated Systemd Unit
+#
+# Install:
+#   sudo cp klebb@.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#
+# Per-instance environment file at /etc/klebb-<instance>.env (0600 root:root):
+#
+#   # required
+#   HEALTH_HOME=/home/someone/klebb-data
+#   PORT=8080
+#   HEALTH_ORIGIN=https://klebb.example.com
+#   HEALTH_RP_ID=klebb.example.com
+#
+#   # optional
+#   HEALTH_RP_NAME=Klebb
+#   HEALTH_INSTANCE_NAME=Klebb
+#   CHAT_AGENT_NAME=Chat
+#   CHAT_AGENT_EMOJI=💬
+#   SESSION_SECRET=...              # auto-generated + persisted if absent
+#   AGENT_API_TOKEN=...             # enables server-to-server writes
+#   OPENCLAW_HOST=...
+#   OPENCLAW_PORT=...
+#   OPENCLAW_TLS=...
+#   OPENCLAW_TOKEN=...
+#   OPENCLAW_MODEL=...
+#   FISH_AUDIO_API_KEY=...          # enables voice chat
+#   FISH_AUDIO_DEFAULT_VOICE=...
+#
+# Enable + start a specific instance:
+#   sudo systemctl enable --now klebb@eddy
+#
+# The %i placeholder expands to the instance name after the @.
+#
+# IMPORTANT: the systemd unit runs code from /opt/klebb/current, which is a
+# symlink managed by scripts/deploy.sh. To do a fresh install without the
+# deploy script, point WorkingDirectory at wherever your code actually lives.
+
+[Unit]
+Description=Klebb dashboard (instance %i)
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=/opt/klebb/current
+EnvironmentFile=/etc/klebb-%i.env
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+
+# Resource limits
+LimitNOFILE=4096
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+# Add per-instance ReadWritePaths via a drop-in file if HEALTH_HOME lives
+# under /home/%i/ — otherwise add it to the unit before enabling:
+#   systemctl edit klebb@%i
+#   [Service]
+#   ReadWritePaths=/path/to/health_home
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
