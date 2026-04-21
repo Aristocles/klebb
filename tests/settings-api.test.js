@@ -15,7 +15,7 @@ function makeCard(id, { enabled, data = [{ date: '2026-04-20', v: 1 }] } = {}) {
   const meta = {
     id,
     label: id.charAt(0).toUpperCase() + id.slice(1),
-    view: { enabled: true, component: 'metric-card' },
+    view: { enabled: true, component: 'generic-card' },
     trends: { enabled: true, component: 'line-chart' },
   };
   if (typeof enabled === 'boolean') meta.enabled = enabled;
@@ -101,7 +101,7 @@ describe('settings API', () => {
     const file = path.join(sandbox, 'data', 'preserve-test.json');
     fs.writeFileSync(file, JSON.stringify({
       $schema: 'klebb.datafile.v1',
-      meta: { id: 'preserve-test', label: 'Preserve', view: { enabled: true, component: 'metric-card' } },
+      meta: { id: 'preserve-test', label: 'Preserve', view: { enabled: true, component: 'generic-card' } },
       description: 'this must survive toggles',
       data: [{ date: '2026-04-20', note: 'keep me' }],
     }));

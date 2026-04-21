@@ -166,10 +166,9 @@ Use one of these names in `meta.view.component` / `meta.trends.component`:
 
 | name | card shape |
 |------|-----------|
-| `generic-card` | Zero-code headline + secondary + input form |
-| `metric-card` | Big number + optional secondary (hand-rolled) |
-| `notes-card` | Freeform text |
-| `schedule-card` | Peptide/medication schedule |
+| `generic-card` | Zero-code headline + secondary + input form (preferred default) |
+| `notes-card` | Freeform text (date-keyed object shape) |
+| `schedule-card` | Peptide/medication schedule with dot-grid visualisation |
 | `checklist-card` | Daily checklist |
 | `markdown-doc` | Static markdown content |
 | `line-chart` | Trends line chart |
@@ -177,6 +176,7 @@ Use one of these names in `meta.view.component` / `meta.trends.component`:
 | `table-list` | Tabular data |
 | `adherence-report` | Med adherence summary |
 | `greeting-banner` | Top-of-page greeting |
+| `quick-action-card` | Mood-style quick picker (date-keyed object shape) |
 
 Unknown renderer names fall back to `eh-unknown-card`, which shows an
 inline warning but keeps the dashboard running.

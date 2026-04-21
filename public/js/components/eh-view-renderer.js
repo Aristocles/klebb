@@ -7,7 +7,6 @@ import { resolveRenderer } from '../renderer-registry.js';
 
 // Ensure all core renderers are loaded
 import './eh-unknown-card.js';
-import './eh-metric-card.js';
 import './eh-generic-card.js';
 import './eh-notes-card.js';
 import './eh-greeting-banner.js';

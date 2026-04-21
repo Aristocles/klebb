@@ -40,7 +40,7 @@ describe('manifest registry', () => {
       seed: {
         'weight.json': {
           $schema: 'klebb.datafile.v1',
-          meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'metric-card' } },
+          meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'generic-card' } },
           data: [{ date: '2026-04-20', kg: 85.5 }],
         },
       },
@@ -162,17 +162,17 @@ describe('manifest registry', () => {
       seed: {
         'a.json': {
           $schema: 'klebb.datafile.v1',
-          meta: { id: 'a', label: 'A', view: { enabled: true, component: 'metric-card' } },
+          meta: { id: 'a', label: 'A', view: { enabled: true, component: 'generic-card' } },
           data: [{ date: '2026-04-20', v: 1 }],
         },
         'b.json': {
           $schema: 'klebb.datafile.v1',
-          meta: { id: 'b', label: 'B', view: { enabled: false, component: 'metric-card' } },
+          meta: { id: 'b', label: 'B', view: { enabled: false, component: 'generic-card' } },
           data: [{ date: '2026-04-20', v: 2 }],
         },
         'c.json': {
           $schema: 'klebb.datafile.v1',
-          meta: { id: 'c', label: 'C', view: { enabled: true, component: 'metric-card' } },
+          meta: { id: 'c', label: 'C', view: { enabled: true, component: 'generic-card' } },
           data: [],
         },
       },
@@ -195,7 +195,7 @@ describe('manifest registry', () => {
       seed: {
         'weight.json': {
           $schema: 'klebb.datafile.v1',
-          meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'metric-card' } },
+          meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'generic-card' } },
           description: 'preserve-me',
           data: [{ date: '2026-04-20', kg: 85 }],
         },
