@@ -3,7 +3,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { marked } = require('marked');
-const { execSync, spawn } = require('child_process');
+const { spawn } = require('child_process');
 const { isAuthenticated, isPublicPath, handleAuthRoutes, isSetup } = require('./auth/webauthn');
 const PATHS = require('./config/paths');
 const ENV = require('./config/env');
@@ -11,7 +11,7 @@ const registry = require('./manifests/registry');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 
-// chat-gateway gateway config (now env-driven; defaults preserve existing Axis behaviour)
+// chat-gateway gateway config (env-driven; see config/env.js)
 const CHAT_GATEWAY_HOST = ENV.CHAT_GATEWAY_HOST;
 const CHAT_GATEWAY_PORT = ENV.CHAT_GATEWAY_PORT;
 const CHAT_GATEWAY_TOKEN = ENV.CHAT_GATEWAY_TOKEN;
@@ -623,56 +623,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     // GET /api/calendar/health — fetch health-related events from Google Calendar
-    if (parts[0] === 'calendar' && parts[1] === 'health' && parts.length === 2) {
-      try {
-        const script = `
-import sys, json
-sys.path.insert(0, '/home/minecraft/axis/skills/google-core/scripts')
-from gmail_utils import list_events
-from datetime import datetime, timezone, timedelta
-
-tz = timezone(timedelta(hours=11))
-now = datetime.now(tz)
-end = now + timedelta(days=30)
-
-events = list_events(account_name='edward', time_min=now.isoformat(), time_max=end.isoformat())
-
-health_keywords = ['doctor', 'gp', 'dentist', 'physio', 'chiro', 'osteo', 'blood', 'bloods',
-  'pathology', 'specialist', 'dermatologist', 'appointment', 'health', 'medical', 'hospital',
-  'surgery', 'checkup', 'check-up', 'therapy', 'psych', 'counsell', 'optom', 'eye test',
-  'vaccination', 'vaccine', 'injection', 'scan', 'x-ray', 'xray', 'mri', 'ct scan',
-  'ultrasound', 'endoscop', 'colonoscop', 'pharmacy', 'prescription', 'sleep study',
-  'dietitian', 'nutritionist', 'podiatrist', 'massage', 'acupuncture', 'gym', 'personal train']
-
-results = []
-for e in events:
-    summary = (e.get('summary') or '').lower()
-    desc = (e.get('description') or '').lower()
-    loc = (e.get('location') or '').lower()
-    combined = summary + ' ' + desc + ' ' + loc
-    if any(kw in combined for kw in health_keywords):
-        results.append({
-            'summary': e.get('summary'),
-            'start': e.get('start', {}).get('dateTime', e.get('start', {}).get('date')),
-            'end': e.get('end', {}).get('dateTime', e.get('end', {}).get('date')),
-            'location': e.get('location'),
-            'description': e.get('description'),
-            'id': e.get('id'),
-        })
-
-print(json.dumps(results))
-`;
-        const result = execSync(`python3 -c ${JSON.stringify(script)}`, {
-          timeout: 15000,
-          encoding: 'utf8',
-        });
-        return sendJSON(res, JSON.parse(result.trim()));
-      } catch (e) {
-        console.error('Calendar fetch error:', e.message);
-        return sendJSON(res, []);
-      }
-    }
-
     // GET /api/mood/range/:start/:end — get mood for date range
     if (parts[0] === 'mood' && parts[1] === 'range' && parts.length === 4 && req.method === 'GET') {
       const data = readLegacyJSONFile(path.join(DATA_DIR, 'mood.json')) || {};
@@ -782,7 +732,7 @@ print(json.dumps(results))
 
           let systemPrompt = HEALTH_SYSTEM_PROMPT;
           if (voiceMode) {
-            systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Axis'}, a health assistant.
+            systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Chat'}, a health assistant.
 Voice mode is active: the user is speaking to you and will hear your reply aloud.
 
 OUTPUT FORMAT — MANDATORY:
@@ -805,7 +755,7 @@ Conversational allow-list (reply naturally, no disclaimer footer, no "let me che
 - Emoji-only or one-word reactions -> a matching short reaction.
 
 NEVER INVENT any of these phrases in either field:
-- "No response from ${process.env.CHAT_AGENT_NAME || 'Axis'}" / "No response from chat-gateway" / similar
+- "No response from ${process.env.CHAT_AGENT_NAME || 'Chat'}" / "No response from chat-gateway" / similar
 - "Gateway unavailable" / "Loading…" / "Please wait" / anything that reads like a UI state
 - Error-looking lines or apologies for non-errors
 
@@ -842,8 +792,8 @@ Original system prompt follows:
             agent: false, // disable keep-alive — stale pooled connections hang on self-signed gateways
           };
 
-          // Pick http or https based on CHAT_GATEWAY_TLS. Chuck's Onyx is plain HTTP
-          // on 127.0.0.1:4100; Eddy's Axis is HTTPS with self-signed on :18789.
+          // Pick http or https based on CHAT_GATEWAY_TLS. TLS defaults true for
+          // remote gateways and false for localhost; an explicit env var wins.
           const transport = ENV.CHAT_GATEWAY_TLS ? https : http;
           const proxyReq = transport.request(options, (proxyRes) => {
             let data = '';
