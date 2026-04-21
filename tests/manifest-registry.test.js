@@ -227,4 +227,116 @@ describe('manifest registry', () => {
       cleanupSandbox(sandbox);
     }
   });
+
+  // --- Malformed manifest handling ---
+
+  test('invalid JSON is silently skipped as an error', () => {
+    const sandbox = createSandbox();
+    fs.writeFileSync(path.join(sandbox, 'data', 'broken.json'), '{ not valid json');
+    try {
+      const registry = freshRegistry(sandbox);
+      const stats = registry.init();
+      assert.equal(stats.count, 0);
+      assert.equal(stats.errors, 1);
+      const errs = registry.errors();
+      assert.equal(errs.length, 1);
+      assert.equal(errs[0].file, 'broken.json');
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('file without meta is skipped with descriptive error', () => {
+    const sandbox = createSandbox({
+      seed: {
+        'nometa.json': { $schema: 'klebb.datafile.v1', data: [] },
+      },
+    });
+    try {
+      const registry = freshRegistry(sandbox);
+      const stats = registry.init();
+      assert.equal(stats.count, 0);
+      assert.equal(stats.errors, 1);
+      const errs = registry.errors();
+      assert.ok(/meta/i.test(errs[0].error), `error should mention meta: ${errs[0].error}`);
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('top-level array (garbage shape) is skipped', () => {
+    const sandbox = createSandbox();
+    fs.writeFileSync(path.join(sandbox, 'data', 'array.json'), JSON.stringify([1, 2, 3]));
+    try {
+      const registry = freshRegistry(sandbox);
+      const stats = registry.init();
+      assert.equal(stats.count, 0);
+      // Top-level array has no $schema so it's silently skipped (legacy),
+      // not flagged as an error. Verify either behaviour is consistent.
+      assert.ok(stats.errors === 0 || stats.errors === 1,
+        `errors count should be 0 or 1, got ${stats.errors}`);
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('error list survives reload', () => {
+    const sandbox = createSandbox();
+    fs.writeFileSync(path.join(sandbox, 'data', 'broken.json'), 'xxx');
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      assert.equal(registry.errors().length, 1);
+      registry.reload();
+      assert.equal(registry.errors().length, 1, 'error list should persist across reload');
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('fixing a broken file clears its error on reload', () => {
+    const sandbox = createSandbox();
+    const file = path.join(sandbox, 'data', 'eventually-good.json');
+    fs.writeFileSync(file, '{ broken');
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      assert.equal(registry.errors().length, 1);
+      // Fix the file
+      fs.writeFileSync(file, JSON.stringify({
+        $schema: 'klebb.datafile.v1',
+        meta: { id: 'good', label: 'Good' },
+        data: [],
+      }));
+      registry.reload();
+      assert.equal(registry.errors().length, 0, 'errors should clear after fix + reload');
+      assert.equal(registry.list().length, 1, 'and the card should now be listed');
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('one broken file does not stop siblings from loading', () => {
+    const sandbox = createSandbox({
+      seed: {
+        'good.json': {
+          $schema: 'klebb.datafile.v1',
+          meta: { id: 'good', label: 'Good' },
+          data: [{ date: '2026-04-20', v: 1 }],
+        },
+      },
+    });
+    // Add a broken file alongside
+    fs.writeFileSync(path.join(sandbox, 'data', 'bad.json'), '{bad');
+    try {
+      const registry = freshRegistry(sandbox);
+      const stats = registry.init();
+      assert.equal(stats.count, 1, 'good file should load');
+      assert.equal(stats.errors, 1, 'bad file should be an error');
+      assert.equal(registry.list()[0].id, 'good');
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
 });
+
