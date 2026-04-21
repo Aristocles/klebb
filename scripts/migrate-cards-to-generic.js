@@ -78,6 +78,60 @@ const RULES = {
       ],
     },
   },
+  mood: {
+    view: {
+      component: 'generic-card',
+      dateContext: 'viewedDate',
+      display: {
+        template: '{mood:emoji}',
+        secondary: '{notes|}',
+        emptyHeadline: 'How are you feeling?',
+        emojiMap: {
+          mood: { '1': '😩', '2': '😴', '3': '😐', '4': '🙂', '5': '😄' },
+        },
+      },
+    },
+    writeable: {
+      fromWebapp: true,
+      todayAllowed: true,
+      pastAllowed: true,
+      futureAllowed: false,
+      maxReadingsPerDay: 1,
+      inputs: [
+        {
+          key: 'mood',
+          type: 'emoji-picker',
+          label: 'Mood',
+          emojis: ['😩', '😴', '😐', '🙂', '😄'],
+          emitIndex: true,
+          required: true,
+          autoSubmit: true,
+        },
+        { key: 'wakeUps', type: 'number',   label: 'Wake-ups', min: 0, max: 20 },
+        { key: 'notes',   type: 'textarea', label: 'Notes',    rows: 2, placeholder: 'optional' },
+      ],
+    },
+  },
+  notes: {
+    view: {
+      component: 'generic-card',
+      dateContext: 'viewedDate',
+      display: {
+        template: '{note:truncate(80)|(no note today)}',
+        emptyHeadline: 'No note today',
+      },
+    },
+    writeable: {
+      fromWebapp: true,
+      todayAllowed: true,
+      pastAllowed: true,
+      futureAllowed: true,
+      maxReadingsPerDay: 1,
+      inputs: [
+        { key: 'note', type: 'textarea', label: 'Note', rows: 4, placeholder: 'How was the day?' },
+      ],
+    },
+  },
 };
 
 function parseArgs(argv) {

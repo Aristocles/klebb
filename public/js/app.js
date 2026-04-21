@@ -15,7 +15,6 @@ import './components/eh-settings-view.js';    // /settings
 
 // Shared widgets
 import './components/health-chat.js';
-import './components/mood-checkin.js';
 
 class HealthApp extends LitElement {
   static properties = {
@@ -198,7 +197,6 @@ class HealthApp extends LitElement {
         ${this.route === 'settings' ? html`<eh-settings-view></eh-settings-view>` : ''}
       </main>
       <health-chat></health-chat>
-      <mood-checkin></mood-checkin>
     `;
   }
 }

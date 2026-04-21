@@ -7,16 +7,62 @@
     "order": 60,
     "view": {
       "enabled": true,
-      "component": "quick-action-card",
-      "dateContext": "exact-date"
+      "component": "generic-card",
+      "dateContext": "viewedDate",
+      "display": {
+        "template": "{mood:emoji}",
+        "secondary": "{notes|}",
+        "emptyHeadline": "How are you feeling?",
+        "emojiMap": {
+          "mood": {
+            "1": "😩",
+            "2": "😴",
+            "3": "😐",
+            "4": "🙂",
+            "5": "😄"
+          }
+        }
+      }
     },
     "writeable": {
       "fromWebapp": true,
       "pastAllowed": true,
       "todayAllowed": true,
-      "futureAllowed": false
+      "futureAllowed": false,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        {
+          "key": "mood",
+          "type": "emoji-picker",
+          "label": "Mood",
+          "emojis": [
+            "😩",
+            "😴",
+            "😐",
+            "🙂",
+            "😄"
+          ],
+          "emitIndex": true,
+          "required": true,
+          "autoSubmit": true
+        },
+        {
+          "key": "wakeUps",
+          "type": "number",
+          "label": "Wake-ups",
+          "min": 0,
+          "max": 20
+        },
+        {
+          "key": "notes",
+          "type": "textarea",
+          "label": "Notes",
+          "rows": 2,
+          "placeholder": "optional"
+        }
+      ]
     }
   },
-  "description": "Daily mood check-ins. Data is an object keyed by date: { 'YYYY-MM-DD': { mood: 'good'|'okay'|'low', notes?: string, time: ISO } }.",
-  "data": {}
+  "description": "Daily mood check-ins. Data is an array of rows: [{ date: 'YYYY-MM-DD', mood: 1-5, notes?: string, wakeUps?: number, time?: ISO }].",
+  "data": []
 }

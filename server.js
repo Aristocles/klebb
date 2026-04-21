@@ -8,6 +8,7 @@ const { isAuthenticated, isPublicPath, handleAuthRoutes, isSetup } = require('./
 const PATHS = require('./config/paths');
 const ENV = require('./config/env');
 const registry = require('./manifests/registry');
+const { convertDateKeyedToArray } = require('./scripts/migrate-date-keyed-to-array');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 
@@ -395,7 +396,20 @@ const server = http.createServer(async (req, res) => {
         try {
           const parsed = JSON.parse(body);
           if (!('data' in parsed)) return sendJSON(res, { error: 'missing data field in body' }, 400);
-          registry.writeData(parts[1], parsed.data);
+
+          // Safety net: if an external agent still sends date-keyed data
+          // (the legacy mood/notes shape), auto-convert to array on the way in.
+          // Logs a warning so the offending writer can be tracked down.
+          let incoming = parsed.data;
+          if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
+            const conv = convertDateKeyedToArray(incoming);
+            if (conv.ok && conv.data.length > 0) {
+              console.warn(`[manifest] auto-converted date-keyed data to array for ${parts[1]} (${conv.data.length} rows)`);
+              incoming = conv.data;
+            }
+          }
+
+          registry.writeData(parts[1], incoming);
           return sendJSON(res, { ok: true, id: parts[1] });
         } catch (e) {
           return sendJSON(res, { error: e.message || 'invalid request' }, 400);
