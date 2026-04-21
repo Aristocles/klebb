@@ -226,6 +226,62 @@ A dict keyed by field name, mapping value → emoji. Used by `{key:emoji}`.
 This turns `{ mood: 4, wakeUps: 2, notes: "" }` into `🙂 · 2 wake-ups` /
 `(no notes)`.
 
+### `meta.view.display.unit`
+
+Optional unit suffix shown in lighter text next to the headline. Saves
+inlining the unit into the template each time.
+
+```json
+"display": { "template": "{kg:round(1)}", "unit": "kg" }
+```
+
+Renders: `85.4` `kg` (with the `kg` in a lighter, smaller font).
+
+### `meta.view.display.thresholds`
+
+Evaluate the current entry against a list of rules and paint a coloured
+side-bar on the card + show a label pill next to the headline. First
+match wins.
+
+```json
+"display": {
+  "template": "{systolic}/{diastolic}",
+  "thresholds": [
+    { "ifField": "systolic", "max": 119, "colour": "#44ff88", "label": "Optimal" },
+    { "ifField": "systolic", "max": 129, "colour": "#aaaa44", "label": "Elevated" },
+    { "ifField": "systolic", "max": 139, "colour": "#ff7733", "label": "Stage 1" },
+    { "ifField": "systolic", "max": 999, "colour": "#ff3333", "label": "Stage 2" }
+  ]
+}
+```
+
+Each rule takes one of these matchers:
+- `min`, `max` — numeric bounds (both inclusive). Both optional but at
+  least one must be present.
+- `eq` — exact equality (stringified).
+
+Rules iterate top-to-bottom; the first rule whose field exists and
+satisfies the matcher wins. `colour` and `label` are rendered by the
+card.
+
+### `meta.view.display.trendArrow`
+
+Show an ↑ / ↓ / → arrow next to the headline, comparing the current
+entry's value to the most recent earlier entry on the same key.
+
+```json
+"display": { "template": "{kg:round(1)}", "unit": "kg", "trendArrow": { "field": "kg" } }
+```
+
+Arrow colours:
+- ↑ up — red (`#ff7755`)
+- ↓ down — green (`#55cc77`)
+- → flat — muted
+
+Note the reverse: for weight, "up" is usually bad; for a rating card
+you might want the opposite. Card authors can future-invert via a
+`trendArrow.invert: true` flag (not implemented yet).
+
 ---
 
 ## The `data` block

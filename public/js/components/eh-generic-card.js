@@ -10,14 +10,22 @@
 //   meta.view.dateContext = "latest" | "viewedDate"   (default "viewedDate")
 //   meta.view.display.template            — template string for the headline
 //   meta.view.display.secondary           — optional template for the sub-line
+//   meta.view.display.unit                — small unit suffix after the headline
 //   meta.view.display.emojiMap            — { key: { value: emoji } } for {key:emoji}
 //   meta.view.display.emptyHeadline       — shown when no entry for the day
+//   meta.view.display.thresholds          — array of { ifField, min?, max?, eq?,
+//                                                      colour?, label? } rules;
+//                                          first match wins, paints a side-bar
+//                                          + shows the label pill
+//   meta.view.display.trendArrow          — { field: "kg" } enables ↑/↓/→ arrow
+//                                          next to the value, compared to the
+//                                          most recent prior entry
 //   meta.writeable.fromWebapp             — enables the ✏️/➕ input button
 //   meta.writeable.inputs                 — array of input specs for eh-input-form
 //   meta.writeable.maxReadingsPerDay      — default 1 (upsert behaviour)
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
-import { renderTemplate } from '../lib/display-template.esm.js';
+import { renderTemplate, evaluateThresholds, computeTrend } from '../lib/display-template.esm.js';
 import { registerRenderer } from '../renderer-registry.js';
 import { EhBaseCard, invalidateManifestCache } from './eh-base-card.js';
 import './eh-input-form.js';
@@ -112,11 +120,40 @@ export class EhGenericCard extends EhBaseCard {
   static styles = [
     EhBaseCard.styles,
     css`
+      .gen-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
       .gen-headline {
         font-size: 1.8rem;
         font-weight: 700;
         color: var(--text-primary);
         line-height: 1.2;
+      }
+      .gen-unit {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+      .gen-trend {
+        font-size: 1.1rem;
+        line-height: 1;
+        font-weight: 600;
+      }
+      .gen-trend.up   { color: #ff7755; }
+      .gen-trend.down { color: #55cc77; }
+      .gen-trend.flat { color: var(--text-muted, var(--text-secondary)); }
+      .gen-threshold-pill {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 10px;
+        margin-left: 4px;
+        vertical-align: middle;
+        color: var(--text-inverse, #fff);
       }
       .gen-secondary {
         margin-top: 6px;
@@ -127,6 +164,14 @@ export class EhGenericCard extends EhBaseCard {
         color: var(--text-muted, var(--text-secondary));
         font-style: italic;
         font-size: 1rem;
+      }
+      .gen-sidebar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 4px;
+        border-radius: 2px 0 0 2px;
       }
       .edit-btn {
         position: absolute;
@@ -150,7 +195,7 @@ export class EhGenericCard extends EhBaseCard {
         border-color: var(--accent);
         color: var(--accent);
       }
-      .card-inner { position: relative; padding-right: 36px; }
+      .card-inner { position: relative; padding-right: 36px; padding-left: 10px; }
       .err { color: #ff4466; font-size: 12px; margin-top: 6px; }
     `,
   ];
@@ -172,8 +217,22 @@ export class EhGenericCard extends EhBaseCard {
       ? renderTemplate(display.secondary, entry, display)
       : '';
 
+    // Threshold: evaluate against current entry (if any)
+    const threshold = hasEntry && Array.isArray(display.thresholds)
+      ? evaluateThresholds(entry, display.thresholds)
+      : null;
+
+    // Trend arrow: compare to previous entry on the same field
+    let trend = null;
+    if (hasEntry && display.trendArrow && display.trendArrow.field) {
+      trend = computeTrend(entry, display.trendArrow.field, this._entries());
+    }
+
     return html`
       <div class="card-inner">
+        ${threshold && threshold.colour ? html`
+          <span class="gen-sidebar" style="background: ${threshold.colour};"></span>` : ''}
+
         ${canWrite ? html`
           <button class="edit-btn"
             @click=${this._openEdit}
@@ -192,7 +251,18 @@ export class EhGenericCard extends EhBaseCard {
             @eh-cancel=${this._closeEdit}
           ></eh-input-form>
         ` : hasEntry ? html`
-          <div class="gen-headline">${headline}</div>
+          <div class="gen-row">
+            <span class="gen-headline">${headline}</span>
+            ${display.unit ? html`<span class="gen-unit">${display.unit}</span>` : ''}
+            ${trend ? html`
+              <span class="gen-trend ${trend.dir}" title="vs ${trend.prev.date}">
+                ${trend.dir === 'up' ? '↑' : trend.dir === 'down' ? '↓' : '→'}
+              </span>` : ''}
+            ${threshold && threshold.label ? html`
+              <span class="gen-threshold-pill" style="background: ${threshold.colour || 'var(--accent)'};">
+                ${threshold.label}
+              </span>` : ''}
+          </div>
           ${secondary ? html`<div class="gen-secondary">${secondary}</div>` : ''}
         ` : html`
           <div class="gen-empty">${headline}</div>
