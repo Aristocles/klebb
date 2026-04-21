@@ -8,7 +8,6 @@ import { resolveRenderer } from '../renderer-registry.js';
 // Ensure all core renderers are loaded
 import './eh-unknown-card.js';
 import './eh-generic-card.js';
-import './eh-notes-card.js';
 import './eh-greeting-banner.js';
 import './eh-checklist-card.js';
 import './eh-schedule-card.js';
@@ -17,7 +16,6 @@ import './eh-line-chart.js';
 import './eh-schedule-timeline.js';
 import './eh-adherence-report.js';
 import './eh-table-list.js';
-import './eh-mood-card.js';
 
 export class EhViewRenderer extends LitElement {
   static properties = {

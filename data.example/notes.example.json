@@ -7,16 +7,30 @@
     "order": 80,
     "view": {
       "enabled": true,
-      "component": "notes-card",
-      "dateContext": "exact-date"
+      "component": "generic-card",
+      "dateContext": "viewedDate",
+      "display": {
+        "template": "{note:truncate(80)|(no note today)}",
+        "emptyHeadline": "No note today"
+      }
     },
     "writeable": {
       "fromWebapp": true,
       "pastAllowed": true,
       "todayAllowed": true,
-      "futureAllowed": true
+      "futureAllowed": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        {
+          "key": "note",
+          "type": "textarea",
+          "label": "Note",
+          "rows": 4,
+          "placeholder": "How was the day?"
+        }
+      ]
     }
   },
-  "description": "Freeform daily notes. Data is an object keyed by date: { 'YYYY-MM-DD': { text: string, updated: ISO } }. Writing past, today, and future is permitted.",
-  "data": {}
+  "description": "Freeform daily notes. Data is an array of rows: [{ date: 'YYYY-MM-DD', note: string, updated?: ISO }]. Writing past, today, and future is permitted.",
+  "data": []
 }
