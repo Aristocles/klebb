@@ -782,7 +782,10 @@ class HealthChat extends LitElement {
     return html`
       ${this._messages.map(m => {
         if (m.role === 'assistant') {
-          const hasAudio = m.id && this._voiceAvailable;
+          // Only show the audio play button on messages that were
+          // produced in response to voice input (speakText set). Typed
+          // input gets a text-only reply — no audio UI.
+          const hasAudio = m.id && this._voiceAvailable && m.speakText;
           return html`
             <div class="msg assistant">
               ${unsafeHTML(this._parseMarkdown(m.content))}
