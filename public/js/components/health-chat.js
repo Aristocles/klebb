@@ -397,8 +397,8 @@ class HealthChat extends LitElement {
     this._msgCounter = 0;
     // msgId -> { url, autoplayed }
     this._audioCache = new Map();
-    this._agentName = 'Axis';
-    this._agentEmoji = '\u26A1';
+    this._agentName = 'Chat';
+    this._agentEmoji = '\u{1F4AC}'; // 💬 speech balloon
     this._checkVoiceAvailability();
     this._loadInstance();
     this._stallWatcher();
