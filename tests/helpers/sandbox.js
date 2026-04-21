@@ -59,7 +59,7 @@ async function spawnServer(sandboxRoot, extraEnv = {}) {
     CHAT_GATEWAY_TOKEN: 'test-token',
     FISH_AUDIO_API_KEY: '',          // disables voice
     FISH_AUDIO_DEFAULT_VOICE: '',
-    EDDZHEALTH_SKIP_HOME_ENV: '1',   // prevent ~/.env leaking real keys into test
+    KLEBB_SKIP_HOME_ENV: '1',   // prevent ~/.env leaking real keys into test
     HEALTH_HOME_WARNED: '1',
     SESSION_SECRET: 'test-secret-' + crypto.randomBytes(8).toString('hex'),
     ...extraEnv,
@@ -131,7 +131,7 @@ function req(baseUrl, pathname, { method = 'GET', body = null, headers = {}, coo
 
 // Build a Cookie header string for a session token.
 function sessionCookie(token) {
-  return `vorhealth_session=${token}`;
+  return `klebb_session=${token}`;
 }
 
 // Generate a fake registered-user state so the server isSetup() returns true

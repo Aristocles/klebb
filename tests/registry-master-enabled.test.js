@@ -24,7 +24,7 @@ describe('registry master meta.enabled', () => {
     const sandbox = createSandbox({
       seed: {
         'weight.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: {
             id: 'weight',
             label: 'Weight',
@@ -52,7 +52,7 @@ describe('registry master meta.enabled', () => {
     const sandbox = createSandbox({
       seed: {
         'weight.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: {
             id: 'weight',
             label: 'Weight',
@@ -76,7 +76,7 @@ describe('registry master meta.enabled', () => {
     const sandbox = createSandbox({
       seed: {
         'weight.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: {
             id: 'weight',
             label: 'Weight',
@@ -100,7 +100,7 @@ describe('registry master meta.enabled', () => {
     const sandbox = createSandbox({
       seed: {
         'weight.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: {
             id: 'weight',
             label: 'Weight',
@@ -147,12 +147,12 @@ describe('registry master meta.enabled', () => {
     const sandbox = createSandbox({
       seed: {
         'a.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: { id: 'a', label: 'A', enabled: false, view: { enabled: true, component: 'metric-card' } },
           data: [{ date: '2026-04-20', v: 1 }],
         },
         'b.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: { id: 'b', label: 'B', view: { enabled: true, component: 'metric-card' } },
           data: [{ date: '2026-04-20', v: 2 }],
         },
@@ -174,7 +174,7 @@ describe('registry master meta.enabled', () => {
     const sandbox = createSandbox({
       seed: {
         'keep.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: {
             id: 'keep',
             label: 'Keep',
@@ -203,7 +203,7 @@ describe('registry master meta.enabled', () => {
     const sandbox = createSandbox({
       seed: {
         'weight.json': {
-          $schema: 'eddzhealth.datafile.v1',
+          $schema: 'klebb.datafile.v1',
           meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'metric-card' } },
           data: [{ date: '2026-04-20', kg: 85 }],
         },

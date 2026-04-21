@@ -1,7 +1,7 @@
-# Manifest schema — `eddzhealth.datafile.v1`
+# Manifest schema — `klebb.datafile.v1`
 
 This is the machine-readable spec for the v2 manifest format used by the
-EddzHealth dashboard. For the human-friendly tour, see
+Klebb dashboard. For the human-friendly tour, see
 [`docs/CARDS.md`](./docs/CARDS.md).
 
 ---
@@ -10,7 +10,7 @@ EddzHealth dashboard. For the human-friendly tour, see
 
 ```json
 {
-  "$schema":     "eddzhealth.datafile.v1",
+  "$schema":     "klebb.datafile.v1",
   "meta":        { /* required */ },
   "description": "free text (optional)",
   "schema":      { /* optional hint for validators */ },
@@ -18,7 +18,7 @@ EddzHealth dashboard. For the human-friendly tour, see
 }
 ```
 
-- `$schema`: must be `"eddzhealth.datafile.v1"` for the file to load.
+- `$schema`: must be `"klebb.datafile.v1"` for the file to load.
 - `meta`: required object, shape below.
 - `description`: optional prose. Shown under the title in Settings. Preserved
   verbatim on writes.
@@ -204,7 +204,7 @@ agree.
 
 ## Versioning
 
-The only supported schema is `eddzhealth.datafile.v1`. Future breaking
+The only supported schema is `klebb.datafile.v1`. Future breaking
 changes will bump to v2 and ship a migration script.
 
 Non-breaking additions (new optional fields, new input types, new

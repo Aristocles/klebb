@@ -10,7 +10,7 @@ const { createSandbox, cleanupSandbox, spawnServer, req, fakeAuthState } = requi
 
 function makeWeightManifest(data = []) {
   return {
-    $schema: 'eddzhealth.datafile.v1',
+    $schema: 'klebb.datafile.v1',
     meta: {
       id: 'weight',
       label: 'Weight',

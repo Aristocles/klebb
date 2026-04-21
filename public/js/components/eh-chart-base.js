@@ -1,7 +1,7 @@
 // eh-chart-base.js — shared ECharts integration for chart renderers.
 // Loads ECharts lazily from CDN and caches the module so multiple charts
 // don't re-fetch. Provides theme-aware defaults that respect the existing
-// eddzhealth light/dark CSS variables.
+// klebb light/dark CSS variables.
 
 import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';

@@ -19,7 +19,7 @@ function makeCard(id, { enabled, data = [{ date: '2026-04-20', v: 1 }] } = {}) {
     trends: { enabled: true, component: 'line-chart' },
   };
   if (typeof enabled === 'boolean') meta.enabled = enabled;
-  return { $schema: 'eddzhealth.datafile.v1', meta, data };
+  return { $schema: 'klebb.datafile.v1', meta, data };
 }
 
 describe('settings API', () => {
@@ -100,7 +100,7 @@ describe('settings API', () => {
     // Write a card with a description and data, toggle it twice, confirm integrity
     const file = path.join(sandbox, 'data', 'preserve-test.json');
     fs.writeFileSync(file, JSON.stringify({
-      $schema: 'eddzhealth.datafile.v1',
+      $schema: 'klebb.datafile.v1',
       meta: { id: 'preserve-test', label: 'Preserve', view: { enabled: true, component: 'metric-card' } },
       description: 'this must survive toggles',
       data: [{ date: '2026-04-20', note: 'keep me' }],

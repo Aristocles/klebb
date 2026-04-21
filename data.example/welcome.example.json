@@ -1,8 +1,8 @@
 {
-  "$schema": "eddzhealth.datafile.v1",
+  "$schema": "klebb.datafile.v1",
   "meta": {
     "id": "welcome",
-    "label": "Welcome to EddzHealth",
+    "label": "Welcome to Klebb",
     "emoji": "👋",
     "order": -100,
     "view": {
