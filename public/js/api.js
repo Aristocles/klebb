@@ -14,7 +14,6 @@ const api = {
   goals: () => api.get('goals'),
   peptides: () => api.get('peptides'),
   reports: () => api.get('reports'),
-  calendarHealth: () => api.get('calendar/health'),
   mood: (date) => api.get(`mood/${date}`),
   async saveMood(date, mood, notes, wakeUps) {
     const res = await fetch(`/api/mood/${date}`, {

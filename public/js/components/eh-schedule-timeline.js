@@ -1,5 +1,5 @@
 // eh-schedule-timeline.js — placeholder v2 renderer for schedule + doses.
-// Full dot-grid visualisation (Eddy's peptide timeline style) lands in M3b.
+// Full dot-grid visualisation lands in a future iteration.
 // For now, shows a tidy summary: per-item last dose + adherence count.
 
 import { html, css } from 'https://esm.sh/lit@3';

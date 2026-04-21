@@ -56,19 +56,24 @@ Minimal environment variables:
 
 | Var | Default | Purpose |
 |-----|---------|---------|
-| `HEALTH_HOME` | *(required)* | Root for `data/`, `credentials/`, `sessions/` |
+| `HEALTH_HOME` | `~/eddzhealth` | Root for `data/`, `credentials/`, `sessions/` |
 | `PORT` | `8080` | HTTP listen port |
 | `HOST` | `0.0.0.0` | Bind address |
+| `HEALTH_ORIGIN` | `http://localhost:<PORT>` | Public origin for WebAuthn |
+| `HEALTH_RP_ID` | `localhost` | WebAuthn Relying Party ID (hostname of `HEALTH_ORIGIN`) |
+| `HEALTH_RP_NAME` | `EddzHealth` | WebAuthn RP display name |
+| `HEALTH_INSTANCE_NAME` | `EddzHealth` | Instance name shown in the UI |
 | `SESSION_SECRET` | *(auto-gen)* | Session signing secret |
 | `AGENT_API_TOKEN` | *(disabled)* | Bearer token for server-to-server card writes |
-| `CHAT_GATEWAY_HOST` | `127.0.0.1` | Upstream chat-gateway gateway for chat |
+| `CHAT_GATEWAY_HOST` | `localhost` | Upstream chat-gateway gateway for chat |
 | `CHAT_GATEWAY_PORT` | `8787` | ^ |
-| `CHAT_GATEWAY_TLS` | `0` | ^ |
-| `CHAT_GATEWAY_TOKEN` | — | ^ |
+| `CHAT_GATEWAY_TLS` | auto | `false` for localhost, `true` otherwise |
+| `CHAT_GATEWAY_TOKEN` | *(disabled)* | Bearer auth for the gateway |
 | `CHAT_GATEWAY_MODEL` | *(gateway default)* | Model id |
-| `HEALTH_AGENT_NAME` | `Axis` | Chat agent display name |
-| `HEALTH_AGENT_AVATAR` | `⚡` | Chat agent emoji |
+| `CHAT_AGENT_NAME` | `Chat` | Chat agent display name |
+| `CHAT_AGENT_EMOJI` | `💬` | Chat agent emoji |
 | `FISH_AUDIO_API_KEY` | *(disabled)* | Fish Audio TTS/ASR for voice chat |
+| `FISH_AUDIO_DEFAULT_VOICE` | *(none)* | Voice model id |
 
 See `config/env.js` for the full list.
 

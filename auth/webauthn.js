@@ -13,7 +13,7 @@ const PATHS = require('../config/paths');
 const ENV = require('../config/env');
 const invites = require('./invites');
 
-// Config — all env-driven; defaults preserve Eddy's existing passkey
+// Config — all env-driven; see config/env.js for defaults.
 const RP_NAME = ENV.WEBAUTHN_RP_NAME;
 const RP_ID = ENV.WEBAUTHN_RP_ID;
 const ORIGIN = ENV.WEBAUTHN_ORIGIN;
@@ -198,7 +198,7 @@ async function handleAuthRoutes(req, res, pathname) {
       if (invites.requireInviteForRegistration()) {
         return sendJSON(res, { error: 'Invite required' }, 403);
       }
-      // Use the existing primary label if present; for legacy Eddy that's "eddy"
+      // Use the existing primary label if present; fall back to 'user'.
       if (!label) label = Object.keys(loadCredentials().users || {})[0] || 'user';
     }
     else {
