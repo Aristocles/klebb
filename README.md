@@ -1,5 +1,7 @@
 # Klebb
 
+[![tests](https://github.com/Aristocles/klebb/actions/workflows/test.yml/badge.svg)](https://github.com/Aristocles/klebb/actions/workflows/test.yml)
+
 A **file-driven**, **manifest-based** personal health dashboard.
 
 Every card on the dashboard is a JSON file in your `$HEALTH_HOME/data/`
