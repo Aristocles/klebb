@@ -76,12 +76,18 @@ Used by `component: "generic-card"` to render rows without custom code.
 
 ```json
 {
-  "template":       "{kg:round(1)} kg",
+  "template":       "{kg:round(1)}",
   "secondary":      "{notes|(no notes)}",
   "emptyHeadline":  "No weight today",
+  "unit":           "kg",
   "emojiMap": {
     "mood": { "1": "😩", "5": "😄" }
-  }
+  },
+  "thresholds": [
+    { "ifField": "kg", "max": 80, "colour": "#44ff88", "label": "Optimal" },
+    { "ifField": "kg", "max": 100, "colour": "#ff7733", "label": "Above target" }
+  ],
+  "trendArrow": { "field": "kg" }
 }
 ```
 
@@ -93,6 +99,19 @@ Template syntax:
 - `{key?yes:no}` → ternary on truthiness
 - `{nested.path}` → dotted access
 - Missing keys render as empty string
+
+`unit` prints a small secondary string next to the headline.
+
+`thresholds` is an array of rules. Each rule matches when `ifField`
+(or alias `field`) is present on the row AND either:
+- `min <= row[ifField] <= max` (both optional, at least one required), OR
+- `row[ifField]` stringly-equals `eq`.
+
+First match wins. The card gets a side-bar in `colour` and an inline
+label pill.
+
+`trendArrow` shows ↑/↓/→ next to the headline, comparing the current
+row to the most recent earlier entry on `field`.
 
 ### `writeable`
 

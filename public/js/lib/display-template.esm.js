@@ -1,10 +1,7 @@
 // public/js/lib/display-template.esm.js
-// ES-module re-export of the core display-template engine so browser components
-// can `import { renderTemplate } from '../lib/display-template.esm.js'`.
-// Node tests use the UMD version directly.
-
-// Inline the engine (so browsers don't need to load both files). Keep in sync
-// with display-template.js.
+// ES-module re-export of the display-template engine. Keep in sync with
+// display-template.js (UMD) — Node tests use the UMD version, browser
+// components use this one.
 
 export function isEmpty(v) {
   return v === null || v === undefined || v === '';
@@ -83,4 +80,55 @@ export function renderTemplate(template, row, display = null) {
       return '';
     }
   });
+}
+
+// --- Threshold evaluator ---
+// See display-template.js for detailed docs.
+export function evaluateThresholds(row, thresholds) {
+  if (!Array.isArray(thresholds) || thresholds.length === 0) return null;
+  if (!row || typeof row !== 'object') return null;
+  for (const rule of thresholds) {
+    if (!rule || typeof rule !== 'object') continue;
+    const field = rule.ifField || rule.field;
+    if (!field) continue;
+    const v = getValue(row, field);
+    if (v === undefined || v === null) continue;
+    if ('eq' in rule) {
+      if (String(v) === String(rule.eq)) return rule;
+      continue;
+    }
+    const n = Number(v);
+    if (Number.isNaN(n)) continue;
+    if ('min' in rule && n < Number(rule.min)) continue;
+    if ('max' in rule && n > Number(rule.max)) continue;
+    if (!('min' in rule) && !('max' in rule)) continue;
+    return rule;
+  }
+  return null;
+}
+
+// --- Trend computer ---
+export function computeTrend(row, key, allRows) {
+  if (!row || !key || !Array.isArray(allRows)) return null;
+  const currentVal = getValue(row, key);
+  if (currentVal === null || currentVal === undefined) return null;
+  const currentNum = Number(currentVal);
+  if (Number.isNaN(currentNum)) return null;
+  const currentDate = row.date;
+  if (!currentDate) return null;
+  const candidates = allRows
+    .filter(r => r && r.date && r.date < currentDate)
+    .filter(r => {
+      const v = getValue(r, key);
+      return v !== null && v !== undefined && !Number.isNaN(Number(v));
+    })
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  if (candidates.length === 0) return null;
+  const prev = candidates[0];
+  const prevNum = Number(getValue(prev, key));
+  const delta = currentNum - prevNum;
+  let dir = 'flat';
+  if (delta > 0) dir = 'up';
+  else if (delta < 0) dir = 'down';
+  return { dir, delta, prev };
 }
