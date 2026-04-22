@@ -175,8 +175,10 @@ export class EhGenericCard extends EhBaseCard {
       }
       .edit-btn {
         position: absolute;
-        top: 12px;
-        right: 12px;
+        /* Sit in the card-header row, right-aligned. -32px lifts the
+           button above the card-inner container into the header space. */
+        top: -32px;
+        right: 4px;
         background: transparent;
         border: 1px solid var(--border);
         color: var(--text-secondary);
@@ -189,7 +191,7 @@ export class EhGenericCard extends EhBaseCard {
         align-items: center;
         justify-content: center;
         transition: all 0.15s;
-        z-index: 2;
+        z-index: 3;
       }
       .edit-btn:hover {
         border-color: var(--accent);
@@ -199,7 +201,7 @@ export class EhGenericCard extends EhBaseCard {
         outline: 2px solid var(--accent);
         outline-offset: 2px;
       }
-      .card-inner { position: relative; padding-right: 36px; padding-left: 10px; }
+      .card-inner { position: relative; padding-right: 4px; padding-left: 10px; }
       .err { color: #ff4466; font-size: 12px; margin-top: 6px; }
 
       @media (prefers-reduced-motion: reduce) {
