@@ -1,0 +1,45 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "active-minutes",
+    "label": "Active Minutes",
+    "emoji": "⏱️",
+    "order": 74,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "dateContext": "viewedDate",
+      "display": {
+        "template": "{minutes}",
+        "unit": "min",
+        "emptyHeadline": "No active minutes",
+        "trendArrow": { "field": "minutes" },
+        "thresholds": [
+          { "ifField": "minutes", "max": 14, "colour": "#ff3333", "label": "Sedentary" },
+          { "ifField": "minutes", "min": 15, "max": 29, "colour": "#ff7733", "label": "Low" },
+          { "ifField": "minutes", "min": 30, "max": 59, "colour": "#66cc55", "label": "Active" },
+          { "ifField": "minutes", "min": 60, "colour": "#44ff88", "label": "High" }
+        ]
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "xKey": "date",
+      "yKey": "minutes",
+      "unit": "min"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "todayAllowed": true,
+      "pastAllowed": true,
+      "futureAllowed": false,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "minutes", "type": "number", "label": "Active minutes", "min": 0, "max": 1440, "step": 1, "required": true }
+      ]
+    }
+  },
+  "description": "Daily minutes of moderate-to-vigorous activity. WHO guideline is 150+ per WEEK (~22/day).",
+  "data": []
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "how-to-add-a-card",
+    "label": "How to add a card",
+    "emoji": "📘",
+    "order": -90,
+    "view": {
+      "enabled": true,
+      "component": "markdown-doc",
+      "slot": "top"
+    }
+  },
+  "description": "Inline quick-reference for card authoring. Disable or delete after you've got the hang of things.",
+  "data": {
+    "markdown": "## Adding a card\n\nEvery card on your Klebb dashboard is a JSON file in `$HEALTH_HOME/data/`.\n\n### Three ways to add one\n\n1. **Ask Klebbius in chat.** Tap the 🧠 button, say *\"Add a card for tracking daily meditation minutes\"*. He'll draft the manifest, drop the file in, and the card appears.\n\n2. **Copy an example.** Browse `data.example/` in the repo — each file is a ready-made card. Copy the one you want to `$HEALTH_HOME/data/` and rename it (drop the `.example`).\n\n3. **Write one by hand.** See `docs/CARDS.md` for the full manifest spec and `docs/RECIPES.md` for patterns.\n\n### Removing a card\n\nDelete the file. Or toggle it off in **Settings** (keeps the data, hides the card).\n\n### Getting help\n\nAsk Klebbius: *\"Change the mood card to allow multiple entries per day\"* or *\"Why isn't my new card showing up?\"*. He has access to the same docs you do."
+  }
+}

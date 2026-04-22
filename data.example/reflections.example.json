@@ -1,0 +1,30 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "reflections",
+    "label": "Reflections",
+    "emoji": "🪞",
+    "order": 80,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "dateContext": "viewedDate",
+      "display": {
+        "template": "{entry:truncate(120)|(no reflection today)}",
+        "emptyHeadline": "No reflection today"
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "todayAllowed": true,
+      "pastAllowed": true,
+      "futureAllowed": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "entry", "type": "textarea", "label": "Reflection", "rows": 6, "placeholder": "What's on your mind today?" }
+      ]
+    }
+  },
+  "description": "Longer-form journaling card. One reflection per day, multi-paragraph welcome. Past + future entries allowed (useful for backfilling or writing ahead).",
+  "data": []
+}

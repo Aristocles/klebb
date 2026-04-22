@@ -1,0 +1,482 @@
+# Recipes
+
+Patterns for building common card types. Each recipe is a complete,
+copy-pasteable manifest file you can drop into `$HEALTH_HOME/data/` as a
+starting point.
+
+For the full manifest spec, see [`CARDS.md`](CARDS.md) and
+[`../MANIFEST-SCHEMA.md`](../MANIFEST-SCHEMA.md).
+
+---
+
+## Recipe 1 — Single-number metric with trend arrow
+
+For tracking a daily numeric value where you care about the trend from
+yesterday (weight, steps, HRV, resting heart rate).
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "weight",
+    "label": "Weight",
+    "emoji": "⚖️",
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{kg:round(1)}",
+        "unit": "kg",
+        "trendArrow": { "field": "kg" }
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "kg", "type": "number", "label": "Weight (kg)",
+          "min": 0, "max": 500, "step": 0.1, "required": true }
+      ]
+    }
+  },
+  "data": []
+}
+```
+
+**Key bits:**
+- `display.template: "{kg:round(1)}"` — 1-decimal rounding
+- `display.unit: "kg"` — small grey suffix
+- `display.trendArrow.field: "kg"` — ↑/↓/→ vs previous entry
+- `maxReadingsPerDay: 1` — new entry replaces today's old one
+
+**Variations:**
+- For **steps** use `"step": 1`, large `"max": 100000`, no rounding.
+- For **HRV** add `"source"` text input (Oura, Whoop, Apple Watch).
+
+See `data.example/weight.example.json`, `steps.example.json`,
+`resting-hrv.example.json`.
+
+---
+
+## Recipe 2 — Two-number metric with colour-coded thresholds
+
+For vital signs where the value falls into clinical bands (blood pressure,
+cholesterol ratios, fasting glucose).
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "bp",
+    "label": "Blood Pressure",
+    "emoji": "💓",
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{systolic}/{diastolic}",
+        "unit": "mmHg",
+        "thresholds": [
+          { "ifField": "systolic", "max": 119, "colour": "#44ff88", "label": "Optimal" },
+          { "ifField": "systolic", "max": 129, "colour": "#aaaa44", "label": "Elevated" },
+          { "ifField": "systolic", "max": 139, "colour": "#ff7733", "label": "Stage 1" },
+          { "ifField": "systolic", "max": 999, "colour": "#ff3333", "label": "Stage 2" }
+        ]
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 3,
+      "inputs": [
+        { "key": "systolic",  "type": "number", "label": "Systolic",  "required": true },
+        { "key": "diastolic", "type": "number", "label": "Diastolic", "required": true }
+      ]
+    }
+  },
+  "data": []
+}
+```
+
+**Key bits:**
+- Template uses both fields: `{systolic}/{diastolic}`
+- `thresholds` evaluated top-to-bottom, first match wins
+- `maxReadingsPerDay: 3` — typical BP protocol is morning/afternoon/evening
+- Paints a coloured side-bar on the card + a pill label
+
+**Variations:**
+- Invert for "lower is worse" (e.g. SpO₂): use `min` instead of `max`.
+- For single-metric thresholds (sleep hours), keep the same pattern with
+  one field.
+
+See `data.example/bp.example.json`, `sleep-hours.example.json`,
+`body-temperature.example.json`.
+
+---
+
+## Recipe 3 — Emoji-picker rating (mood-like, one-tap)
+
+For subjective 1-to-N ratings where an emoji row communicates faster than
+numbers.
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "mood",
+    "label": "Mood",
+    "emoji": "🙂",
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{mood:emoji}",
+        "emojiMap": {
+          "mood": { "1": "😩", "2": "😴", "3": "😐", "4": "🙂", "5": "😄" }
+        }
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "mood", "type": "emoji-picker", "label": "Mood",
+          "emojis": ["😩", "😴", "😐", "🙂", "😄"],
+          "emitIndex": true, "required": true, "autoSubmit": true }
+      ]
+    }
+  },
+  "data": []
+}
+```
+
+**Key bits:**
+- `emitIndex: true` — stores 1-5 instead of the emoji itself (so the data
+  is sortable/chartable)
+- `autoSubmit: true` — tapping the emoji submits immediately (no Save click)
+- `emojiMap` lets the template re-render the stored index as the picked emoji
+
+**Variations:**
+- Swap emojis to your taste: `["💀", "😞", "😐", "😊", "🤩"]`
+- Add secondary inputs (mood + wake-ups + notes) — keep `autoSubmit: false`
+  on the primary so the form doesn't close prematurely
+
+See `data.example/mood.example.json`.
+
+---
+
+## Recipe 4 — 1-to-5 rating buttons
+
+For ratings where you want explicit numeric buttons (not emojis). Useful
+for stress, energy, or any dimension you'll chart over time.
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "stress",
+    "label": "Stress",
+    "emoji": "😤",
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{rating}",
+        "unit": "/ 5",
+        "thresholds": [
+          { "ifField": "rating", "eq": 1, "colour": "#44ff88", "label": "Calm" },
+          { "ifField": "rating", "eq": 5, "colour": "#ff3333", "label": "Frazzled" }
+        ]
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "rating", "type": "rating", "label": "Stress",
+          "min": 1, "max": 5, "required": true }
+      ]
+    }
+  },
+  "data": []
+}
+```
+
+**Key bits:**
+- `type: "rating"` renders a row of 1..5 buttons
+- `min`/`max` set the range (default 1-5, can use e.g. 1-10)
+- `eq` thresholds colour the pill per exact value
+
+See `data.example/stress.example.json`, `energy.example.json`,
+`sleep-quality.example.json`.
+
+---
+
+## Recipe 5 — Categorical tracker with colour map
+
+For values that fall into discrete categories where each category has a
+meaningful colour (Bristol stool, pain level, urine colour).
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "bristol-stool",
+    "label": "Bristol Stool",
+    "emoji": "💩",
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "Type {type}",
+        "thresholds": [
+          { "ifField": "type", "eq": "1", "colour": "#884422", "label": "Constipated" },
+          { "ifField": "type", "eq": "4", "colour": "#44ff88", "label": "Ideal" },
+          { "ifField": "type", "eq": "7", "colour": "#ff3333", "label": "Liquid" }
+        ]
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 5,
+      "inputs": [
+        {
+          "key": "type",
+          "type": "select",
+          "label": "Type",
+          "required": true,
+          "options": [
+            { "value": "1", "label": "1 — Separate hard lumps" },
+            { "value": "4", "label": "4 — Smooth soft sausage (ideal)" },
+            { "value": "7", "label": "7 — Watery" }
+          ]
+        }
+      ]
+    }
+  },
+  "data": []
+}
+```
+
+**Key bits:**
+- `type: "select"` with `{value, label}` pairs → dropdown
+- Thresholds use `eq` (not `min/max`) for exact-match categorical colouring
+- `maxReadingsPerDay > 1` since this is often multi-per-day
+
+See `data.example/bristol-stool.example.json`.
+
+---
+
+## Recipe 6 — Yes/no daily checkbox
+
+For habit tracking: did I meditate, did I train, did I take my
+supplements.
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "workouts",
+    "label": "Workout Today",
+    "emoji": "🏋️",
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{trained?✅ Trained:❌ Rest}",
+        "secondary": "{notes|}"
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "trained", "type": "checkbox", "label": "Trained today?" },
+        { "key": "notes", "type": "textarea", "label": "Notes", "rows": 2 }
+      ]
+    }
+  },
+  "data": []
+}
+```
+
+**Key bits:**
+- Template uses the ternary operator: `{trained?yes:no}` renders the
+  `yes` text when truthy, `no` text when falsy
+- `type: "checkbox"` → on/off toggle
+
+See `data.example/workouts.example.json`.
+
+---
+
+## Recipe 7 — Textarea with truncated display
+
+For freeform journal-style entries where you want a preview on Today
+and the full text available via the edit form.
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "notes",
+    "label": "Daily Notes",
+    "emoji": "📝",
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{note:truncate(80)|(no note today)}"
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "note", "type": "textarea", "label": "Note",
+          "rows": 4, "placeholder": "How's the day?" }
+      ]
+    }
+  },
+  "data": []
+}
+```
+
+**Key bits:**
+- `{note:truncate(80)}` cuts the string at 80 chars and adds `…`
+- `|(no note today)` pipe-default covers the empty case
+
+**Variations:**
+- For longer preview use `truncate(160)` and consider `display.secondary`
+  for tags or metadata on a second line.
+
+See `data.example/notes.example.json`, `reflections.example.json`.
+
+---
+
+## Recipe 8 — Multi-reading-per-day
+
+For metrics with natural multiple-measurement patterns (BP taken 3x/day,
+mood dips tracked throughout the day, pain-rating spot checks).
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "bp",
+    "label": "Blood Pressure",
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": { "template": "{systolic}/{diastolic}", "unit": "mmHg" }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 3,
+      "inputs": [
+        { "key": "systolic",  "type": "number", "required": true },
+        { "key": "diastolic", "type": "number", "required": true },
+        { "key": "time",      "type": "time",   "label": "Time taken" }
+      ]
+    }
+  },
+  "data": []
+}
+```
+
+**Key bits:**
+- `maxReadingsPerDay: 3` — keep the 3 most recent same-day entries; older
+  ones drop off
+- Add a `time` input so multiple same-day readings have a clock time
+  associated with them (the generic card shows the latest one)
+
+**How the cap works:** when you save, new entries are appended. If the
+count for that date exceeds `max`, the OLDEST same-date entry is dropped
+(FIFO-per-day). Entries from other dates are untouched.
+
+---
+
+## Recipe 9 — Time-of-day tracker
+
+For when you care WHAT TIME you did something, not just whether (first
+coffee, last meal, when I took the melatonin).
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "first-coffee",
+    "label": "First Coffee",
+    "emoji": "☕",
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": { "template": "{time|not yet today}" }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "time", "type": "time", "label": "Time of first cup",
+          "required": true }
+      ]
+    }
+  },
+  "data": []
+}
+```
+
+**Key bits:**
+- `type: "time"` renders a native time picker (HH:MM, 24h)
+- Stored as a string (e.g. `"07:30"`) in the entry
+
+---
+
+## Recipe 10 — Colour tracker
+
+For visual assessments (urine colour for hydration, bruise colour over
+time, skin redness).
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "urine-colour",
+    "label": "Hydration (colour)",
+    "emoji": "🩴",
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{colour|—}",
+        "secondary": "{note|}"
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 3,
+      "inputs": [
+        { "key": "colour", "type": "colour", "label": "Colour (pale = good)" },
+        { "key": "note",   "type": "text",   "label": "Note",
+          "placeholder": "e.g. post-coffee, post-run" }
+      ]
+    }
+  },
+  "data": []
+}
+```
+
+**Key bits:**
+- `type: "colour"` (or `"color"`) renders a native colour picker
+- Stored as a hex string (`"#ffeecc"`)
+
+---
+
+## Next steps
+
+- For the full manifest spec (every field, every input type, every
+  template modifier), see [`../MANIFEST-SCHEMA.md`](../MANIFEST-SCHEMA.md).
+- For architectural background, see [`CARDS.md`](CARDS.md).
+- To hand-off card authoring to your chat agent, see
+  [`CHAT-AGENT.md`](CHAT-AGENT.md).
+
+Drop cards into `$HEALTH_HOME/data/`. Klebbius (or any configured agent)
+can read the same docs and help you compose new ones.

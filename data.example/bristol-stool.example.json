@@ -1,0 +1,55 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "bristol-stool",
+    "label": "Bristol Stool",
+    "emoji": "💩",
+    "order": 84,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "dateContext": "viewedDate",
+      "display": {
+        "template": "Type {type}",
+        "secondary": "{note|}",
+        "emptyHeadline": "No log today",
+        "thresholds": [
+          { "ifField": "type", "eq": "1", "colour": "#884422", "label": "Constipated" },
+          { "ifField": "type", "eq": "2", "colour": "#aa6633", "label": "Hard" },
+          { "ifField": "type", "eq": "3", "colour": "#cc9944", "label": "Normal" },
+          { "ifField": "type", "eq": "4", "colour": "#44ff88", "label": "Ideal" },
+          { "ifField": "type", "eq": "5", "colour": "#aaaa44", "label": "Soft" },
+          { "ifField": "type", "eq": "6", "colour": "#ff7733", "label": "Mushy" },
+          { "ifField": "type", "eq": "7", "colour": "#ff3333", "label": "Liquid" }
+        ]
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "todayAllowed": true,
+      "pastAllowed": true,
+      "futureAllowed": false,
+      "maxReadingsPerDay": 5,
+      "inputs": [
+        {
+          "key": "type",
+          "type": "select",
+          "label": "Bristol type",
+          "required": true,
+          "options": [
+            { "value": "1", "label": "1 — Separate hard lumps" },
+            { "value": "2", "label": "2 — Lumpy sausage" },
+            { "value": "3", "label": "3 — Cracked sausage" },
+            { "value": "4", "label": "4 — Smooth soft sausage (ideal)" },
+            { "value": "5", "label": "5 — Soft blobs" },
+            { "value": "6", "label": "6 — Mushy" },
+            { "value": "7", "label": "7 — Watery" }
+          ]
+        },
+        { "key": "note", "type": "text", "label": "Note", "placeholder": "optional" }
+      ]
+    }
+  },
+  "description": "Bristol Stool Chart logging. Type 3-4 is ideal; 1-2 suggests constipation, 5-7 suggests loose. Useful for tracking gut health, dietary changes, IBS management. Multiple entries per day allowed.",
+  "data": []
+}

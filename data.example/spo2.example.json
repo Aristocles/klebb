@@ -1,0 +1,44 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "spo2",
+    "label": "Blood Oxygen (SpO₂)",
+    "emoji": "🫁",
+    "order": 24,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "dateContext": "viewedDate",
+      "display": {
+        "template": "{percent}",
+        "unit": "%",
+        "emptyHeadline": "No reading today",
+        "thresholds": [
+          { "ifField": "percent", "min": 96, "colour": "#44ff88", "label": "Normal" },
+          { "ifField": "percent", "min": 91, "max": 95, "colour": "#ff7733", "label": "Mild" },
+          { "ifField": "percent", "max": 90, "colour": "#ff3333", "label": "Low" }
+        ]
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "xKey": "date",
+      "yKey": "percent",
+      "unit": "%"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "todayAllowed": true,
+      "pastAllowed": true,
+      "futureAllowed": false,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "percent", "type": "number", "label": "SpO₂ (%)", "min": 70, "max": 100, "step": 1, "required": true },
+        { "key": "note", "type": "text", "label": "Note", "placeholder": "optional" }
+      ]
+    }
+  },
+  "description": "Blood oxygen saturation, measured via pulse oximeter. Array of rows: [{ date, percent, note? }]. Healthy resting SpO₂ is 95-100%.",
+  "data": []
+}
