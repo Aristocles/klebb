@@ -104,6 +104,8 @@ Fields:
   Today).
 - `component` (string): renderer name. Built-ins:
   - `generic-card` — the zero-code renderer (preferred default, see below)
+  - `list-card` — persistent roster of items (symptoms, allergies, etc.)
+    — rows stay until explicitly deleted, not per-day
   - `schedule-card` — medication/supplement schedule grid
   - `checklist-card` — daily checklist
   - `markdown-doc` — static markdown content
@@ -279,6 +281,79 @@ Arrow colours:
 Note the reverse: for weight, "up" is usually bad; for a rating card
 you might want the opposite. Card authors can future-invert via a
 `trendArrow.invert: true` flag (not implemented yet).
+
+---
+
+## The `list-card` renderer — persistent-items roster
+
+`meta.view.component = "list-card"` renders the whole `data` array as a
+scrolling list. Unlike `generic-card` (which shows one dated entry),
+list-card shows every row on every day. Rows persist until explicitly
+deleted. Use for:
+
+- Symptoms you're currently tracking
+- Appointments (upcoming list)
+- Allergies, ongoing conditions
+- Anything that's "currently true" rather than "logged today"
+
+### Meta config
+
+```json
+"view": {
+  "enabled": true,
+  "component": "list-card",
+  "display": {
+    "primaryField":     "symptom",
+    "secondaryTemplate": "{severity|} {location|}",
+    "emptyMessage":     "No symptoms — tap Edit to add one.",
+    "maxCharPreview":   60
+  }
+},
+"writeable": {
+  "fromWebapp": true,
+  "inputs": [
+    { "key": "symptom",  "type": "text",     "required": true, "maxLength": 120 },
+    { "key": "severity", "type": "rating",   "min": 1, "max": 5 },
+    { "key": "note",     "type": "textarea", "maxLength": 500 }
+  ]
+}
+```
+
+### UI
+
+- **Normal view:** plain list. Tapping a row expands it inline to show
+  the full primary text + secondary fields.
+- **Edit mode:** tap ✏️ Edit in the header. Each row becomes editable
+  inline (the primary field as a text input). Every row has a red ➖
+  button — tap it to mark-for-delete (row shows struck-through); tap
+  again to restore. `➕ Add` appends a new blank row. `Cancel` discards,
+  `Done` saves the whole array.
+- **Mobile:** same UX. Tap targets sized for finger use.
+
+### Data shape
+
+Array of objects, each object has the fields declared in
+`writeable.inputs`. No `date` field needed — the `added` ISO timestamp
+is set automatically per row on create and isn't shown in the form.
+
+```json
+"data": [
+  { "symptom": "Chronic shoulder pain", "severity": 3, "note": "left side",
+    "added": "2026-02-10T08:00:00Z" },
+  { "symptom": "Morning brain fog", "severity": 2, "note": "high-carb days",
+    "added": "2026-03-05T09:15:00Z" }
+]
+```
+
+### Differences from `generic-card`
+
+| Dimension | generic-card | list-card |
+|------|-------------|-----------|
+| Scope | one entry (today's or latest) | all entries (full roster) |
+| `dateContext` | used — filters by date | ignored |
+| `maxReadingsPerDay` | enforces upsert / append cap | N/A |
+| Row add pattern | one `meta.writeable.inputs` form per entry | same form, repeatable |
+| Row delete | manual in chat / file edit | inline ➖ in edit mode |
 
 ---
 

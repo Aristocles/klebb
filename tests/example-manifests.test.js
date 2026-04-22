@@ -26,7 +26,7 @@ const KNOWN_COMPONENTS = new Set([
   'adherence-report',
   'greeting-banner',
   'progress-bars-card',  // Used by existing goals.json
-  'list-card',           // Pending deferred-a — some examples point at it
+  'list-card',           // Persistent-items list, eh-list-card
   'day-marker',          // Calendar-only marker config (meta.calendar.component)
 ]);
 
