@@ -183,17 +183,18 @@ export class EhListCard extends EhBaseCard {
         background: transparent;
         border: 1px solid var(--border);
         color: var(--text-secondary);
-        min-width: 32px;
-        height: 28px;
-        padding: 0 10px;
-        border-radius: 14px;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
         cursor: pointer;
-        font-size: 12px;
-        font-weight: 600;
+        font-size: 14px;
         font-family: inherit;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        line-height: 1;
+        padding: 0;
+        transition: all 0.15s;
       }
       .tool-btn:hover { border-color: var(--accent); color: var(--accent); }
       .tool-btn:focus-visible {
@@ -205,8 +206,15 @@ export class EhListCard extends EhBaseCard {
         border-color: var(--accent);
         color: var(--text-inverse, #fff);
       }
-      .tool-btn.primary:hover { filter: brightness(1.05); }
+      .tool-btn.primary:hover {
+        filter: brightness(1.05);
+        color: var(--text-inverse, #fff);
+      }
       .tool-btn[disabled] { opacity: 0.5; cursor: wait; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .tool-btn { transition: none; }
+      }
 
       .rows {
         list-style: none;
@@ -392,14 +400,27 @@ export class EhListCard extends EhBaseCard {
         ${canWrite ? html`
           <div class="edit-toolbar">
             ${this._editing ? html`
-              <button class="tool-btn" @click=${this._cancelEdit} ?disabled=${this._saving}>Cancel</button>
-              <button class="tool-btn primary" @click=${this._saveEdit} ?disabled=${this._saving}>
-                ${this._saving ? 'Saving…' : 'Done'}
-              </button>
+              <button
+                class="tool-btn"
+                @click=${this._cancelEdit}
+                ?disabled=${this._saving}
+                aria-label="Cancel — discard changes"
+                title="Cancel"
+              >\u2715</button>
+              <button
+                class="tool-btn primary"
+                @click=${this._saveEdit}
+                ?disabled=${this._saving}
+                aria-label="Done — save changes"
+                title="${this._saving ? 'Saving…' : 'Done'}"
+              >${this._saving ? html`<span style="font-size: 11px;">…</span>` : '\u2713'}</button>
             ` : html`
-              <button class="tool-btn" @click=${this._enterEdit} aria-label="Edit list">
-                ✏️ Edit
-              </button>
+              <button
+                class="tool-btn"
+                @click=${this._enterEdit}
+                aria-label="Edit list"
+                title="Edit"
+              >\u270F\uFE0F</button>
             `}
           </div>
         ` : ''}
