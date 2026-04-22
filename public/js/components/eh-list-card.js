@@ -169,11 +169,15 @@ export class EhListCard extends EhBaseCard {
       .list-root { position: relative; padding: 0 4px; }
       .edit-toolbar {
         position: absolute;
-        top: 10px;
-        right: 10px;
+        /* Position relative to the card-body (list-root is inside it).
+           Pull up into the card-header area where users expect edit
+           actions to live. Matches the 10-12px top-padding that the
+           header uses. */
+        top: -32px;
+        right: 4px;
         display: flex;
         gap: 6px;
-        z-index: 2;
+        z-index: 3;
       }
       .tool-btn {
         background: transparent;
