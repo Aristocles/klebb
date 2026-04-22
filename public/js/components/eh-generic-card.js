@@ -195,8 +195,16 @@ export class EhGenericCard extends EhBaseCard {
         border-color: var(--accent);
         color: var(--accent);
       }
+      .edit-btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
       .card-inner { position: relative; padding-right: 36px; padding-left: 10px; }
       .err { color: #ff4466; font-size: 12px; margin-top: 6px; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .edit-btn { transition: none; }
+      }
     `,
   ];
 
