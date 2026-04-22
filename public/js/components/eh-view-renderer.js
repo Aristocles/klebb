@@ -43,6 +43,7 @@ export class EhViewRenderer extends LitElement {
       display: grid;
       grid-template-columns: 1fr;
       gap: 12px;
+      margin-top: 6px;
     }
     @media (min-width: 768px) {
       .grid {
