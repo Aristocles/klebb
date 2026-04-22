@@ -3,6 +3,7 @@
 // renderer via the renderer-registry, instantiates it with the right props.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import Sortable from 'https://esm.sh/sortablejs@1.15.2';
 import { resolveRenderer } from '../renderer-registry.js';
 
 // Ensure all core renderers are loaded
@@ -29,6 +30,10 @@ export class EhViewRenderer extends LitElement {
     _allCardsCount: { state: true },
     _disabledCount: { state: true },
     _errorsExpanded: { state: true },
+    _reorderMode: { state: true },
+    _reorderError: { state: true },
+    _reorderSaving: { state: true },
+    _ariaAnnouncement: { state: true },
   };
 
   constructor() {
@@ -43,6 +48,24 @@ export class EhViewRenderer extends LitElement {
     this._allCardsCount = 0;
     this._disabledCount = 0;
     this._errorsExpanded = false;
+    this._reorderMode = false;
+    this._reorderError = null;
+    this._reorderSaving = false;
+    this._ariaAnnouncement = '';
+    this._sortable = null;
+    this._onReorderEvent = () => { this._enterReorderMode(); };
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._fetchCards();
+    window.addEventListener('klebb-enter-reorder-mode', this._onReorderEvent);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('klebb-enter-reorder-mode', this._onReorderEvent);
+    this._destroySortable();
   }
 
   static styles = css`
@@ -122,12 +145,90 @@ export class EhViewRenderer extends LitElement {
       color: var(--accent);
       text-decoration: underline;
     }
-  `;
 
-  connectedCallback() {
-    super.connectedCallback();
-    this._fetchCards();
-  }
+    /* --- Reorder mode --- */
+    .reorder-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      background: var(--accent-bg, rgba(0,212,170,0.08));
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+    .reorder-bar-label { font-weight: 600; }
+    .reorder-bar-done {
+      background: var(--accent);
+      color: var(--text-inverse, #fff);
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .reorder-bar-done:focus-visible {
+      outline: 2px solid var(--text-primary);
+      outline-offset: 2px;
+    }
+    .reorder-error {
+      color: #ff4466;
+      font-size: 12px;
+      margin-bottom: 8px;
+      padding: 0 4px;
+    }
+    .card-wrap { position: relative; }
+    .card-wrap.reorder-active {
+      cursor: grab;
+      outline: 1px dashed var(--accent);
+      outline-offset: 3px;
+      border-radius: 10px;
+    }
+    .drag-handle {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      width: 28px;
+      height: 28px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      cursor: grab;
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+      line-height: 1;
+    }
+    .drag-handle:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .drag-chosen { opacity: 0.85; }
+    .drag-ghost { opacity: 0.3; }
+
+    .sr-live {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reorder-bar-done, .drag-handle { transition: none; }
+    }
+  `;
 
   updated(changed) {
     // The card LIST only depends on the view name — not the date.
@@ -136,6 +237,12 @@ export class EhViewRenderer extends LitElement {
     // via the standard property reactivity in render()).
     if (changed.has('view')) {
       this._fetchCards();
+      // Exiting reorder mode on view change is safer than carrying it across
+      if (this._reorderMode) this._exitReorderMode();
+    }
+    // Wire/unwire Sortable when reorder-mode or cards change
+    if (changed.has('_reorderMode') || changed.has('cards')) {
+      this._refreshSortable();
     }
   }
 
@@ -172,13 +279,139 @@ export class EhViewRenderer extends LitElement {
   _renderCard(card) {
     const tag = resolveRenderer(card.viewConfig?.component);
     const isTopSlot = card.viewConfig?.slot === 'top';
-    // Create element dynamically to set `card` prop correctly
-    const el = document.createElement(tag);
-    el.card = card;
-    el.date = this.date;
-    el.dateMode = this.dateMode;
-    if (isTopSlot) el.className = 'slot-top';
-    return el;
+    const inner = document.createElement(tag);
+    inner.card = card;
+    inner.date = this.date;
+    inner.dateMode = this.dateMode;
+
+    // Always wrap in a container so Sortable has a stable handle. The
+    // wrapper carries the data-card-id attribute the reorder logic reads.
+    const wrap = document.createElement('div');
+    wrap.className = 'card-wrap' + (isTopSlot ? ' slot-top' : '');
+    wrap.dataset.cardId = card.id;
+    if (this._reorderMode) {
+      const handle = document.createElement('button');
+      handle.className = 'drag-handle';
+      handle.type = 'button';
+      handle.setAttribute('aria-label', `Drag handle for ${card.meta?.label || card.id}`);
+      handle.textContent = '⋮⋮';
+      // Keyboard reorder: focus handle, arrow-up/down moves this card.
+      handle.addEventListener('keydown', (e) => this._onHandleKeydown(e, card.id));
+      wrap.appendChild(handle);
+      wrap.classList.add('reorder-active');
+    }
+    wrap.appendChild(inner);
+    return wrap;
+  }
+
+  _enterReorderMode() {
+    // Only makes sense if there's more than one card to reorder
+    if (!this.cards || this.cards.length < 2) return;
+    this._reorderMode = true;
+    this._reorderError = null;
+    this._ariaAnnouncement = 'Reorder mode on. Drag cards to reorder, or tab to a drag handle and press the up or down arrow to move it.';
+  }
+
+  _onHandleKeydown(e, cardId) {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const idx = this.cards.findIndex(c => c.id === cardId);
+    if (idx < 0) return;
+    const delta = e.key === 'ArrowUp' ? -1 : 1;
+    const target = idx + delta;
+    if (target < 0 || target >= this.cards.length) return;
+    // Swap in place, then POST the whole new order
+    const newList = [...this.cards];
+    [newList[idx], newList[target]] = [newList[target], newList[idx]];
+    const newOrder = newList.map(c => c.id);
+    this._ariaAnnouncement = `${this.cards[idx].meta?.label || cardId} moved ${e.key === 'ArrowUp' ? 'up' : 'down'}.`;
+    // Fire-and-forget: the onEnd path (drag) does exactly the same thing.
+    // Reuse it by monkey-setting the DOM order first isn't clean, so just
+    // call the save directly with the new order.
+    this._saveReorder(newOrder);
+    // Keep focus on the handle in the NEW position after the re-render
+    this._refocusAfterUpdate = cardId;
+  }
+
+  async _saveReorder(newOrder) {
+    this._reorderSaving = true;
+    this._reorderError = null;
+    try {
+      const res = await fetch('/api/manifests/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: newOrder }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(j.error || `HTTP ${res.status}`);
+      }
+      const byId = new Map(this.cards.map(c => [c.id, c]));
+      this.cards = newOrder.map(id => byId.get(id)).filter(Boolean);
+    } catch (e) {
+      this._reorderError = e.message || 'reorder failed';
+      this._fetchCards();
+    } finally {
+      this._reorderSaving = false;
+    }
+  }
+
+  _exitReorderMode() {
+    this._reorderMode = false;
+    this._reorderError = null;
+    this._destroySortable();
+    this._ariaAnnouncement = 'Reorder mode off.';
+  }
+
+  _destroySortable() {
+    if (this._sortable) {
+      try { this._sortable.destroy(); } catch {}
+      this._sortable = null;
+    }
+  }
+
+  _refreshSortable() {
+    this._destroySortable();
+    if (!this._reorderMode) return;
+    const gridEl = this.shadowRoot?.querySelector('.grid');
+    if (!gridEl) return;
+    this._sortable = Sortable.create(gridEl, {
+      animation: 150,
+      handle: '.drag-handle',
+      ghostClass: 'drag-ghost',
+      chosenClass: 'drag-chosen',
+      onEnd: () => this._onReorderEnd(),
+    });
+  }
+
+  async _onReorderEnd() {
+    // Read the id order from the DOM (Sortable has just updated it)
+    const grid = this.shadowRoot?.querySelector('.grid');
+    if (!grid) return;
+    const newOrder = [];
+    for (const child of grid.children) {
+      const id = child.dataset?.cardId;
+      if (id) newOrder.push(id);
+    }
+    if (newOrder.length === 0) return;
+    await this._saveReorder(newOrder);
+    this._ariaAnnouncement = `Reorder saved. New first card: ${this.cards[0]?.meta?.label || this.cards[0]?.id}.`;
+  }
+
+  _renderReorderBar() {
+    if (!this._reorderMode) return '';
+    return html`
+      <div class="reorder-bar" role="region" aria-label="Reorder mode">
+        <span class="reorder-bar-label">
+          ⋮⋮ Drag cards to reorder
+          ${this._reorderSaving ? html` · <em>saving…</em>` : ''}
+        </span>
+        <button class="reorder-bar-done" @click=${this._exitReorderMode}>Done</button>
+      </div>
+      ${this._reorderError ? html`
+        <div class="reorder-error">${this._reorderError}</div>
+      ` : ''}
+    `;
   }
 
   _renderErrorPill() {
@@ -269,6 +502,8 @@ export class EhViewRenderer extends LitElement {
     }
     // Normal render
     return html`
+      <div class="sr-live" aria-live="polite" aria-atomic="true">${this._ariaAnnouncement}</div>
+      ${this._renderReorderBar()}
       ${this._renderErrorPill()}
       <div class="grid">
         ${this.cards.map(c => this._renderCard(c))}

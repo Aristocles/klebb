@@ -67,10 +67,29 @@ authenticates with a bearer token instead of a WebAuthn session cookie.
 | `GET` | `/api/manifests/:id` | Fetch full manifest |
 | `GET` | `/api/manifests/:id/data` | Fetch just the data block |
 | `POST` | `/api/manifests/:id/data` | Replace the data block |
+| `POST` | `/api/manifests/reorder` | Reassign `meta.order` across cards |
 | `GET` | `/api/views/:view` | List cards for a view |
 | `GET` | `/api/settings/cards` | List all cards with enable state |
 | `POST` | `/api/settings/cards/:id/enable` | Master enable |
 | `POST` | `/api/settings/cards/:id/disable` | Master disable |
+
+### Reorder payload
+
+```http
+POST /api/manifests/reorder
+Authorization: Bearer $KLEBB_AGENT_TOKEN
+Content-Type: application/json
+
+{ "order": ["mood", "weight", "bp", "peptides"] }
+```
+
+Writes sparse-numbered `meta.order` (100, 200, 300, …) to each listed
+card. Unlisted cards keep their existing order. Any unknown id causes
+a 404 with no writes performed. Returns `{ ok: true, updated: [...ids] }`.
+
+Idempotent — posting the same order twice is a no-op (file mtimes
+unchanged). Use this when the user says *"move the mood card to the
+top"* or similar.
 
 ### Write payload format
 
