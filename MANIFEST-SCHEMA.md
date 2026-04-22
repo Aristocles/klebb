@@ -169,6 +169,7 @@ Use one of these names in `meta.view.component` / `meta.trends.component`:
 | name | card shape |
 |------|-----------|
 | `generic-card` | Zero-code headline + secondary + input form (preferred default) |
+| `list-card` | Persistent roster of items (symptoms, allergies, etc.) — rows stay until explicitly deleted |
 | `schedule-card` | Peptide/medication schedule with dot-grid visualisation |
 | `checklist-card` | Daily checklist |
 | `markdown-doc` | Static markdown content |

@@ -9,6 +9,7 @@ import { resolveRenderer } from '../renderer-registry.js';
 // Ensure all core renderers are loaded
 import './eh-unknown-card.js';
 import './eh-generic-card.js';
+import './eh-list-card.js';
 import './eh-greeting-banner.js';
 import './eh-checklist-card.js';
 import './eh-schedule-card.js';

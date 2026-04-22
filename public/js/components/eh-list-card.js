@@ -1,0 +1,440 @@
+// public/js/components/eh-list-card.js
+// List of persistent items card. Unlike generic-card (which shows one dated
+// entry), list-card shows the ENTIRE data array as a roster — every row,
+// every day. Rows persist until explicitly deleted. Useful for:
+//   - symptoms you're tracking (add one, it shows until removed)
+//   - appointments (upcoming list)
+//   - allergies / ongoing conditions
+//   - anything that's "currently true" rather than "logged on a day"
+//
+// UX inspired by the iOS home-screen Edit pattern:
+//   - Normal view: plain list + a small ✏️ Edit button in top-right
+//   - Edit view: every row becomes editable with a red ➖ alongside it
+//                + ➕ Add at bottom
+//                + Cancel / Done buttons in top-right
+//   - Tap ➖ once: row is marked-for-delete (struck through, greyed)
+//   - Tap ➖ again: restore
+//   - Tap Done: drop marked rows, save whole array, exit edit mode
+//   - Tap Cancel: refetch data, discard local changes
+//
+// Meta config consumed:
+//   meta.view.display.primaryField         field name rendered in each row
+//   meta.view.display.secondaryTemplate    optional secondary-line template
+//   meta.view.display.emptyMessage         shown when data is []
+//   meta.view.display.maxCharPreview       default 60; truncates primary
+//   meta.writeable.inputs                  schema for the add/edit form
+//                                          (primary field + any secondary
+//                                          fields the user can fill in)
+
+import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { renderTemplate } from '../lib/display-template.esm.js';
+import { registerRenderer } from '../renderer-registry.js';
+import { EhBaseCard, invalidateManifestCache } from './eh-base-card.js';
+
+export class EhListCard extends EhBaseCard {
+  static properties = {
+    ...EhBaseCard.properties,
+    _editing: { state: true },
+    _draft: { state: true },       // local copy of data[] while editing
+    _deleted: { state: true },     // Set<index> of draft rows marked for deletion
+    _expandedRow: { state: true }, // index of the row expanded in view mode
+    _saving: { state: true },
+    _formError: { state: true },
+  };
+
+  constructor() {
+    super();
+    this._editing = false;
+    this._draft = [];
+    this._deleted = new Set();
+    this._expandedRow = null;
+    this._saving = false;
+    this._formError = null;
+  }
+
+  _m()  { return this.card?.meta || {}; }
+  _vc() { return this.card?.viewConfig || {}; }
+  _display() { return this._vc().display || this._m().view?.display || {}; }
+  _rows() {
+    const d = this.data;
+    if (Array.isArray(d)) return d;
+    return [];
+  }
+  _primaryField() {
+    return this._display().primaryField || 'name';
+  }
+  _maxCharPreview() {
+    return this._display().maxCharPreview ?? 60;
+  }
+  _inputs() {
+    return this._m().writeable?.inputs || [];
+  }
+  _primaryInput() {
+    const inputs = this._inputs();
+    return inputs.find(i => i.key === this._primaryField()) || inputs[0] || null;
+  }
+  _secondaryInputs() {
+    const inputs = this._inputs();
+    return inputs.filter(i => i.key !== this._primaryField());
+  }
+
+  _truncate(s, n) {
+    if (typeof s !== 'string') return s == null ? '' : String(s);
+    if (s.length <= n) return s;
+    return s.slice(0, n).trimEnd() + '…';
+  }
+
+  // --- Edit mode ---
+
+  _enterEdit() {
+    // Deep clone of current rows so the user can edit without touching `data`
+    this._draft = JSON.parse(JSON.stringify(this._rows()));
+    this._deleted = new Set();
+    this._expandedRow = null;
+    this._editing = true;
+    this._formError = null;
+  }
+
+  _cancelEdit() {
+    this._editing = false;
+    this._draft = [];
+    this._deleted = new Set();
+    this._formError = null;
+  }
+
+  _toggleDeleted(idx) {
+    const next = new Set(this._deleted);
+    if (next.has(idx)) next.delete(idx);
+    else next.add(idx);
+    this._deleted = next;
+  }
+
+  _addNewRow() {
+    // Seed a blank row with empty strings for each input's key + an 'added' timestamp
+    const row = { added: new Date().toISOString() };
+    for (const input of this._inputs()) {
+      row[input.key] = input.type === 'checkbox' ? false
+                      : input.type === 'number' ? null
+                      : '';
+    }
+    this._draft = [...this._draft, row];
+  }
+
+  _updateDraftField(idx, key, value) {
+    const next = [...this._draft];
+    next[idx] = { ...next[idx], [key]: value };
+    this._draft = next;
+  }
+
+  async _saveEdit() {
+    this._saving = true;
+    this._formError = null;
+    try {
+      // Drop deleted rows + any where the primary field is empty
+      const primaryKey = this._primaryField();
+      const surviving = this._draft
+        .filter((_, i) => !this._deleted.has(i))
+        .filter(row => {
+          const v = row[primaryKey];
+          return v !== null && v !== undefined && String(v).trim() !== '';
+        });
+
+      const r = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: surviving }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
+      invalidateManifestCache(this.card.id);
+      this.data = surviving;
+      this._editing = false;
+      this._draft = [];
+      this._deleted = new Set();
+    } catch (err) {
+      this._formError = err.message;
+    } finally {
+      this._saving = false;
+    }
+  }
+
+  _toggleExpand(idx) {
+    if (this._editing) return;
+    this._expandedRow = this._expandedRow === idx ? null : idx;
+  }
+
+  static styles = [
+    EhBaseCard.styles,
+    css`
+      .list-root { position: relative; padding: 0 4px; }
+      .edit-toolbar {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        display: flex;
+        gap: 6px;
+        z-index: 2;
+      }
+      .tool-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        min-width: 32px;
+        height: 28px;
+        padding: 0 10px;
+        border-radius: 14px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        font-family: inherit;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .tool-btn:hover { border-color: var(--accent); color: var(--accent); }
+      .tool-btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .tool-btn.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--text-inverse, #fff);
+      }
+      .tool-btn.primary:hover { filter: brightness(1.05); }
+      .tool-btn[disabled] { opacity: 0.5; cursor: wait; }
+
+      .rows {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        padding-top: 4px;
+      }
+      .row {
+        padding: 10px 12px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 40px;
+      }
+      .row:first-child { border-top: none; }
+      .row .primary {
+        flex: 1;
+        min-width: 0;
+        font-size: 14px;
+        color: var(--text-primary);
+        overflow-wrap: anywhere;
+      }
+      .row.clickable { cursor: pointer; }
+      .row.clickable:hover { background: var(--bg-hover, rgba(0,0,0,0.02)); }
+      .row.deleted .primary {
+        text-decoration: line-through;
+        opacity: 0.45;
+      }
+      .row.deleted .primary-input {
+        text-decoration: line-through;
+        opacity: 0.45;
+      }
+      .row-expanded {
+        padding: 6px 12px 12px 12px;
+        font-size: 12px;
+        color: var(--text-secondary);
+        background: var(--bg-muted, rgba(0,0,0,0.02));
+        border-top: 1px dashed var(--border);
+      }
+
+      .minus-btn {
+        background: transparent;
+        border: none;
+        color: #d0323e;
+        font-size: 18px;
+        line-height: 1;
+        padding: 4px 6px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .minus-btn:focus-visible {
+        outline: 2px solid #d0323e;
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+
+      .primary-input {
+        flex: 1;
+        min-width: 0;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg-input, var(--bg-card));
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 14px;
+      }
+      .primary-input:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: -1px;
+        border-color: var(--accent);
+      }
+
+      .secondary-line {
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--text-secondary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .add-row {
+        padding: 10px 12px;
+        border-top: 1px dashed var(--border);
+      }
+      .add-btn {
+        background: transparent;
+        border: 1px dashed var(--border);
+        color: var(--accent);
+        padding: 8px 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-family: inherit;
+        font-weight: 600;
+        width: 100%;
+      }
+      .add-btn:hover { border-color: var(--accent); background: var(--accent-bg, rgba(0,212,170,0.05)); }
+      .add-btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .empty {
+        padding: 20px 12px;
+        text-align: center;
+        color: var(--text-muted, var(--text-secondary));
+        font-size: 13px;
+        font-style: italic;
+      }
+      .err { color: #ff4466; font-size: 12px; padding: 8px 12px; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .tool-btn, .add-btn, .minus-btn { transition: none; }
+      }
+    `,
+  ];
+
+  renderCard() {
+    const rows = this._editing ? this._draft : this._rows();
+    const canWrite = !!(this._m().writeable?.fromWebapp);
+    const display = this._display();
+
+    return html`
+      <div class="list-root">
+        ${canWrite ? html`
+          <div class="edit-toolbar">
+            ${this._editing ? html`
+              <button class="tool-btn" @click=${this._cancelEdit} ?disabled=${this._saving}>Cancel</button>
+              <button class="tool-btn primary" @click=${this._saveEdit} ?disabled=${this._saving}>
+                ${this._saving ? 'Saving…' : 'Done'}
+              </button>
+            ` : html`
+              <button class="tool-btn" @click=${this._enterEdit} aria-label="Edit list">
+                ✏️ Edit
+              </button>
+            `}
+          </div>
+        ` : ''}
+
+        ${this._editing
+          ? this._renderEditMode(rows)
+          : this._renderViewMode(rows, display)}
+
+        ${this._formError ? html`<div class="err">${this._formError}</div>` : ''}
+      </div>
+    `;
+  }
+
+  _renderViewMode(rows, display) {
+    if (!rows || rows.length === 0) {
+      return html`<div class="empty">${display.emptyMessage || 'No items yet.'}</div>`;
+    }
+    const maxChars = this._maxCharPreview();
+    const primaryField = this._primaryField();
+    return html`
+      <ul class="rows">
+        ${rows.map((row, idx) => {
+          const primary = row[primaryField] ?? '';
+          const truncated = this._truncate(primary, maxChars);
+          const isLong = String(primary).length > maxChars;
+          const expanded = this._expandedRow === idx;
+          const secondary = display.secondaryTemplate
+            ? renderTemplate(display.secondaryTemplate, row, display)
+            : '';
+
+          const hasExpand = isLong || (secondary && secondary.length > 0);
+          return html`
+            <li>
+              <div
+                class="row ${hasExpand ? 'clickable' : ''}"
+                @click=${hasExpand ? () => this._toggleExpand(idx) : undefined}
+                role="${hasExpand ? 'button' : 'listitem'}"
+                tabindex="${hasExpand ? '0' : ''}"
+                @keydown=${hasExpand ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._toggleExpand(idx); } } : undefined}
+                aria-expanded="${hasExpand ? (expanded ? 'true' : 'false') : ''}"
+              >
+                <div class="primary">
+                  ${expanded ? primary : truncated}
+                  ${secondary && !expanded ? html`<div class="secondary-line">${secondary}</div>` : ''}
+                </div>
+              </div>
+              ${expanded && secondary ? html`
+                <div class="row-expanded">${secondary}</div>
+              ` : ''}
+            </li>
+          `;
+        })}
+      </ul>
+    `;
+  }
+
+  _renderEditMode(rows) {
+    const primaryField = this._primaryField();
+    const primaryInput = this._primaryInput();
+    const maxLen = primaryInput?.maxLength;
+    return html`
+      <ul class="rows">
+        ${rows.map((row, idx) => {
+          const isDeleted = this._deleted.has(idx);
+          return html`
+            <li>
+              <div class="row ${isDeleted ? 'deleted' : ''}">
+                <button
+                  class="minus-btn"
+                  @click=${() => this._toggleDeleted(idx)}
+                  aria-label="${isDeleted ? 'Restore' : 'Delete'} row ${idx + 1}"
+                  title="${isDeleted ? 'Restore' : 'Delete'}"
+                >${isDeleted ? '↺' : '➖'}</button>
+                <input
+                  class="primary-input"
+                  type="text"
+                  .value=${row[primaryField] ?? ''}
+                  placeholder="${primaryInput?.placeholder || primaryInput?.label || ''}"
+                  maxlength="${maxLen || ''}"
+                  ?disabled=${isDeleted}
+                  @input=${(e) => this._updateDraftField(idx, primaryField, e.target.value)}
+                />
+              </div>
+            </li>
+          `;
+        })}
+      </ul>
+      <div class="add-row">
+        <button class="add-btn" @click=${this._addNewRow}>
+          ➕ Add
+        </button>
+      </div>
+    `;
+  }
+}
+customElements.define('eh-list-card', EhListCard);
+registerRenderer('list-card', 'eh-list-card');
