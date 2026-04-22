@@ -11,8 +11,8 @@
       "slot": "top"
     }
   },
-  "description": "Example welcome card. Disable or delete once you've got the hang of things.",
+  "description": "First-run welcome. Disable or delete once you've got the hang of things.",
   "data": {
-    "markdown": "## Welcome! 👋\n\nEvery card you see on this dashboard is a JSON file in `$HEALTH_HOME/data/`.\n\n### How to add a card\n1. Drop a valid manifest file into `$HEALTH_HOME/data/`\n2. Refresh — it appears automatically\n3. To hide it: open **Settings** and toggle the switch off\n4. To remove it: delete the file\n\n### Learn the schema\nSee `CARDS.md` in the repo for the full manifest format and examples.\n\n_This card is just an example. Disable or delete it whenever you want._"
+    "markdown": "## Welcome to Klebb 👋\n\nEverything you see on this dashboard is a **JSON file** in your `data/` directory. Drop a new file in, a new card appears. Delete the file, the card's gone. That's the whole mental model.\n\n### Your AI helper\n\n**Klebbius** is the chat agent in the 🧠 button at the bottom-right. He can:\n\n- Read your data and answer questions (*\"how did I sleep last week?\"*)\n- **Add cards** (*\"add a card for tracking my medication adherence\"*)\n- **Modify cards** (*\"let me log mood multiple times per day\"*)\n- **Hide cards** you've outgrown (*\"hide the hydration card\"*)\n\nJust talk to him in plain language. He knows what cards exist and how they work.\n\n### What to try first\n\n1. Tap the 🧠 — say hi to Klebbius\n2. Tap the ➕ on the **Weight** card and log today's weight\n3. Open **Settings** (⚙️ top-right) to see every card and toggle any off\n4. Ask Klebbius to add a card for something you want to track\n\n### Learn more\n\nSee `docs/CARDS.md` and `docs/RECIPES.md` in the repo.\n\n---\n\n_This welcome card is just another manifest file. Disable it in Settings or delete the file when you're done with it._"
   }
 }

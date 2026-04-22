@@ -1,0 +1,46 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "steps",
+    "label": "Steps",
+    "emoji": "👣",
+    "order": 70,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "dateContext": "viewedDate",
+      "display": {
+        "template": "{count}",
+        "unit": "steps",
+        "emptyHeadline": "No steps logged",
+        "trendArrow": { "field": "count" },
+        "thresholds": [
+          { "ifField": "count", "max": 3999, "colour": "#ff3333", "label": "Sedentary" },
+          { "ifField": "count", "min": 4000, "max": 7999, "colour": "#ff7733", "label": "Low" },
+          { "ifField": "count", "min": 8000, "max": 11999, "colour": "#66cc55", "label": "Active" },
+          { "ifField": "count", "min": 12000, "colour": "#44ff88", "label": "Very active" }
+        ]
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "xKey": "date",
+      "yKey": "count",
+      "unit": "steps"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "todayAllowed": true,
+      "pastAllowed": true,
+      "futureAllowed": false,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "count", "type": "number", "label": "Steps", "min": 0, "max": 100000, "step": 1, "required": true },
+        { "key": "source", "type": "text", "label": "Source", "placeholder": "e.g. iPhone, Fitbit" }
+      ]
+    }
+  },
+  "description": "Daily step count, typically pulled from a phone or wearable. One entry per day.",
+  "data": []
+}

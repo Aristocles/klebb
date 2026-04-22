@@ -1,0 +1,47 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "heart-rate-resting",
+    "label": "Resting Heart Rate",
+    "emoji": "❤️",
+    "order": 22,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "dateContext": "viewedDate",
+      "display": {
+        "template": "{bpm}",
+        "unit": "bpm",
+        "secondary": "{note|}",
+        "emptyHeadline": "No reading today",
+        "trendArrow": { "field": "bpm" },
+        "thresholds": [
+          { "ifField": "bpm", "max": 59, "colour": "#44ff88", "label": "Athletic" },
+          { "ifField": "bpm", "max": 69, "colour": "#aaaa44", "label": "Good" },
+          { "ifField": "bpm", "max": 79, "colour": "#ff7733", "label": "Average" },
+          { "ifField": "bpm", "max": 999, "colour": "#ff3333", "label": "Elevated" }
+        ]
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "xKey": "date",
+      "yKey": "bpm",
+      "unit": "bpm"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "todayAllowed": true,
+      "pastAllowed": true,
+      "futureAllowed": false,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "bpm", "type": "number", "label": "Heart rate (bpm)", "min": 30, "max": 220, "step": 1, "required": true },
+        { "key": "note", "type": "text", "label": "Note", "placeholder": "optional" }
+      ]
+    }
+  },
+  "description": "Resting heart rate measured on waking. Data is an array of rows: [{ date: 'YYYY-MM-DD', bpm: number, note?: string }].",
+  "data": []
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "hydration",
+    "label": "Hydration",
+    "emoji": "💧",
+    "order": 82,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "dateContext": "viewedDate",
+      "display": {
+        "template": "{glasses}",
+        "unit": "glasses",
+        "emptyHeadline": "Drink up!",
+        "thresholds": [
+          { "ifField": "glasses", "max": 3, "colour": "#ff3333", "label": "Dry" },
+          { "ifField": "glasses", "min": 4, "max": 6, "colour": "#ff7733", "label": "Low" },
+          { "ifField": "glasses", "min": 7, "max": 9, "colour": "#66cc55", "label": "Good" },
+          { "ifField": "glasses", "min": 10, "colour": "#44ff88", "label": "Well-watered" }
+        ]
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "todayAllowed": true,
+      "pastAllowed": true,
+      "futureAllowed": false,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "glasses", "type": "number", "label": "Glasses of water", "min": 0, "max": 30, "step": 1, "required": true }
+      ]
+    }
+  },
+  "description": "Daily water intake in 250ml-ish glasses. Rough adherence indicator — don't obsess about exact ml. 8 glasses ≈ 2L.",
+  "data": []
+}
