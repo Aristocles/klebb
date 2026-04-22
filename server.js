@@ -421,6 +421,38 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // POST /api/manifests/reorder — reassign meta.order across cards
+    // Body: { order: ["id1", "id2", "id3", ...] }
+    // Writes sparse-numbered meta.order (100, 200, 300, ...) to each listed
+    // manifest. Unlisted cards keep their existing order. Unknown ids cause
+    // the whole operation to fail with no writes.
+    if (parts[0] === 'manifests' && parts.length === 2 && parts[1] === 'reorder' && req.method === 'POST') {
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        try {
+          let parsed;
+          try { parsed = JSON.parse(body || '{}'); }
+          catch { return sendJSON(res, { error: 'invalid JSON body' }, 400); }
+          if (!Array.isArray(parsed.order)) {
+            return sendJSON(res, { error: 'order[] required' }, 400);
+          }
+          if (parsed.order.length === 0) {
+            return sendJSON(res, { error: 'order[] must not be empty' }, 400);
+          }
+          const result = registry.reorderByIds(parsed.order);
+          return sendJSON(res, { ok: true, ...result });
+        } catch (e) {
+          const msg = e.message || 'reorder failed';
+          const status = /unknown manifest/.test(msg) ? 404
+            : /must be|duplicate/.test(msg) ? 400
+            : 500;
+          return sendJSON(res, { error: msg }, status);
+        }
+      });
+      return;
+    }
+
     // === End manifest endpoints ===
 
     // === Settings endpoints ===

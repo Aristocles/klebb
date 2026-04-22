@@ -227,6 +227,53 @@ function setMasterEnabled(id, enabled) {
   return !!enabled;
 }
 
+// Reorder cards by assigning sparse meta.order values (100, 200, 300, …)
+// following the sequence in `ids`. Cards whose id is not listed keep their
+// existing meta.order untouched. Ids that don't exist in the registry cause
+// the whole operation to fail with no writes performed.
+//
+// Returns { updated: [...ids in new order] }.
+function reorderByIds(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    throw new Error('ids must be a non-empty array');
+  }
+  // Validate up-front — fail fast if anything's wrong
+  const seen = new Set();
+  for (const id of ids) {
+    if (typeof id !== 'string' || !id) {
+      throw new Error('ids must be non-empty strings');
+    }
+    if (seen.has(id)) {
+      throw new Error(`duplicate id in order: ${id}`);
+    }
+    if (!_entries.has(id)) {
+      throw new Error(`unknown manifest: ${id}`);
+    }
+    seen.add(id);
+  }
+  // All good. Write each one with its sparse order value.
+  const SPACING = 100;
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    const entry = _entries.get(id);
+    const newOrder = (i + 1) * SPACING;
+    // Skip if unchanged (idempotent)
+    if (entry.meta.order === newOrder) continue;
+    entry.meta = { ...entry.meta, order: newOrder };
+    const full = {
+      $schema: entry.version,
+      meta: entry.meta,
+    };
+    if (entry.description) full.description = entry.description;
+    if (entry.schema) full.schema = entry.schema;
+    if (entry.data !== null) full.data = entry.data;
+    const tmp = entry.source + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(full, null, 2));
+    fs.renameSync(tmp, entry.source);
+  }
+  return { updated: [...ids] };
+}
+
 // Filter for a specific view, returning shape the frontend can consume directly.
 function listForView(viewName) {
   const result = [];
@@ -276,4 +323,5 @@ module.exports = {
   errors,
   isMasterEnabled,
   setMasterEnabled,
+  reorderByIds,
 };

@@ -36,7 +36,9 @@ Klebb dashboard. For the human-friendly tour, see
   "id":       "weight",              // required, matches filename stem
   "label":   "Weight",                // required, human-readable title
   "emoji":    "⚖️",                   // optional, prefixed to title
-  "order":    100,                    // optional int, lower = earlier
+  "order":    100,                    // optional int, lower = earlier;
+                                      //   sparse convention: 100, 200, 300…
+                                      //   so inserts can use gaps (150, 250…)
   "enabled":  true,                   // optional bool, default true;
                                       //   false hides card from EVERY view
   "view":     { ... },                // optional view config
