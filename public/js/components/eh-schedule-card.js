@@ -221,6 +221,27 @@ export class EhScheduleCard extends EhBaseCard {
       .checkbox.checked::before { content: '✓'; }
       .checkbox.disabled { opacity: 0.4; cursor: not-allowed; }
 
+      /* Off-schedule variant: dimmer, dashed border, amber when checked.
+         Appears on rest-days to let the user log an extra dose. */
+      .checkbox.off-schedule {
+        opacity: 0.55;
+        border-style: dashed;
+        border-color: var(--text-muted, var(--text-secondary));
+      }
+      .checkbox.off-schedule:hover {
+        opacity: 1;
+        border-color: #d0a030;
+        border-style: solid;
+      }
+      .checkbox.off-schedule.checked {
+        opacity: 1;
+        background: #d0a030;
+        border-color: #d0a030;
+        border-style: solid;
+        color: white;
+      }
+      .checkbox.off-schedule.checked::before { content: '✓'; }
+
       .empty {
         color: var(--text-muted, var(--text-secondary));
         font-size: 12px;
@@ -271,15 +292,21 @@ export class EhScheduleCard extends EhBaseCard {
     return '';
   }
 
-  async _toggleDose(item) {
+  async _toggleDose(item, opts = {}) {
     if (!this._canWrite) return;
     const doses = Array.isArray(item.doses) ? [...item.doses] : [];
     const idx = doses.findIndex(d => d.scheduledDate === this.date);
     if (idx >= 0) {
       if (doses[idx].takenAt) doses[idx] = { ...doses[idx], takenAt: null };
-      else doses[idx] = { ...doses[idx], takenAt: new Date().toISOString() };
+      else {
+        const updated = { ...doses[idx], takenAt: new Date().toISOString() };
+        if (opts.offSchedule) updated.offSchedule = true;
+        doses[idx] = updated;
+      }
     } else {
-      doses.push({ scheduledDate: this.date, takenAt: new Date().toISOString() });
+      const entry = { scheduledDate: this.date, takenAt: new Date().toISOString() };
+      if (opts.offSchedule) entry.offSchedule = true;
+      doses.push(entry);
     }
     // Update the item in this.data.items
     const d = this.data;
@@ -348,7 +375,14 @@ export class EhScheduleCard extends EhBaseCard {
           const cp = cycleProgress(item, this.date);
           const chip = this._statusChip(item);
           const taken = this._isTakenOn(item, this.date);
-          const isScheduledToday = isScheduledOnDate(item, this.date) === 'scheduled';
+          const scheduledStatus = isScheduledOnDate(item, this.date);
+          const isScheduledToday = scheduledStatus === 'scheduled';
+          const isRestToday = scheduledStatus === 'rest';
+          // Off-schedule dose taken when the date's status is 'rest' but
+          // we have a takenAt — or the dose entry itself has offSchedule.
+          const doseEntry = Array.isArray(item.doses)
+            ? item.doses.find(d => d.scheduledDate === this.date) : null;
+          const isOffScheduleTaken = !!(taken && (isRestToday || doseEntry?.offSchedule));
           return html`
             <div class="item">
               ${this._renderRing(cp, colour)}
@@ -368,6 +402,14 @@ export class EhScheduleCard extends EhBaseCard {
                     @click=${() => this._toggleDose(item)}
                     role="button"
                     aria-label="mark ${item.name} taken"
+                  ></div>
+                ` : isRestToday ? html`
+                  <div
+                    class="checkbox off-schedule ${isOffScheduleTaken ? 'checked' : ''} ${this._canWrite ? '' : 'disabled'}"
+                    @click=${() => this._toggleDose(item, { offSchedule: true })}
+                    role="button"
+                    aria-label="log extra ${item.name} dose (off-schedule)"
+                    title="Log an off-schedule dose"
                   ></div>
                 ` : ''}
               </div>
