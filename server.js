@@ -367,7 +367,10 @@ const server = http.createServer(async (req, res) => {
       const viewName = parts[1];
       const valid = ['view', 'trends', 'calendar', 'reports', 'dayDetail'];
       if (!valid.includes(viewName)) return send404(res, 'unknown view');
-      return sendJSON(res, { cards: registry.listForView(viewName) });
+      return sendJSON(res, {
+        cards: registry.listForView(viewName),
+        errors: registry.errors(),
+      });
     }
 
     // GET /api/manifests/:id — full manifest
@@ -744,7 +747,20 @@ const server = http.createServer(async (req, res) => {
             return sendJSON(res, { error: 'messages required' }, 400);
           }
 
-          let systemPrompt = HEALTH_SYSTEM_PROMPT;
+          // Build a compact card list from the live registry, so the agent
+          // always knows what cards exist right now without having to call
+          // /api/manifests. Keeps the system prompt self-describing.
+          const cardList = registry.list().map(c => {
+            const label = c.meta?.label || c.id;
+            const emoji = c.meta?.emoji || '';
+            const desc = (c.description || '').split('\n')[0].slice(0, 120);
+            return `- ${c.id} (${emoji}${emoji ? ' ' : ''}${label})${desc ? ': ' + desc : ''}`;
+          }).join('\n');
+          const cardListBlock = cardList
+            ? `\n\n## Currently available cards\n\n${cardList}\n`
+            : '\n\n## Currently available cards\n\n(none yet)\n';
+
+          let systemPrompt = HEALTH_SYSTEM_PROMPT + cardListBlock;
           if (voiceMode) {
             systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Chat'}, a health assistant.
 Voice mode is active: the user is speaking to you and will hear your reply aloud.
@@ -777,7 +793,7 @@ Return STRICTLY the JSON object. No leading/trailing text. No markdown fences.
 
 Original system prompt follows:
 
-` + HEALTH_SYSTEM_PROMPT;
+` + HEALTH_SYSTEM_PROMPT + cardListBlock;
           }
 
           // Prepend system prompt

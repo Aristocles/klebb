@@ -54,9 +54,11 @@ pattern, edit `tests/no-personal-refs.test.js`.
 ## What isn't covered by CI
 
 - WebAuthn registration/verification (requires browser crypto)
-- The chat proxy (requires mocking OpenClaw upstream)
+- The chat proxy (requires mocking OpenClaw upstream) — covered
+  indirectly by `tests/chat-prompt-cards.test.js` via a stub gateway
 - Fish Audio voice endpoints (require real API calls)
-- Rate limiting (timing-dependent; manual check only)
+- Rate limiting (handled at the nginx layer, not the app; see
+  `docs/DEPLOY.md` for the reverse-proxy config)
 - Actual rendering of Lit components (DOM-required)
 
 These are documented as known gaps in the Phase 3 commit message.
