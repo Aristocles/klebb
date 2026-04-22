@@ -334,8 +334,21 @@ export class EhInputForm extends LitElement {
       border: 1px solid var(--border);
     }
     .btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+    .btn:focus-visible,
+    .emoji:focus-visible,
+    .rating:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
     .error { color: #ff4466; font-size: 12px; }
     .help { font-size: 11px; color: var(--text-muted, var(--text-secondary)); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .btn, .emoji, .rating { transition: none; }
+    }
   `;
 
   render() {
