@@ -212,8 +212,8 @@ class HealthApp extends LitElement {
       max-width: 1200px;
       margin: 0 auto;
       padding: 20px;
-      /* Leave room for the floating chat button (+ its bottom offset + safe area) */
-      padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+      /* Leave room for the peek-bar chat widget pinned to the bottom */
+      padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
     }
     @media (max-width: 480px) {
       .nav-main { padding: 8px 12px; }
@@ -222,7 +222,7 @@ class HealthApp extends LitElement {
       .nav-link { font-size: 0.75rem; padding: 5px 8px; }
       main {
         padding: 12px;
-        padding-bottom: calc(85px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
       }
     }
   `;
