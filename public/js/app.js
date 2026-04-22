@@ -160,13 +160,18 @@ class HealthApp extends LitElement {
       max-width: 1200px;
       margin: 0 auto;
       padding: 20px;
+      /* Leave room for the floating chat button (+ its bottom offset + safe area) */
+      padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
     }
     @media (max-width: 480px) {
       .nav-main { padding: 8px 12px; }
       .logo { font-size: 0.95rem; }
       .nav-links { gap: 2px; }
       .nav-link { font-size: 0.75rem; padding: 5px 8px; }
-      main { padding: 12px; }
+      main {
+        padding: 12px;
+        padding-bottom: calc(85px + env(safe-area-inset-bottom, 0px));
+      }
     }
   `;
 
@@ -176,7 +181,7 @@ class HealthApp extends LitElement {
         <nav>
           <div class="nav-main">
             <div class="logo" @click=${this._toggleTheme} style="cursor:pointer" title="Toggle theme">
-              <span>${this.theme === 'light' ? '🚀' : '🌙'}</span> ${this._instanceName}
+              <span>${this.theme === 'light' ? '💪' : '🌙'}</span> ${this._instanceName}
             </div>
             <div class="nav-links">
               <button class="nav-link ${this.route === 'today' || this.route === 'day' ? 'active' : ''}" @click=${() => this._navigate('/')}>Today</button>

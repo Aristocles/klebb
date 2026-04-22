@@ -865,7 +865,7 @@ class HealthChat extends LitElement {
         </div>
       ` : ''}
       <button class="fab ${this._open ? 'open' : ''}" @click=${this._toggle}>
-        ${this._open ? '\u2715' : '\u26A1'}
+        ${this._open ? '\u2715' : '\u{1F9E0}'}
       </button>
     `;
   }
