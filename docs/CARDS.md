@@ -316,6 +316,39 @@ file — nothing else.
 There is **no install flow, no wizard, no catalog**. If the file is there,
 the card shows up.
 
+## Reordering cards
+
+There are three ways to change the order cards appear on Today / Trends /
+Calendar / Reports:
+
+1. **Drag in the UI.** Tap the ⚙️ icon in the top nav and pick
+   "⋮⋮ Reorder cards". Each card gets a drag handle; drag to reorder, tap
+   "Done" to save. Keyboard users: Tab to a drag handle and press ↑ or ↓
+   to move that card. Changes persist immediately.
+2. **Ask the chat agent.** *"Move the mood card above peptides."*
+3. **Edit the file directly.** Card order comes from `meta.order` (lower
+   value = earlier). Sparse convention: 100, 200, 300, … so you can
+   insert between two cards by picking a value in the gap (e.g. 150).
+
+Order is single and canonical — reordering on Today affects Trends,
+Calendar, and Reports too. Per-view ordering isn't implemented.
+
+### Agent / script interface
+
+Reorder programmatically by POSTing to `/api/manifests/reorder`:
+
+```http
+POST /api/manifests/reorder
+Content-Type: application/json
+
+{ "order": ["weight", "bp", "mood", "peptides"] }
+```
+
+Writes sparse-numbered `meta.order` to each listed card. Unlisted cards
+keep their existing order. Any unknown id causes the whole operation to
+fail with no writes. See [`CHAT-AGENT.md`](CHAT-AGENT.md) for the full
+agent API surface.
+
 ---
 
 ## Example cards
