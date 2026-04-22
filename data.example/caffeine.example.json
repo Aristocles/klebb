@@ -1,0 +1,46 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "caffeine",
+    "label": "Caffeine",
+    "emoji": "☕",
+    "order": 86,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "dateContext": "viewedDate",
+      "display": {
+        "template": "{mg}",
+        "unit": "mg",
+        "secondary": "{source|}",
+        "emptyHeadline": "No caffeine today",
+        "thresholds": [
+          { "ifField": "mg", "max": 199, "colour": "#44ff88", "label": "Low" },
+          { "ifField": "mg", "min": 200, "max": 399, "colour": "#aaaa44", "label": "Moderate" },
+          { "ifField": "mg", "min": 400, "max": 599, "colour": "#ff7733", "label": "High" },
+          { "ifField": "mg", "min": 600, "colour": "#ff3333", "label": "Too much" }
+        ]
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "xKey": "date",
+      "yKey": "mg",
+      "unit": "mg"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "todayAllowed": true,
+      "pastAllowed": true,
+      "futureAllowed": false,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "mg", "type": "number", "label": "Caffeine (mg)", "min": 0, "max": 2000, "step": 10, "required": true },
+        { "key": "source", "type": "text", "label": "Source", "placeholder": "e.g. 2 espressos + pre-workout" }
+      ]
+    }
+  },
+  "description": "Daily total caffeine intake in mg. Rough guide: espresso shot ≈ 65mg, drip coffee ≈ 95mg, black tea ≈ 45mg, energy drink ≈ 80-200mg. FDA suggests ≤400mg/day for most adults.",
+  "data": []
+}
