@@ -766,15 +766,19 @@ class HealthChat extends LitElement {
 
   _renderMessages() {
     if (this._messages.length === 0) {
+      const agent = this._agentName || 'the assistant';
       return html`
         <div class="empty-state">
           <div class="icon">💊</div>
-          <div>Ask me anything about your health data</div>
+          <div>Ask ${agent} about your data — or ask to add, change, or hide cards.</div>
           <div class="suggestions">
             <span class="suggestion" @click=${() => this._useSuggestion("What supplements am I taking?")}>Supplements</span>
             <span class="suggestion" @click=${() => this._useSuggestion("What's my injection schedule this week?")}>Injections</span>
             <span class="suggestion" @click=${() => this._useSuggestion("How did I sleep last night?")}>Sleep</span>
             <span class="suggestion" @click=${() => this._useSuggestion("Show my latest blood results")}>Bloods</span>
+            <span class="suggestion" @click=${() => this._useSuggestion("Add a card for tracking water intake")}>Add water card</span>
+            <span class="suggestion" @click=${() => this._useSuggestion("Add a card for tracking my daily steps")}>Add steps card</span>
+            <span class="suggestion" @click=${() => this._useSuggestion("Change the mood card to allow multiple entries per day")}>Tweak mood card</span>
           </div>
         </div>
       `;
