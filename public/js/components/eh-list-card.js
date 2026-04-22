@@ -30,6 +30,7 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { renderTemplate } from '../lib/display-template.esm.js';
 import { registerRenderer } from '../renderer-registry.js';
 import { EhBaseCard, invalidateManifestCache } from './eh-base-card.js';
+import './eh-input-form.js';
 
 export class EhListCard extends EhBaseCard {
   static properties = {
@@ -159,7 +160,6 @@ export class EhListCard extends EhBaseCard {
   }
 
   _toggleExpand(idx) {
-    if (this._editing) return;
     this._expandedRow = this._expandedRow === idx ? null : idx;
   }
 
@@ -237,11 +237,66 @@ export class EhListCard extends EhBaseCard {
         opacity: 0.45;
       }
       .row-expanded {
-        padding: 6px 12px 12px 12px;
+        padding: 10px 12px 12px 12px;
         font-size: 12px;
         color: var(--text-secondary);
         background: var(--bg-muted, rgba(0,0,0,0.02));
         border-top: 1px dashed var(--border);
+      }
+      .row-expanded-form {
+        padding: 12px;
+        background: var(--bg-muted, rgba(0,0,0,0.02));
+        border-top: 1px dashed var(--border);
+      }
+      .detail-list {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 10px;
+        margin: 0;
+        padding: 0;
+      }
+      .detail-list dt {
+        font-weight: 600;
+        color: var(--text-muted, var(--text-secondary));
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        padding-top: 2px;
+      }
+      .detail-list dd {
+        margin: 0;
+        color: var(--text-primary);
+        font-size: 13px;
+        overflow-wrap: anywhere;
+      }
+      .detail-empty { opacity: 0.5; }
+      .expand-chev {
+        color: var(--text-muted, var(--text-secondary));
+        font-size: 12px;
+        flex-shrink: 0;
+        padding-left: 6px;
+        line-height: 1;
+      }
+      .detail-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        font-size: 14px;
+        cursor: pointer;
+        font-family: inherit;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        line-height: 1;
+      }
+      .detail-btn:hover, .detail-btn:focus-visible {
+        border-color: var(--accent);
+        color: var(--accent);
+        outline: none;
       }
 
       .minus-btn {
@@ -360,35 +415,53 @@ export class EhListCard extends EhBaseCard {
     }
     const maxChars = this._maxCharPreview();
     const primaryField = this._primaryField();
+    const secondaryInputs = this._secondaryInputs();
     return html`
       <ul class="rows">
         ${rows.map((row, idx) => {
           const primary = row[primaryField] ?? '';
           const truncated = this._truncate(primary, maxChars);
-          const isLong = String(primary).length > maxChars;
           const expanded = this._expandedRow === idx;
           const secondary = display.secondaryTemplate
             ? renderTemplate(display.secondaryTemplate, row, display)
             : '';
 
-          const hasExpand = isLong || (secondary && secondary.length > 0);
+          // A row is always expandable — tapping reveals the full detail
+          // view with every non-primary field rendered as a read-only
+          // label + value.
           return html`
             <li>
               <div
-                class="row ${hasExpand ? 'clickable' : ''}"
-                @click=${hasExpand ? () => this._toggleExpand(idx) : undefined}
-                role="${hasExpand ? 'button' : 'listitem'}"
-                tabindex="${hasExpand ? '0' : ''}"
-                @keydown=${hasExpand ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._toggleExpand(idx); } } : undefined}
-                aria-expanded="${hasExpand ? (expanded ? 'true' : 'false') : ''}"
+                class="row clickable"
+                @click=${() => this._toggleExpand(idx)}
+                role="button"
+                tabindex="0"
+                @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._toggleExpand(idx); } }}
+                aria-expanded="${expanded}"
               >
                 <div class="primary">
                   ${expanded ? primary : truncated}
                   ${secondary && !expanded ? html`<div class="secondary-line">${secondary}</div>` : ''}
                 </div>
+                <span class="expand-chev" aria-hidden="true">${expanded ? '▾' : '▸'}</span>
               </div>
-              ${expanded && secondary ? html`
-                <div class="row-expanded">${secondary}</div>
+              ${expanded ? html`
+                <div class="row-expanded">
+                  ${secondaryInputs.length === 0
+                    ? (secondary ? html`<div>${secondary}</div>` : html`<em style="opacity: 0.6;">No extra details.</em>`)
+                    : html`
+                      <dl class="detail-list">
+                        ${secondaryInputs.map(input => {
+                          const v = row[input.key];
+                          const hasValue = v !== null && v !== undefined && v !== '';
+                          return html`
+                            <dt>${input.label || input.key}</dt>
+                            <dd>${hasValue ? String(v) : html`<span class="detail-empty">—</span>`}</dd>
+                          `;
+                        })}
+                      </dl>
+                    `}
+                </div>
               ` : ''}
             </li>
           `;
@@ -397,20 +470,42 @@ export class EhListCard extends EhBaseCard {
     `;
   }
 
+  _onExpandedFormSubmit(idx, e) {
+    // The generic eh-input-form emits { key: value } for every input on
+    // Save. Merge those into the draft row + collapse.
+    const payload = e.detail || {};
+    const next = [...this._draft];
+    next[idx] = { ...next[idx], ...payload };
+    // Remove the `date` field that eh-input-form auto-fills — list-card
+    // rows don't carry a per-entry date.
+    if (next[idx].date && !this._inputs().find(i => i.key === 'date')) {
+      delete next[idx].date;
+    }
+    this._draft = next;
+    this._expandedRow = null;
+  }
+
+  _onExpandedFormCancel() {
+    this._expandedRow = null;
+  }
+
   _renderEditMode(rows) {
     const primaryField = this._primaryField();
     const primaryInput = this._primaryInput();
+    const secondaryInputs = this._secondaryInputs();
     const maxLen = primaryInput?.maxLength;
+    const hasSecondaryFields = secondaryInputs.length > 0;
     return html`
       <ul class="rows">
         ${rows.map((row, idx) => {
           const isDeleted = this._deleted.has(idx);
+          const expanded = this._expandedRow === idx;
           return html`
             <li>
-              <div class="row ${isDeleted ? 'deleted' : ''}">
+              <div class="row ${isDeleted ? 'deleted' : ''} ${expanded ? 'expanded' : ''}">
                 <button
                   class="minus-btn"
-                  @click=${() => this._toggleDeleted(idx)}
+                  @click=${(e) => { e.stopPropagation(); this._toggleDeleted(idx); }}
                   aria-label="${isDeleted ? 'Restore' : 'Delete'} row ${idx + 1}"
                   title="${isDeleted ? 'Restore' : 'Delete'}"
                 >${isDeleted ? '↺' : '➖'}</button>
@@ -423,7 +518,27 @@ export class EhListCard extends EhBaseCard {
                   ?disabled=${isDeleted}
                   @input=${(e) => this._updateDraftField(idx, primaryField, e.target.value)}
                 />
+                ${hasSecondaryFields && !isDeleted ? html`
+                  <button
+                    class="detail-btn"
+                    @click=${() => this._toggleExpand(idx)}
+                    aria-label="${expanded ? 'Close details' : 'Edit extra fields'} for row ${idx + 1}"
+                    title="${expanded ? 'Close details' : 'Edit extra fields'}"
+                  >${expanded ? '▾' : '…'}</button>
+                ` : ''}
               </div>
+              ${expanded && !isDeleted ? html`
+                <div class="row-expanded-form">
+                  <eh-input-form
+                    .inputs=${secondaryInputs}
+                    .values=${row}
+                    submit-label="Apply"
+                    cancel-label="Cancel"
+                    @eh-submit=${(e) => this._onExpandedFormSubmit(idx, e)}
+                    @eh-cancel=${this._onExpandedFormCancel}
+                  ></eh-input-form>
+                </div>
+              ` : ''}
             </li>
           `;
         })}
