@@ -24,6 +24,7 @@ class HealthApp extends LitElement {
     dayDate: { type: String },
     theme: { type: String },
     _instanceName: { state: true },
+    _settingsMenuOpen: { state: true },
   };
 
   constructor() {
@@ -34,6 +35,7 @@ class HealthApp extends LitElement {
     this.dayDate = '';
     this.theme = localStorage.getItem('klebb-theme') || 'light';
     this._instanceName = 'Klebb';
+    this._settingsMenuOpen = false;
     document.documentElement.setAttribute('data-theme', this.theme);
     this._handleRoute();
     this._loadInstance();
@@ -45,6 +47,26 @@ class HealthApp extends LitElement {
     window.addEventListener('day-date-changed', (e) => {
       this.dayDate = e.detail.date;
     });
+    // Close menu on outside click / escape
+    this._onGlobalClick = (e) => {
+      if (!this._settingsMenuOpen) return;
+      const root = this.shadowRoot;
+      if (root && root.querySelector('.settings-menu-wrap')?.contains(e.composedPath()[0])) return;
+      this._settingsMenuOpen = false;
+    };
+    this._onGlobalKey = (e) => {
+      if (e.key === 'Escape' && this._settingsMenuOpen) {
+        this._settingsMenuOpen = false;
+      }
+    };
+    window.addEventListener('click', this._onGlobalClick);
+    window.addEventListener('keydown', this._onGlobalKey);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('click', this._onGlobalClick);
+    window.removeEventListener('keydown', this._onGlobalKey);
   }
 
   async _loadInstance() {
@@ -156,6 +178,36 @@ class HealthApp extends LitElement {
       color: var(--accent);
       background: var(--accent-bg);
     }
+    .settings-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
+      min-width: 170px;
+      overflow: hidden;
+      z-index: 50;
+    }
+    .settings-menu button {
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 10px 14px;
+      text-align: left;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .settings-menu button:hover,
+    .settings-menu button:focus-visible {
+      background: var(--bg-hover, rgba(0,0,0,0.04));
+      outline: none;
+    }
     main {
       max-width: 1200px;
       margin: 0 auto;
@@ -188,7 +240,33 @@ class HealthApp extends LitElement {
               <button class="nav-link ${this.route === 'calendar' ? 'active' : ''}" @click=${() => this._navigate('/calendar')}>Calendar</button>
               <button class="nav-link ${this.route === 'trends' ? 'active' : ''}" @click=${() => this._navigate('/trends')}>Trends</button>
               <button class="nav-link ${this.route === 'reports' ? 'active' : ''}" @click=${() => this._navigate('/reports')}>Reports</button>
-              <button class="nav-link ${this.route === 'settings' ? 'active' : ''}" @click=${() => this._navigate('/settings')}>⚙️</button>
+              <div class="settings-menu-wrap" style="position: relative; display: inline-block;">
+                <button
+                  class="nav-link ${this.route === 'settings' ? 'active' : ''}"
+                  aria-haspopup="menu"
+                  aria-expanded="${this._settingsMenuOpen}"
+                  aria-label="Settings menu"
+                  @click=${(e) => { e.stopPropagation(); this._settingsMenuOpen = !this._settingsMenuOpen; }}
+                >⚙️</button>
+                ${this._settingsMenuOpen ? html`
+                  <div class="settings-menu" role="menu">
+                    <button
+                      role="menuitem"
+                      @click=${() => {
+                        this._settingsMenuOpen = false;
+                        window.dispatchEvent(new CustomEvent('klebb-enter-reorder-mode'));
+                      }}
+                    >⋮⋮ Reorder cards</button>
+                    <button
+                      role="menuitem"
+                      @click=${() => {
+                        this._settingsMenuOpen = false;
+                        this._navigate('/settings');
+                      }}
+                    >⚙️ Settings</button>
+                  </div>
+                ` : ''}
+              </div>
             </div>
           </div>
         </nav>

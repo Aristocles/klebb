@@ -7,7 +7,23 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
-### Added
+### Added — Phase 9 (card reordering)
+
+- **Card reordering.** New `POST /api/manifests/reorder` endpoint that
+  reassigns `meta.order` across cards using sparse numbering (100, 200,
+  300…). Idempotent. Unknown ids cause a 404 with no partial writes.
+- **Drag-and-drop UI.** Tap ⚙️ in the top nav → "⋮⋮ Reorder cards" to
+  enter reorder mode. Each card shows a drag handle; drag to reorder,
+  tap "Done" to exit. Keyboard users can Tab to a handle and press ↑/↓
+  to move that card.
+- **Sortable.js** loaded from esm.sh (~14KB gzipped) for robust
+  touch/mouse drag. Animation, ghost, and focus ring handled.
+- **ARIA live announcements** when a card moves ("Mood moved up.").
+- **Nav menu pattern.** The ⚙️ top-nav button now opens a dropdown menu
+  (⋮⋮ Reorder cards + ⚙️ Settings) instead of navigating directly.
+  Keeps the nav bar tight on mobile while still exposing both actions.
+
+### Added — Phase 8 (card library)
 
 - **Card library:** 15 new example manifests in `data.example/`, covering:
   vitals (heart rate resting, SpO₂, body temperature), sleep (hours,
@@ -22,10 +38,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **`npm run seed`:** opt-in starter kit that copies welcome + weight +
   notes + how-to-add-a-card into `$HEALTH_HOME/data/`. Safe: skips
   existing files unless `--force` is passed.
-- **`tests/example-manifests.test.js`:** 27 tests that walk every
+
+### Tests
+
+- `tests/reorder-api.test.js`: +11 tests covering happy path, all
+  validation failure modes (missing order, non-array, empty, unknown
+  id, duplicate id, malformed JSON), idempotency, and partial reorder
+  behaviour.
+- `tests/example-manifests.test.js`: +27 tests that walk every
   `data.example/*.json` and assert valid schema, known renderer names,
   known input types, unique ids, filename-id matches, and a real
   description for AI writers.
+
+Total: 228/228 (was 190 before Phase 8+9).
 
 ### Changed
 
