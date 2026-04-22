@@ -93,7 +93,57 @@ class HealthChat extends LitElement {
   static styles = css`
     :host { display: block; }
 
-    /* Floating button */
+    /* Peek bar — bottom-pinned full-width trigger */
+    .peek-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(56px + env(safe-area-inset-bottom, 0px));
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      background: var(--bg-card);
+      border-top: 1px solid var(--border);
+      box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-left: 16px;
+      padding-right: 16px;
+      cursor: pointer;
+      font-family: inherit;
+      border-radius: 16px 16px 0 0;
+    }
+    .peek-bar[hidden] { display: none; }
+    .peek-bar:hover .peek-text {
+      color: var(--text-primary);
+    }
+    .peek-bar:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
+    .peek-icon {
+      font-size: 22px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .peek-text {
+      flex: 1;
+      font-size: 14px;
+      color: var(--text-secondary);
+      text-align: left;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .peek-arrow {
+      color: var(--text-muted, var(--text-secondary));
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    /* Floating action button — fallback for browsers without :popover-open support */
     .fab {
       position: fixed;
       bottom: 20px;
@@ -119,18 +169,18 @@ class HealthChat extends LitElement {
     /* Chat panel */
     .chat-panel {
       position: fixed;
-      bottom: 88px;
+      bottom: calc(56px + env(safe-area-inset-bottom, 0px));
       right: 20px;
       width: 380px;
       max-width: calc(100vw - 40px);
-      max-height: 520px;
+      max-height: min(640px, calc(100vh - 80px));
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 16px;
+      border-radius: 16px 16px 0 0;
       display: flex;
       flex-direction: column;
       z-index: 99;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
       overflow: hidden;
     }
 
@@ -371,11 +421,23 @@ class HealthChat extends LitElement {
 
     @media (max-width: 480px) {
       .chat-panel {
-        width: calc(100vw - 20px);
-        right: 10px;
-        bottom: 80px;
+        width: 100vw;
+        right: 0;
+        left: 0;
+        bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+        max-width: 100vw;
+        max-height: calc(100vh - 56px - env(safe-area-inset-bottom, 0px));
+        border-radius: 16px 16px 0 0;
       }
       .fab { bottom: 14px; right: 14px; width: 50px; height: 50px; font-size: 20px; }
+    }
+
+    /* Older browsers that don't support :popover-open → fall back to FAB.
+       Modern browsers hide the FAB (we use the peek bar + panel instead). */
+    .fab { display: none; }
+    @supports not selector(:popover-open) {
+      .peek-bar { display: none; }
+      .fab { display: flex; }
     }
   `;
 
@@ -464,6 +526,30 @@ class HealthChat extends LitElement {
 
   _toggle() {
     this._open = !this._open;
+    // When opening, auto-focus the text input after render
+    if (this._open) {
+      requestAnimationFrame(() => {
+        const input = this.shadowRoot?.querySelector('.chat-input');
+        if (input && !this._recording) input.focus();
+      });
+    }
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._onGlobalKeydown = (e) => {
+      if (e.key === 'Escape' && this._open && !this._recording) {
+        this._open = false;
+      }
+    };
+    window.addEventListener('keydown', this._onGlobalKeydown);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._onGlobalKeydown) {
+      window.removeEventListener('keydown', this._onGlobalKeydown);
+    }
   }
 
   _scrollToBottom() {
@@ -828,6 +914,8 @@ class HealthChat extends LitElement {
   }
 
   render() {
+    // Peek-bar placeholder text uses the agent name dynamically
+    const askName = this._agentName || 'Chat';
     return html`
       ${this._open ? html`
         <div class="chat-panel">
@@ -837,6 +925,13 @@ class HealthChat extends LitElement {
             ${this._voiceAvailable ? html`
               <button class="speed-btn" @click=${this._cyclePlaybackSpeed} title="Playback speed">${this._playbackSpeed}x</button>
             ` : html`<span class="chat-header-sub">Health Assistant</span>`}
+            <button
+              class="speed-btn"
+              @click=${this._toggle}
+              aria-label="Close chat"
+              title="Close"
+              style="margin-left: 6px; min-width: 28px;"
+            >\u2715</button>
           </div>
           <div class="chat-messages">${this._renderMessages()}</div>
           ${this._recording ? html`
@@ -868,6 +963,17 @@ class HealthChat extends LitElement {
           </div>
         </div>
       ` : ''}
+      <button
+        class="peek-bar"
+        @click=${this._toggle}
+        aria-label="Open chat with ${askName}"
+        aria-expanded=${this._open}
+        ?hidden=${this._open}
+      >
+        <span class="peek-icon">${this._agentEmoji}</span>
+        <span class="peek-text">Ask ${askName}…</span>
+        <span class="peek-arrow" aria-hidden="true">\u25B2</span>
+      </button>
       <button class="fab ${this._open ? 'open' : ''}" @click=${this._toggle}>
         ${this._open ? '\u2715' : '\u{1F9E0}'}
       </button>
