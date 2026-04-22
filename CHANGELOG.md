@@ -7,6 +7,32 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Card library:** 15 new example manifests in `data.example/`, covering:
+  vitals (heart rate resting, SpO₂, body temperature), sleep (hours,
+  quality, HRV), mental (energy, stress), movement (steps, workouts,
+  active minutes), freeform (reflections), creative trackers (hydration,
+  Bristol stool, caffeine), plus a `how-to-add-a-card` inline guide.
+- **`docs/RECIPES.md`:** 10 copy-pasteable patterns covering every
+  renderer feature and input type (single-number metric with trend,
+  two-number with thresholds, emoji-picker rating, 1-5 rating, categorical
+  tracker, yes/no checkbox, truncated textarea, multi-reading-per-day,
+  time-of-day tracker, colour tracker).
+- **`npm run seed`:** opt-in starter kit that copies welcome + weight +
+  notes + how-to-add-a-card into `$HEALTH_HOME/data/`. Safe: skips
+  existing files unless `--force` is passed.
+- **`tests/example-manifests.test.js`:** 27 tests that walk every
+  `data.example/*.json` and assert valid schema, known renderer names,
+  known input types, unique ids, filename-id matches, and a real
+  description for AI writers.
+
+### Changed
+
+- `welcome.example.json` copy rewritten to prominently feature Klebbius
+  (the chat agent) as the go-to for adding / modifying / hiding cards.
+  Emphasises conversational card authoring over hand-editing JSON.
+
 ## [2.0.0] - 2026-04-21
 
 First public release, renamed from **EddzHealth** to **Klebb**. Major

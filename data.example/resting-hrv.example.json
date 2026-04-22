@@ -1,0 +1,40 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "resting-hrv",
+    "label": "Heart Rate Variability",
+    "emoji": "📶",
+    "order": 34,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "dateContext": "viewedDate",
+      "display": {
+        "template": "{ms}",
+        "unit": "ms",
+        "emptyHeadline": "No HRV reading",
+        "trendArrow": { "field": "ms" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "xKey": "date",
+      "yKey": "ms",
+      "unit": "ms"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "todayAllowed": true,
+      "pastAllowed": true,
+      "futureAllowed": false,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "ms", "type": "number", "label": "HRV (RMSSD, ms)", "min": 5, "max": 250, "step": 1, "required": true },
+        { "key": "source", "type": "text", "label": "Source", "placeholder": "e.g. Oura, Whoop, Apple Watch" }
+      ]
+    }
+  },
+  "description": "Resting heart rate variability (RMSSD) in milliseconds. Typically pulled from wearable. Higher generally = better recovery. Personal baseline matters more than absolute number; no universal thresholds.",
+  "data": []
+}

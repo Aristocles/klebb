@@ -1,0 +1,39 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "sleep-quality",
+    "label": "Sleep Quality",
+    "emoji": "🌙",
+    "order": 32,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "dateContext": "viewedDate",
+      "display": {
+        "template": "{rating}",
+        "unit": "/ 5",
+        "emptyHeadline": "How well did you sleep?",
+        "thresholds": [
+          { "ifField": "rating", "eq": 1, "colour": "#ff3333", "label": "Awful" },
+          { "ifField": "rating", "eq": 2, "colour": "#ff7733", "label": "Poor" },
+          { "ifField": "rating", "eq": 3, "colour": "#aaaa44", "label": "OK" },
+          { "ifField": "rating", "eq": 4, "colour": "#66cc55", "label": "Good" },
+          { "ifField": "rating", "eq": 5, "colour": "#44ff88", "label": "Great" }
+        ]
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "todayAllowed": true,
+      "pastAllowed": true,
+      "futureAllowed": false,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "rating", "type": "rating", "label": "Quality", "min": 1, "max": 5, "required": true },
+        { "key": "note", "type": "text", "label": "Note", "placeholder": "e.g. deep + refreshed" }
+      ]
+    }
+  },
+  "description": "Subjective sleep quality rating 1 (awful) to 5 (great). Pair with sleep-hours for a fuller picture.",
+  "data": []
+}
