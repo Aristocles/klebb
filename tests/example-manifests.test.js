@@ -31,7 +31,7 @@ const KNOWN_COMPONENTS = new Set([
 ]);
 
 const KNOWN_INPUT_TYPES = new Set([
-  'number', 'text', 'textarea', 'select', 'emoji-picker',
+  'number', 'stepper', 'text', 'textarea', 'select', 'emoji-picker',
   'colour', 'color', 'checkbox', 'date', 'time', 'rating',
 ]);
 
