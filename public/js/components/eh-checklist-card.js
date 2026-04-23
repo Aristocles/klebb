@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-checklist-card.js — items with check-off state per date.
 // Generic over schedule + doses. Data shape:
 //   { items: [{ name, schedule, cycles, doses: [{scheduledDate, takenAt}] }, ...] }

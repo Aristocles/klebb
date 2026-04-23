@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // auth/invites.js
 // Manages single-use invite codes stored in $HEALTH_HOME/config.json.
 //

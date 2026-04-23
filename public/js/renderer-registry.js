@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/renderer-registry.js
 // Central registry mapping component name strings (from data file meta.view.component)
 // to Lit web component tag names.

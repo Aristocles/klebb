@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // config/env.js
 // Non-path environment variables: chat gateway, auth, branding, server port.
 //

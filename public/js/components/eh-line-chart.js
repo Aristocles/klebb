@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-line-chart.js — generic time-series line chart using ECharts.
 // Reads data as an array of entries; x-axis field defaults to "date".
 // Series declared in viewConfig.series: [{ field, label, colour? }, ...]

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/components/eh-calendar-view.js
 // v2 Calendar view. Month grid. Each day cell shows icons from cards
 // whose meta.calendar.enabled is true AND which have data on that date.

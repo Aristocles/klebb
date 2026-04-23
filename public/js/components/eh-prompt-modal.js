@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-prompt-modal.js — Full-screen "log this now" modal.
 //
 // A card with meta.prompt.enabled = true triggers this modal on app load

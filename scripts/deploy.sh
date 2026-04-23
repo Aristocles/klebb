@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 # scripts/deploy.sh — deploy Klebb to a local release directory.
 #
 # Build+push model:

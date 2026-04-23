@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // voice/cache.js — in-memory TTS cache (keyed by content hash).
 // iOS's media pipeline does a Range-probe (bytes=0-1) then a full fetch;
 // both need to hit the same bytes, and we don't want to call Fish twice.

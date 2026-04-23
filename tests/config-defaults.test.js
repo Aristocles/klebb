@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/config-defaults.test.js
 // Verify that config/env.js exposes sane defaults for a fresh public install
 // and honours env overrides. This is the safety net against any future PR

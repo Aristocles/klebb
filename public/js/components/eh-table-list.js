@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-table-list.js — generic table renderer. Reports view uses this for SNPs.
 
 import { html, css } from 'https://esm.sh/lit@3';

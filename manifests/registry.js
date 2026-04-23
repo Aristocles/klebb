@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // manifests/registry.js
 // Discovers, loads, validates, and serves manifest-schema data files under $HEALTH_HOME/data/.
 //

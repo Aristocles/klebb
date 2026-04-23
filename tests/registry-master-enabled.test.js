@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/registry-master-enabled.test.js
 // Additional registry tests specifically for the master meta.enabled flag
 // and its interaction with multiple views.

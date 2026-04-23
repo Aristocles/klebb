@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/components/eh-trends-view.js
 // v2 Trends view — composes cards with meta.trends.enabled: true.
 // Delegates rendering to the existing eh-view-renderer targeting view='trends'.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-markdown-doc.js — renders a markdown file (used primarily in Reports view)
 // Config (meta.reports.markdownPath): path relative to reports dir, or a full
 // "/report/<name>" URL. For now, supports linking out to the existing /report/<name>

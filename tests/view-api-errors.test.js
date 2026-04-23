@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/view-api-errors.test.js
 // Verifies that GET /api/views/:name exposes manifest parse errors to the
 // frontend so eh-view-renderer can surface a warning pill.

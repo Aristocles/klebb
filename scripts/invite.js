@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // scripts/invite.js — issue an invite code
 // Usage: node scripts/invite.js --label alice [--expires-days 3]
 
