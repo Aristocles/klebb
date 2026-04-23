@@ -214,4 +214,8 @@ issue for those.
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+GNU Affero General Public License v3.0 (AGPL-3.0-only).
+See [`LICENSE`](LICENSE) for the full text and
+[`AUTHORS.md`](AUTHORS.md) for the list of contributors.
+
+Copyright (C) 2026 Aristocles &lt;https://github.com/Aristocles&gt;.

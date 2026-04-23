@@ -7,6 +7,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **Licence switched from MIT to AGPL-3.0-only.** Replaced `LICENSE`
+  with the full GNU Affero General Public License v3.0 text and a
+  clean copyright line: `Copyright (C) 2026 Aristocles
+  <https://github.com/Aristocles>`. Added `AUTHORS.md`. Updated
+  `package.json` (`license: "AGPL-3.0-only"`) and the README licence
+  section. No code-level per-file headers in this pass. (#14)
+
 ### Added — Phase 9 (card reordering)
 
 - **Card reordering.** New `POST /api/manifests/reorder` endpoint that
