@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/app.js
 // Klebb v2 app shell. Manifest-driven throughout. Legacy v1 views
 // (today-view, day-detail, calendar-view, trends-view, widget-view) have

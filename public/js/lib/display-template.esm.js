@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/lib/display-template.esm.js
 // ES-module re-export of the display-template engine. Keep in sync with
 // display-template.js (UMD) — Node tests use the UMD version, browser

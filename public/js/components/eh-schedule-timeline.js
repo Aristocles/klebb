@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-schedule-timeline.js — dot-grid per-cycle adherence visualisation.
 //
 // For each cycle (active + scheduled future + completed), renders a

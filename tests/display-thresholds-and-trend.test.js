@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/display-thresholds-and-trend.test.js
 // Pure-function tests for the threshold evaluator and trend computer.
 

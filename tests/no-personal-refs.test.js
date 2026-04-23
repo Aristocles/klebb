@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/no-personal-refs.test.js
 // Safety-net test: grep the entire repo for personal identifiers and hardcoded
 // paths that should never appear in source. This is the backstop against any

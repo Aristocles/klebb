@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/agent-api.test.js
 // Bearer-token (AGENT_API_TOKEN) auth path. This is how external agents
 // (Onyx, HAE webhooks, cron jobs, etc.) talk to Klebb without a WebAuthn

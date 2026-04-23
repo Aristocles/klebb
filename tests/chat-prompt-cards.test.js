@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/chat-prompt-cards.test.js
 // Verifies the chat proxy injects the current card list into the system prompt
 // so the model always knows what cards exist without a separate round-trip.

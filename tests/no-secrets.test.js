@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/no-secrets.test.js
 // Hygiene scanner — sibling to tests/no-personal-refs.test.js.
 // Blocks secret-shaped strings from being committed.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/components/eh-list-card.js
 // List of persistent items card. Unlike generic-card (which shows one dated
 // entry), list-card shows the ENTIRE data array as a roster — every row,

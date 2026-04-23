@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/invite.test.js
 // Covers the invite-code lifecycle used by Klebb's multi-user registration
 // flow (scripts/invite.js + auth/invites.js + /auth/register/available endpoint).

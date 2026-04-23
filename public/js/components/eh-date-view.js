@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/components/eh-date-view.js
 // Unified DateView: renders all cards opted into view='view' for a given date.
 // Handles past/today/future mode derivation, navigation (arrows, swipe, date picker),
