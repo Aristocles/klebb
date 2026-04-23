@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/components/eh-reports-view.js
 // v2 Reports view — combines:
 //   1. Manifest-driven cards with meta.reports.enabled: true (e.g. snps, peptides adherence)

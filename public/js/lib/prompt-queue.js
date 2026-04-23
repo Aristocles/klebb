@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/lib/prompt-queue.js
 // Evaluate which cards opt into meta.prompt and should fire today.
 //

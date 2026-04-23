@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/manifest-registry.test.js
 // Unit tests for the manifest registry — no server required, just module-level.
 

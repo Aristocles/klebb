@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-chart-base.js — shared ECharts integration for chart renderers.
 // Loads ECharts lazily from CDN and caches the module so multiple charts
 // don't re-fetch. Provides theme-aware defaults that respect the existing

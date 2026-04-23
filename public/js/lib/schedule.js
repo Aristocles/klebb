@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/lib/schedule.js
 // Pure functions evaluating whether a scheduled item is "on" for a given date.
 // Shared by eh-checklist-card, eh-schedule-timeline, eh-calendar-view etc.

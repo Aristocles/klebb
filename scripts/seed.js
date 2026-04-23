@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // scripts/seed.js — copy a small starter set of cards into $HEALTH_HOME/data/.
 //
 // Opt-in. Does not run automatically. User invokes `npm run seed` when they

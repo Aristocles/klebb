@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/components/eh-settings-view.js
 // Settings view (v2, post-Phase-0).
 //

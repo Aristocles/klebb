@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/lib/display-template.js
 // Generic display-template engine for manifest-driven cards.
 // Dual-runtime: browser (ESM) + Node (CommonJS) via UMD pattern.

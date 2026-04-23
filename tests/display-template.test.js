@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/display-template.test.js
 // Pure-function tests for the manifest display-template engine.
 

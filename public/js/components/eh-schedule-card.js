@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-schedule-card.js — rich per-item card for scheduled protocols.
 // Replaces the bare checklist-card for the peptides/medication data file.
 // Shows:

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // scripts/migrate-cards-to-generic.js
 //
 // Retrofits existing card manifests to use the zero-code generic-card

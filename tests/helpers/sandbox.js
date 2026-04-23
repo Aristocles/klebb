@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/helpers/sandbox.js
 // Spin up an ephemeral HEALTH_HOME + a test server for each test suite.
 

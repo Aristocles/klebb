@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-greeting-banner.js — top-slot card showing the day context + a rotating motd.
 // Data: array of short message strings (pre-seeded at install time).
 // Rotation: on load, if today > meta.lastRotatedDate, pop messages[0], push to end,
