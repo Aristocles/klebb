@@ -86,6 +86,50 @@ The master kill-switch. When `false`, the card is hidden from **every** view
 The data stays in the file; only visibility is suppressed. Toggle via the
 Settings page, or just edit the file yourself.
 
+### `meta.prompt` (optional, default: no prompt)
+
+Turns the card into a **modal-prompt** on app open. Once per day per card,
+the webapp shows a full-screen modal that asks the user to fill in the
+card's inputs. Great for daily-log cards that are easy to forget — mood,
+BP, weight, hydration.
+
+```json
+"meta": {
+  "prompt": {
+    "enabled": true,         // required to opt in; default false
+    "mode": "modal",         // only "modal" is supported today
+    "whenMissing": true      // default true — skip if today's entry exists
+  }
+}
+```
+
+**How it behaves:**
+
+- On app load, every card with `prompt.enabled: true` is evaluated.
+- If today's entry already exists (array has a row dated today, or the
+  schedule/item has been ticked off), skip. This is `whenMissing: true`
+  behaviour, the default. Set `whenMissing: false` to force the modal
+  to fire every day regardless.
+- If the modal was already shown today (tracked in `localStorage`
+  under `klebb-prompt-shown-{cardId}-{YYYY-MM-DD}`), skip. The modal
+  never re-appears the same day even if the user dismissed without
+  saving. Tomorrow it's a fresh slate.
+- Multiple qualifying cards are queued in `meta.order` ascending; the
+  user fills or dismisses one at a time until the queue empties.
+
+**Modal UX:**
+
+- Full viewport on mobile (bottom-sheet style), centered card on
+  desktop (≥ 640px).
+- Same inputs as `meta.writeable.inputs` — whatever you'd see in the
+  inline edit form, the modal renders.
+- Save button is disabled until all `required` inputs have values.
+- ✕ in the header dismisses without saving.
+- Escape key also dismisses.
+
+Defaults: `enabled: false`. Opt-in only — no card gets a modal unless
+you explicitly set this.
+
 ### `meta.view` — the Today view config
 
 ```json
@@ -166,6 +210,13 @@ input form renders the right widget per type.
 | `rating` | 1..N buttons | `min`, `max` (default 1..5) |
 
 All types support: `key` (required), `label`, `required`, `default`, `help`.
+
+**`required` on inputs.** Defaults to `false` (optional). When `required: true`:
+- The inline edit form blocks Save with an error message if the field is empty.
+- The **modal prompt** (see `meta.prompt`) renders the Save button as
+  disabled until every required field has a value.
+- `autoSubmit` inputs (like the emoji-picker in Mood) don't need Save
+  at all — picking the value submits directly.
 
 **Example: a mood card input block**
 ```json

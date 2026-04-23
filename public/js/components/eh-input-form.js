@@ -59,7 +59,7 @@ export class EhInputForm extends LitElement {
         if (!(input.key in s)) {
           // Sensible per-type defaults
           if (input.type === 'checkbox') s[input.key] = !!input.default;
-          else if (input.type === 'number' || input.type === 'rating') s[input.key] = input.default ?? null;
+          else if (input.type === 'number' || input.type === 'rating' || input.type === 'stepper') s[input.key] = input.default ?? null;
           else if ('default' in input) s[input.key] = input.default;
           else s[input.key] = '';
         }
@@ -93,7 +93,7 @@ export class EhInputForm extends LitElement {
     // Cast numbers
     const out = { ...this._state };
     for (const input of this.inputs || []) {
-      if (input.type === 'number' || input.type === 'rating') {
+      if (input.type === 'number' || input.type === 'rating' || input.type === 'stepper') {
         if (out[input.key] !== null && out[input.key] !== '') {
           const n = Number(out[input.key]);
           if (!Number.isNaN(n)) out[input.key] = n;
@@ -484,7 +484,7 @@ export class EhInputForm extends LitElement {
         ${this._error ? html`<div class="error">${this._error}</div>` : ''}
         <div class="actions">
           <button type="button" class="btn ghost" ?disabled=${this.busy} @click=${this._onCancel}>${this.cancelLabel}</button>
-          <button type="submit" class="btn primary" ?disabled=${this.busy}>${this.busy ? 'Saving…' : this.submitLabel}</button>
+          <button type="submit" class="btn primary" ?disabled=${this.busy || !this._isValid()}>${this.busy ? 'Saving…' : this.submitLabel}</button>
         </div>
       </form>
     `;
