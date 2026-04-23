@@ -16,46 +16,82 @@ export class EhChecklistCard extends EhBaseCard {
     EhBaseCard.styles,
     css`
       .list { list-style: none; padding: 0; margin: 0; }
+
       .item {
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 6px 0;
-        font-size: 13px;
-        color: var(--text-primary);
+        gap: 12px;
+        padding: 10px 0;
+        border-top: 1px solid var(--border);
       }
-      .item .name { flex: 1; }
-      .item.done .name { color: var(--text-muted, var(--text-secondary)); text-decoration: line-through; }
-      .tickbox {
-        width: 18px; height: 18px;
+      .item:first-child { border-top: none; }
+
+      .item-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .item-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+        line-height: 1.25;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .item.done .item-name {
+        color: var(--text-muted, var(--text-secondary));
+        text-decoration: line-through;
+      }
+      .item-sub {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* Round check button — matches schedule-card for consistency */
+      .checkbox {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
         border: 2px solid var(--border);
-        border-radius: 4px;
-        display: inline-flex;
+        cursor: pointer;
+        display: flex;
         align-items: center;
         justify-content: center;
-        cursor: pointer;
         transition: all 0.15s;
+        flex-shrink: 0;
       }
-      .tickbox.done {
-        background: var(--accent, #00d4aa);
-        border-color: var(--accent, #00d4aa);
-        color: var(--bg-card);
+      .checkbox:hover { border-color: var(--accent); }
+      .checkbox.checked {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
       }
-      .tickbox.disabled { cursor: not-allowed; opacity: 0.5; }
-      .tickbox::before {
+      .checkbox::before {
         content: '';
         font-size: 14px;
         font-weight: 700;
+        line-height: 1;
       }
-      .tickbox.done::before { content: '✓'; }
-      .item-meta {
-        font-size: 11px;
-        color: var(--text-muted, var(--text-secondary));
+      .checkbox.checked::before { content: '✓'; }
+      .checkbox.disabled { opacity: 0.4; cursor: not-allowed; }
+      .checkbox:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
       }
+
       .empty {
         font-size: 12px;
         color: var(--text-muted, var(--text-secondary));
-        padding: 4px 0;
+        padding: 8px 2px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .checkbox { transition: none; }
       }
     `,
   ];
@@ -182,17 +218,25 @@ export class EhChecklistCard extends EhBaseCard {
         ${items.map(item => {
           const done = this._isDone(item);
           const writeable = this._canWrite;
+          // Build a sub-line: dose + optional timing separator
+          const subParts = [];
+          if (item.dose) subParts.push(item.dose);
+          if (item.timing) subParts.push(item.timing);
+          const sub = subParts.join(' · ');
           return html`
             <li class="item ${done ? 'done' : ''}">
               <span
-                class="tickbox ${done ? 'done' : ''} ${writeable ? '' : 'disabled'}"
+                class="checkbox ${done ? 'checked' : ''} ${writeable ? '' : 'disabled'}"
                 @click=${() => this._toggle(item)}
                 role="button"
+                tabindex="${writeable ? '0' : '-1'}"
                 aria-label="toggle ${item.name}"
+                @keydown=${writeable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._toggle(item); } } : null}
               ></span>
-              <span class="name">${item.name}</span>
-              ${item.dose ? html`<span class="item-meta">${item.dose}</span>` : ''}
-              ${item.timing && !item.dose ? html`<span class="item-meta">${item.timing}</span>` : ''}
+              <div class="item-body">
+                <div class="item-name">${item.name}</div>
+                ${sub ? html`<div class="item-sub">${sub}</div>` : ''}
+              </div>
             </li>
           `;
         })}
