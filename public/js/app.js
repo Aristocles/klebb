@@ -163,7 +163,11 @@ class HealthApp extends LitElement {
   }
 
   static styles = css`
-    :host { display: block; }
+    :host {
+      display: block;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
     nav {
       display: flex;
       flex-direction: column;
@@ -174,12 +178,19 @@ class HealthApp extends LitElement {
       position: sticky;
       top: 0;
       z-index: 40;
+      /* Explicit full-width so that if a pinch-zoom shifts the visual
+         viewport wider than the layout viewport, the nav still spans
+         edge-to-edge rather than leaving a gap on the right. */
+      width: 100%;
+      max-width: 100%;
     }
     .nav-main {
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 12px 20px;
+      min-width: 0;
+      gap: 8px;
     }
     .logo {
       font-size: 1.1rem;
@@ -188,10 +199,15 @@ class HealthApp extends LitElement {
       display: flex;
       align-items: center;
       gap: 8px;
+      min-width: 0;
+      flex-shrink: 0;
+      white-space: nowrap;
     }
     .nav-links {
       display: flex;
       gap: 4px;
+      min-width: 0;
+      flex-wrap: nowrap;
     }
     .nav-link {
       color: var(--text-secondary);
@@ -249,10 +265,15 @@ class HealthApp extends LitElement {
       padding: 20px;
       /* Leave room for the peek-bar chat widget pinned to the bottom */
       padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+      /* Hard guard against any child overflowing horizontally — we'd
+         rather clip a stray wide element than have the whole page
+         shrink-to-fit on mobile. */
+      overflow-x: hidden;
+      box-sizing: border-box;
     }
     @media (max-width: 480px) {
-      .nav-main { padding: 8px 12px; }
-      .logo { font-size: 0.95rem; }
+      .nav-main { padding: 8px 12px; gap: 6px; }
+      .logo { font-size: 0.95rem; gap: 6px; }
       .nav-links { gap: 2px; }
       .nav-link { font-size: 0.75rem; padding: 5px 8px; }
       main {
