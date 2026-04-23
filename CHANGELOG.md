@@ -9,6 +9,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **SPDX + copyright headers on every source file.** Added
+  `SPDX-License-Identifier: AGPL-3.0-only` +
+  `Copyright (C) 2026 Aristocles <https://github.com/Aristocles>`
+  to `.js`, `.css`, `.html`, `.sh`, `.service`, and `.yml` files
+  across the repo. Legacy UI (`_legacy-v1/`), example data
+  (`data.example/`), and docs are excluded. An idempotent helper
+  (`scripts/add-spdx-headers.js`) handles re-applying on new files.
+  (#15)
 - **Licence switched from MIT to AGPL-3.0-only.** Replaced `LICENSE`
   with the full GNU Affero General Public License v3.0 text and a
   clean copyright line: `Copyright (C) 2026 Aristocles

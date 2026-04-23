@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // scripts/add-spdx-headers.js
 // One-shot helper: insert SPDX + copyright headers into source files that
 // don't already have one. Idempotent: files containing 'SPDX-License-Identifier'
