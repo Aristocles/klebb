@@ -87,9 +87,10 @@ export class EhScheduleCard extends EhBaseCard {
       }
       .item {
         display: grid;
-        grid-template-columns: 54px 1fr auto;
+        grid-template-columns: 54px minmax(0, 1fr) auto;
         gap: 12px;
         align-items: center;
+        min-width: 0;
       }
       /* Cycle ring */
       .ring {
@@ -139,7 +140,14 @@ export class EhScheduleCard extends EhBaseCard {
         display: flex;
         gap: 4px;
         margin-top: 6px;
+        /* On very narrow phones the info column may be thinner than
+           7 × dot width + gaps; allow a gentle horizontal scroll
+           rather than breaking the grid + forcing the page wider. */
+        overflow-x: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
       }
+      .week::-webkit-scrollbar { display: none; }
       .dot {
         width: 22px;
         height: 22px;
@@ -151,6 +159,7 @@ export class EhScheduleCard extends EhBaseCard {
         font-weight: 700;
         transition: all 0.15s;
         box-sizing: border-box;
+        flex-shrink: 0;
       }
       .dot.inactive {
         background: var(--bg-card);
@@ -249,7 +258,7 @@ export class EhScheduleCard extends EhBaseCard {
       }
 
       @media (max-width: 480px) {
-        .item { grid-template-columns: 44px 1fr auto; gap: 8px; }
+        .item { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 8px; }
         .ring, .ring svg { width: 40px; height: 40px; }
         .dot { width: 20px; height: 20px; }
       }
