@@ -107,8 +107,9 @@ export class EhSettingsView extends LitElement {
       border-radius: 8px;
       background: var(--bg-card);
       color: var(--text-primary);
-      font-size: 13px;
       font-family: inherit;
+      /* 16px prevents iOS Safari auto-zoom on focus */
+      font-size: 16px;
     }
     .filter-input:focus {
       outline: 2px solid var(--accent);

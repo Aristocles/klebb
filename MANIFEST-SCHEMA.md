@@ -148,6 +148,7 @@ recent same-day entries.
 | type | extra fields |
 |------|--------------|
 | `number` | `min`, `max`, `step`, `placeholder` |
+| `stepper` | `min`, `max`, `step`, `default` (−/+ buttons around a number) |
 | `text` | `maxLength`, `placeholder` |
 | `textarea` | `rows`, `maxLength`, `placeholder` |
 | `select` | `options: [string]` or `[{value,label}]`, `placeholder` |

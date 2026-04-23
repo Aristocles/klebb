@@ -129,6 +129,47 @@ export class EhInputForm extends LitElement {
             ?required=${input.required}
             @input=${(e) => this._update(input.key, e.target.value)}
           />`;
+      case 'stepper': {
+        const min = input.min ?? 0;
+        const max = input.max ?? 999;
+        const step = input.step ?? 1;
+        const current = (v === null || v === undefined || v === '') ? (input.default ?? 0) : Number(v);
+        const isValid = !Number.isNaN(current);
+        const safe = isValid ? current : 0;
+        const dec = () => this._update(input.key, Math.max(min, safe - step));
+        const inc = () => this._update(input.key, Math.min(max, safe + step));
+        return html`
+          <div class="stepper-row">
+            <button
+              type="button"
+              class="stepper-btn"
+              @click=${dec}
+              ?disabled=${safe <= min}
+              aria-label="Decrease ${input.label || input.key}"
+            >−</button>
+            <input
+              id=${id}
+              type="number"
+              class="stepper-value"
+              .value=${safe}
+              min=${min}
+              max=${max}
+              step=${step}
+              ?required=${input.required}
+              @input=${(e) => {
+                const n = Number(e.target.value);
+                if (!Number.isNaN(n)) this._update(input.key, Math.max(min, Math.min(max, n)));
+              }}
+            />
+            <button
+              type="button"
+              class="stepper-btn"
+              @click=${inc}
+              ?disabled=${safe >= max}
+              aria-label="Increase ${input.label || input.key}"
+            >+</button>
+          </div>`;
+      }
       case 'text':
         return html`
           <input
@@ -275,7 +316,9 @@ export class EhInputForm extends LitElement {
       background: var(--bg-input, var(--bg-card));
       color: var(--text-primary);
       font-family: inherit;
-      font-size: 14px;
+      /* 16px minimum prevents iOS Safari auto-zoom on focus. Don't drop
+         this without re-testing on a real iPhone. */
+      font-size: 16px;
     }
     input[type="color"] {
       width: 44px;
@@ -307,6 +350,80 @@ export class EhInputForm extends LitElement {
     .emoji.selected, .rating.selected {
       border-color: var(--accent);
       background: var(--accent);
+      color: var(--text-inverse, white);
+    }
+
+    /* --- Stepper (number with −/+ buttons on either side) --- */
+    .stepper-row {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      max-width: 160px;
+    }
+    .stepper-btn {
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.12s;
+      flex-shrink: 0;
+    }
+    .stepper-btn:first-child {
+      border-radius: 6px 0 0 6px;
+      border-right: none;
+    }
+    .stepper-btn:last-child {
+      border-radius: 0 6px 6px 0;
+      border-left: none;
+    }
+    .stepper-btn:hover:not([disabled]) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .stepper-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      z-index: 2;
+      position: relative;
+    }
+    .stepper-btn[disabled] {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .stepper-value {
+      width: 60px !important;
+      text-align: center;
+      border-radius: 0 !important;
+      border-left-width: 1px !important;
+      border-right-width: 1px !important;
+      -moz-appearance: textfield;
+      padding: 0 !important;
+    }
+    .stepper-value::-webkit-outer-spin-button,
+    .stepper-value::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .stepper-value:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -1px;
+      border-color: var(--accent);
+      z-index: 2;
+      position: relative;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stepper-btn { transition: none; }
+    }
       color: var(--text-inverse, white);
     }
     .actions {
