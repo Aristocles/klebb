@@ -14,7 +14,7 @@ parts than most static-site generators.
 Works equally well as:
 
 - A personal dashboard you drive manually
-- A target for a chat agent (Claude / GPT / OpenClaw skill / whatever)
+- A target for a chat agent (any OpenAI-compatible LLM) to read and
   to log into
 - A multi-user self-hosted install with WebAuthn passkey auth
 
@@ -137,7 +137,7 @@ Optional feature flags:
 | Var | Purpose |
 |-----|---------|
 | `AGENT_API_TOKEN` | Bearer token for server-to-server card writes |
-| `OPENCLAW_HOST`, `OPENCLAW_PORT`, `OPENCLAW_TOKEN`, `OPENCLAW_MODEL`, `OPENCLAW_TLS` | Chat widget gateway |
+| `CHAT_GATEWAY_HOST`, `CHAT_GATEWAY_PORT`, `CHAT_GATEWAY_TOKEN`, `CHAT_GATEWAY_MODEL`, `CHAT_GATEWAY_TLS` | Chat widget gateway |
 | `CHAT_AGENT_NAME`, `CHAT_AGENT_EMOJI` | Chat widget branding |
 | `FISH_AUDIO_API_KEY`, `FISH_AUDIO_DEFAULT_VOICE` | Voice chat |
 | `HEALTH_INSTANCE_NAME`, `HEALTH_RP_NAME` | UI branding |

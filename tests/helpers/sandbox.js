@@ -54,9 +54,9 @@ async function spawnServer(sandboxRoot, extraEnv = {}) {
     PORT: String(port),
     HOST: '127.0.0.1',
     // Disable external calls in tests
-    OPENCLAW_HOST: '127.0.0.1',
-    OPENCLAW_PORT: '1',              // will fail — tests that touch chat mock this
-    OPENCLAW_TOKEN: 'test-token',
+    CHAT_GATEWAY_HOST: '127.0.0.1',
+    CHAT_GATEWAY_PORT: '1',              // will fail — tests that touch chat mock this
+    CHAT_GATEWAY_TOKEN: 'test-token',
     FISH_AUDIO_API_KEY: '',          // disables voice
     FISH_AUDIO_DEFAULT_VOICE: '',
     KLEBB_SKIP_HOME_ENV: '1',   // prevent ~/.env leaking real keys into test

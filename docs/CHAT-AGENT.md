@@ -2,7 +2,7 @@
 
 Klebb ships with a chat widget that can write to cards and answer
 questions about your data. The widget is **agent-agnostic**: it talks to an
-OpenClaw chat-completions endpoint, which can be backed by whatever model
+an OpenAI-compatible chat-completions endpoint, which can be backed by whatever model
 you configure.
 
 This doc covers:
@@ -12,39 +12,39 @@ This doc covers:
 
 ---
 
-## 1. Chat widget — OpenClaw backend
+## 1. Chat widget — chat gateway backend
 
 The in-page chat widget (`health-chat.js`) sends user messages to an
-OpenClaw gateway over HTTP and renders the streamed response.
+chat gateway over HTTP and renders the streamed response.
 
 Configure via environment variables:
 
 | Var | Default | Purpose |
 |-----|---------|---------|
-| `OPENCLAW_HOST` | `localhost` | OpenClaw gateway hostname |
-| `OPENCLAW_PORT` | `8787` | Gateway port |
-| `OPENCLAW_TLS` | auto | `true` to use HTTPS, `false` for HTTP (auto: true for non-localhost) |
-| `OPENCLAW_TOKEN` | — | Bearer token for the gateway |
-| `OPENCLAW_MODEL` | *(gateway default)* | Model id to request |
+| `CHAT_GATEWAY_HOST` | `localhost` | chat gateway hostname |
+| `CHAT_GATEWAY_PORT` | `8787` | Gateway port |
+| `CHAT_GATEWAY_TLS` | auto | `true` to use HTTPS, `false` for HTTP (auto: true for non-localhost) |
+| `CHAT_GATEWAY_TOKEN` | — | Bearer token for the gateway |
+| `CHAT_GATEWAY_MODEL` | *(gateway default)* | Model id to request |
 | `HEALTH_SYSTEM_PROMPT` | built-in | System prompt sent with each turn |
 | `CHAT_AGENT_NAME` | `Chat` | Display name shown in the chat UI |
 | `CHAT_AGENT_EMOJI` | `💬` | Emoji/char shown as the agent avatar |
 
-Point these at your OpenClaw instance and the chat just works. The webapp
+Point these at your chat gateway instance and the chat just works. The webapp
 itself does NOT know which model is behind the gateway; that's the gateway's
 job.
 
 ### What the widget does NOT do
 
 - It does not run tools directly. Tool-use is the gateway's responsibility
-  (OpenClaw's skill/MCP plumbing).
+  (the gateway's skill/tool plumbing).
 - It does not embed model credentials. All auth flows through
-  `OPENCLAW_TOKEN`.
+  `CHAT_GATEWAY_TOKEN`.
 
-If you want to plug a different backend (Claude, GPT, Gemini, local model),
+If you want to plug a different LLM backend (cloud-hosted, self-hosted, local),
 you have two paths:
-1. Put an OpenClaw gateway in front of it. Minimum fuss — the webapp talks
-   OpenClaw and knows nothing else.
+1. Put an chat gateway in front of it. Minimum fuss — the webapp talks
+   chat gateway and knows nothing else.
 2. Replace the chat-proxy section of `server.js` with your own upstream.
    Everything else in the webapp (manifests, auth, views) is untouched.
 
@@ -52,7 +52,7 @@ you have two paths:
 
 ## 2. Server-to-server writes (AGENT_API_TOKEN)
 
-When an external agent (OpenClaw skill, cron job, mobile shortcut, etc.)
+When an external agent (chat agent integration, cron job, mobile shortcut, etc.)
 needs to write to a card without going through the chat widget, it
 authenticates with a bearer token instead of a WebAuthn session cookie.
 
@@ -161,9 +161,9 @@ Scale it up with card discovery (`GET /api/manifests`), schema inspection
 
 ---
 
-## 4. Reference integration: OpenClaw skill
+## 4. Reference integration: chat agent integration
 
-A minimal OpenClaw skill wraps this API with a bearer token. The pattern
+A minimal chat agent integration wraps this API with a bearer token. The pattern
 is the same as any HTTP client integration:
 
 1. Skill reads `EDDZHEALTH_URL` + `EDDZHEALTH_TOKEN` from env
@@ -171,7 +171,7 @@ is the same as any HTTP client integration:
 3. Query dispatch: "what was yesterday's mood?" →
    `GET /api/manifests/mood/data` → filter → reply
 
-You don't need OpenClaw to build an agent. Any HTTP client + your model of
+You don't need any particular agent framework. Any HTTP client + your model of
 choice can drive this API.
 
 ---

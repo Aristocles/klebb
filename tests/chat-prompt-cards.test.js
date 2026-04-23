@@ -2,7 +2,7 @@
 // Verifies the chat proxy injects the current card list into the system prompt
 // so the model always knows what cards exist without a separate round-trip.
 //
-// We don't talk to a real OpenClaw gateway — we stub it with a tiny HTTP server
+// We don't talk to a real chat gateway — we stub it with a tiny HTTP server
 // that captures the request body and echoes the first system message back.
 
 const { test, describe, before, after } = require('node:test');
@@ -24,7 +24,7 @@ function makeCard(id, label, description) {
   };
 }
 
-// Stub OpenClaw gateway that captures the system prompt from the last request
+// Stub chat gateway that captures the system prompt from the last request
 function startStubGateway() {
   let lastSystemPrompt = null;
   const server = http.createServer((request, response) => {
@@ -66,11 +66,11 @@ describe('chat proxy dynamic card-list injection', () => {
       },
     });
     server = await spawnServer(sandbox, {
-      OPENCLAW_HOST: '127.0.0.1',
-      OPENCLAW_PORT: String(gateway.port),
-      OPENCLAW_TLS: 'false',
-      OPENCLAW_TOKEN: 'stub-token',
-      OPENCLAW_MODEL: 'stub-model',
+      CHAT_GATEWAY_HOST: '127.0.0.1',
+      CHAT_GATEWAY_PORT: String(gateway.port),
+      CHAT_GATEWAY_TLS: 'false',
+      CHAT_GATEWAY_TOKEN: 'stub-token',
+      CHAT_GATEWAY_MODEL: 'stub-model',
     });
   });
   after(async () => {

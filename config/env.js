@@ -8,7 +8,7 @@
 //
 // Optional env vars: see README.md for the full list; each has a sensible
 // default for a local-dev instance. Public/production deploys should
-// explicitly set HEALTH_ORIGIN, HEALTH_RP_ID, OPENCLAW_TOKEN, and
+// explicitly set HEALTH_ORIGIN, HEALTH_RP_ID, CHAT_GATEWAY_TOKEN, and
 // AGENT_API_TOKEN.
 
 const crypto = require('crypto');
@@ -29,16 +29,16 @@ const HOST = process.env.HOST || '0.0.0.0';
 // --- Branding ---
 const INSTANCE_NAME = process.env.HEALTH_INSTANCE_NAME || 'Klebb';
 
-// --- Chat gateway (optional — chat widget disabled if OPENCLAW_TOKEN unset) ---
-const OPENCLAW_HOST = process.env.OPENCLAW_HOST || 'localhost';
-const OPENCLAW_PORT = parseInt(process.env.OPENCLAW_PORT || '8787', 10);
-const OPENCLAW_TOKEN = process.env.OPENCLAW_TOKEN || '';
-const OPENCLAW_MODEL = process.env.OPENCLAW_MODEL || '';
-// TLS default: true for remote hosts (most OpenClaw gateways are HTTPS),
-// false for localhost. Can be forced via OPENCLAW_TLS=true|false.
-const OPENCLAW_TLS = process.env.OPENCLAW_TLS !== undefined
-  ? process.env.OPENCLAW_TLS !== 'false'
-  : (OPENCLAW_HOST !== 'localhost' && OPENCLAW_HOST !== '127.0.0.1');
+// --- Chat gateway (optional — chat widget disabled if CHAT_GATEWAY_TOKEN unset) ---
+const CHAT_GATEWAY_HOST = process.env.CHAT_GATEWAY_HOST || 'localhost';
+const CHAT_GATEWAY_PORT = parseInt(process.env.CHAT_GATEWAY_PORT || '8787', 10);
+const CHAT_GATEWAY_TOKEN = process.env.CHAT_GATEWAY_TOKEN || '';
+const CHAT_GATEWAY_MODEL = process.env.CHAT_GATEWAY_MODEL || '';
+// TLS default: true for remote hosts (most chat gateways are HTTPS),
+// false for localhost. Can be forced via CHAT_GATEWAY_TLS=true|false.
+const CHAT_GATEWAY_TLS = process.env.CHAT_GATEWAY_TLS !== undefined
+  ? process.env.CHAT_GATEWAY_TLS !== 'false'
+  : (CHAT_GATEWAY_HOST !== 'localhost' && CHAT_GATEWAY_HOST !== '127.0.0.1');
 const CHAT_AGENT_NAME = process.env.CHAT_AGENT_NAME || 'Chat';
 const CHAT_AGENT_EMOJI = process.env.CHAT_AGENT_EMOJI || '💬';
 
@@ -143,11 +143,11 @@ module.exports = {
   PORT,
   HOST,
   INSTANCE_NAME,
-  OPENCLAW_HOST,
-  OPENCLAW_PORT,
-  OPENCLAW_TOKEN,
-  OPENCLAW_MODEL,
-  OPENCLAW_TLS,
+  CHAT_GATEWAY_HOST,
+  CHAT_GATEWAY_PORT,
+  CHAT_GATEWAY_TOKEN,
+  CHAT_GATEWAY_MODEL,
+  CHAT_GATEWAY_TLS,
   CHAT_AGENT_NAME,
   CHAT_AGENT_EMOJI,
   WEBAUTHN_RP_NAME,
