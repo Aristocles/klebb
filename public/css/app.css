@@ -4,6 +4,18 @@
   padding: 0;
 }
 
+/* Prevent horizontal overflow at the document level so iOS Safari
+   never expands the layout viewport beyond the visual viewport on
+   initial load (which otherwise causes a "shrunk / zoomed-in" render
+   and leaves the sticky <nav> looking narrower than the body after
+   the user pinch-zooms out). Any card that legitimately needs to
+   scroll horizontally (wide tables, trend charts) should do so on
+   its own container, not the page. */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 /* ===== THEME VARIABLES ===== */
 :root, [data-theme="light"] {
   --bg-page: #f5f7fa;
