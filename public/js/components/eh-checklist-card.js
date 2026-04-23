@@ -30,6 +30,11 @@ export class EhChecklistCard extends EhBaseCard {
         flex: 1;
         min-width: 0;
       }
+      .item-right {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+      }
       .item-name {
         font-size: 14px;
         font-weight: 600;
@@ -225,17 +230,19 @@ export class EhChecklistCard extends EhBaseCard {
           const sub = subParts.join(' · ');
           return html`
             <li class="item ${done ? 'done' : ''}">
-              <span
-                class="checkbox ${done ? 'checked' : ''} ${writeable ? '' : 'disabled'}"
-                @click=${() => this._toggle(item)}
-                role="button"
-                tabindex="${writeable ? '0' : '-1'}"
-                aria-label="toggle ${item.name}"
-                @keydown=${writeable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._toggle(item); } } : null}
-              ></span>
               <div class="item-body">
                 <div class="item-name">${item.name}</div>
                 ${sub ? html`<div class="item-sub">${sub}</div>` : ''}
+              </div>
+              <div class="item-right">
+                <span
+                  class="checkbox ${done ? 'checked' : ''} ${writeable ? '' : 'disabled'}"
+                  @click=${() => this._toggle(item)}
+                  role="button"
+                  tabindex="${writeable ? '0' : '-1'}"
+                  aria-label="toggle ${item.name}"
+                  @keydown=${writeable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._toggle(item); } } : null}
+                ></span>
               </div>
             </li>
           `;

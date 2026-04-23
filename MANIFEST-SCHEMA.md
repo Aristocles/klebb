@@ -245,7 +245,7 @@ timestamped backup. Run it against any data dir that predates the
 unification:
 
 ```sh
-node scripts/migrate-schedule-vocabulary.js ~/axis/workspace/.private/health/data
+node scripts/migrate-schedule-vocabulary.js /path/to/your/health/data
 ```
 
 Legacy keys supported transparently by `lib/schedule.js` (no migration
