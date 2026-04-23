@@ -55,6 +55,28 @@ Klebb dashboard. For the human-friendly tour, see
 Calendar, Reports). Settings still shows it so you can re-enable. Absent
 or `true` means the card participates according to its per-view config.
 
+### Modal prompt (`meta.prompt`)
+
+Opt-in. Makes the card fire a full-screen modal on app load, once per
+day, until the user saves or dismisses. Applies to any card that has
+`meta.writeable.inputs`.
+
+```json
+"meta": {
+  "prompt": {
+    "enabled": true,         // required — default false
+    "mode": "modal",         // only mode supported today
+    "whenMissing": true      // default true; skip if today already logged
+  }
+}
+```
+
+Queue semantics: if multiple cards qualify, they render sequentially
+in `meta.order` ascending. Shown-today state is tracked in
+`localStorage` under the key `klebb-prompt-shown-{cardId}-{YYYY-MM-DD}`.
+Dismissing still marks as shown. See `docs/CARDS.md` for the full
+behaviour notes.
+
 ### View config (`meta.view`, `meta.trends`, etc.)
 
 All view configs share the same shape:

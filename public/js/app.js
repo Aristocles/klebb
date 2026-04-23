@@ -15,6 +15,8 @@ import './components/eh-settings-view.js';    // /settings
 
 // Shared widgets
 import './components/health-chat.js';
+import './components/eh-prompt-modal.js';
+import { checkPromptsForToday } from './lib/prompt-queue.js';
 
 class HealthApp extends LitElement {
   static properties = {
@@ -25,6 +27,7 @@ class HealthApp extends LitElement {
     theme: { type: String },
     _instanceName: { state: true },
     _settingsMenuOpen: { state: true },
+    _promptQueue: { state: true },
   };
 
   constructor() {
@@ -36,9 +39,11 @@ class HealthApp extends LitElement {
     this.theme = localStorage.getItem('klebb-theme') || 'light';
     this._instanceName = 'Klebb';
     this._settingsMenuOpen = false;
+    this._promptQueue = [];
     document.documentElement.setAttribute('data-theme', this.theme);
     this._handleRoute();
     this._loadInstance();
+    this._loadPrompts();
     window.addEventListener('popstate', () => this._handleRoute());
     window.addEventListener('navigate', (e) => {
       history.pushState(null, '', e.detail.path);
@@ -77,6 +82,36 @@ class HealthApp extends LitElement {
         if (j.name) this._instanceName = j.name;
       }
     } catch {}
+  }
+
+  async _loadPrompts() {
+    // Evaluate which cards opt into meta.prompt and should fire today.
+    // Quiet-fails — prompts are an enhancement, never block app startup.
+    try {
+      const queue = await checkPromptsForToday();
+      if (queue.length) this._promptQueue = queue;
+    } catch (err) {
+      console.warn('[app] prompt check failed', err);
+    }
+  }
+
+  _onPromptDone(e) {
+    const { cardId, action } = e.detail || {};
+    // Mark shown-today regardless of saved/dismissed — per spec, once shown
+    // never reshow the same day even on cancel.
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      localStorage.setItem(`klebb-prompt-shown-${cardId}-${today}`, '1');
+    } catch {}
+    // Advance the queue.
+    this._promptQueue = this._promptQueue.slice(1);
+    // If that card was saved, nudge a refresh on any rendered cards of
+    // the same id (so the Today view reflects the new entry).
+    if (action === 'saved') {
+      window.dispatchEvent(new CustomEvent('manifest-data-changed', {
+        detail: { cardId },
+      }));
+    }
   }
 
   _toggleTheme() {
@@ -228,7 +263,15 @@ class HealthApp extends LitElement {
   `;
 
   render() {
+    const activePrompt = this._promptQueue[0];
     return html`
+      ${activePrompt ? html`
+        <eh-prompt-modal
+          .card=${activePrompt}
+          .date=${new Date().toISOString().slice(0, 10)}
+          @eh-prompt-done=${this._onPromptDone}
+        ></eh-prompt-modal>
+      ` : ''}
       ${this.showNav ? html`
         <nav>
           <div class="nav-main">

@@ -79,6 +79,11 @@ const RULES = {
     },
   },
   mood: {
+    prompt: {
+      enabled: true,
+      mode: 'modal',
+      whenMissing: true,
+    },
     view: {
       component: 'generic-card',
       dateContext: 'viewedDate',
