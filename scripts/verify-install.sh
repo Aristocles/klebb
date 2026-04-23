@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 # scripts/verify-install.sh — pre-flight sanity check for a Klebb install.
 #
 # Reports on $HEALTH_HOME: directory perms, card file status, known-bad

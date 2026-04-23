@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // config/paths.js
 // Central path + env resolution for Klebb.
 // All other modules must import paths from here — no hardcoded absolute paths elsewhere.

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // scripts/migrate-date-keyed-to-array.js
 //
 // Converts date-keyed object data into an array of dated rows. Some v1

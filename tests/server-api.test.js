@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/server-api.test.js
 // Integration tests: spin up the server against an ephemeral HEALTH_HOME
 // and exercise the HTTP API.

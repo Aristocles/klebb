@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-unknown-card.js — shown when a manifest declares a component name we don't have.
 // Keeps the UI resilient to typos / components-not-yet-implemented.
 

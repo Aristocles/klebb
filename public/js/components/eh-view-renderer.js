@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/components/eh-view-renderer.js
 // Generic view composer. Fetches /api/views/:viewName, resolves each card's
 // renderer via the renderer-registry, instantiates it with the right props.

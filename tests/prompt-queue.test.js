@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/prompt-queue.test.js
 // Unit tests for public/js/lib/prompt-queue.js — the modal prompt
 // queueing logic for meta.prompt.enabled cards.

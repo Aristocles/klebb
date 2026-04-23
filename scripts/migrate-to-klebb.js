@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // scripts/migrate-to-klebb.js
 //
 // Rewrites any legacy data files with $schema: "eddzhealth.datafile.v1"

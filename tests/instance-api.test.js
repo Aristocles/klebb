@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/instance-api.test.js
 // The /api/instance endpoint exposes branding config (instance name, chat
 // agent name, emoji) to the frontend. Ensure it reflects env vars correctly.

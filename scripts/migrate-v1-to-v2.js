@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // scripts/migrate-v1-to-v2.js
 // Converts existing legacy data files in $HEALTH_HOME/data/ into v2 manifest shape.
 //

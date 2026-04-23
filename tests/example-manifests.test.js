@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/example-manifests.test.js
 // Walks every data.example/*.json and verifies each is a valid klebb.datafile.v1
 // manifest that references a known renderer and parseable template(s).
