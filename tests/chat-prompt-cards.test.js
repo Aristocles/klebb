@@ -2,7 +2,7 @@
 // Verifies the chat proxy injects the current card list into the system prompt
 // so the model always knows what cards exist without a separate round-trip.
 //
-// We don't talk to a real chat-gateway gateway — we stub it with a tiny HTTP server
+// We don't talk to a real chat gateway — we stub it with a tiny HTTP server
 // that captures the request body and echoes the first system message back.
 
 const { test, describe, before, after } = require('node:test');
@@ -24,7 +24,7 @@ function makeCard(id, label, description) {
   };
 }
 
-// Stub chat-gateway gateway that captures the system prompt from the last request
+// Stub chat gateway that captures the system prompt from the last request
 function startStubGateway() {
   let lastSystemPrompt = null;
   const server = http.createServer((request, response) => {

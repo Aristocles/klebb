@@ -85,13 +85,13 @@ catalog or install flow, AI-agent-friendly HTTP API.
 - **Session cookie renamed** — `vorhealth_session` → `klebb_session`.
   Existing browsers will see a one-time re-auth prompt after the upgrade.
 - **Default env values changed:**
-  - `CHAT_AGENT_NAME`: was `Axis`, now `Chat`
-  - `CHAT_AGENT_EMOJI`: was `⚡`, now `💬`
-  - `HEALTH_RP_ID`: was `axis.vorignet.com`, now `localhost`
+  - `CHAT_AGENT_NAME`: was a project-specific string, now `Chat`
+  - `CHAT_AGENT_EMOJI`: was a project-specific glyph, now `💬`
+  - `HEALTH_RP_ID`: was a real domain, now `localhost`
   - `CHAT_GATEWAY_TOKEN`: was a hardcoded production token (security leak);
     now empty by default — chat widget disabled unless set
   - `PORT`: was `10002`, now `8080`
-  - `HEALTH_HOME` fallback: was `~/axis/workspace/.private/health`,
+  - `HEALTH_HOME` fallback: was `~/.klebb/data` or `$HEALTH_HOME`,
     now `~/klebb`
 - **Removed feature:** The `/api/calendar/health` endpoint (pulled health
   events from Google Calendar via a hardcoded Python path). Wholly
@@ -143,7 +143,7 @@ catalog or install flow, AI-agent-friendly HTTP API.
 
 ### Fixed
 
-- Hardcoded production chat-gateway bearer token removed from source. If the
+- Hardcoded production chat gateway bearer token removed from source. If the
   chat widget needs a token, set `CHAT_GATEWAY_TOKEN` in the environment.
 - Chat widget no longer shows an audio play button on typed replies —
   only on voice-mode replies.
@@ -165,9 +165,10 @@ catalog or install flow, AI-agent-friendly HTTP API.
   wizard UI) — ~400 LOC deleted
 - `/api/calendar/health` endpoint + its Python shell-out
 - `mood-checkin.js` floating widget (superseded by in-card ✏️)
-- Legacy `eddzhealth@.service` systemd template
+- Legacy systemd template (replaced by `systemd/klebb@.service`)
 - `SPEC.md` (superseded by `README.md` + `docs/CARDS.md`)
-- `scripts/migrate-chuck-md-to-json.js` (one-off, migration complete)
+- One-off data-migration scripts (no longer needed once the v2 migration
+  landed; preserved only in git history)
 
 ### Migrating from pre-2.0.0 installs
 

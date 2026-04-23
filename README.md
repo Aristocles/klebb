@@ -14,7 +14,7 @@ parts than most static-site generators.
 Works equally well as:
 
 - A personal dashboard you drive manually
-- A target for a chat agent (any OpenAI-compatible LLM)
+- A target for a chat agent (any OpenAI-compatible LLM) to read and
   to log into
 - A multi-user self-hosted install with WebAuthn passkey auth
 

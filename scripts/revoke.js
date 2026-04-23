@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // scripts/revoke.js — revoke a user's credentials
-// Usage: node scripts/revoke.js --label chuck
+// Usage: node scripts/revoke.js --label alice
 
 const fs = require('fs');
 const PATHS = require('../config/paths');
