@@ -11,7 +11,7 @@
       "dateContext": "viewedDate",
       "display": {
         "template": "{mood:emoji}",
-        "secondary": "{notes|}",
+        "secondary": "{wakeUps|0} wake-ups · {notes|}",
         "emptyHeadline": "How are you feeling?",
         "emojiMap": {
           "mood": {
@@ -48,10 +48,11 @@
         },
         {
           "key": "wakeUps",
-          "type": "number",
+          "type": "stepper",
           "label": "Wake-ups",
           "min": 0,
-          "max": 20
+          "max": 20,
+          "default": 0
         },
         {
           "key": "notes",

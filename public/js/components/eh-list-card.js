@@ -336,7 +336,8 @@ export class EhListCard extends EhBaseCard {
         background: var(--bg-input, var(--bg-card));
         color: var(--text-primary);
         font-family: inherit;
-        font-size: 14px;
+        /* 16px prevents iOS Safari auto-zoom on focus */
+        font-size: 16px;
       }
       .primary-input:focus-visible {
         outline: 2px solid var(--accent);

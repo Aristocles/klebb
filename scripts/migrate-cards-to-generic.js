@@ -84,7 +84,7 @@ const RULES = {
       dateContext: 'viewedDate',
       display: {
         template: '{mood:emoji}',
-        secondary: '{notes|}',
+        secondary: '{wakeUps|0} wake-ups · {notes|}',
         emptyHeadline: 'How are you feeling?',
         emojiMap: {
           mood: { '1': '😩', '2': '😴', '3': '😐', '4': '🙂', '5': '😄' },
@@ -107,7 +107,7 @@ const RULES = {
           required: true,
           autoSubmit: true,
         },
-        { key: 'wakeUps', type: 'number',   label: 'Wake-ups', min: 0, max: 20 },
+        { key: 'wakeUps', type: 'stepper',  label: 'Wake-ups', min: 0, max: 20, default: 0 },
         { key: 'notes',   type: 'textarea', label: 'Notes',    rows: 2, placeholder: 'optional' },
       ],
     },

@@ -154,6 +154,7 @@ input form renders the right widget per type.
 | type | widget | extra fields |
 |------|--------|--------------|
 | `number` | numeric input | `min`, `max`, `step`, `placeholder` |
+| `stepper` | −/+ number picker (good for small integers — wake-ups, glasses, reps) | `min`, `max`, `step`, `default` |
 | `text` | text input | `maxLength`, `placeholder` |
 | `textarea` | multi-line | `rows`, `maxLength`, `placeholder` |
 | `select` | dropdown | `options: [string]` or `[{value, label}]`, `placeholder` |
