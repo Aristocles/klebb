@@ -34,7 +34,7 @@ const CHAT_GATEWAY_HOST = process.env.CHAT_GATEWAY_HOST || 'localhost';
 const CHAT_GATEWAY_PORT = parseInt(process.env.CHAT_GATEWAY_PORT || '8787', 10);
 const CHAT_GATEWAY_TOKEN = process.env.CHAT_GATEWAY_TOKEN || '';
 const CHAT_GATEWAY_MODEL = process.env.CHAT_GATEWAY_MODEL || '';
-// TLS default: true for remote hosts (most chat-gateway gateways are HTTPS),
+// TLS default: true for remote hosts (most chat gateways are HTTPS),
 // false for localhost. Can be forced via CHAT_GATEWAY_TLS=true|false.
 const CHAT_GATEWAY_TLS = process.env.CHAT_GATEWAY_TLS !== undefined
   ? process.env.CHAT_GATEWAY_TLS !== 'false'

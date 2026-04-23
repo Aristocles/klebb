@@ -5,7 +5,7 @@
 //   {
 //     "auth": {
 //       "invites": [
-//         { "code": "chuck-8xk2f9", "label": "chuck", "expiresAt": "2026-04-22T00:00:00Z", "used": false, "createdAt": "..." }
+//         { "code": "alice-8xk2f9", "label": "alice", "expiresAt": "2026-04-22T00:00:00Z", "used": false, "createdAt": "..." }
 //       ],
 //       "authEvents": "$HEALTH_HOME/sessions/auth-events.log"
 //     }

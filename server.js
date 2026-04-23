@@ -12,7 +12,7 @@ const { convertDateKeyedToArray } = require('./scripts/migrate-date-keyed-to-arr
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 
-// chat-gateway gateway config (env-driven; see config/env.js)
+// chat gateway config (env-driven; see config/env.js)
 const CHAT_GATEWAY_HOST = ENV.CHAT_GATEWAY_HOST;
 const CHAT_GATEWAY_PORT = ENV.CHAT_GATEWAY_PORT;
 const CHAT_GATEWAY_TOKEN = ENV.CHAT_GATEWAY_TOKEN;
@@ -765,7 +765,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // POST /api/chat — proxy to chat-gateway gateway chat completions
+    // POST /api/chat — proxy to chat gateway chat completions
     // Body: { messages: [...], voiceMode?: boolean }
     //   voiceMode=true → append "keep replies short/conversational" to system prompt
     if (parts[0] === 'chat' && parts.length === 1 && req.method === 'POST') {
@@ -817,7 +817,7 @@ Conversational allow-list (reply naturally, no disclaimer footer, no "let me che
 - Emoji-only or one-word reactions -> a matching short reaction.
 
 NEVER INVENT any of these phrases in either field:
-- "No response from ${process.env.CHAT_AGENT_NAME || 'Chat'}" / "No response from chat-gateway" / similar
+- "No response from ${process.env.CHAT_AGENT_NAME || 'Chat'}" / "No response from the chat gateway" / similar
 - "Gateway unavailable" / "Loading…" / "Please wait" / anything that reads like a UI state
 - Error-looking lines or apologies for non-errors
 

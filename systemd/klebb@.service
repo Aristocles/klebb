@@ -28,7 +28,7 @@
 #   FISH_AUDIO_DEFAULT_VOICE=...
 #
 # Enable + start a specific instance:
-#   sudo systemctl enable --now klebb@eddy
+#   sudo systemctl enable --now klebb@alice
 #
 # The %i placeholder expands to the instance name after the @.
 #

@@ -41,7 +41,7 @@ import os from 'node:os';
 const DRY_RUN = process.argv.includes('--dry-run');
 const args = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const TARGET = args[0] || path.join(
-  process.env.HEALTH_HOME || path.join(os.homedir(), 'axis/workspace/.private/health'),
+  process.env.HEALTH_HOME || path.join(os.homedir(), '.klebb'),
   'data',
 );
 

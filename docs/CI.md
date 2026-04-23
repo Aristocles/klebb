@@ -54,7 +54,7 @@ pattern, edit `tests/no-personal-refs.test.js`.
 ## What isn't covered by CI
 
 - WebAuthn registration/verification (requires browser crypto)
-- The chat proxy (requires mocking chat-gateway upstream) — covered
+- The chat proxy (requires mocking the chat gateway upstream) — covered
   indirectly by `tests/chat-prompt-cards.test.js` via a stub gateway
 - Fish Audio voice endpoints (require real API calls)
 - Rate limiting (handled at the nginx layer, not the app; see

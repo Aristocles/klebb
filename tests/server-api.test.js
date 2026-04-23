@@ -122,7 +122,7 @@ describe('server HTTP API', () => {
     let sandbox, server, auth;
 
     before(async () => {
-      auth = fakeAuthState('eddy');
+      auth = fakeAuthState('alice');
       sandbox = createSandbox({
         credentials: auth.credentials,
         sessions: auth.sessions,

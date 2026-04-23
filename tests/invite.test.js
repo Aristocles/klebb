@@ -30,10 +30,10 @@ describe('invite module (unit)', () => {
     const sandbox = createSandbox();
     try {
       const invites = freshInvites(sandbox);
-      const inv = invites.createInvite({ label: 'chuck', expiresInDays: 3 });
+      const inv = invites.createInvite({ label: 'alice', expiresInDays: 3 });
       assert.ok(inv.code, 'should return a code');
-      assert.ok(inv.code.startsWith('chuck-'), 'code should embed the label');
-      assert.equal(inv.label, 'chuck');
+      assert.ok(inv.code.startsWith('alice-'), 'code should embed the label');
+      assert.equal(inv.label, 'alice');
       assert.equal(inv.used, false);
       assert.ok(inv.expiresAt, 'should have an expiry');
 
