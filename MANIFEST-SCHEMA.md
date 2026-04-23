@@ -207,6 +207,60 @@ inline warning but keeps the dashboard running.
 
 ---
 
+## Schedule block (items with recurrence)
+
+Cards that track recurring items (peptides, medications, supplements) put
+each item under `data.items[]` (or `data.current[]` for supplements) and
+give each item a `schedule` object describing when it's due.
+
+The canonical schema is:
+
+```json
+"schedule": {
+  "type": "daily" | "weekly" | "every_n_days" | "on_off" | "phased" | "as_needed",
+  "on_days": ["Mon", "Wed", "Fri"],       // for weekly / on_off
+  "off_days": ["Sat", "Sun"],              // for on_off (optional — everything not in on_days is rest)
+  "interval_days": 2,                       // for every_n_days
+  "times_per_day": 1,                       // optional, default 1
+  "start_date": "2026-04-21",               // for every_n_days; falls back to cycle start
+  "loading": { "days": ["Tue","Fri"], "duration_weeks": 4 },  // phased
+  "maintenance": { "days": ["Tue"] }         // phased
+}
+```
+
+**Rules:**
+
+- `type` is canonical. Legacy `frequency` key is still read by the lib for
+  back-compat but new cards must use `type`.
+- `on_days` / `off_days` accept 3-letter or full-name day strings.
+- `every_n_days` anchors on `start_date`. If omitted, the earliest `cycles[].start`
+  is used instead.
+- `as_needed` (PRN) renders as "not scheduled" — use it for items that are
+  always available but not on a fixed cadence. The UI can still offer a
+  "log anyway" path.
+
+**Migrating old cards:**
+`scripts/migrate-schedule-vocabulary.js` converts files in place with a
+timestamped backup. Run it against any data dir that predates the
+unification:
+
+```sh
+node scripts/migrate-schedule-vocabulary.js ~/axis/workspace/.private/health/data
+```
+
+Legacy keys supported transparently by `lib/schedule.js` (no migration
+required, but recommended for new work):
+
+| Legacy | Canonical |
+|--------|-----------|
+| `schedule.frequency` | `schedule.type` |
+| `schedule.nDays` / `schedule.every` | `schedule.interval_days` |
+| `schedule.startDate` | `schedule.start_date` |
+| `schedule.dayOfWeek: "Thu"` | `schedule.on_days: ["Thu"]` |
+| Flat `item.frequency: "daily"` | `item.schedule: { type: "daily" }` |
+
+---
+
 ## Data block conventions
 
 Most cards use an array of dated entries:
