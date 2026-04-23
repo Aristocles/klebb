@@ -355,7 +355,8 @@ class HealthChat extends LitElement {
       border: 1px solid var(--border);
       border-radius: 18px;
       padding: 8px 14px;
-      font-size: 13px;
+      /* 16px prevents iOS Safari auto-zoom on focus */
+      font-size: 16px;
       font-family: inherit;
       outline: none;
     }
