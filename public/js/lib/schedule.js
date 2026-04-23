@@ -47,19 +47,28 @@ export function isScheduledOnDate(item, dateStr) {
 
 function evalSchedule(sched, dateStr, startRef) {
   const dName = dayName(dateStr);
-  const freq = sched.frequency || sched.type;
+  // Canonical: schedule.type. Legacy alias: schedule.frequency.
+  // See MANIFEST-SCHEMA.md → Schedule block for the canonical vocabulary.
+  const freq = sched.type || sched.frequency;
 
   if (freq === 'daily' || freq === 'daily_straight') return 'scheduled';
 
   if (freq === 'weekly') {
+    // Canonical: schedule.on_days = ["Mon","Wed"]. Legacy alias: schedule.dayOfWeek (single day).
+    if (Array.isArray(sched.on_days)) {
+      const days = sched.on_days.map(s => s.slice(0, 3));
+      return days.includes(dName) ? 'scheduled' : 'rest';
+    }
     const dow = (sched.dayOfWeek || '').toLowerCase();
     if (dow === dName.toLowerCase() || dow === dName.toLowerCase().slice(0, 3)) return 'scheduled';
     return 'rest';
   }
 
   if (freq === 'every_n_days') {
-    const n = sched.nDays || sched.every || 1;
-    const start = sched.startDate || startRef;
+    // Canonical: schedule.interval_days. Legacy aliases: nDays, every.
+    const n = sched.interval_days || sched.nDays || sched.every || 1;
+    // Canonical: schedule.start_date. Legacy alias: schedule.startDate.
+    const start = sched.start_date || sched.startDate || startRef;
     if (!start) return 'scheduled';
     const d1 = new Date(start + 'T00:00:00');
     const d2 = new Date(dateStr + 'T00:00:00');
