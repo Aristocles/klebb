@@ -13,11 +13,11 @@ function freshEnv(overrides = {}) {
   for (const key of Object.keys(require.cache)) {
     if (key.includes('/health/webapp/config/')) delete require.cache[key];
   }
-  // Nuke any EH_ / HEALTH_ / OPENCLAW_ vars that could leak from the host.
+  // Nuke any EH_ / HEALTH_ / CHAT_GATEWAY_ vars that could leak from the host.
   // We do this BEFORE applying overrides so the overrides alone define truth.
   const strip = Object.keys(process.env).filter(k =>
     k.startsWith('HEALTH_') ||
-    k.startsWith('OPENCLAW_') ||
+    k.startsWith('CHAT_GATEWAY_') ||
     k.startsWith('FISH_AUDIO_') ||
     k === 'CHAT_AGENT_NAME' ||
     k === 'CHAT_AGENT_EMOJI' ||
@@ -63,34 +63,34 @@ describe('config/env.js defaults', () => {
     assert.ok(env.WEBAUTHN_ORIGIN.startsWith('http://localhost:'));
   });
 
-  test('OPENCLAW_TOKEN defaults to empty string (no leaked prod token)', () => {
+  test('CHAT_GATEWAY_TOKEN defaults to empty string (no leaked prod token)', () => {
     const env = freshEnv();
-    assert.equal(env.OPENCLAW_TOKEN, '');
+    assert.equal(env.CHAT_GATEWAY_TOKEN, '');
   });
 
-  test('OPENCLAW_HOST defaults to "localhost"', () => {
+  test('CHAT_GATEWAY_HOST defaults to "localhost"', () => {
     const env = freshEnv();
-    assert.equal(env.OPENCLAW_HOST, 'localhost');
+    assert.equal(env.CHAT_GATEWAY_HOST, 'localhost');
   });
 
-  test('OPENCLAW_TLS auto-selects false for localhost', () => {
+  test('CHAT_GATEWAY_TLS auto-selects false for localhost', () => {
     const env = freshEnv();
-    assert.equal(env.OPENCLAW_TLS, false);
+    assert.equal(env.CHAT_GATEWAY_TLS, false);
   });
 
-  test('OPENCLAW_TLS auto-selects true for a remote host', () => {
-    const env = freshEnv({ OPENCLAW_HOST: 'gateway.example.com' });
-    assert.equal(env.OPENCLAW_TLS, true);
+  test('CHAT_GATEWAY_TLS auto-selects true for a remote host', () => {
+    const env = freshEnv({ CHAT_GATEWAY_HOST: 'gateway.example.com' });
+    assert.equal(env.CHAT_GATEWAY_TLS, true);
   });
 
-  test('OPENCLAW_TLS=false forces false even on a remote host', () => {
-    const env = freshEnv({ OPENCLAW_HOST: 'gateway.example.com', OPENCLAW_TLS: 'false' });
-    assert.equal(env.OPENCLAW_TLS, false);
+  test('CHAT_GATEWAY_TLS=false forces false even on a remote host', () => {
+    const env = freshEnv({ CHAT_GATEWAY_HOST: 'gateway.example.com', CHAT_GATEWAY_TLS: 'false' });
+    assert.equal(env.CHAT_GATEWAY_TLS, false);
   });
 
-  test('OPENCLAW_PORT defaults to 8787', () => {
+  test('CHAT_GATEWAY_PORT defaults to 8787', () => {
     const env = freshEnv();
-    assert.equal(env.OPENCLAW_PORT, 8787);
+    assert.equal(env.CHAT_GATEWAY_PORT, 8787);
   });
 
   test('PORT defaults to 8080', () => {
@@ -107,7 +107,7 @@ describe('config/env.js defaults', () => {
       WEBAUTHN_RP_ID: env.WEBAUTHN_RP_ID,
       WEBAUTHN_RP_NAME: env.WEBAUTHN_RP_NAME,
       WEBAUTHN_ORIGIN: env.WEBAUTHN_ORIGIN,
-      OPENCLAW_HOST: env.OPENCLAW_HOST,
+      CHAT_GATEWAY_HOST: env.CHAT_GATEWAY_HOST,
       HEALTH_SYSTEM_PROMPT: env.HEALTH_SYSTEM_PROMPT,
     });
     for (const name of ['Axis', 'Eddy', 'Onyx', 'Chuck']) {
@@ -149,9 +149,9 @@ describe('config/env.js env overrides', () => {
     assert.equal(env.WEBAUTHN_RP_ID, 'health.example.com');
   });
 
-  test('OPENCLAW_TOKEN env var wins over default', () => {
-    const env = freshEnv({ OPENCLAW_TOKEN: 'bearer-token-abc' });
-    assert.equal(env.OPENCLAW_TOKEN, 'bearer-token-abc');
+  test('CHAT_GATEWAY_TOKEN env var wins over default', () => {
+    const env = freshEnv({ CHAT_GATEWAY_TOKEN: 'bearer-token-abc' });
+    assert.equal(env.CHAT_GATEWAY_TOKEN, 'bearer-token-abc');
   });
 
   test('HEALTH_INSTANCE_NAME env var wins', () => {

@@ -62,12 +62,12 @@ HEALTH_ORIGIN=https://health.example.com
 PORT=8080
 HOST=127.0.0.1
 
-# Optional: chat agent (OpenClaw gateway)
-# OPENCLAW_HOST=localhost
-# OPENCLAW_PORT=8787
-# OPENCLAW_TLS=false
-# OPENCLAW_TOKEN=<bearer-token>
-# OPENCLAW_MODEL=<model-id>
+# Optional: chat agent (chat gateway)
+# CHAT_GATEWAY_HOST=localhost
+# CHAT_GATEWAY_PORT=8787
+# CHAT_GATEWAY_TLS=false
+# CHAT_GATEWAY_TOKEN=<bearer-token>
+# CHAT_GATEWAY_MODEL=<model-id>
 
 # Optional: server-to-server agent writes
 # AGENT_API_TOKEN=<random-strong-token>
@@ -221,7 +221,7 @@ instance, each pointing at its unique port.
   trigger WebAuthn failures
 - Set `HEALTH_HOME` to a per-user directory with 0700 perms, owned by
   the instance user
-- Keep `AGENT_API_TOKEN` and `OPENCLAW_TOKEN` in the env file (0600, root)
+- Keep `AGENT_API_TOKEN` and `CHAT_GATEWAY_TOKEN` in the env file (0600, root)
 - Run each instance as its own system user (no shell)
 
 ---
@@ -251,7 +251,7 @@ to change what's running.
 ### One-line deploy
 
 ```bash
-./scripts/deploy.sh --instance eddy
+./scripts/deploy.sh --instance alice
 ```
 
 What it does:
@@ -267,7 +267,7 @@ What it does:
 ### Dry-run first
 
 ```bash
-./scripts/deploy.sh --instance eddy --dry-run
+./scripts/deploy.sh --instance alice --dry-run
 ```
 
 Reports every step without making changes. Run this before the first
@@ -281,7 +281,7 @@ symlink manually:
 ```bash
 ls -t /opt/klebb/releases/     # find an earlier release
 sudo ln -sfn /opt/klebb/releases/<earlier>/ /opt/klebb/current
-sudo systemctl restart klebb@eddy
+sudo systemctl restart klebb@alice
 ```
 
 Takes about 2 seconds.
@@ -290,8 +290,8 @@ Takes about 2 seconds.
 
 ```bash
 DEPLOY_ROOT=/custom/path ./scripts/deploy.sh --instance test
-KEEP_RELEASES=10 ./scripts/deploy.sh --instance eddy
-SMOKE_URL=https://klebb.example.com/auth/status ./scripts/deploy.sh --instance eddy
+KEEP_RELEASES=10 ./scripts/deploy.sh --instance alice
+SMOKE_URL=https://klebb.example.com/auth/status ./scripts/deploy.sh --instance alice
 ```
 
 ### Pre-flight
@@ -299,7 +299,7 @@ SMOKE_URL=https://klebb.example.com/auth/status ./scripts/deploy.sh --instance e
 Before your first deploy, run:
 
 ```bash
-./scripts/verify-install.sh --health-home /home/eddy/klebb-data
+./scripts/verify-install.sh --health-home /home/alice/klebb-data
 ```
 
 It reports on the install state (directory perms, card file shapes,
@@ -341,7 +341,7 @@ Check `HEALTH_RP_ID` and `HEALTH_ORIGIN` match the URL you're visiting.
 Mismatch between browser origin and server RP_ID is the #1 cause.
 
 **Chat widget shows "Chat is not configured."**
-`OPENCLAW_TOKEN` is unset or empty. Set it in the env file and restart.
+`CHAT_GATEWAY_TOKEN` is unset or empty. Set it in the env file and restart.
 
 **Voice doesn't work.**
 `FISH_AUDIO_API_KEY` is unset or invalid. Check `/api/voice/config` in

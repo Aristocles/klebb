@@ -12,11 +12,11 @@ const { convertDateKeyedToArray } = require('./scripts/migrate-date-keyed-to-arr
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 
-// OpenClaw gateway config (env-driven; see config/env.js)
-const OPENCLAW_HOST = ENV.OPENCLAW_HOST;
-const OPENCLAW_PORT = ENV.OPENCLAW_PORT;
-const OPENCLAW_TOKEN = ENV.OPENCLAW_TOKEN;
-const OPENCLAW_MODEL = ENV.OPENCLAW_MODEL;
+// chat gateway config (env-driven; see config/env.js)
+const CHAT_GATEWAY_HOST = ENV.CHAT_GATEWAY_HOST;
+const CHAT_GATEWAY_PORT = ENV.CHAT_GATEWAY_PORT;
+const CHAT_GATEWAY_TOKEN = ENV.CHAT_GATEWAY_TOKEN;
+const CHAT_GATEWAY_MODEL = ENV.CHAT_GATEWAY_MODEL;
 
 const HEALTH_SYSTEM_PROMPT = ENV.HEALTH_SYSTEM_PROMPT;
 
@@ -765,7 +765,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // POST /api/chat — proxy to OpenClaw gateway chat completions
+    // POST /api/chat — proxy to chat gateway chat completions
     // Body: { messages: [...], voiceMode?: boolean }
     //   voiceMode=true → append "keep replies short/conversational" to system prompt
     if (parts[0] === 'chat' && parts.length === 1 && req.method === 'POST') {
@@ -817,7 +817,7 @@ Conversational allow-list (reply naturally, no disclaimer footer, no "let me che
 - Emoji-only or one-word reactions -> a matching short reaction.
 
 NEVER INVENT any of these phrases in either field:
-- "No response from ${process.env.CHAT_AGENT_NAME || 'Chat'}" / "No response from OpenClaw" / similar
+- "No response from ${process.env.CHAT_AGENT_NAME || 'Chat'}" / "No response from the chat gateway" / similar
 - "Gateway unavailable" / "Loading…" / "Please wait" / anything that reads like a UI state
 - Error-looking lines or apologies for non-errors
 
@@ -835,18 +835,18 @@ Original system prompt follows:
           ];
 
           const payload = JSON.stringify({
-            model: OPENCLAW_MODEL,
+            model: CHAT_GATEWAY_MODEL,
             messages: fullMessages,
           });
 
           const options = {
-            hostname: OPENCLAW_HOST,
-            port: OPENCLAW_PORT,
+            hostname: CHAT_GATEWAY_HOST,
+            port: CHAT_GATEWAY_PORT,
             path: '/v1/chat/completions',
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${OPENCLAW_TOKEN}`,
+              'Authorization': `Bearer ${CHAT_GATEWAY_TOKEN}`,
               'Content-Length': Buffer.byteLength(payload),
               'Connection': 'close',
             },
@@ -854,9 +854,9 @@ Original system prompt follows:
             agent: false, // disable keep-alive — stale pooled connections hang on self-signed gateways
           };
 
-          // Pick http or https based on OPENCLAW_TLS. TLS defaults true for
+          // Pick http or https based on CHAT_GATEWAY_TLS. TLS defaults true for
           // remote gateways and false for localhost; an explicit env var wins.
-          const transport = ENV.OPENCLAW_TLS ? https : http;
+          const transport = ENV.CHAT_GATEWAY_TLS ? https : http;
           const proxyReq = transport.request(options, (proxyRes) => {
             let data = '';
             proxyRes.on('data', c => data += c);

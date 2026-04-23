@@ -34,7 +34,7 @@ usage() {
 Usage: $(basename "$0") --instance <name> [options]
 
 Options:
-  --instance <name>   systemd instance name (required, e.g. 'eddy', 'chuck')
+  --instance <name>   systemd instance name (required, e.g. 'alice', 'bob')
   --dry-run           Report what would happen without making changes
   --skip-tests        Deploy without running npm test first (NOT recommended)
   --help              Show this message
@@ -46,7 +46,7 @@ Environment:
   KEEP_RELEASES       Number of old release dirs to keep (default: 5)
 
 Example:
-  ./scripts/deploy.sh --instance eddy
+  ./scripts/deploy.sh --instance alice
   DEPLOY_ROOT=/tmp/klebb-test ./scripts/deploy.sh --instance test --dry-run
 EOF
 }
