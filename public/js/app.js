@@ -168,7 +168,9 @@ class HealthApp extends LitElement {
     :host {
       display: block;
       max-width: 100%;
-      overflow-x: hidden;
+      /* NOTE: don't put overflow-x:hidden here — it can break the
+         sticky <nav> child on iOS Safari. Per-container overflow is
+         applied further down on <main> and the schedule-card week row. */
     }
     nav {
       display: flex;
@@ -185,6 +187,12 @@ class HealthApp extends LitElement {
          edge-to-edge rather than leaving a gap on the right. */
       width: 100%;
       max-width: 100%;
+      /* viewport-fit=cover lets the page extend under the iPhone
+         status bar + notch; this padding keeps the nav content
+         clear of those hardware regions. */
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
     }
     .nav-main {
       display: flex;
