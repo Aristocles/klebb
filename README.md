@@ -22,6 +22,7 @@ Works equally well as:
 
 - [Quickstart](#quickstart)
 - [What is a "card"?](#what-is-a-card)
+- [Running with Docker](#running-with-docker)
 - [Running tests](#running-tests)
 - [Configuration](#configuration)
 - [Docs](#docs)
@@ -99,6 +100,57 @@ Every card is a JSON file that looks like this:
 For card types that need more than the generic renderer handles
 (medication schedules, line charts, markdown docs), there are specialised
 renderers you pick by name.
+
+## Running with Docker
+
+A published image is available at `ghcr.io/aristocles/klebb` (multi-arch:
+`linux/amd64` and `linux/arm64`). The quickest way to spin up an
+instance:
+
+```bash
+git clone https://github.com/Aristocles/klebb.git
+cd klebb
+cp .env.example .env
+# edit .env — set HEALTH_ORIGIN, HEALTH_RP_ID, SESSION_SECRET
+docker compose up -d
+```
+
+Data persists in `./data/` on the host (bind-mounted to `/data` inside
+the container). The published release tag (e.g. `v2.1.0`) and `latest`
+are stable; image SHAs change per-commit on `main` if you want to track
+bleeding edge.
+
+**WebAuthn requires HTTPS.** The compose file binds the app to
+`127.0.0.1:10002` on the host so you can front it with a reverse proxy
+that handles TLS (Caddy, Cloudflare Tunnel, Traefik, nginx). Example
+Caddyfile:
+
+```caddyfile
+klebb.example.com {
+    reverse_proxy 127.0.0.1:10002
+}
+```
+
+`HEALTH_RP_ID` in `.env` must match the public hostname exactly (no
+scheme, no port). Changing it later invalidates any passkeys already
+registered.
+
+### Building locally
+
+```bash
+cp docker-compose.override.yml.example docker-compose.override.yml
+docker compose up --build
+```
+
+The override swaps the published image for `build: .` and exposes the
+port on all interfaces for LAN-based dev testing.
+
+### Reaching a chat gateway on the host
+
+If you're running an OpenAI-compatible LLM gateway on the host (for the
+chat widget), point `CHAT_GATEWAY_HOST=host.docker.internal` in `.env`.
+The compose file already maps that hostname to the host via
+`extra_hosts: host.docker.internal:host-gateway`.
 
 ## Running tests
 
