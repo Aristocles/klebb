@@ -8,16 +8,12 @@
   padding: 0;
 }
 
-/* Prevent horizontal overflow at the document level so iOS Safari
-   never expands the layout viewport beyond the visual viewport on
-   initial load (which otherwise causes a "shrunk / zoomed-in" render
-   and leaves the sticky <nav> looking narrower than the body after
-   the user pinch-zooms out). Any card that legitimately needs to
-   scroll horizontally (wide tables, trend charts) should do so on
-   its own container, not the page. */
+/* NOTE: do NOT put overflow-x:hidden on html/body — that disables
+   pinch-to-zoom on iOS Safari. Width constraints + per-component
+   overflow handling (see app.js & eh-schedule-card) are the right
+   layer for preventing horizontal growth. */
 html, body {
-  max-width: 100%;
-  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /* ===== THEME VARIABLES ===== */
