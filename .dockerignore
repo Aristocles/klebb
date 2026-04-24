@@ -1,0 +1,45 @@
+# Don't copy the local dev tree into the build context unnecessarily
+node_modules
+npm-debug.log*
+
+# Git
+.git
+.gitignore
+.github
+
+# Local dev data — never goes in the image
+data
+credentials
+sessions
+reports
+/data/
+/credentials/
+/sessions/
+/reports/
+
+# Example data + tests are not needed at runtime
+data.example
+tests
+fixtures
+
+# Docs + editor cruft
+docs
+*.md
+!package.json
+!package-lock.json
+.idea
+.vscode
+.DS_Store
+
+# Env files — never bake secrets into the image
+.env
+.env.*
+*.env
+
+# systemd templates — bare-metal deploy path, not needed inside a container
+systemd
+
+# Dockerfile itself + compose — avoid self-referential layer churn
+Dockerfile
+docker-compose*.yml
+.dockerignore
