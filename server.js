@@ -11,6 +11,7 @@ const PATHS = require('./config/paths');
 const ENV = require('./config/env');
 const registry = require('./manifests/registry');
 const { convertDateKeyedToArray } = require('./scripts/migrate-date-keyed-to-array');
+const { runFirstBootDemoSeed } = require('./scripts/seed-demo');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 
@@ -1149,6 +1150,17 @@ Original system prompt follows:
 
 server.listen(PORT, HOST, () => {
   console.log(`Health dashboard running at http://${HOST}:${PORT}`);
+
+  // First-boot demo seed. Runs only when HEALTH_HOME has no .klebb-seeded
+  // sentinel AND data/ is empty AND KLEBB_SKIP_DEMO_SEED is not set.
+  // Silent no-op for existing installs (they get a skip-sentinel written so
+  // this check is O(stat) on every future boot).
+  try {
+    runFirstBootDemoSeed({ healthHome: PATHS.HEALTH_HOME });
+  } catch (e) {
+    console.warn('[demo-seed] unexpected error (continuing):', e.message);
+  }
+
   // Initialise manifest registry (discovers + watches data files)
   try {
     const stats = registry.init();

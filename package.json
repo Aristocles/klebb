@@ -7,6 +7,7 @@
     "test": "node --test tests/*.test.js",
     "start": "node server.js",
     "seed": "node scripts/seed.js",
+    "seed:demo": "node scripts/seed-demo.js",
     "invite": "node scripts/invite.js",
     "revoke": "node scripts/revoke.js",
     "list": "node scripts/list.js",
