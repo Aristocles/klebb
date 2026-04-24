@@ -325,6 +325,14 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname;
 
+  // Liveness probe — dependency-free, no auth, no FS reads.
+  // Used by container healthchecks and external monitors. Must stay cheap.
+  if (pathname === '/healthz') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ status: 'ok' }));
+    return;
+  }
+
   // Handle auth routes first
   if (pathname.startsWith('/auth/')) {
     const result = await handleAuthRoutes(req, res, pathname);
