@@ -1,0 +1,60 @@
+# docker-compose.yml — Klebb reference deployment
+#
+# Usage:
+#   1. cp .env.example .env   (and edit the required values)
+#   2. docker compose up -d
+#
+# This file does NOT include a reverse proxy or TLS termination. WebAuthn
+# requires HTTPS, so you MUST front this with Caddy, Cloudflare Tunnel,
+# Traefik, nginx, or similar. See README.md § "Running with Docker" for
+# examples.
+
+services:
+  klebb:
+    image: ghcr.io/aristocles/klebb:latest
+    # For local dev, use docker-compose.override.yml to swap `image:` for
+    # `build: .` (see docker-compose.override.yml.example).
+    container_name: klebb
+    restart: unless-stopped
+    environment:
+      # --- Required ---
+      HEALTH_ORIGIN: "${HEALTH_ORIGIN:?HEALTH_ORIGIN is required (e.g. https://klebb.example.com)}"
+      HEALTH_RP_ID: "${HEALTH_RP_ID:?HEALTH_RP_ID is required (e.g. klebb.example.com)}"
+      SESSION_SECRET: "${SESSION_SECRET:?SESSION_SECRET is required (generate: openssl rand -hex 32)}"
+      # --- Paths (container defaults) ---
+      HEALTH_HOME: /data
+      PORT: "10002"
+      HOST: "0.0.0.0"
+      # --- Branding ---
+      HEALTH_INSTANCE_NAME: "${HEALTH_INSTANCE_NAME:-Klebb}"
+      HEALTH_RP_NAME: "${HEALTH_RP_NAME:-Klebb}"
+      CHAT_AGENT_NAME: "${CHAT_AGENT_NAME:-Klebbius}"
+      # --- Chat gateway (optional) ---
+      CHAT_GATEWAY_HOST: "${CHAT_GATEWAY_HOST:-}"
+      CHAT_GATEWAY_PORT: "${CHAT_GATEWAY_PORT:-}"
+      CHAT_GATEWAY_TLS: "${CHAT_GATEWAY_TLS:-}"
+      CHAT_GATEWAY_TOKEN: "${CHAT_GATEWAY_TOKEN:-}"
+      CHAT_GATEWAY_MODEL: "${CHAT_GATEWAY_MODEL:-}"
+      # --- Agent API (optional) ---
+      AGENT_API_TOKEN: "${AGENT_API_TOKEN:-}"
+      # --- Voice (optional) ---
+      FISH_AUDIO_API_KEY: "${FISH_AUDIO_API_KEY:-}"
+      FISH_AUDIO_DEFAULT_VOICE: "${FISH_AUDIO_DEFAULT_VOICE:-}"
+    volumes:
+      - ./data:/data
+    ports:
+      # Bind to loopback so only the reverse proxy on the host is exposed.
+      # Change to "10002:10002" if you actually want Klebb reachable
+      # directly on the host interface.
+      - "127.0.0.1:10002:10002"
+    # Let the container reach services on the host (e.g. a local chat
+    # gateway on the host's 127.0.0.1). Linux Docker doesn't resolve
+    # host.docker.internal by default, so map it explicitly.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:10002/healthz').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
