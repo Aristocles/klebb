@@ -1,0 +1,23 @@
+# docker-compose.override.yml.example — local-dev overrides
+#
+# Copy to docker-compose.override.yml (gitignored) to build from local
+# source instead of pulling the published image, and to expose the port
+# directly on the host for dev convenience.
+#
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#   docker compose up --build
+
+services:
+  klebb:
+    build: .
+    image: klebb:dev
+    ports:
+      # Expose on all interfaces so you can test from another device on
+      # your LAN. Reset to "127.0.0.1:10002:10002" for prod-like runs.
+      - "10002:10002"
+    environment:
+      # Loosen WebAuthn to a localhost RP for local-only testing. WebAuthn
+      # still requires the page to be served over HTTPS (or loaded from
+      # http://localhost, which browsers treat as a secure context).
+      HEALTH_ORIGIN: "http://localhost:10002"
+      HEALTH_RP_ID: "localhost"
