@@ -40,6 +40,14 @@ services:
       # --- Voice (optional) ---
       FISH_AUDIO_API_KEY: "${FISH_AUDIO_API_KEY:-}"
       FISH_AUDIO_DEFAULT_VOICE: "${FISH_AUDIO_DEFAULT_VOICE:-}"
+      # --- First-boot demo seed ---
+      # A fresh install (empty /data) auto-populates with 15 demo cards and
+      # 5 sample markdown reports on first server boot. A .klebb-seeded
+      # sentinel in /data prevents re-seed on future restarts. Set this to
+      # any truthy value to skip the auto-seed (production installs that
+      # want to start truly empty). Existing installs with data are never
+      # touched regardless.
+      KLEBB_SKIP_DEMO_SEED: "${KLEBB_SKIP_DEMO_SEED:-}"
     volumes:
       - ./data:/data
     ports:
