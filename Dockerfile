@@ -31,9 +31,11 @@ LABEL org.opencontainers.image.title="Klebb" \
 # Runtime system dependencies:
 #   ca-certificates — HTTPS trust anchors for outbound calls (chat gateway, Fish Audio)
 #   tini            — proper PID 1 so SIGTERM reaches Node cleanly
+#   gosu            — privilege drop from root -> klebb in the entrypoint
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
       tini \
+      gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root runtime user
@@ -55,8 +57,14 @@ COPY --chown=klebb:klebb public ./public
 COPY --chown=klebb:klebb scripts ./scripts
 COPY --chown=klebb:klebb voice ./voice
 
-# Data dir — mount a volume here in production. The process must own it.
+# Data dir — mount a volume here in production. The entrypoint chowns
+# this to the runtime user at container start so bind-mounts owned by
+# the host user Just Work on first boot.
 RUN mkdir -p /data && chown klebb:klebb /data
+
+# Entrypoint script — runs as root, fixes /data ownership, drops to klebb.
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh
 
 # Runtime config
 ENV NODE_ENV=production \
@@ -75,7 +83,8 @@ STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 10002) + '/healthz').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))"
 
-USER klebb
+# NOTE: no `USER klebb` directive here — the entrypoint runs as root so
+# it can chown /data, then drops to klebb via gosu before exec'ing node.
 
-ENTRYPOINT ["/usr/bin/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "server.js"]
