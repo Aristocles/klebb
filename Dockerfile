@@ -54,6 +54,10 @@ COPY --chown=klebb:klebb manifests ./manifests
 COPY --chown=klebb:klebb public ./public
 COPY --chown=klebb:klebb scripts ./scripts
 COPY --chown=klebb:klebb voice ./voice
+# Demo seed content: markdown report templates copied at first-boot seed.
+# Card manifests are generated from scripts/lib/demo-cards.js (no static JSON
+# needed — dates are computed relative to seed time).
+COPY --chown=klebb:klebb data.demo ./data.demo
 
 # Data dir — mount a volume here in production. The process must own it.
 RUN mkdir -p /data && chown klebb:klebb /data
