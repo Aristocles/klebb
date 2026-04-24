@@ -12,16 +12,19 @@ const { createSandbox, cleanupSandbox } = require('./helpers/sandbox');
 // We need to isolate the registry module per test by clearing the require cache.
 // The registry reads PATHS.DATA_DIR at call time (via config/paths.js which
 // reads process.env.HEALTH_HOME), so we can swap sandboxes between tests.
+const REPO_ROOT = path.resolve(__dirname, '..');
+const MANIFESTS_DIR = path.resolve(REPO_ROOT, 'manifests') + path.sep;
+const CONFIG_DIR = path.resolve(REPO_ROOT, 'config') + path.sep;
+
 function freshRegistry(sandboxRoot) {
   // Clear all cached modules from our repo so paths.js re-reads HEALTH_HOME
   for (const key of Object.keys(require.cache)) {
-    if (key.includes('/health/webapp/manifests/') ||
-        key.includes('/health/webapp/config/')) {
+    if (key.startsWith(MANIFESTS_DIR) || key.startsWith(CONFIG_DIR)) {
       delete require.cache[key];
     }
   }
   process.env.HEALTH_HOME = sandboxRoot;
-  return require(path.join(__dirname, '..', 'manifests', 'registry.js'));
+  return require(path.join(REPO_ROOT, 'manifests', 'registry.js'));
 }
 
 describe('manifest registry', () => {

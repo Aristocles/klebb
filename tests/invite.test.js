@@ -12,13 +12,14 @@ const { execSync } = require('child_process');
 const { createSandbox, cleanupSandbox, spawnServer, req } = require('./helpers/sandbox');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
+const AUTH_DIR = path.resolve(REPO_ROOT, 'auth') + path.sep;
+const CONFIG_DIR = path.resolve(REPO_ROOT, 'config') + path.sep;
 
 function freshInvites(sandboxRoot) {
   // Clear require cache for the invites module + its deps so each test gets
   // a clean module view against the current HEALTH_HOME.
   for (const key of Object.keys(require.cache)) {
-    if (key.includes('/health/webapp/auth/') ||
-        key.includes('/health/webapp/config/')) {
+    if (key.startsWith(AUTH_DIR) || key.startsWith(CONFIG_DIR)) {
       delete require.cache[key];
     }
   }
