@@ -9,11 +9,14 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 
+const REPO_ROOT = path.resolve(__dirname, '..');
+const CONFIG_DIR = path.resolve(REPO_ROOT, 'config') + path.sep;
+
 // The env module reads env vars at require time, so we clear the cache
 // between tests and manipulate process.env per scenario.
 function freshEnv(overrides = {}) {
   for (const key of Object.keys(require.cache)) {
-    if (key.includes('/health/webapp/config/')) delete require.cache[key];
+    if (key.startsWith(CONFIG_DIR)) delete require.cache[key];
   }
   // Nuke any EH_ / HEALTH_ / CHAT_GATEWAY_ vars that could leak from the host.
   // We do this BEFORE applying overrides so the overrides alone define truth.
@@ -36,7 +39,7 @@ function freshEnv(overrides = {}) {
   for (const [k, v] of Object.entries(overrides)) {
     process.env[k] = v;
   }
-  return require(path.join(__dirname, '..', 'config', 'env.js'));
+  return require(path.join(REPO_ROOT, 'config', 'env.js'));
 }
 
 describe('config/env.js defaults', () => {
