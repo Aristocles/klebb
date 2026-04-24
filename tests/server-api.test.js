@@ -47,6 +47,13 @@ describe('server HTTP API', () => {
       assert.equal(res.json.entries[0].id, 'weight');
     });
 
+    test('GET /healthz returns 200 without auth (container liveness probe)', async () => {
+      const res = await req(server.baseUrl, '/healthz');
+      assert.equal(res.status, 200);
+      assert.ok(res.json);
+      assert.equal(res.json.status, 'ok');
+    });
+
     test('GET /api/manifests/:id returns one manifest', async () => {
       const res = await req(server.baseUrl, '/api/manifests/weight');
       assert.equal(res.status, 200);
@@ -140,6 +147,12 @@ describe('server HTTP API', () => {
     test('GET /api/manifests without session → 401', async () => {
       const res = await req(server.baseUrl, '/api/manifests');
       assert.equal(res.status, 401);
+    });
+
+    test('GET /healthz without session → still 200 (probe must never auth-gate)', async () => {
+      const res = await req(server.baseUrl, '/healthz');
+      assert.equal(res.status, 200);
+      assert.equal(res.json.status, 'ok');
     });
 
     test('GET /api/manifests with session cookie → 200', async () => {
