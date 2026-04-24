@@ -50,6 +50,25 @@ npm start
 Drop more manifest files into `$HEALTH_HOME/data/` and refresh. See
 [`docs/CARDS.md`](docs/CARDS.md) for the full authoring guide.
 
+### First-boot demo seed
+
+On a **fresh install** (empty `$HEALTH_HOME/data/`), Klebb automatically
+populates itself with 15 pre-filled sample cards and 5 markdown reports
+so you can see what every card type looks like before you build your own.
+A `.klebb-seeded` sentinel file is written to `$HEALTH_HOME/` to prevent
+re-seeding on restarts. Two opt-outs:
+
+- Set `KLEBB_SKIP_DEMO_SEED=1` in your environment before first boot.
+- Or `touch $HEALTH_HOME/.klebb-seeded` before starting the server.
+
+You can also re-seed manually into any directory at any time:
+
+```bash
+npm run seed:demo -- --dir /path/to/HEALTH_HOME --force
+```
+
+Existing installs (with cards already in `data/`) are never touched.
+
 ### Screenshots
 
 _(Screenshots coming in the next release. Run the quickstart above to
