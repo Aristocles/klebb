@@ -9,6 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Voice chat env vars renamed; legacy names still accepted.**
+  Canonical config is now `FISH_AUDIO_VOICE_ID`, `FISH_AUDIO_MODEL`, and
+  `FISH_AUDIO_ENABLED`. The previous names (`FISH_AUDIO_DEFAULT_VOICE`,
+  `FISH_BACKEND`) continue to work for existing deploys. Playback speed
+  cycle now includes `0.5x` (so the full cycle is 0.5, 1, 1.25, 1.5, 2).
+  `GET /api/voice/config` returns `{ enabled: false }` instead of 500
+  when no key is configured, so the client can cleanly hide the mic
+  button. (#27)
+- **Demo welcome + how-to-add-a-card cards link out to full reports.**
+  The dashboard cards are now short blurbs; the long-form content lives
+  in `reports/welcome.md` and `reports/how-to-add-a-card.md`, rendered
+  by the existing `/report/<name>` route.
 - **SPDX + copyright headers on every source file.** Added
   `SPDX-License-Identifier: AGPL-3.0-only` +
   `Copyright (C) 2026 Aristocles <https://github.com/Aristocles>`

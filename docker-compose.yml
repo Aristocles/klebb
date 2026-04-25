@@ -38,8 +38,13 @@ services:
       # --- Agent API (optional) ---
       AGENT_API_TOKEN: "${AGENT_API_TOKEN:-}"
       # --- Voice (optional) ---
+      FISH_AUDIO_ENABLED: "${FISH_AUDIO_ENABLED:-}"
       FISH_AUDIO_API_KEY: "${FISH_AUDIO_API_KEY:-}"
+      FISH_AUDIO_VOICE_ID: "${FISH_AUDIO_VOICE_ID:-}"
+      FISH_AUDIO_MODEL: "${FISH_AUDIO_MODEL:-}"
+      # Legacy aliases (kept for backwards compat with older deploys)
       FISH_AUDIO_DEFAULT_VOICE: "${FISH_AUDIO_DEFAULT_VOICE:-}"
+      FISH_BACKEND: "${FISH_BACKEND:-}"
       # --- First-boot demo seed ---
       # A fresh install (empty /data) auto-populates with 15 demo cards and
       # 5 sample markdown reports on first server boot. A .klebb-seeded

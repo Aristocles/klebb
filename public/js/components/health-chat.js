@@ -815,7 +815,7 @@ class HealthChat extends LitElement {
   }
 
   _cyclePlaybackSpeed() {
-    const speeds = [1, 1.25, 1.5, 2];
+    const speeds = [0.5, 1, 1.25, 1.5, 2];
     const idx = speeds.indexOf(this._playbackSpeed);
     this._playbackSpeed = speeds[(idx + 1) % speeds.length];
     localStorage.setItem('klebb-playback-speed', String(this._playbackSpeed));

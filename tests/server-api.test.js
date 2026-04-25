@@ -114,10 +114,10 @@ describe('server HTTP API', () => {
       assert.ok(res.json.chatAgent.name);
     });
 
-    test('GET /api/voice/config when FISH_AUDIO_API_KEY unset returns error', async () => {
+    test('GET /api/voice/config when FISH_AUDIO_API_KEY unset returns enabled:false', async () => {
       const res = await req(server.baseUrl, '/api/voice/config');
-      assert.equal(res.status, 500);
-      assert.ok(res.json.error);
+      assert.equal(res.status, 200);
+      assert.equal(res.json.enabled, false);
     });
 
     test('GET /auth/status returns setup=false', async () => {
