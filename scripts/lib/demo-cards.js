@@ -78,39 +78,6 @@ function utcIso(d, hour) {
 // Markdown-doc cards (welcome + how-to)
 // ---------------------------------------------------------------------------
 function buildWelcome() {
-  const markdown = [
-    '## 🎭 Welcome — this is demo data',
-    '',
-    'Your new Klebb install auto-populated itself with **15 sample cards** and **5 sample markdown reports** so you can see what the dashboard looks like before you build your own.',
-    '',
-    '**Nothing on this dashboard is real.** The weight graph, blood pressure readings, sleep hours, medication check-offs — all fabricated by the seed script. Poke around, then clear it and make it yours.',
-    '',
-    '### Poke around',
-    '',
-    '- **Today** — this page. Every card shows the most recent generated entry.',
-    '- **Trends** — 30 days of data per metric card, plotted as line charts.',
-    '- **Calendar** — heatmap of activity across every card that opts in.',
-    '- **Reports** — cards with `meta.reports.enabled` plus five sample markdown docs in `$HEALTH_HOME/reports/`.',
-    '- **Settings (⚙️)** — toggle any card off, or delete the data directly on disk.',
-    '',
-    '### Make it yours',
-    '',
-    '1. **Ask the chat agent** (🧠 button, bottom of screen). Say *"Add a card for tracking morning glucose"*. It drafts the manifest, drops the file in, restarts the registry. Card appears.',
-    '2. **Copy an example.** The repo\'s `data.example/` directory has 25 ready-made card files. Copy one to `$HEALTH_HOME/data/`, drop the `.example` from the filename.',
-    '3. **Write one by hand.** See `MANIFEST-SCHEMA.md` + `docs/CARDS.md` + `docs/RECIPES.md` in the repo.',
-    '',
-    '### Clear the demo',
-    '',
-    'When you\'re ready for your own data, either:',
-    '',
-    '- Delete individual cards in **Settings** (toggles them off; the files stay).',
-    '- Or `rm $HEALTH_HOME/data/*.json $HEALTH_HOME/reports/*.md` and restart. The demo will **not** re-seed — a `.klebb-seeded` sentinel in `$HEALTH_HOME` records that the one-time seed has already run.',
-    '',
-    '---',
-    '',
-    '*Every card here is a JSON file. Drop a file in, a card appears. Delete the file, the card is gone. That is the entire app.*'
-  ].join('\n');
-
   return {
     $schema: 'klebb.datafile.v1',
     meta: {
@@ -121,39 +88,16 @@ function buildWelcome() {
       view: {
         enabled: true,
         component: 'markdown-doc',
-        slot: 'top'
+        slot: 'top',
+        summary: 'This is a demo install: 15 sample cards and 5 sample reports, all fabricated by the seed script. Open the welcome report for a tour of what this dashboard does and how to clear the demo when you\'re ready to build your own.'
       }
     },
-    description: 'Demo-instance welcome card. Explains this is auto-seeded demo data.',
-    data: { markdown }
+    description: 'Demo-instance welcome card. Links to the welcome report.',
+    data: { markdown: 'See the [welcome report](/report/welcome) for the full tour.' }
   };
 }
 
 function buildHowToAddACard() {
-  const markdown = [
-    '## 📘 Adding your own cards',
-    '',
-    'Every card on this dashboard is a JSON file in `$HEALTH_HOME/data/`.',
-    '',
-    '### Three ways',
-    '',
-    '1. **Ask the chat agent.** Tap 🧠, say *"Add a card for tracking daily meditation minutes"*. It drafts the manifest, drops the file in, and the card appears.',
-    '2. **Copy an example.** Browse `data.example/` in the repo — 25 ready-made cards. Copy the one you want to `$HEALTH_HOME/data/` and drop the `.example` from the filename.',
-    '3. **Write one by hand.** Full spec: `MANIFEST-SCHEMA.md`. Patterns: `docs/CARDS.md`. Recipes: `docs/RECIPES.md`.',
-    '',
-    '### Removing a card',
-    '',
-    'Delete the file, or toggle it off in **Settings** (keeps the data, hides the card).',
-    '',
-    '### Getting help',
-    '',
-    'Ask the chat agent: *"Change the mood card to allow multiple entries per day"* or *"Why isn\'t my new card showing up?"*. It has access to the same docs you do.',
-    '',
-    '---',
-    '',
-    '*This is the **demo** how-to — the data around it is fake. Ready to build your own dashboard? See the welcome card above.*'
-  ].join('\n');
-
   return {
     $schema: 'klebb.datafile.v1',
     meta: {
@@ -164,11 +108,12 @@ function buildHowToAddACard() {
       view: {
         enabled: true,
         component: 'markdown-doc',
-        slot: 'top'
+        slot: 'top',
+        summary: 'Three ways to add your own card: ask the chat agent, copy an example, or write one by hand. Full how-to in the linked report.'
       }
     },
-    description: 'Inline quick-reference for card authoring.',
-    data: { markdown }
+    description: 'Card-authoring quick reference. Links to the how-to report.',
+    data: { markdown: 'See the [how-to report](/report/how-to-add-a-card) for the full guide.' }
   };
 }
 
