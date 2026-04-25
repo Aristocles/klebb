@@ -564,7 +564,7 @@ class HealthChat extends LitElement {
 
   // ---------- Chat pipeline ----------
 
-  async _fetchChat(messages, voiceMode, timeoutMs = 90000) {
+  async _fetchChat(messages, voiceMode, timeoutMs = 180000) {
     if (this._abortController) this._abortController.abort();
     this._abortController = new AbortController();
     const timeoutId = setTimeout(() => this._abortController?.abort(), timeoutMs);
