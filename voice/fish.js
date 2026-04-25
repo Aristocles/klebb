@@ -9,8 +9,14 @@
 //
 // Config is pulled from env:
 //   FISH_AUDIO_API_KEY        (required; loaded from ~/.env or systemd env)
-//   FISH_AUDIO_DEFAULT_VOICE  (reference_id for TTS; configure the voice model)
-//   FISH_BACKEND              (optional override: s2-pro|s2|speech-1.6)
+//   FISH_AUDIO_VOICE_ID       (reference_id for TTS; configure the voice model)
+//   FISH_AUDIO_MODEL          (optional override: s2-pro|s2|speech-1.6)
+//   FISH_AUDIO_ENABLED        (optional: set to 'false' to hide the mic UI
+//                              even when a key is present)
+//
+// Legacy aliases (supported for existing deploys):
+//   FISH_AUDIO_DEFAULT_VOICE  → FISH_AUDIO_VOICE_ID
+//   FISH_BACKEND              → FISH_AUDIO_MODEL
 //
 // Tier policy (based on remaining API credit):
 //   credit >= 50%  → s2-pro
@@ -56,7 +62,14 @@ function getApiKey() {
 }
 
 function getDefaultVoice() {
-  return (process.env.FISH_AUDIO_DEFAULT_VOICE || '').trim();
+  const v = (process.env.FISH_AUDIO_VOICE_ID || process.env.FISH_AUDIO_DEFAULT_VOICE || '').trim();
+  return v;
+}
+
+function isEnabled() {
+  const flag = (process.env.FISH_AUDIO_ENABLED || '').trim().toLowerCase();
+  if (flag === 'false' || flag === '0' || flag === 'no') return false;
+  return true;
 }
 
 // --- Credit tracking ---
@@ -98,7 +111,8 @@ function pickTier(creditUSD) {
 }
 
 async function getCurrentBackend() {
-  if (process.env.FISH_BACKEND) return process.env.FISH_BACKEND;
+  const explicit = process.env.FISH_AUDIO_MODEL || process.env.FISH_BACKEND;
+  if (explicit) return explicit;
   const now = Date.now();
   if (!_creditCache || (now - _creditCache.checkedAt) > CREDIT_TTL_MS) {
     try {
@@ -113,9 +127,11 @@ async function getCurrentBackend() {
 }
 
 async function getStatus() {
-  const backend = await getCurrentBackend();
+  let key = '';
+  try { key = getApiKey(); } catch { /* no key configured */ }
+  const backend = key ? await getCurrentBackend() : null;
   return {
-    enabled: !!getApiKey() && !!getDefaultVoice(),
+    enabled: !!key && !!getDefaultVoice() && isEnabled(),
     backend,
     creditUSD: _creditCache?.creditUSD ?? null,
     voiceId: getDefaultVoice(),
