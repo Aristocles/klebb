@@ -155,13 +155,13 @@ describe('demo-cards generator', () => {
 // ---------------------------------------------------------------------------
 
 describe('runDemoSeed', () => {
-  test('writes 15 cards, 5 reports, and sentinel into empty HEALTH_HOME', () => {
+  test('writes 15 cards, 7 reports, and sentinel into empty HEALTH_HOME', () => {
     const sandbox = mkSandbox();
     try {
       const summary = runDemoSeed({ healthHome: sandbox });
       assert.equal(summary.cardsWritten.length, 15);
       assert.equal(summary.cardsSkipped.length, 0);
-      assert.equal(summary.reportsWritten.length, 5);
+      assert.equal(summary.reportsWritten.length, 7);
       assert.equal(summary.reportsSkipped.length, 0);
       assert.ok(summary.sentinelWritten);
 
@@ -171,7 +171,7 @@ describe('runDemoSeed', () => {
       assert.equal(dataFiles.length, 15);
       const reportFiles = fs.readdirSync(path.join(sandbox, 'reports'))
         .filter(f => f.endsWith('.md'));
-      assert.equal(reportFiles.length, 5);
+      assert.equal(reportFiles.length, 7);
       assert.ok(fs.existsSync(path.join(sandbox, SENTINEL_NAME)));
 
       // Every JSON file parses
@@ -207,7 +207,7 @@ describe('runDemoSeed', () => {
       assert.equal(summary2.cardsWritten.length, 0);
       assert.equal(summary2.cardsSkipped.length, 15);
       assert.equal(summary2.reportsWritten.length, 0);
-      assert.equal(summary2.reportsSkipped.length, 5);
+      assert.equal(summary2.reportsSkipped.length, 7);
     } finally {
       rmrf(sandbox);
     }
@@ -355,13 +355,16 @@ describe('runFirstBootDemoSeed', () => {
 // ---------------------------------------------------------------------------
 
 describe('data.demo/reports', () => {
-  test('ships exactly 5 markdown reports', () => {
+  test('ships 5 DEMO samples plus 2 onboarding reports', () => {
     const files = fs.readdirSync(REPORTS_SRC).filter(f => f.endsWith('.md'));
-    assert.equal(files.length, 5);
+    assert.equal(files.length, 7);
+    const demo = files.filter(f => f.startsWith('DEMO-'));
+    assert.equal(demo.length, 5);
   });
 
-  test('every report opens with a DEMO warning banner', () => {
-    const files = fs.readdirSync(REPORTS_SRC).filter(f => f.endsWith('.md'));
+  test('every DEMO-*.md opens with a DEMO warning banner', () => {
+    const files = fs.readdirSync(REPORTS_SRC)
+      .filter(f => f.endsWith('.md') && f.startsWith('DEMO-'));
     for (const f of files) {
       const body = fs.readFileSync(path.join(REPORTS_SRC, f), 'utf8');
       assert.ok(/DEMO/i.test(body), `${f}: no DEMO marker`);
