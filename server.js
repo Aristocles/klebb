@@ -1149,7 +1149,7 @@ Original system prompt follows:
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`Health dashboard running at http://${HOST}:${PORT}`);
+  console.log(`Health dashboard running at http://${HOST}:${PORT} (TZ=${ENV.TZ})`);
 
   // First-boot demo seed. Runs only when HEALTH_HOME has no .klebb-seeded
   // sentinel AND data/ is empty AND KLEBB_SKIP_DEMO_SEED is not set.

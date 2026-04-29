@@ -62,6 +62,11 @@ HEALTH_ORIGIN=https://health.example.com
 PORT=8080
 HOST=127.0.0.1
 
+# Timezone (IANA zone; default UTC if unset)
+# Set this to your local zone if you want card dates, demo seed
+# entries, and log timestamps to match your wall clock.
+# TZ=Australia/Sydney
+
 # Optional: chat agent (chat gateway)
 # CHAT_GATEWAY_HOST=localhost
 # CHAT_GATEWAY_PORT=8787
