@@ -395,7 +395,7 @@ export class EhListCard extends EhBaseCard {
 
   renderCard() {
     const rows = this._editing ? this._draft : this._rows();
-    const canWrite = !!(this._m().writeable?.fromWebapp);
+    const canWrite = this._canWrite;
     const display = this._display();
 
     return html`
