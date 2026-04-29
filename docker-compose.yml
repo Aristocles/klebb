@@ -25,6 +25,13 @@ services:
       HEALTH_HOME: /data
       PORT: "10002"
       HOST: "0.0.0.0"
+      # --- Timezone ---
+      # Server-wide timezone. Affects every Date the app constructs: demo
+      # seed anchor, card entry dates, sentinel timestamps, chat agent
+      # "today" prompts, log output. Default UTC. Set to your IANA zone
+      # (e.g. Australia/Sydney, America/Los_Angeles, Europe/London) if
+      # you want on-screen dates to match your local calendar.
+      TZ: "${TZ:-UTC}"
       # --- Branding ---
       HEALTH_INSTANCE_NAME: "${HEALTH_INSTANCE_NAME:-Klebb}"
       HEALTH_RP_NAME: "${HEALTH_RP_NAME:-Klebb}"
