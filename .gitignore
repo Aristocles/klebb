@@ -49,9 +49,3 @@ System Volume Information
 # Scratch
 /tmp/
 /scratch/
-
-# Private hand-off briefs — never ship in the public repo
-BRIEF-*.md
-
-# Private hand-off briefs — never ship in the public repo
-BRIEF-*.md
