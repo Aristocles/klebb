@@ -28,6 +28,12 @@ function paths() {
 const PORT = parseInt(process.env.PORT || process.env.HEALTH_PORT || '8080', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 
+// --- Timezone ---
+// Node honours process.env.TZ natively for every Date construction. We
+// surface it here only so the boot banner can log the active zone and
+// tests have something to assert against. Default is UTC.
+const TZ = process.env.TZ || 'UTC';
+
 // --- Branding ---
 const INSTANCE_NAME = process.env.HEALTH_INSTANCE_NAME || 'Klebb';
 
@@ -144,6 +150,7 @@ const HEALTH_SYSTEM_PROMPT = (() => {
 module.exports = {
   PORT,
   HOST,
+  TZ,
   INSTANCE_NAME,
   CHAT_GATEWAY_HOST,
   CHAT_GATEWAY_PORT,
