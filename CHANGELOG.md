@@ -7,6 +7,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Timezone is now an explicit, documented config knob.** The container
+  image defaults to `TZ=UTC`; operators can override via the `TZ` env
+  var with any IANA zone (e.g. `Australia/Sydney`). The active zone is
+  logged in the boot banner. Node honours `TZ` natively, so this
+  affects every Date the app constructs (demo seed anchor, card entry
+  dates, sentinel timestamps, log output). See the Timezone note in
+  `docs/DEPLOY.md`. (#32)
+
 ### Changed
 
 - **Voice chat env vars renamed; legacy names still accepted.**
