@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { marked } = require('marked');
 const { spawn } = require('child_process');
-const { isAuthenticated, isPublicPath, handleAuthRoutes, isSetup } = require('./auth/webauthn');
+const { isAuthenticated, isAgentRequest, isPublicPath, handleAuthRoutes, isSetup } = require('./auth/webauthn');
 const PATHS = require('./config/paths');
 const ENV = require('./config/env');
 const registry = require('./manifests/registry');
@@ -53,6 +53,41 @@ function sendJSON(res, data, status = 200) {
 
 function send404(res, msg = 'Not found') {
   sendJSON(res, { error: msg }, 404);
+}
+
+// Server-local "today" in the configured TZ (Node already honours process.env.TZ,
+// so this uses the server's clock and timezone).
+function todayIso() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: ENV.TZ });
+}
+
+// Given the previously stored data array and an incoming one, decide whether
+// any newly-added or newly-dated row violates the manifest's
+// todayAllowed / pastAllowed / futureAllowed flags. Returns an error string
+// for the first violation found, or null if the write is acceptable.
+//
+// Semantics: a date is "new" if no prior row had that date. This catches
+// both additions and date-migrations; it does not block edits to existing
+// dated entries (e.g. fixing a typo on yesterday's weight stays permitted
+// regardless of pastAllowed), which matches how the UI exposes edits.
+function findDateAllowanceViolation(prevData, nextData, writeable) {
+  const prevDates = new Set(
+    (Array.isArray(prevData) ? prevData : [])
+      .map(r => r && r.date)
+      .filter(d => typeof d === 'string')
+  );
+  const today = todayIso();
+  const todayAllowed  = writeable.todayAllowed !== false; // default true
+  const pastAllowed   = writeable.pastAllowed === true;
+  const futureAllowed = writeable.futureAllowed === true;
+  for (const row of nextData) {
+    const d = row && row.date;
+    if (typeof d !== 'string' || prevDates.has(d)) continue;
+    if (d > today && !futureAllowed) return `future-dated entry (${d}) not allowed for this card`;
+    if (d < today && !pastAllowed)   return `past-dated entry (${d}) not allowed for this card`;
+    if (d === today && !todayAllowed) return `today-dated entry (${d}) not allowed for this card`;
+  }
+  return null;
 }
 
 function readJSONFile(filePath) {
@@ -404,6 +439,7 @@ const server = http.createServer(async (req, res) => {
       if (!entry) return send404(res, 'manifest not found');
       const w = entry.meta.writeable;
       if (!w || !w.fromWebapp) return sendJSON(res, { error: 'not writeable from webapp' }, 403);
+      const fromAgent = isAgentRequest(req);
       let body = '';
       req.on('data', c => body += c);
       req.on('end', () => {
@@ -421,6 +457,13 @@ const server = http.createServer(async (req, res) => {
               console.warn(`[manifest] auto-converted date-keyed data to array for ${parts[1]} (${conv.data.length} rows)`);
               incoming = conv.data;
             }
+          }
+
+          // Webapp writes must respect past/today/future allowances.
+          // Bearer-auth agent writes bypass (backfills, schedules, etc.).
+          if (!fromAgent && Array.isArray(incoming)) {
+            const violation = findDateAllowanceViolation(entry.data, incoming, w);
+            if (violation) return sendJSON(res, { error: violation }, 403);
           }
 
           registry.writeData(parts[1], incoming);
