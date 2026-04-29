@@ -29,7 +29,8 @@ function freshEnv(overrides = {}) {
     k === 'SESSION_SECRET' ||
     k === 'AGENT_API_TOKEN' ||
     k === 'PORT' ||
-    k === 'HOST'
+    k === 'HOST' ||
+    k === 'TZ'
   );
   for (const k of strip) delete process.env[k];
   // Need HEALTH_HOME set so paths.js doesn't blow up — point at /tmp to avoid
@@ -103,6 +104,11 @@ describe('config/env.js defaults', () => {
     assert.equal(env.PORT, 8080);
   });
 
+  test('TZ defaults to UTC', () => {
+    const env = freshEnv();
+    assert.equal(env.TZ, 'UTC');
+  });
+
   test('no default value references "Axis", "Eddy", "Onyx", or "Chuck"', () => {
     const env = freshEnv();
     const serialised = JSON.stringify({
@@ -167,5 +173,10 @@ describe('config/env.js env overrides', () => {
   test('HEALTH_SYSTEM_PROMPT env var wins', () => {
     const env = freshEnv({ HEALTH_SYSTEM_PROMPT: 'You are a pirate.' });
     assert.equal(env.HEALTH_SYSTEM_PROMPT, 'You are a pirate.');
+  });
+
+  test('TZ env var wins over default', () => {
+    const env = freshEnv({ TZ: 'Australia/Sydney' });
+    assert.equal(env.TZ, 'Australia/Sydney');
   });
 });

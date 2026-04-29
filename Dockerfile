@@ -74,7 +74,8 @@ RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh
 ENV NODE_ENV=production \
     PORT=10002 \
     HOST=0.0.0.0 \
-    HEALTH_HOME=/data
+    HEALTH_HOME=/data \
+    TZ=UTC
 
 EXPOSE 10002
 
