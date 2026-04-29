@@ -18,10 +18,12 @@
 //     Returns full manifest objects ({ meta, data }) ready to pass to
 //     eh-prompt-modal.
 
+import { localToday } from './date-util.js';
+
 const STORAGE_PREFIX = 'klebb-prompt-shown-';
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return localToday();
 }
 
 export function shownTodayKey(cardId, date = todayStr()) {
