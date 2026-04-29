@@ -17,6 +17,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   dates, sentinel timestamps, log output). See the Timezone note in
   `docs/DEPLOY.md`. (#32)
 
+### Fixed
+
+- **`futureAllowed: false` (and `pastAllowed: false`) now actually
+  block webapp writes.** Previously the ➕/✏️ button showed on every
+  date and the `POST /api/manifests/:id/data` handler ignored the
+  allowance flags, so future/past-dated entries could be added even
+  when the manifest forbade them. The generic and list cards now read
+  the base-class `_canWrite` (which respects `dateMode`), and the
+  server rejects webapp POSTs that introduce a row on a disallowed
+  date with 403. Edits to rows on already-stored dates are still
+  accepted. Agent bearer-token writes bypass the date gate for
+  legitimate backfills and schedule pre-population. (#34)
+
 ### Changed
 
 - **Voice chat env vars renamed; legacy names still accepted.**

@@ -218,7 +218,9 @@ export class EhGenericCard extends EhBaseCard {
     const entry = this._currentEntry();
     const hasEntry = entry !== null;
 
-    const canWrite = !!(meta?.writeable?.fromWebapp && Array.isArray(meta?.writeable?.inputs) && meta.writeable.inputs.length > 0);
+    const canWrite = this._canWrite
+      && Array.isArray(meta?.writeable?.inputs)
+      && meta.writeable.inputs.length > 0;
     const editIcon = hasEntry ? '✏️' : '➕';
 
     const headline = hasEntry
