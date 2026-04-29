@@ -182,4 +182,92 @@ describe('server HTTP API', () => {
       assert.equal(res.json.authenticated, false);
     });
   });
+
+  // --- Date-allowance gate (past/today/future) on webapp writes ---
+  describe('writeable date-allowance enforcement', () => {
+    let sandbox, server;
+    const AGENT_TOKEN = 'test-agent-date-allowance';
+
+    function todayUtc() {
+      return new Date().toLocaleDateString('en-CA', { timeZone: 'UTC' });
+    }
+    function shiftDays(iso, delta) {
+      const d = new Date(iso + 'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() + delta);
+      return d.toISOString().slice(0, 10);
+    }
+
+    before(async () => {
+      // futureAllowed: false, pastAllowed: false → only today writes accepted from webapp
+      const m = {
+        $schema: 'klebb.datafile.v1',
+        meta: {
+          id: 'weight',
+          label: 'Weight',
+          view: { enabled: true, component: 'generic-card' },
+          writeable: { fromWebapp: true, todayAllowed: true, pastAllowed: false, futureAllowed: false },
+        },
+        data: [],
+      };
+      sandbox = createSandbox({ seed: { 'weight.json': m } });
+      server = await spawnServer(sandbox, { TZ: 'UTC', AGENT_API_TOKEN: AGENT_TOKEN });
+    });
+    after(async () => {
+      if (server) await server.kill();
+      cleanupSandbox(sandbox);
+    });
+
+    test('POST future-dated row without bearer → 403', async () => {
+      const future = shiftDays(todayUtc(), 7);
+      const res = await req(server.baseUrl, '/api/manifests/weight/data', {
+        method: 'POST',
+        body: { data: [{ date: future, kg: 80 }] },
+      });
+      assert.equal(res.status, 403);
+      assert.match(res.json.error, /future-dated/);
+    });
+
+    test('POST past-dated row without bearer → 403', async () => {
+      const past = shiftDays(todayUtc(), -7);
+      const res = await req(server.baseUrl, '/api/manifests/weight/data', {
+        method: 'POST',
+        body: { data: [{ date: past, kg: 80 }] },
+      });
+      assert.equal(res.status, 403);
+      assert.match(res.json.error, /past-dated/);
+    });
+
+    test('POST today-dated row without bearer → 200', async () => {
+      const res = await req(server.baseUrl, '/api/manifests/weight/data', {
+        method: 'POST',
+        body: { data: [{ date: todayUtc(), kg: 81 }] },
+      });
+      assert.equal(res.status, 200);
+    });
+
+    test('POST future-dated row WITH agent bearer → 200 (bypasses gate)', async () => {
+      const future = shiftDays(todayUtc(), 30);
+      const res = await req(server.baseUrl, '/api/manifests/weight/data', {
+        method: 'POST',
+        body: { data: [{ date: future, kg: 82 }, { date: todayUtc(), kg: 81 }] },
+        headers: { Authorization: `Bearer ${AGENT_TOKEN}` },
+      });
+      assert.equal(res.status, 200);
+    });
+
+    test('POST that only edits an existing date → allowed even if pastAllowed:false', async () => {
+      // The future+today write from the previous test persisted [{future,82},{today,81}].
+      // Now re-POST the same row set with the today-row's kg changed. No *new* date
+      // appears, so the gate should not fire.
+      const future = shiftDays(todayUtc(), 30);
+      const res = await req(server.baseUrl, '/api/manifests/weight/data', {
+        method: 'POST',
+        body: { data: [{ date: future, kg: 82 }, { date: todayUtc(), kg: 99 }] },
+      });
+      assert.equal(res.status, 200);
+      const check = await req(server.baseUrl, '/api/manifests/weight/data');
+      const todayRow = check.json.data.find(r => r.date === todayUtc());
+      assert.equal(todayRow.kg, 99);
+    });
+  });
 });

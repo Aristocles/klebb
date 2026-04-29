@@ -101,15 +101,18 @@ function clearSessionCookie(res) {
 function isAuthenticated(req) {
   // If no credentials registered yet, allow everything (setup mode)
   if (!isSetup()) return true;
-  // Server-to-server: Bearer token from AGENT_API_TOKEN env
-  const agentToken = process.env.AGENT_API_TOKEN;
-  if (agentToken) {
-    const auth = req.headers['authorization'];
-    if (auth && auth.startsWith('Bearer ') && auth.slice(7).trim() === agentToken) {
-      return true;
-    }
-  }
+  if (isAgentRequest(req)) return true;
   return validateSession(getSessionToken(req));
+}
+
+// True if the request carries a valid AGENT_API_TOKEN bearer. Used to
+// relax webapp-only gates (e.g. past/future-date restrictions on writes)
+// for legitimate server-to-server writers.
+function isAgentRequest(req) {
+  const agentToken = process.env.AGENT_API_TOKEN;
+  if (!agentToken) return false;
+  const auth = req.headers['authorization'];
+  return !!(auth && auth.startsWith('Bearer ') && auth.slice(7).trim() === agentToken);
 }
 
 // Public paths that don't need auth
@@ -402,6 +405,7 @@ async function handleAuthRoutes(req, res, pathname) {
 
 module.exports = {
   isAuthenticated,
+  isAgentRequest,
   isPublicPath,
   handleAuthRoutes,
   isSetup,
