@@ -75,18 +75,26 @@ export class EhViewRenderer extends LitElement {
     :host { display: block; }
     .grid {
       display: grid;
-      grid-template-columns: 1fr;
+      /* minmax(0, 1fr) — NOT plain 1fr. A plain 1fr track resolves to
+         minmax(auto, 1fr), which lets a card whose intrinsic min-content
+         is wider than its share (a long nowrap string inside a row) push
+         its track wider and drag every other card with it. This is the
+         root cause of the supplements card blowing the whole Today page
+         past the viewport on iPhone 13 mini. Pinning the track min to 0
+         forces children to shrink to fit and lets per-card overflow
+         handling (nowrap + ellipsis) do its job. */
+      grid-template-columns: minmax(0, 1fr);
       gap: 12px;
       margin-top: 6px;
     }
     @media (min-width: 768px) {
       .grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       }
     }
     @media (min-width: 1100px) {
       .grid {
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
       }
     }
     .loading, .empty {
