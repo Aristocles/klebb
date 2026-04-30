@@ -44,7 +44,7 @@ Follow the existing patterns:
 ## Safety-net test
 
 `tests/no-personal-refs.test.js` scans the repo for forbidden identifiers
-and hardcoded paths. This is a hygiene check that runs in CI alongside
+and hardcoded paths. This is a CI safety-net that runs alongside
 functional tests. If a PR re-introduces a personal name or an absolute
 machine path or a high-entropy token, CI fails.
 
