@@ -19,6 +19,7 @@ import './components/eh-settings-view.js';    // /settings
 import './components/health-chat.js';
 import './components/eh-prompt-modal.js';
 import { checkPromptsForToday } from './lib/prompt-queue.js';
+import { localToday } from './lib/date-util.js';
 
 class HealthApp extends LitElement {
   static properties = {
@@ -102,7 +103,7 @@ class HealthApp extends LitElement {
     // Mark shown-today regardless of saved/dismissed — per spec, once shown
     // never reshow the same day even on cancel.
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localToday();
       localStorage.setItem(`klebb-prompt-shown-${cardId}-${today}`, '1');
     } catch {}
     // Advance the queue.
@@ -299,7 +300,7 @@ class HealthApp extends LitElement {
       ${activePrompt ? html`
         <eh-prompt-modal
           .card=${activePrompt}
-          .date=${new Date().toISOString().slice(0, 10)}
+          .date=${localToday()}
           @eh-prompt-done=${this._onPromptDone}
         ></eh-prompt-modal>
       ` : ''}

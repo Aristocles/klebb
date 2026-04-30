@@ -28,6 +28,7 @@
 //     in the queue.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { localToday } from '../lib/date-util.js';
 import './eh-input-form.js';
 
 export class EhPromptModal extends LitElement {
@@ -207,7 +208,7 @@ export class EhPromptModal extends LitElement {
       // the same pattern as eh-generic-card._save(). This keeps the modal
       // independent of the card's renderer but honours maxReadingsPerDay.
       const entry = { ...values };
-      if (!entry.date) entry.date = this.date || new Date().toISOString().slice(0, 10);
+      if (!entry.date) entry.date = this.date || localToday();
 
       // Fetch the current manifest (fresh — avoid stale writes if another
       // tab just wrote something).
@@ -251,7 +252,7 @@ export class EhPromptModal extends LitElement {
     if (!this.card) return html``;
     const meta = this.card.meta || {};
     const inputs = meta.writeable?.inputs || [];
-    const today = this.date || new Date().toISOString().slice(0, 10);
+    const today = this.date || localToday();
     return html`
       <dialog aria-modal="true" aria-label="${meta.label || 'Log entry'}">
         <div class="wrap">
