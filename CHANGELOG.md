@@ -19,6 +19,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Chat no longer hangs for 60s and returns "Failed to connect" when
+  the gateway closes its TCP socket abruptly after a successful
+  response.** The `/api/chat` proxy's `error` and `timeout` handlers
+  unconditionally called `sendJSON` on the client response, so an
+  upstream RST arriving after the reply had already been flushed would
+  trigger `ERR_HTTP_HEADERS_SENT` and crash the Node process. Docker
+  would then restart the container, the next chat request would land
+  on a half-started server, and the browser would eventually time out
+  with "Failed to connect". Both handlers now guard with
+  `res.headersSent` before writing. (#41)
 - **Cards no longer overflow the viewport on narrow phones.** A card
   whose content had a long unbreakable string (e.g. a supplement named
   "Swisse Ultiboost Magnesium Glycinate" with `white-space: nowrap` on
