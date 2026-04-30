@@ -28,6 +28,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   now uses `minmax(0, 1fr)` instead of plain `1fr` so a card's
   min-content width can't expand its column. Per-card
   ellipsis / overflow then does its job. (#37)
+- **Modal prompts now fire correctly in UTC+ timezones.** Client-side
+  "today" was computed with `new Date().toISOString().slice(0, 10)`,
+  which always returns a UTC date. For users in e.g. AEST (UTC+10),
+  "today" silently rolled back to "yesterday" before 10:00 AM local
+  time, so `meta.prompt` cards (like the Mood modal) never fired on
+  first load of the day. All client date computations now go through
+  a shared `localToday()` helper that uses the device's local
+  timezone. (#36)
 - **`futureAllowed: false` (and `pastAllowed: false`) now actually
   block webapp writes.** Previously the ➕/✏️ button showed on every
   date and the `POST /api/manifests/:id/data` handler ignored the
