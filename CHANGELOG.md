@@ -19,6 +19,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Cards no longer overflow the viewport on narrow phones.** A card
+  whose content had a long unbreakable string (e.g. a supplement named
+  "Swisse Ultiboost Magnesium Glycinate" with `white-space: nowrap` on
+  the list row) could push its grid track wider than the viewport,
+  dragging every other card with it and clipping the right edge of the
+  Today page on iPhone 13 mini (375px). Fix: the view-renderer grid
+  now uses `minmax(0, 1fr)` instead of plain `1fr` so a card's
+  min-content width can't expand its column. Per-card
+  ellipsis / overflow then does its job. (#37)
 - **`futureAllowed: false` (and `pastAllowed: false`) now actually
   block webapp writes.** Previously the ➕/✏️ button showed on every
   date and the `POST /api/manifests/:id/data` handler ignored the
