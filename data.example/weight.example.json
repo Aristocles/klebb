@@ -35,6 +35,18 @@
       ],
       "yAxisLabel": "kg"
     },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": {
+        "type": "trend-arrow",
+        "field": "kg",
+        "up": "⬆️",
+        "down": "⬇️",
+        "flat": "➡️",
+        "fallback": "⚖️"
+      }
+    },
     "writeable": {
       "fromWebapp": true,
       "pastAllowed": true,

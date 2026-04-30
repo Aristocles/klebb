@@ -137,6 +137,85 @@ label pill.
 `trendArrow` shows ↑/↓/→ next to the headline, comparing the current
 row to the most recent earlier entry on `field`.
 
+### `calendar` — month-grid marker config
+
+`meta.calendar` opts the card into the Calendar view. Each day cell in
+the grid can carry up to three glyphs (capped with `+N` overflow); a
+card contributes one glyph per day it has data for.
+
+```json
+"calendar": {
+  "enabled": true,
+  "component": "day-marker",
+  "marker": "💊"
+}
+```
+
+Fields:
+- `enabled` (bool): include in Calendar. Default `false` (absent = not
+  in Calendar).
+- `component` (string): always `"day-marker"` today. Reserved for
+  future cell renderers.
+- `marker` (string | object): the glyph shown on days this card has
+  data. See below.
+
+#### `marker` — what glyph to show
+
+**Static string** — same glyph every logged day:
+
+```json
+"marker": "💊"
+```
+
+If `marker` is absent, the card's `meta.emoji` is used instead.
+
+**`type: "field-emoji"`** — pick the glyph from an emoji map keyed by a
+field value on that day's row:
+
+```json
+"marker": {
+  "type":      "field-emoji",
+  "field":     "mood",
+  "emojiMap":  { "1": "😩", "2": "😴", "3": "😐", "4": "🙂", "5": "😄" },
+  "fallback":  "🙂"
+}
+```
+
+- `field` (string, required): field on the day's row to read. Dotted
+  paths work (`stats.mood`).
+- `emojiMap` (object, required): `stringifiedValue -> emoji`.
+- `fallback` (string, optional): glyph when the row is missing, the
+  field is empty, or the value isn't in the map. Defaults to the card's
+  `meta.emoji` then `•`.
+
+**`type: "trend-arrow"`** — compare the day's row to the most recent
+earlier entry with a numeric value on `field`, render up/down/flat:
+
+```json
+"marker": {
+  "type":     "trend-arrow",
+  "field":    "kg",
+  "up":       "⬆️",
+  "down":     "⬇️",
+  "flat":     "➡️",
+  "fallback": "⚖️"
+}
+```
+
+- `field` (string, required): numeric field to compare. Dotted paths
+  work.
+- `up`, `down`, `flat` (string, optional): direction glyphs. Defaults:
+  `⬆️` / `⬇️` / `➡️`.
+- `fallback` (string, optional): glyph for the very first entry (no
+  previous to compare), non-numeric values, or missing field.
+
+#### Multiple entries per day
+
+If a card allows `maxReadingsPerDay > 1`, the **latest entry wins** for
+the day's marker (last by array index for array data; last by `takenAt`
+for `items[].doses[]` shapes). Earlier same-day entries are ignored by
+the calendar.
+
 ### `writeable`
 
 ```json
