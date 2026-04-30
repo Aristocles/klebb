@@ -493,18 +493,31 @@ class HealthChat extends LitElement {
   }
 
   _stallWatcher() {
-    // Recover from visibility-change connection stalls
+    // Only abort an in-flight reply if the tab was actually backgrounded
+    // long enough that the OS likely froze the socket. Brief flickers
+    // (swipe away + swipe back within a second or two) leave the
+    // connection alive and the reply is about to arrive; aborting on
+    // those just loses good replies for no reason.
+    //
+    // iOS Safari and Android Chrome start freezing background tabs
+    // within ~5s. A 3s floor is a safe threshold that catches real
+    // backgrounding while ignoring flickers.
+    let hiddenAt = null;
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        fetch('/api/config', { cache: 'no-store' }).catch(() => {});
-        if (this._loading && this._abortController) {
-          this._abortController.abort();
-          this._abortController = null;
-          this._loading = false;
-          const last = this._messages[this._messages.length - 1];
-          if (last && last.role === 'user') {
-            this._pushError('Connection interrupted — send again');
-          }
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
+      }
+      const hiddenMs = hiddenAt ? Date.now() - hiddenAt : 0;
+      hiddenAt = null;
+      if (hiddenMs < 3000) return;
+      if (this._loading && this._abortController) {
+        this._abortController.abort();
+        this._abortController = null;
+        this._loading = false;
+        const last = this._messages[this._messages.length - 1];
+        if (last && last.role === 'user') {
+          this._pushError('Tab was backgrounded: reply was lost. Send again.');
         }
       }
     });
