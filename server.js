@@ -943,12 +943,12 @@ Original system prompt follows:
 
           proxyReq.on('error', (e) => {
             console.error('Chat proxy error:', e.message);
-            sendJSON(res, { error: 'Gateway unavailable' }, 502);
+            if (!res.headersSent) sendJSON(res, { error: 'Gateway unavailable' }, 502);
           });
 
           proxyReq.setTimeout(180000, () => {
             proxyReq.destroy();
-            sendJSON(res, { error: 'Request timed out' }, 504);
+            if (!res.headersSent) sendJSON(res, { error: 'Request timed out' }, 504);
           });
 
           proxyReq.write(payload);
