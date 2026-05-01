@@ -12,41 +12,48 @@ This doc covers:
 
 ---
 
-## 1. Chat widget — chat gateway backend
+## 1. Chat widget — OpenAI-compatible endpoint
 
-The in-page chat widget (`health-chat.js`) sends user messages to an
-chat gateway over HTTP and renders the streamed response.
+The in-page chat widget (`health-chat.js`) posts user messages to
+whatever endpoint you configure and renders the response. Klebb speaks
+the OpenAI chat-completions shape, so any endpoint that accepts that
+shape works: a self-hosted gateway (LiteLLM, or similar), a cloud
+provider's OpenAI-compat endpoint (AWS Bedrock, Groq, Together,
+DeepInfra), a local runtime (Ollama, vLLM, llama.cpp), or OpenAI /
+OpenRouter directly.
 
 Configure via environment variables:
 
 | Var | Default | Purpose |
 |-----|---------|---------|
-| `CHAT_GATEWAY_HOST` | `localhost` | chat gateway hostname |
-| `CHAT_GATEWAY_PORT` | `8787` | Gateway port |
-| `CHAT_GATEWAY_TLS` | auto | `true` to use HTTPS, `false` for HTTP (auto: true for non-localhost) |
-| `CHAT_GATEWAY_TOKEN` | — | Bearer token for the gateway |
-| `CHAT_GATEWAY_MODEL` | *(gateway default)* | Model id to request |
+| `CHAT_ENDPOINT_URL` | — | Full URL of the chat-completions endpoint, e.g. `https://api.openai.com/v1/chat/completions` |
+| `CHAT_API_KEY` | — | Bearer token sent as `Authorization: Bearer <key>` |
+| `CHAT_MODEL` | — | Model name the endpoint expects (e.g. `gpt-4o-mini`, `llama3.1`, whatever your provider returns from its models list) |
 | `HEALTH_SYSTEM_PROMPT` | built-in | System prompt sent with each turn |
 | `CHAT_AGENT_NAME` | `Chat` | Display name shown in the chat UI |
 | `CHAT_AGENT_EMOJI` | `💬` | Emoji/char shown as the agent avatar |
 
-Point these at your chat gateway instance and the chat just works. The webapp
-itself does NOT know which model is behind the gateway; that's the gateway's
-job.
+The URL scheme (`http://` vs `https://`) picks the transport. Host, port,
+and path all come from the URL, so the endpoint doesn't have to live at
+`/v1/chat/completions` — point at whatever path your provider uses.
+
+If `CHAT_ENDPOINT_URL` is unset, the chat widget is disabled and
+`POST /api/chat` returns `503`.
+
+### Legacy env vars
+
+Older deploys used `CHAT_GATEWAY_HOST` + `CHAT_GATEWAY_PORT` +
+`CHAT_GATEWAY_TLS` + `CHAT_GATEWAY_TOKEN` + `CHAT_GATEWAY_MODEL`. These
+still work; they're composed into the canonical `CHAT_ENDPOINT_URL`
+internally. New installs should use the canonical names directly.
 
 ### What the widget does NOT do
 
-- It does not run tools directly. Tool-use is the gateway's responsibility
-  (the gateway's skill/tool plumbing).
-- It does not embed model credentials. All auth flows through
-  `CHAT_GATEWAY_TOKEN`.
-
-If you want to plug a different LLM backend (cloud-hosted, self-hosted, local),
-you have two paths:
-1. Put an chat gateway in front of it. Minimum fuss — the webapp talks
-   chat gateway and knows nothing else.
-2. Replace the chat-proxy section of `server.js` with your own upstream.
-   Everything else in the webapp (manifests, auth, views) is untouched.
+- It does not run tools directly. If your endpoint supports tool-use
+  and you want the chat to use tools, that's the endpoint's
+  responsibility.
+- It does not embed model credentials beyond `CHAT_API_KEY`. One bearer
+  token per Klebb instance.
 
 ---
 

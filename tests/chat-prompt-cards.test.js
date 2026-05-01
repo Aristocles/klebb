@@ -68,11 +68,9 @@ describe('chat proxy dynamic card-list injection', () => {
       },
     });
     server = await spawnServer(sandbox, {
-      CHAT_GATEWAY_HOST: '127.0.0.1',
-      CHAT_GATEWAY_PORT: String(gateway.port),
-      CHAT_GATEWAY_TLS: 'false',
-      CHAT_GATEWAY_TOKEN: 'stub-token',
-      CHAT_GATEWAY_MODEL: 'stub-model',
+      CHAT_ENDPOINT_URL: `http://127.0.0.1:${gateway.port}/v1/chat/completions`,
+      CHAT_API_KEY: 'stub-token',
+      CHAT_MODEL: 'stub-model',
     });
   });
   after(async () => {

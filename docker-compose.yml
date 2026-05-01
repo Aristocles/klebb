@@ -36,7 +36,12 @@ services:
       HEALTH_INSTANCE_NAME: "${HEALTH_INSTANCE_NAME:-Klebb}"
       HEALTH_RP_NAME: "${HEALTH_RP_NAME:-Klebb}"
       CHAT_AGENT_NAME: "${CHAT_AGENT_NAME:-Klebbius}"
-      # --- Chat gateway (optional) ---
+      # --- Chat endpoint (optional) ---
+      # Any OpenAI-compatible chat-completions URL. Scheme picks http/https.
+      CHAT_ENDPOINT_URL: "${CHAT_ENDPOINT_URL:-}"
+      CHAT_API_KEY: "${CHAT_API_KEY:-}"
+      CHAT_MODEL: "${CHAT_MODEL:-}"
+      # Legacy aliases (kept for backwards compat with older deploys)
       CHAT_GATEWAY_HOST: "${CHAT_GATEWAY_HOST:-}"
       CHAT_GATEWAY_PORT: "${CHAT_GATEWAY_PORT:-}"
       CHAT_GATEWAY_TLS: "${CHAT_GATEWAY_TLS:-}"

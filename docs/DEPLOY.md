@@ -67,12 +67,10 @@ HOST=127.0.0.1
 # entries, and log timestamps to match your wall clock.
 # TZ=Australia/Sydney
 
-# Optional: chat agent (chat gateway)
-# CHAT_GATEWAY_HOST=localhost
-# CHAT_GATEWAY_PORT=8787
-# CHAT_GATEWAY_TLS=false
-# CHAT_GATEWAY_TOKEN=<bearer-token>
-# CHAT_GATEWAY_MODEL=<model-id>
+# Optional: chat agent (any OpenAI-compatible chat-completions endpoint)
+# CHAT_ENDPOINT_URL=https://api.openai.com/v1/chat/completions
+# CHAT_API_KEY=<bearer-token>
+# CHAT_MODEL=<model-id>
 
 # Optional: server-to-server agent writes
 # AGENT_API_TOKEN=<random-strong-token>
@@ -226,7 +224,7 @@ instance, each pointing at its unique port.
   trigger WebAuthn failures
 - Set `HEALTH_HOME` to a per-user directory with 0700 perms, owned by
   the instance user
-- Keep `AGENT_API_TOKEN` and `CHAT_GATEWAY_TOKEN` in the env file (0600, root)
+- Keep `AGENT_API_TOKEN` and `CHAT_API_KEY` in the env file (0600, root)
 - Run each instance as its own system user (no shell)
 
 ---
@@ -346,7 +344,7 @@ Check `HEALTH_RP_ID` and `HEALTH_ORIGIN` match the URL you're visiting.
 Mismatch between browser origin and server RP_ID is the #1 cause.
 
 **Chat widget shows "Chat is not configured."**
-`CHAT_GATEWAY_TOKEN` is unset or empty. Set it in the env file and restart.
+`CHAT_ENDPOINT_URL` or `CHAT_API_KEY` is unset. Set both in the env file and restart.
 
 **Voice doesn't work.**
 `FISH_AUDIO_API_KEY` is unset or invalid. Check `/api/voice/config` in
