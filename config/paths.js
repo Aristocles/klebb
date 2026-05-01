@@ -61,6 +61,8 @@ const AUTO_EXPORT_DIR = process.env.HEALTH_AUTO_EXPORT_DIR || path.join(DATA_DIR
 const SESSIONS_DIR = process.env.HEALTH_SESSIONS_DIR || path.join(HEALTH_HOME, 'sessions');
 const CREDENTIALS_DIR = process.env.HEALTH_CREDENTIALS_DIR || path.join(HEALTH_HOME, 'credentials');
 const ARCHIVE_DIR = process.env.HEALTH_ARCHIVE_DIR || path.join(DATA_DIR, '_archive');
+const CHAT_DIR = process.env.HEALTH_CHAT_DIR || path.join(HEALTH_HOME, 'chat');
+const CHAT_HISTORY_FILE = path.join(CHAT_DIR, 'history.json');
 const CONFIG_PATH = process.env.HEALTH_CONFIG_PATH || path.join(HEALTH_HOME, 'config.json');
 
 // WebAuthn credentials + sessions. Historical installs may have stored these
@@ -84,7 +86,7 @@ const WEBAUTHN_SESSIONS_FILE = resolveWebauthnSessionsFile();
 // Ensure directories exist where we expect to write.
 // Does NOT create HEALTH_HOME itself (bootstrap responsibility).
 function ensureWritableDirs() {
-  const toEnsure = [DATA_DIR];
+  const toEnsure = [DATA_DIR, CHAT_DIR];
   if (WEBAUTHN_CREDENTIALS_FILE.startsWith(CREDENTIALS_DIR)) toEnsure.push(CREDENTIALS_DIR);
   if (WEBAUTHN_SESSIONS_FILE.startsWith(SESSIONS_DIR)) toEnsure.push(SESSIONS_DIR);
   for (const dir of toEnsure) {
@@ -100,6 +102,8 @@ module.exports = {
   SESSIONS_DIR,
   CREDENTIALS_DIR,
   ARCHIVE_DIR,
+  CHAT_DIR,
+  CHAT_HISTORY_FILE,
   CONFIG_PATH,
   WEBAUTHN_CREDENTIALS_FILE,
   WEBAUTHN_SESSIONS_FILE,
