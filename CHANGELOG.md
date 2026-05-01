@@ -9,6 +9,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Chat conversation is now stored server-side and follows the user
+  across devices.** Previously the chat widget had no memory past the
+  current panel-open, so switching from phone to laptop lost the
+  conversation. The transcript now lives in
+  `$HEALTH_HOME/chat/history.json`, behind the existing WebAuthn
+  session cookie, and is loaded whenever the widget mounts.
+  New endpoints: `GET /api/chat/history`,
+  `PUT /api/chat/history { messages: [...] }`, and
+  `DELETE /api/chat/history` (the "New chat" button path).
+  A new 📝 button in the chat header clears the conversation after a
+  confirm prompt. Only real `user` / `assistant` turns are persisted
+  (errors and transient state stay in-memory); audio blobs aren't
+  serialised and are re-synthesised on demand. The server caps the
+  payload at 512 KB and trims to the last 200 turns. Saves from the
+  client are debounced 500 ms so rapid turns don't spam. (#55)
 - **Calendar markers can now reflect the day's value, not just "had
   data".** `meta.calendar.marker` accepts either a string (static
   glyph, existing behaviour) or an object describing a per-day glyph.
