@@ -15,11 +15,19 @@ const { runFirstBootDemoSeed } = require('./scripts/seed-demo');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 
-// chat gateway config (env-driven; see config/env.js)
-const CHAT_GATEWAY_HOST = ENV.CHAT_GATEWAY_HOST;
-const CHAT_GATEWAY_PORT = ENV.CHAT_GATEWAY_PORT;
-const CHAT_GATEWAY_TOKEN = ENV.CHAT_GATEWAY_TOKEN;
-const CHAT_GATEWAY_MODEL = ENV.CHAT_GATEWAY_MODEL;
+// chat endpoint config (env-driven; see config/env.js)
+const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
+const CHAT_API_KEY = ENV.CHAT_API_KEY;
+const CHAT_MODEL = ENV.CHAT_MODEL;
+const CHAT_ENDPOINT = CHAT_ENDPOINT_URL ? (() => {
+  const u = new URL(CHAT_ENDPOINT_URL);
+  return {
+    hostname: u.hostname,
+    port: u.port || (u.protocol === 'https:' ? 443 : 80),
+    path: u.pathname + u.search,
+    transport: u.protocol === 'https:' ? https : http,
+  };
+})() : null;
 
 const HEALTH_SYSTEM_PROMPT = ENV.HEALTH_SYSTEM_PROMPT;
 
@@ -888,30 +896,31 @@ Original system prompt follows:
             ...messages,
           ];
 
+          if (!CHAT_ENDPOINT) {
+            return sendJSON(res, { error: 'Chat endpoint not configured' }, 503);
+          }
+
           const payload = JSON.stringify({
-            model: CHAT_GATEWAY_MODEL,
+            model: CHAT_MODEL,
             messages: fullMessages,
           });
 
           const options = {
-            hostname: CHAT_GATEWAY_HOST,
-            port: CHAT_GATEWAY_PORT,
-            path: '/v1/chat/completions',
+            hostname: CHAT_ENDPOINT.hostname,
+            port: CHAT_ENDPOINT.port,
+            path: CHAT_ENDPOINT.path,
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${CHAT_GATEWAY_TOKEN}`,
+              'Authorization': `Bearer ${CHAT_API_KEY}`,
               'Content-Length': Buffer.byteLength(payload),
               'Connection': 'close',
             },
-            rejectUnauthorized: false, // self-signed TLS
-            agent: false, // disable keep-alive — stale pooled connections hang on self-signed gateways
+            rejectUnauthorized: false, // self-signed TLS tolerated; endpoint trust is operator's call
+            agent: false, // disable keep-alive — stale pooled connections hang on some endpoints
           };
 
-          // Pick http or https based on CHAT_GATEWAY_TLS. TLS defaults true for
-          // remote gateways and false for localhost; an explicit env var wins.
-          const transport = ENV.CHAT_GATEWAY_TLS ? https : http;
-          const proxyReq = transport.request(options, (proxyRes) => {
+          const proxyReq = CHAT_ENDPOINT.transport.request(options, (proxyRes) => {
             let data = '';
             proxyRes.on('data', c => data += c);
             proxyRes.on('end', () => {
