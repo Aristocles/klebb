@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Calendar markers can now reflect the day's value, not just "had
+  data".** `meta.calendar.marker` accepts either a string (static
+  glyph, existing behaviour) or an object describing a per-day glyph.
+  Two kinds ship: `type: "field-emoji"` picks a glyph from an
+  `emojiMap` keyed by a field value on that day's row (e.g. mood 1..5
+  → 😩😴😐🙂😄); `type: "trend-arrow"` compares the day's reading to
+  the previous one and renders ⬆️/⬇️/➡️ (e.g. weight vs previous
+  reading). The resolver is type-discriminated so new kinds can ship
+  without a schema bump. `mood.example.json` and `weight.example.json`
+  demonstrate both. See `docs/CARDS.md` (§ `meta.calendar`) and
+  `docs/RECIPES.md` (Recipe 11). (#43)
 - **Timezone is now an explicit, documented config knob.** The container
   image defaults to `TZ=UTC`; operators can override via the `TZ` env
   var with any IANA zone (e.g. `Australia/Sydney`). The active zone is
@@ -19,6 +30,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Chat no longer aborts an in-flight reply on every momentary tab
+  switch.** The visibility-change watcher used to abort any pending
+  `/api/chat` request the instant the tab became visible again,
+  showing "Connection interrupted — send again" even for a
+  sub-second flicker. It now records when the tab went hidden and
+  only aborts if the tab was actually backgrounded for 3+ seconds
+  (long enough for mobile OSes to freeze the TCP socket). Brief
+  flickers leave the reply to arrive normally. The companion
+  `/api/config` keep-alive nudge has been removed: it never
+  actually rescued the chat socket, since it was a separate HTTP
+  request to a different endpoint. (#45)
 - **Chat no longer hangs for 60s and returns "Failed to connect" when
   the gateway closes its TCP socket abruptly after a successful
   response.** The `/api/chat` proxy's `error` and `timeout` handlers

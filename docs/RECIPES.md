@@ -470,6 +470,139 @@ time, skin redness).
 
 ---
 
+## Recipe 11 — Calendar marker that reflects the day's value
+
+For cards where you want the **month-grid calendar** to show more than
+just "had data". Two common patterns:
+
+### 11a — Field-driven emoji (mood, energy, stress)
+
+Add a `calendar` block to any card whose data has a categorical field.
+The marker resolver reads that field on the day's row and looks it up
+in an emoji map.
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "mood",
+    "label": "Mood",
+    "emoji": "🙂",
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{mood:emoji}",
+        "emojiMap": { "mood": { "1": "😩", "2": "😴", "3": "😐", "4": "🙂", "5": "😄" } }
+      }
+    },
+    "calendar": {
+      "enabled":   true,
+      "component": "day-marker",
+      "marker": {
+        "type":     "field-emoji",
+        "field":    "mood",
+        "emojiMap": { "1": "😩", "2": "😴", "3": "😐", "4": "🙂", "5": "😄" },
+        "fallback": "🙂"
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "mood", "type": "emoji-picker", "label": "Mood",
+          "emojis": ["😩", "😴", "😐", "🙂", "😄"],
+          "emitIndex": true, "required": true, "autoSubmit": true }
+      ]
+    }
+  },
+  "data": []
+}
+```
+
+**Key bits:**
+- `marker.field` — which field on the day's row to read (`mood` here).
+- `marker.emojiMap` — stringified-value to emoji. The view's own
+  `display.emojiMap` isn't reused; keep them in sync if you want the
+  calendar and the Today card to agree.
+- `marker.fallback` — glyph when the field is missing or unmapped.
+
+**Variations:**
+- Energy 1-5: sub in different emoji (`😴`/`😌`/`🙂`/`💪`/`🔥`).
+- Sleep quality: map `poor`/`ok`/`great` strings to `🌧️`/`⛅`/`☀️`.
+
+### 11b — Trend arrow (weight, HRV, RHR)
+
+For numeric metrics where you care about direction of change between
+consecutive entries. The resolver compares today's value to the most
+recent earlier entry's value at the same field.
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "weight",
+    "label": "Weight",
+    "emoji": "⚖️",
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": { "template": "{kg:round(1)}", "unit": "kg", "trendArrow": { "field": "kg" } }
+    },
+    "calendar": {
+      "enabled":   true,
+      "component": "day-marker",
+      "marker": {
+        "type":     "trend-arrow",
+        "field":    "kg",
+        "up":       "⬆️",
+        "down":     "⬇️",
+        "flat":     "➡️",
+        "fallback": "⚖️"
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "kg", "type": "number", "label": "Weight (kg)",
+          "min": 0, "max": 500, "step": 0.1, "required": true }
+      ]
+    }
+  },
+  "data": []
+}
+```
+
+**Key bits:**
+- `marker.field` — numeric field to compare. Dotted paths work for
+  nested shapes (`readings.kg`).
+- `up`/`down`/`flat` are optional; defaults are `⬆️`/`⬇️`/`➡️`.
+- `fallback` shows on the very first entry (no previous) or when the
+  current / previous value isn't numeric.
+
+**Variations:**
+- Invert semantics: for sleep hours, "up" is good — swap glyph colours
+  by picking different emoji (`💤`/`😵`/`➡️`).
+- Apply to HRV, steps, resting heart rate, grip strength — any
+  numeric daily reading.
+
+### Keeping it simple: static marker
+
+If you don't want per-day dynamics, the original shape still works:
+
+```json
+"calendar": { "enabled": true, "component": "day-marker", "marker": "💊" }
+```
+
+Every day the card has data gets the same glyph. `marker` can also be
+omitted, in which case the card's `meta.emoji` is used.
+
+See `data.example/mood.example.json` (field-emoji) and
+`data.example/weight.example.json` (trend-arrow).
+
+---
+
 ## Next steps
 
 - For the full manifest spec (every field, every input type, every
