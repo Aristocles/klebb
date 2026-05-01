@@ -81,6 +81,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Chat endpoint config is now a single URL + key + model; legacy
+  `CHAT_GATEWAY_*` env vars still accepted.** Klebb posts the OpenAI
+  chat-completions shape to whatever URL the operator configures, so
+  any endpoint that speaks that shape works: a self-hosted gateway
+  (LiteLLM, custom), a cloud provider's OpenAI-compat endpoint
+  (Groq, Together), a local runtime (Ollama, vLLM), or
+  OpenAI / OpenRouter directly. The three canonical env vars are
+  `CHAT_ENDPOINT_URL`, `CHAT_API_KEY`, and `CHAT_MODEL`; the URL
+  scheme picks http vs https and the path is honoured verbatim, so
+  `/v1/chat/completions` is no longer special. Existing deploys using
+  `CHAT_GATEWAY_HOST` + `CHAT_GATEWAY_PORT` + `CHAT_GATEWAY_TLS` +
+  `CHAT_GATEWAY_TOKEN` + `CHAT_GATEWAY_MODEL` continue to work — those
+  vars are composed into the canonical URL internally and a
+  deprecation warning is logged at boot. New installs should use the
+  canonical names. (#47)
 - **Voice chat env vars renamed; legacy names still accepted.**
   Canonical config is now `FISH_AUDIO_VOICE_ID`, `FISH_AUDIO_MODEL`, and
   `FISH_AUDIO_ENABLED`. The previous names (`FISH_AUDIO_DEFAULT_VOICE`,

@@ -68,11 +68,9 @@ describe('chat proxy survives upstream RST after successful response', () => {
     gateway = await startResetGateway();
     sandbox = createSandbox({ seed: { 'w.json': makeCard('w') } });
     server = await spawnServer(sandbox, {
-      CHAT_GATEWAY_HOST: '127.0.0.1',
-      CHAT_GATEWAY_PORT: String(gateway.port),
-      CHAT_GATEWAY_TLS: 'false',
-      CHAT_GATEWAY_TOKEN: 'stub',
-      CHAT_GATEWAY_MODEL: 'stub',
+      CHAT_ENDPOINT_URL: `http://127.0.0.1:${gateway.port}/v1/chat/completions`,
+      CHAT_API_KEY: 'stub',
+      CHAT_MODEL: 'stub',
     });
   });
   after(async () => {

@@ -10,7 +10,7 @@
 //
 // Optional env vars: see README.md for the full list; each has a sensible
 // default for a local-dev instance. Public/production deploys should
-// explicitly set HEALTH_ORIGIN, HEALTH_RP_ID, CHAT_GATEWAY_TOKEN, and
+// explicitly set HEALTH_ORIGIN, HEALTH_RP_ID, CHAT_API_KEY, and
 // AGENT_API_TOKEN.
 
 const crypto = require('crypto');
@@ -37,16 +37,43 @@ const TZ = process.env.TZ || 'UTC';
 // --- Branding ---
 const INSTANCE_NAME = process.env.HEALTH_INSTANCE_NAME || 'Klebb';
 
-// --- Chat gateway (optional — chat widget disabled if CHAT_GATEWAY_TOKEN unset) ---
-const CHAT_GATEWAY_HOST = process.env.CHAT_GATEWAY_HOST || 'localhost';
-const CHAT_GATEWAY_PORT = parseInt(process.env.CHAT_GATEWAY_PORT || '8787', 10);
-const CHAT_GATEWAY_TOKEN = process.env.CHAT_GATEWAY_TOKEN || '';
-const CHAT_GATEWAY_MODEL = process.env.CHAT_GATEWAY_MODEL || '';
-// TLS default: true for remote hosts (most chat gateways are HTTPS),
-// false for localhost. Can be forced via CHAT_GATEWAY_TLS=true|false.
-const CHAT_GATEWAY_TLS = process.env.CHAT_GATEWAY_TLS !== undefined
-  ? process.env.CHAT_GATEWAY_TLS !== 'false'
-  : (CHAT_GATEWAY_HOST !== 'localhost' && CHAT_GATEWAY_HOST !== '127.0.0.1');
+// --- Chat endpoint (optional — chat widget disabled if CHAT_API_KEY unset) ---
+//
+// Klebb speaks the OpenAI chat-completions shape. Point it at any endpoint
+// that accepts that shape: a self-hosted gateway (e.g. LiteLLM), a
+// cloud provider's OpenAI-compat endpoint (Groq, Together, etc.),
+// or a local runtime (Ollama, vLLM, llama.cpp).
+//
+// Canonical env:
+//   CHAT_ENDPOINT_URL  full URL to /v1/chat/completions (or wherever the
+//                      endpoint lives). Scheme decides http vs https.
+//   CHAT_API_KEY       bearer token sent as Authorization: Bearer <key>.
+//   CHAT_MODEL         model name the endpoint expects; passed through
+//                      untouched in the request body.
+//
+// Legacy (still accepted for existing deploys; new installs should use the
+// canonical names): CHAT_GATEWAY_HOST, CHAT_GATEWAY_PORT, CHAT_GATEWAY_TLS,
+// CHAT_GATEWAY_TOKEN, CHAT_GATEWAY_MODEL.
+function resolveChatEndpointUrl() {
+  if (process.env.CHAT_ENDPOINT_URL) return process.env.CHAT_ENDPOINT_URL;
+  const host = process.env.CHAT_GATEWAY_HOST;
+  if (!host) return '';
+  const port = process.env.CHAT_GATEWAY_PORT || '8787';
+  const tls = process.env.CHAT_GATEWAY_TLS !== undefined
+    ? process.env.CHAT_GATEWAY_TLS !== 'false'
+    : (host !== 'localhost' && host !== '127.0.0.1');
+  const scheme = tls ? 'https' : 'http';
+  return `${scheme}://${host}:${port}/v1/chat/completions`;
+}
+const CHAT_ENDPOINT_URL = resolveChatEndpointUrl();
+const CHAT_API_KEY = process.env.CHAT_API_KEY || process.env.CHAT_GATEWAY_TOKEN || '';
+const CHAT_MODEL = process.env.CHAT_MODEL || process.env.CHAT_GATEWAY_MODEL || '';
+if (!process.env.CHAT_ENDPOINT_URL && (process.env.CHAT_GATEWAY_HOST || process.env.CHAT_GATEWAY_TOKEN)) {
+  console.warn(
+    '[env] CHAT_GATEWAY_* env vars are deprecated. ' +
+    'Migrate to CHAT_ENDPOINT_URL + CHAT_API_KEY + CHAT_MODEL.'
+  );
+}
 const CHAT_AGENT_NAME = process.env.CHAT_AGENT_NAME || 'Chat';
 const CHAT_AGENT_EMOJI = process.env.CHAT_AGENT_EMOJI || '💬';
 
@@ -152,11 +179,9 @@ module.exports = {
   HOST,
   TZ,
   INSTANCE_NAME,
-  CHAT_GATEWAY_HOST,
-  CHAT_GATEWAY_PORT,
-  CHAT_GATEWAY_TOKEN,
-  CHAT_GATEWAY_MODEL,
-  CHAT_GATEWAY_TLS,
+  CHAT_ENDPOINT_URL,
+  CHAT_API_KEY,
+  CHAT_MODEL,
   CHAT_AGENT_NAME,
   CHAT_AGENT_EMOJI,
   WEBAUTHN_RP_NAME,

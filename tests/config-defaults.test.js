@@ -18,12 +18,15 @@ function freshEnv(overrides = {}) {
   for (const key of Object.keys(require.cache)) {
     if (key.startsWith(CONFIG_DIR)) delete require.cache[key];
   }
-  // Nuke any EH_ / HEALTH_ / CHAT_GATEWAY_ vars that could leak from the host.
+  // Nuke any EH_ / HEALTH_ / CHAT_ vars that could leak from the host.
   // We do this BEFORE applying overrides so the overrides alone define truth.
   const strip = Object.keys(process.env).filter(k =>
     k.startsWith('HEALTH_') ||
     k.startsWith('CHAT_GATEWAY_') ||
+    k.startsWith('CHAT_ENDPOINT_') ||
     k.startsWith('FISH_AUDIO_') ||
+    k === 'CHAT_API_KEY' ||
+    k === 'CHAT_MODEL' ||
     k === 'CHAT_AGENT_NAME' ||
     k === 'CHAT_AGENT_EMOJI' ||
     k === 'SESSION_SECRET' ||
@@ -69,34 +72,75 @@ describe('config/env.js defaults', () => {
     assert.ok(env.WEBAUTHN_ORIGIN.startsWith('http://localhost:'));
   });
 
-  test('CHAT_GATEWAY_TOKEN defaults to empty string (no leaked prod token)', () => {
+  test('CHAT_API_KEY defaults to empty string (no leaked prod token)', () => {
     const env = freshEnv();
-    assert.equal(env.CHAT_GATEWAY_TOKEN, '');
+    assert.equal(env.CHAT_API_KEY, '');
   });
 
-  test('CHAT_GATEWAY_HOST defaults to "localhost"', () => {
+  test('CHAT_ENDPOINT_URL defaults to empty (chat disabled)', () => {
     const env = freshEnv();
-    assert.equal(env.CHAT_GATEWAY_HOST, 'localhost');
+    assert.equal(env.CHAT_ENDPOINT_URL, '');
   });
 
-  test('CHAT_GATEWAY_TLS auto-selects false for localhost', () => {
+  test('CHAT_MODEL defaults to empty', () => {
     const env = freshEnv();
-    assert.equal(env.CHAT_GATEWAY_TLS, false);
+    assert.equal(env.CHAT_MODEL, '');
   });
 
-  test('CHAT_GATEWAY_TLS auto-selects true for a remote host', () => {
-    const env = freshEnv({ CHAT_GATEWAY_HOST: 'gateway.example.com' });
-    assert.equal(env.CHAT_GATEWAY_TLS, true);
+  test('CHAT_ENDPOINT_URL env var sets the endpoint verbatim', () => {
+    const env = freshEnv({ CHAT_ENDPOINT_URL: 'https://api.example.com/v1/chat/completions' });
+    assert.equal(env.CHAT_ENDPOINT_URL, 'https://api.example.com/v1/chat/completions');
   });
 
-  test('CHAT_GATEWAY_TLS=false forces false even on a remote host', () => {
-    const env = freshEnv({ CHAT_GATEWAY_HOST: 'gateway.example.com', CHAT_GATEWAY_TLS: 'false' });
-    assert.equal(env.CHAT_GATEWAY_TLS, false);
+  test('legacy CHAT_GATEWAY_HOST + PORT compose into CHAT_ENDPOINT_URL', () => {
+    const env = freshEnv({
+      CHAT_GATEWAY_HOST: 'gateway.example.com',
+      CHAT_GATEWAY_PORT: '8443',
+    });
+    assert.equal(
+      env.CHAT_ENDPOINT_URL,
+      'https://gateway.example.com:8443/v1/chat/completions'
+    );
   });
 
-  test('CHAT_GATEWAY_PORT defaults to 8787', () => {
-    const env = freshEnv();
-    assert.equal(env.CHAT_GATEWAY_PORT, 8787);
+  test('legacy CHAT_GATEWAY_HOST=localhost composes with http (TLS auto-off)', () => {
+    const env = freshEnv({ CHAT_GATEWAY_HOST: 'localhost', CHAT_GATEWAY_PORT: '8787' });
+    assert.equal(env.CHAT_ENDPOINT_URL, 'http://localhost:8787/v1/chat/completions');
+  });
+
+  test('legacy CHAT_GATEWAY_TLS=false forces http even on a remote host', () => {
+    const env = freshEnv({
+      CHAT_GATEWAY_HOST: 'gateway.example.com',
+      CHAT_GATEWAY_PORT: '8787',
+      CHAT_GATEWAY_TLS: 'false',
+    });
+    assert.equal(env.CHAT_ENDPOINT_URL, 'http://gateway.example.com:8787/v1/chat/completions');
+  });
+
+  test('CHAT_ENDPOINT_URL wins over legacy CHAT_GATEWAY_HOST', () => {
+    const env = freshEnv({
+      CHAT_ENDPOINT_URL: 'https://new.example.com/v1/chat/completions',
+      CHAT_GATEWAY_HOST: 'old.example.com',
+    });
+    assert.equal(env.CHAT_ENDPOINT_URL, 'https://new.example.com/v1/chat/completions');
+  });
+
+  test('legacy CHAT_GATEWAY_TOKEN maps to CHAT_API_KEY', () => {
+    const env = freshEnv({ CHAT_GATEWAY_TOKEN: 'legacy-bearer' });
+    assert.equal(env.CHAT_API_KEY, 'legacy-bearer');
+  });
+
+  test('CHAT_API_KEY wins over legacy CHAT_GATEWAY_TOKEN', () => {
+    const env = freshEnv({
+      CHAT_API_KEY: 'canonical',
+      CHAT_GATEWAY_TOKEN: 'legacy',
+    });
+    assert.equal(env.CHAT_API_KEY, 'canonical');
+  });
+
+  test('legacy CHAT_GATEWAY_MODEL maps to CHAT_MODEL', () => {
+    const env = freshEnv({ CHAT_GATEWAY_MODEL: 'legacy-model' });
+    assert.equal(env.CHAT_MODEL, 'legacy-model');
   });
 
   test('PORT defaults to 8080', () => {
@@ -118,7 +162,7 @@ describe('config/env.js defaults', () => {
       WEBAUTHN_RP_ID: env.WEBAUTHN_RP_ID,
       WEBAUTHN_RP_NAME: env.WEBAUTHN_RP_NAME,
       WEBAUTHN_ORIGIN: env.WEBAUTHN_ORIGIN,
-      CHAT_GATEWAY_HOST: env.CHAT_GATEWAY_HOST,
+      CHAT_ENDPOINT_URL: env.CHAT_ENDPOINT_URL,
       HEALTH_SYSTEM_PROMPT: env.HEALTH_SYSTEM_PROMPT,
     });
     for (const name of ['Axis', 'Eddy', 'Onyx', 'Chuck']) {
@@ -160,9 +204,9 @@ describe('config/env.js env overrides', () => {
     assert.equal(env.WEBAUTHN_RP_ID, 'health.example.com');
   });
 
-  test('CHAT_GATEWAY_TOKEN env var wins over default', () => {
-    const env = freshEnv({ CHAT_GATEWAY_TOKEN: 'bearer-token-abc' });
-    assert.equal(env.CHAT_GATEWAY_TOKEN, 'bearer-token-abc');
+  test('CHAT_API_KEY env var wins over default', () => {
+    const env = freshEnv({ CHAT_API_KEY: 'bearer-token-abc' });
+    assert.equal(env.CHAT_API_KEY, 'bearer-token-abc');
   });
 
   test('HEALTH_INSTANCE_NAME env var wins', () => {
