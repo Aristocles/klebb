@@ -164,11 +164,11 @@ docker compose up --build
 The override swaps the published image for `build: .` and exposes the
 port on all interfaces for LAN-based dev testing.
 
-### Reaching a chat gateway on the host
+### Reaching a chat endpoint on the host
 
-If you're running an OpenAI-compatible LLM gateway on the host (for the
-chat widget), point `CHAT_GATEWAY_HOST=host.docker.internal` in `.env`.
-The compose file already maps that hostname to the host via
+If you're running an OpenAI-compatible chat endpoint on the host (for the
+chat widget), point `CHAT_ENDPOINT_URL=http://host.docker.internal:<port>/v1/chat/completions`
+in `.env`. The compose file already maps that hostname to the host via
 `extra_hosts: host.docker.internal:host-gateway`.
 
 ## Running tests
@@ -208,7 +208,7 @@ Optional feature flags:
 | Var | Purpose |
 |-----|---------|
 | `AGENT_API_TOKEN` | Bearer token for server-to-server card writes |
-| `CHAT_GATEWAY_HOST`, `CHAT_GATEWAY_PORT`, `CHAT_GATEWAY_TOKEN`, `CHAT_GATEWAY_MODEL`, `CHAT_GATEWAY_TLS` | Chat widget gateway |
+| `CHAT_ENDPOINT_URL`, `CHAT_API_KEY`, `CHAT_MODEL` | Chat widget endpoint (any OpenAI-compatible chat-completions URL) |
 | `CHAT_AGENT_NAME`, `CHAT_AGENT_EMOJI` | Chat widget branding |
 | `FISH_AUDIO_API_KEY`, `FISH_AUDIO_DEFAULT_VOICE` | Voice chat |
 | `HEALTH_INSTANCE_NAME`, `HEALTH_RP_NAME` | UI branding |
