@@ -461,12 +461,81 @@ class HealthChat extends LitElement {
     this._playingMsgId = null;
     this._msgCounter = 0;
     // msgId -> { url, autoplayed }
+    // Not persisted: blob URLs don't survive a reload and re-synthesise on
+    // demand from the server anyway.
     this._audioCache = new Map();
     this._agentName = 'Chat';
     this._agentEmoji = '\u{1F4AC}'; // 💬 speech balloon
+    this._saveTimer = null;
     this._checkVoiceAvailability();
     this._loadInstance();
+    this._loadHistory();
     this._stallWatcher();
+  }
+
+  // ---------- History persistence ----------
+  //
+  // Chat history is kept on the server at /api/chat/history so it follows
+  // the user across devices. Saves are debounced so a flurry of updates
+  // during a reply (e.g. streaming placeholder patches) become one PUT.
+
+  async _loadHistory() {
+    try {
+      const r = await fetch('/api/chat/history', { cache: 'no-store' });
+      if (!r.ok) return;
+      const j = await r.json();
+      const arr = Array.isArray(j.messages) ? j.messages : [];
+      const clean = arr.filter(m =>
+        m && typeof m === 'object' &&
+        (m.role === 'user' || m.role === 'assistant') &&
+        typeof m.content === 'string'
+      );
+      // Only adopt server state if nothing's been added locally in the
+      // meantime (pathological: user typed before the initial GET landed).
+      if (this._messages.length === 0) {
+        this._messages = clean;
+        this._msgCounter = clean.reduce((max, m) => {
+          const n = parseInt(String(m.id).match(/^m(\d+)/)?.[1] || '0', 10);
+          return n > max ? n : max;
+        }, 0);
+      }
+    } catch {}
+  }
+
+  _saveHistory() {
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => this._flushHistory(), 500);
+  }
+
+  async _flushHistory() {
+    this._saveTimer = null;
+    const keep = this._messages
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .map(m => ({ id: m.id, role: m.role, content: m.content }))
+      .slice(-200);
+    try {
+      await fetch('/api/chat/history', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: keep }),
+        cache: 'no-store',
+      });
+    } catch {}
+  }
+
+  async _clearHistory() {
+    if (this._messages.some(m => m.role === 'user' || m.role === 'assistant')) {
+      if (!confirm('Start a new chat? The current conversation will be cleared.')) return;
+    }
+    stopSharedAudio();
+    this._audioCache.forEach(v => { try { URL.revokeObjectURL(v.url); } catch {} });
+    this._audioCache.clear();
+    this._messages = [];
+    this._playingMsgId = null;
+    if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
+    try {
+      await fetch('/api/chat/history', { method: 'DELETE', cache: 'no-store' });
+    } catch {}
   }
 
   async _checkVoiceAvailability() {
@@ -529,11 +598,13 @@ class HealthChat extends LitElement {
     const id = `m${++this._msgCounter}-${Date.now()}`;
     const msg = { id, role, content, ...extra };
     this._messages = [...this._messages, msg];
+    this._saveHistory();
     return id;
   }
 
   _updateMsg(id, patch) {
     this._messages = this._messages.map(m => m.id === id ? { ...m, ...patch } : m);
+    this._saveHistory();
   }
 
   _pushError(content) {
@@ -941,6 +1012,13 @@ class HealthChat extends LitElement {
             ${this._voiceAvailable ? html`
               <button class="speed-btn" @click=${this._cyclePlaybackSpeed} title="Playback speed">${this._playbackSpeed}x</button>
             ` : html`<span class="chat-header-sub">Health Assistant</span>`}
+            <button
+              class="speed-btn"
+              @click=${this._clearHistory}
+              aria-label="New chat"
+              title="New chat"
+              style="margin-left: 6px; min-width: 28px;"
+            >\u{1F4DD}</button>
             <button
               class="speed-btn"
               @click=${this._toggle}
