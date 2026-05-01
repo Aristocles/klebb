@@ -167,6 +167,99 @@ Fields:
 Same shape as `meta.view`. Typical use: `component: "line-chart"` with `xKey`
 and `yKey` pointing into the data rows.
 
+### `meta.calendar` — Calendar view config
+
+Opts the card into the Calendar view. The Calendar is a month grid
+where each day cell shows up to three emoji glyphs, one per card that
+has data for that day. Think of it as an at-a-glance "what did I log
+when" map.
+
+```json
+"calendar": {
+  "enabled":   true,
+  "component": "day-marker",
+  "marker":    "💊"
+}
+```
+
+Fields:
+- `enabled` (bool): include in Calendar. Default `false`.
+- `component` (string): `"day-marker"` is the only renderer today.
+- `marker` (string | object): which glyph to show. Three forms:
+
+**1. Static glyph** — the simplest. Same emoji every day the card has
+data for:
+
+```json
+"calendar": { "enabled": true, "component": "day-marker", "marker": "💊" }
+```
+
+If you omit `marker`, the card's `meta.emoji` is used.
+
+**2. `field-emoji`** — the glyph changes per day based on a field
+value. Great for categorical data where each value maps to its own
+emoji:
+
+```json
+"calendar": {
+  "enabled":   true,
+  "component": "day-marker",
+  "marker": {
+    "type":     "field-emoji",
+    "field":    "mood",
+    "emojiMap": { "1": "😩", "2": "😴", "3": "😐", "4": "🙂", "5": "😄" },
+    "fallback": "🙂"
+  }
+}
+```
+
+The resolver reads `row[field]` for that day, stringifies it, and looks
+it up in `emojiMap`. Missing / unmapped values fall through to
+`fallback` (or the card's `meta.emoji`, or `•`).
+
+**3. `trend-arrow`** — the glyph shows direction of change. Great for
+numeric metrics where you care about whether today's reading went up
+or down compared to the previous reading:
+
+```json
+"calendar": {
+  "enabled":   true,
+  "component": "day-marker",
+  "marker": {
+    "type":     "trend-arrow",
+    "field":    "kg",
+    "up":       "⬆️",
+    "down":     "⬇️",
+    "flat":     "➡️",
+    "fallback": "⚖️"
+  }
+}
+```
+
+- Compares today's `row[field]` to the most recent earlier row that
+  has a numeric value at the same field.
+- First entry ever (no previous) uses `fallback`.
+- `up` / `down` / `flat` default to `⬆️` / `⬇️` / `➡️` if omitted.
+
+**Where the day's row comes from.** The calendar flattens a card's
+`data` into `date -> row`:
+- Array of `{ date, ... }` rows: the last entry for each date wins.
+- Date-keyed object (`{ "2026-04-20": { ... } }`): the value is the row.
+- `items[].doses[]` (medication-schedule shape): the dose with the
+  latest `takenAt` for that day wins. Untaken doses (`takenAt: null`)
+  don't count.
+
+**Multiple entries per day.** When `maxReadingsPerDay > 1`, the latest
+same-day entry is the one the marker resolves against. Earlier
+same-day readings are still stored — just not reflected in the
+calendar glyph.
+
+**Extension space.** The marker object is discriminated by `type`; new
+kinds can ship without a schema bump. The roadmap includes
+`type: "threshold"` (range-to-emoji mirroring `display.thresholds`) and
+`type: "template"` (reuse the `{key:emoji}` mini-language). Until
+those land, the three forms above cover the common cases.
+
 ### `meta.writeable` — input form config
 
 ```json
