@@ -827,6 +827,58 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // /api/chat/history — per-instance chat transcript so it follows the
+    // user across devices. Single-user-per-instance model (WebAuthn auth),
+    // so no per-user keying is needed.
+    if (parts[0] === 'chat' && parts[1] === 'history' && parts.length === 2) {
+      if (req.method === 'GET') {
+        const existing = readJSONFile(PATHS.CHAT_HISTORY_FILE);
+        const messages = Array.isArray(existing?.messages) ? existing.messages : [];
+        return sendJSON(res, { messages });
+      }
+      if (req.method === 'PUT') {
+        let body = '';
+        let tooBig = false;
+        req.on('data', c => {
+          body += c;
+          if (body.length > 512 * 1024) { tooBig = true; req.destroy(); }
+        });
+        req.on('end', () => {
+          if (tooBig) return sendJSON(res, { error: 'History too large' }, 413);
+          let parsed;
+          try { parsed = JSON.parse(body); }
+          catch { return sendJSON(res, { error: 'Invalid JSON' }, 400); }
+          const incoming = Array.isArray(parsed?.messages) ? parsed.messages : null;
+          if (!incoming) return sendJSON(res, { error: 'messages array required' }, 400);
+          const clean = incoming
+            .filter(m => m && typeof m === 'object'
+              && (m.role === 'user' || m.role === 'assistant')
+              && typeof m.content === 'string')
+            .map(m => ({
+              id: typeof m.id === 'string' ? m.id : `m${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              role: m.role,
+              content: m.content,
+            }))
+            .slice(-200);
+          try {
+            fs.mkdirSync(PATHS.CHAT_DIR, { recursive: true });
+            const tmp = PATHS.CHAT_HISTORY_FILE + '.tmp';
+            fs.writeFileSync(tmp, JSON.stringify({ messages: clean }));
+            fs.renameSync(tmp, PATHS.CHAT_HISTORY_FILE);
+          } catch (e) {
+            return sendJSON(res, { error: 'Could not persist history' }, 500);
+          }
+          return sendJSON(res, { ok: true, messages: clean });
+        });
+        return;
+      }
+      if (req.method === 'DELETE') {
+        try { fs.unlinkSync(PATHS.CHAT_HISTORY_FILE); } catch {}
+        return sendJSON(res, { ok: true });
+      }
+      return sendJSON(res, { error: 'Method not allowed' }, 405);
+    }
+
     // POST /api/chat — proxy to chat gateway chat completions
     // Body: { messages: [...], voiceMode?: boolean }
     //   voiceMode=true → append "keep replies short/conversational" to system prompt
