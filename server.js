@@ -377,6 +377,21 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Build-info probe — populated at container build time from env vars.
+  // Lets the browser show which branch / commit is running so testers can
+  // verify they're hitting the right build. No auth: read-only metadata.
+  if (pathname === '/api/build') {
+    const commit = process.env.BUILD_COMMIT || null;
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({
+      branch: process.env.BUILD_BRANCH || null,
+      commit,
+      commitShort: commit ? commit.slice(0, 7) : null,
+      builtAt: process.env.BUILD_AT || null,
+    }));
+    return;
+  }
+
   // Handle auth routes first
   if (pathname.startsWith('/auth/')) {
     const result = await handleAuthRoutes(req, res, pathname);
