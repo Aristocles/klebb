@@ -5,13 +5,16 @@
 // whose meta.calendar.enabled is true AND which have data on that date.
 //
 // Data fetching strategy: on mount, fetch every card from /api/manifests
-// whose meta.calendar.enabled===true. Extract the dates that card has
-// data for (heuristic per data shape). Build a map: date -> [{id, marker, tooltip}].
+// whose meta.calendar.enabled===true. Extract that card's dated rows
+// (heuristic per data shape), then resolve each day's marker per the
+// card's meta.calendar.marker config (string, field-emoji, or
+// trend-arrow). Build a map: date -> [{id, marker, tooltip}].
 //
 // Navigation: < [Month Year] > with prev/next arrows and a "This month" shortcut.
 // Click a day -> navigate to /day/YYYY-MM-DD.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { extractDatedRows, resolveMarker } from '../lib/calendar-marker.esm.js';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -63,12 +66,17 @@ export class EhCalendarView extends LitElement {
       for (const entry of fetched) {
         if (!entry) continue;
         const cal = entry.meta.calendar;
-        const marker = cal.marker || entry.meta.emoji || '•';
-        const dates = this._extractDates(entry.data);
-        for (const date of dates) {
+        const spec = cal.marker ?? entry.meta.emoji ?? '•';
+        const fallback = entry.meta.emoji || '•';
+        const dated = extractDatedRows(entry.data);
+        // Sorted ascending — trend-arrow needs this to find the previous row.
+        const sortedRows = Array.from(dated.values())
+          .filter(r => r && r.date)
+          .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+        for (const [date, row] of dated) {
+          const marker = resolveMarker(spec, { date, row, sortedRows, fallback });
           if (!markers.has(date)) markers.set(date, []);
-          const existing = markers.get(date);
-          existing.push({
+          markers.get(date).push({
             id: entry.id,
             marker,
             tooltip: `${entry.meta.label || entry.id}`,
@@ -81,36 +89,6 @@ export class EhCalendarView extends LitElement {
     } finally {
       this._loading = false;
     }
-  }
-
-  // Try to find which dates a data block has entries for.
-  // Handles: arrays of {date}, objects keyed by date, items with doses[].
-  _extractDates(data) {
-    const dates = new Set();
-    if (!data) return dates;
-    if (Array.isArray(data)) {
-      for (const e of data) {
-        if (e && typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date)) dates.add(e.date);
-      }
-    } else if (typeof data === 'object') {
-      // Object keyed by date (mood, notes)
-      for (const k of Object.keys(data)) {
-        if (/^\d{4}-\d{2}-\d{2}$/.test(k)) dates.add(k);
-      }
-      // Items with doses[] (peptides)
-      if (Array.isArray(data.items)) {
-        for (const item of data.items) {
-          if (Array.isArray(item.doses)) {
-            for (const d of item.doses) {
-              if (d.takenAt && typeof d.scheduledDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.scheduledDate)) {
-                dates.add(d.scheduledDate);
-              }
-            }
-          }
-        }
-      }
-    }
-    return dates;
   }
 
   _shiftMonth(delta) {
