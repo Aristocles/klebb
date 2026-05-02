@@ -12,14 +12,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **Calendar markers can now reflect the day's value, not just "had
   data".** `meta.calendar.marker` accepts either a string (static
   glyph, existing behaviour) or an object describing a per-day glyph.
-  Two kinds ship: `type: "field-emoji"` picks a glyph from an
-  `emojiMap` keyed by a field value on that day's row (e.g. mood 1..5
-  → 😩😴😐🙂😄); `type: "trend-arrow"` compares the day's reading to
-  the previous one and renders ⬆️/⬇️/➡️ (e.g. weight vs previous
-  reading). The resolver is type-discriminated so new kinds can ship
-  without a schema bump. `mood.example.json` and `weight.example.json`
-  demonstrate both. See `docs/CARDS.md` (§ `meta.calendar`) and
-  `docs/RECIPES.md` (Recipe 11). (#43)
+  Four kinds ship: `type: "field-emoji"` picks a glyph from an
+  `emojiMap` keyed by a field value on that day's row (mood 1..5 →
+  😩😴😐🙂😄); `type: "trend-arrow"` compares the day's reading to
+  the previous one and renders ⬆️/⬇️/➡️ (weight vs previous
+  reading); `type: "threshold"` evaluates `min`/`max`/`eq` rules to
+  pick a glyph per band (🟢/🟡/🟠/🔴 for BP); `type: "template"`
+  reuses the `display.template` mini-language so the calendar can
+  share the Today card's `emojiMap` without duplication. The
+  resolver is type-discriminated so new kinds can ship without a
+  schema bump. `mood.example.json` (template),
+  `weight.example.json` (trend-arrow), and `bp.example.json`
+  (threshold) demonstrate the range. See `docs/CARDS.md`
+  (§ `meta.calendar`) and `docs/RECIPES.md` (Recipe 11). (#43)
 - **Chat conversation is now stored server-side and follows the user
   across devices.** Previously the chat widget had no memory past the
   current panel-open, so switching from phone to laptop lost the
