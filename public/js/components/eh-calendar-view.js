@@ -7,14 +7,15 @@
 // Data fetching strategy: on mount, fetch every card from /api/manifests
 // whose meta.calendar.enabled===true. Extract that card's dated rows
 // (heuristic per data shape), then resolve each day's marker per the
-// card's meta.calendar.marker config (string, field-emoji, or
-// trend-arrow). Build a map: date -> [{id, marker, tooltip}].
+// card's meta.calendar.marker config (string, field-emoji, trend-arrow,
+// threshold, or template). Build a map: date -> [{id, marker, tooltip}].
 //
 // Navigation: < [Month Year] > with prev/next arrows and a "This month" shortcut.
 // Click a day -> navigate to /day/YYYY-MM-DD.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { extractDatedRows, resolveMarker } from '../lib/calendar-marker.esm.js';
+import { renderTemplate } from '../lib/display-template.esm.js';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -68,13 +69,14 @@ export class EhCalendarView extends LitElement {
         const cal = entry.meta.calendar;
         const spec = cal.marker ?? entry.meta.emoji ?? '•';
         const fallback = entry.meta.emoji || '•';
+        const display = entry.meta?.view?.display || null;
         const dated = extractDatedRows(entry.data);
         // Sorted ascending — trend-arrow needs this to find the previous row.
         const sortedRows = Array.from(dated.values())
           .filter(r => r && r.date)
           .sort((a, b) => String(a.date).localeCompare(String(b.date)));
         for (const [date, row] of dated) {
-          const marker = resolveMarker(spec, { date, row, sortedRows, fallback });
+          const marker = resolveMarker(spec, { date, row, sortedRows, fallback, display, renderTemplate });
           if (!markers.has(date)) markers.set(date, []);
           markers.get(date).push({
             id: entry.id,

@@ -31,6 +31,7 @@ class HealthApp extends LitElement {
     _instanceName: { state: true },
     _settingsMenuOpen: { state: true },
     _promptQueue: { state: true },
+    _buildInfo: { state: true },
   };
 
   constructor() {
@@ -43,9 +44,11 @@ class HealthApp extends LitElement {
     this._instanceName = 'Klebb';
     this._settingsMenuOpen = false;
     this._promptQueue = [];
+    this._buildInfo = null;
     document.documentElement.setAttribute('data-theme', this.theme);
     this._handleRoute();
     this._loadInstance();
+    this._loadBuildInfo();
     this._loadPrompts();
     window.addEventListener('popstate', () => this._handleRoute());
     window.addEventListener('navigate', (e) => {
@@ -84,6 +87,15 @@ class HealthApp extends LitElement {
         const j = await r.json();
         if (j.name) this._instanceName = j.name;
       }
+    } catch {}
+  }
+
+  async _loadBuildInfo() {
+    try {
+      const r = await fetch('/api/build');
+      if (!r.ok) return;
+      const j = await r.json();
+      if (j && (j.branch || j.commitShort)) this._buildInfo = j;
     } catch {}
   }
 
@@ -214,6 +226,21 @@ class HealthApp extends LitElement {
       flex-shrink: 0;
       white-space: nowrap;
     }
+    .build-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted, var(--text-secondary));
+      font-size: 0.65rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
     .nav-links {
       display: flex;
       gap: 4px;
@@ -309,6 +336,11 @@ class HealthApp extends LitElement {
           <div class="nav-main">
             <div class="logo" @click=${this._toggleTheme} style="cursor:pointer" title="Toggle theme">
               <span>${this.theme === 'light' ? '💪' : '🌙'}</span> ${this._instanceName}
+              ${this._buildInfo ? html`
+                <span class="build-badge"
+                  title="${this._buildInfo.commit || ''}${this._buildInfo.builtAt ? ' @ ' + this._buildInfo.builtAt : ''}"
+                >${this._buildInfo.branch || ''}${this._buildInfo.branch && this._buildInfo.commitShort ? ' @ ' : ''}${this._buildInfo.commitShort || ''}</span>
+              ` : ''}
             </div>
             <div class="nav-links">
               <button class="nav-link ${this.route === 'today' || this.route === 'day' ? 'active' : ''}" @click=${() => this._navigate('/')}>Today</button>
