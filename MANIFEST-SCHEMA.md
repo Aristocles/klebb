@@ -209,6 +209,61 @@ earlier entry with a numeric value on `field`, render up/down/flat:
 - `fallback` (string, optional): glyph for the very first entry (no
   previous to compare), non-numeric values, or missing field.
 
+**`type: "threshold"`** — evaluate the day's row against a list of
+rules; the first matching rule's emoji wins. Mirrors the
+`display.thresholds` matcher shape (so `min`/`max`/`eq` behave the
+same). Good for clinical bands (BP, body temp, SpO₂) or discrete
+phase labels.
+
+```json
+"marker": {
+  "type":  "threshold",
+  "field": "systolic",
+  "rules": [
+    { "max": 119, "emoji": "🟢" },
+    { "max": 129, "emoji": "🟡" },
+    { "max": 139, "emoji": "🟠" },
+    { "max": 999, "emoji": "🔴" }
+  ],
+  "fallback": "•"
+}
+```
+
+- `field` (string, required): field on the day's row to evaluate.
+- `rules` (array, required): each rule is
+  `{ min?, max?, eq?, emoji }`. Rules iterate top-to-bottom; the
+  first rule whose field exists and satisfies the matcher wins.
+- Matchers: `min <= row[field] <= max` (both optional, at least one
+  required), or `row[field]` stringly-equals `eq`.
+- `fallback` (string, optional): glyph when no rule matches or the
+  field is missing.
+
+**`type: "template"`** — render a template string against the day's
+row using the same mini-language as `view.display.template`. Great
+for reusing an `emojiMap` that already lives in `display` rather than
+duplicating it under `calendar`.
+
+```json
+"marker": {
+  "type":     "template",
+  "template": "{mood:emoji}",
+  "fallback": "🙂"
+}
+```
+
+- `template` (string, required): same syntax as
+  `display.template` — supports `{key}`, `{key:emoji}`,
+  `{key:round(N)}`, `{key|default}`, `{key?yes:no}`, dotted paths.
+- The card's `meta.view.display` block is passed to the renderer so
+  `{key:emoji}` resolves against `display.emojiMap[key]` — i.e. the
+  same map the Today card uses.
+- `fallback` (string, optional): glyph when the template renders
+  empty (missing field, no match).
+
+Because both the calendar and the Today card read from the same
+`display.emojiMap`, the two stay in lock-step without you having to
+edit the manifest in two places.
+
 #### Multiple entries per day
 
 If a card allows `maxReadingsPerDay > 1`, the **latest entry wins** for
