@@ -1,0 +1,30 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "example-table-list",
+    "label": "Example: Table List",
+    "emoji": "📋",
+    "category": "example",
+    "order": 9300,
+    "reports": {
+      "enabled": true,
+      "component": "table-list",
+      "columns": [
+        { "field": "date",   "header": "Date" },
+        { "field": "test",   "header": "Test" },
+        { "field": "result", "header": "Result" },
+        { "field": "unit",   "header": "Unit" }
+      ],
+      "sort": { "field": "date", "dir": "desc" }
+    }
+  },
+  "description": "Demonstrates the table-list renderer under the Reports view. Useful for ad-hoc tabular data: blood panels, SNP reports, lab results, etc. Rows are free-form objects; columns are declared in meta.reports.columns. Each row object's keys should match the declared `field` names.",
+  "data": [
+    { "date": "2026-04-29", "test": "HbA1c",       "result": 5.2,  "unit": "%" },
+    { "date": "2026-04-29", "test": "Fasting glucose", "result": 4.8,  "unit": "mmol/L" },
+    { "date": "2026-04-29", "test": "LDL-C",       "result": 2.4,  "unit": "mmol/L" },
+    { "date": "2026-04-29", "test": "HDL-C",       "result": 1.6,  "unit": "mmol/L" },
+    { "date": "2026-04-29", "test": "Triglycerides", "result": 0.9, "unit": "mmol/L" },
+    { "date": "2026-01-15", "test": "HbA1c",       "result": 5.3,  "unit": "%" }
+  ]
+}
