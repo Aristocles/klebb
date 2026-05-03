@@ -53,6 +53,7 @@ COPY --from=deps --chown=klebb:klebb /app/node_modules ./node_modules
 COPY --chown=klebb:klebb package.json ./
 COPY --chown=klebb:klebb server.js ./
 COPY --chown=klebb:klebb auth ./auth
+COPY --chown=klebb:klebb chat ./chat
 COPY --chown=klebb:klebb config ./config
 COPY --chown=klebb:klebb manifests ./manifests
 COPY --chown=klebb:klebb public ./public
