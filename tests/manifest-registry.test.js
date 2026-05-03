@@ -162,7 +162,7 @@ describe('manifest registry', () => {
     }
   });
 
-  test('listForView filters by enabled: true AND non-empty data', () => {
+  test('listForView gates on enabled flags only; empty-data cards still render', () => {
     const sandbox = createSandbox({
       seed: {
         'a.json': {
@@ -180,16 +180,25 @@ describe('manifest registry', () => {
           meta: { id: 'c', label: 'C', view: { enabled: true, component: 'generic-card' } },
           data: [],
         },
+        'd.json': {
+          $schema: 'klebb.datafile.v1',
+          meta: {
+            id: 'd', label: 'D',
+            enabled: false,
+            view: { enabled: true, component: 'generic-card' },
+          },
+          data: [{ date: '2026-04-20', v: 3 }],
+        },
       },
     });
     try {
       const registry = freshRegistry(sandbox);
       registry.init();
-      const viewCards = registry.listForView('view');
-      const ids = viewCards.map(c => c.id);
-      assert.ok(ids.includes('a'), 'a should be in view (enabled + has data)');
-      assert.ok(!ids.includes('b'), 'b should NOT be in view (disabled)');
-      assert.ok(!ids.includes('c'), 'c should NOT be in view (empty data)');
+      const ids = registry.listForView('view').map(c => c.id);
+      assert.ok(ids.includes('a'), 'a: view.enabled + data → in');
+      assert.ok(ids.includes('c'), 'c: view.enabled + empty data → in (renderer handles empty state)');
+      assert.ok(!ids.includes('b'), 'b: view.enabled=false → out');
+      assert.ok(!ids.includes('d'), 'd: master enabled=false → out (hidden everywhere)');
     } finally {
       cleanupSandbox(sandbox);
     }

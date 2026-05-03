@@ -489,9 +489,12 @@ agree.
    the other to be logged as an error.
 4. **Legacy compatibility.** Files without `$schema` are silently skipped
    — they may still be valid flat JSON consumed by legacy integrations.
-5. **Empty data hides the card.** Cards with `data: []` or `data: {}` do
-   not render in views (avoids "ghost" cards). Write a dummy entry or
-   just wait until real data exists.
+5. **Empty data still renders the card.** Cards with `data: []` or
+   `data: {}` show in their renderer's empty state (e.g. generic-card
+   uses `meta.view.display.emptyHeadline`), so a newly-created card is
+   immediately visible and loggable. Hide a card by setting
+   `meta.enabled: false` (master) or the per-view `enabled` flag — via
+   the Settings page or by editing the file directly.
 
 ---
 

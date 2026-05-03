@@ -325,12 +325,13 @@ function reorderByIds(ids) {
 }
 
 // Filter for a specific view, returning shape the frontend can consume directly.
+// Only `enabled` flags gate visibility — empty data renders as the card's
+// empty state (generic-card's emptyHeadline etc.) so a newly-created card
+// remains visible and loggable before the first entry lands.
 function listForView(viewName) {
   const result = [];
   for (const entry of _entries.values()) {
     if (!isEnabledIn(entry, viewName)) continue;
-    // Card is enabled in this view, but still hidden if no data (empty files = no card).
-    if (!_hasRenderableData(entry, viewName)) continue;
     result.push({
       id: entry.meta.id,
       meta: entry.meta,
@@ -344,22 +345,6 @@ function listForView(viewName) {
     return (a.meta.label || '').localeCompare(b.meta.label || '');
   });
   return result;
-}
-
-function _hasRenderableData(entry, viewName) {
-  // Virtual cards (source:) are always renderable — they compute from other cards
-  if (entry.meta[viewName] && entry.meta[viewName].source) return true;
-  const d = entry.data;
-  if (d === null || d === undefined) return false;
-  if (Array.isArray(d)) return d.length > 0;
-  if (typeof d === 'object') {
-    if (Object.keys(d).length === 0) return false;
-    // For schedule-type data (items array), check that too
-    if (Array.isArray(d.items) && d.items.length === 0) return false;
-    return true;
-  }
-  // Primitive (string/number) — count as renderable
-  return true;
 }
 
 // Create a brand-new manifest from a caller-supplied object. Writes it to

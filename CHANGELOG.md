@@ -7,6 +7,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Cards with empty data no longer get auto-hidden from views.** The
+  old rule "empty data hides the card" (to avoid ghost cards) made a
+  fresh writeable card invisible to its owner before the first entry
+  — e.g. a brand-new weight card, or anything just created via the
+  chat agent's `create_manifest` tool. Visibility is now driven by
+  the `enabled` flags only (master `meta.enabled` + per-view
+  `enabled`). Renderers handle the empty state themselves
+  (generic-card uses `meta.view.display.emptyHeadline` etc.). Users
+  who want to hide a card still can, via Settings or by setting
+  `meta.enabled: false` in the file. (#65)
+
 ### Added
 
 - **Chat agent actually calls the manifest endpoints now.** #61 shipped
