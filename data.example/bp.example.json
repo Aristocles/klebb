@@ -86,7 +86,17 @@
     "calendar": {
       "enabled": true,
       "component": "day-marker",
-      "marker": "💓"
+      "marker": {
+        "type": "threshold",
+        "field": "systolic",
+        "rules": [
+          { "max": 119, "emoji": "🟢" },
+          { "max": 129, "emoji": "🟡" },
+          { "max": 139, "emoji": "🟠" },
+          { "max": 999, "emoji": "🔴" }
+        ],
+        "fallback": "💓"
+      }
     },
     "writeable": {
       "fromWebapp": true,

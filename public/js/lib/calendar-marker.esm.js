@@ -3,6 +3,10 @@
 // public/js/lib/calendar-marker.esm.js
 // ES-module twin of calendar-marker.js. Keep in sync — Node tests use the
 // UMD version, browser components use this one.
+//
+// See calendar-marker.js for full docs on marker shapes and the ctx
+// interface. Supports: string | field-emoji | trend-arrow | threshold
+// | template.
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -105,6 +109,43 @@ export function resolveMarker(spec, ctx) {
       if (currentNum > prevNum) return spec.up || '⬆️';
       if (currentNum < prevNum) return spec.down || '⬇️';
       return spec.flat || '➡️';
+    }
+
+    case 'threshold': {
+      if (!spec.field || !Array.isArray(spec.rules) || !row) {
+        return spec.fallback || fallback;
+      }
+      const v = getValue(row, spec.field);
+      if (v === null || v === undefined || v === '') {
+        return spec.fallback || fallback;
+      }
+      for (const rule of spec.rules) {
+        if (!rule || typeof rule !== 'object') continue;
+        if ('eq' in rule) {
+          if (String(v) === String(rule.eq)) return rule.emoji || spec.fallback || fallback;
+          continue;
+        }
+        const n = Number(v);
+        if (Number.isNaN(n)) continue;
+        if ('min' in rule && n < Number(rule.min)) continue;
+        if ('max' in rule && n > Number(rule.max)) continue;
+        if (!('min' in rule) && !('max' in rule)) continue;
+        return rule.emoji || spec.fallback || fallback;
+      }
+      return spec.fallback || fallback;
+    }
+
+    case 'template': {
+      if (!spec.template || !row) {
+        return spec.fallback || fallback;
+      }
+      const render = ctx && ctx.renderTemplate;
+      if (typeof render !== 'function') {
+        return spec.fallback || fallback;
+      }
+      const out = render(spec.template, row, (ctx && ctx.display) || null);
+      if (out && out.trim()) return out;
+      return spec.fallback || fallback;
     }
 
     default:
