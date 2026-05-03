@@ -97,6 +97,33 @@ export class EhViewRenderer extends LitElement {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
       }
     }
+
+    /* Masonry layout via CSS multi-column. Used outside of reorder mode
+       so short cards pack upwards into the gaps left by taller cards
+       (e.g. Symptoms/Appointments filling space under Medication/Mood).
+       Reorder mode stays on grid because SortableJS misbehaves inside
+       column layouts. */
+    .masonry {
+      column-count: 1;
+      column-gap: 12px;
+      margin-top: 6px;
+    }
+    .masonry > * {
+      break-inside: avoid;
+      margin-bottom: 12px;
+      /* display:block on the wrapper so column layout treats it as one
+         unit rather than trying to split its contents. */
+      display: block;
+    }
+    .masonry > .slot-top {
+      column-span: all;
+    }
+    @media (min-width: 768px) {
+      .masonry { column-count: 2; }
+    }
+    @media (min-width: 1100px) {
+      .masonry { column-count: 3; }
+    }
     .loading, .empty {
       padding: 40px 20px;
       text-align: center;
@@ -516,7 +543,7 @@ export class EhViewRenderer extends LitElement {
       <div class="sr-live" aria-live="polite" aria-atomic="true">${this._ariaAnnouncement}</div>
       ${this._renderReorderBar()}
       ${this._renderErrorPill()}
-      <div class="grid">
+      <div class=${this._reorderMode ? 'grid' : 'masonry'}>
         ${this.cards.map(c => this._renderCard(c))}
       </div>
     `;
