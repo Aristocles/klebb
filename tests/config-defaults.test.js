@@ -191,6 +191,37 @@ describe('config/env.js defaults', () => {
     assert.ok(env.HEALTH_SYSTEM_PROMPT.length > 100);
     assert.ok(env.HEALTH_SYSTEM_PROMPT.includes('health assistant'));
   });
+
+  test('default system prompt advertises the create/delete endpoints + the full renderer + input surface', () => {
+    const env = freshEnv();
+    const p = env.HEALTH_SYSTEM_PROMPT;
+
+    // Endpoints (so the agent knows what to call)
+    assert.ok(p.includes('POST /api/manifests'), 'should advertise POST /api/manifests');
+    assert.ok(p.includes('DELETE /api/manifests/:id'), 'should advertise DELETE /api/manifests/:id');
+
+    // Every built-in renderer name, so the agent picks correctly
+    for (const renderer of [
+      'generic-card', 'list-card', 'checklist-card', 'schedule-card',
+      'schedule-timeline', 'markdown-doc', 'line-chart', 'table-list',
+      'adherence-report', 'greeting-banner',
+    ]) {
+      assert.ok(p.includes(renderer), `prompt should list renderer "${renderer}"`);
+    }
+
+    // Schedule shapes
+    for (const type of ['daily', 'weekly', 'every_n_days', 'on_off', 'phased', 'as_needed']) {
+      assert.ok(p.includes(type), `prompt should mention schedule type "${type}"`);
+    }
+
+    // Marker types (so the calendar integration is discoverable)
+    for (const marker of ['field-emoji', 'trend-arrow', 'threshold', 'template']) {
+      assert.ok(p.includes(marker), `prompt should mention marker type "${marker}"`);
+    }
+
+    // Escape-hatch sentinel: agents need to know unknown renderers are OK
+    assert.ok(/persist/i.test(p), 'prompt should describe the ad-hoc persistence escape hatch');
+  });
 });
 
 describe('config/env.js env overrides', () => {

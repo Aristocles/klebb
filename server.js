@@ -431,6 +431,50 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, { entries: registry.list(), errors: registry.errors() });
     }
 
+    // POST /api/manifests — create a brand new card from a full manifest body.
+    // Lenient on purpose: any JSON whose $schema, meta.id, meta.label satisfy
+    // the load path's contract is accepted. Unknown renderer names are allowed
+    // (ad-hoc escape hatch) and render as eh-unknown-card until a matching
+    // renderer exists. Auth is already enforced globally at the top of the
+    // request handler.
+    if (parts[0] === 'manifests' && parts.length === 1 && req.method === 'POST') {
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        let parsed;
+        try { parsed = JSON.parse(body || '{}'); }
+        catch { return sendJSON(res, { error: 'invalid JSON body' }, 400); }
+        try {
+          const result = registry.createManifest(parsed);
+          return sendJSON(res, {
+            ok: true,
+            id: result.id,
+            source: path.basename(result.source),
+          }, 201);
+        } catch (e) {
+          const msg = e.message || 'create failed';
+          const status = /^duplicate id/.test(msg) ? 409
+            : /^invalid id/.test(msg) ? 422
+            : /^(missing |unsupported \$schema)/.test(msg) ? 400
+            : 500;
+          return sendJSON(res, { error: msg }, status);
+        }
+      });
+      return;
+    }
+
+    // DELETE /api/manifests/:id — remove a card + its file.
+    if (parts[0] === 'manifests' && parts.length === 2 && req.method === 'DELETE') {
+      const id = parts[1];
+      if (!registry.get(id)) return send404(res, 'manifest not found');
+      try {
+        const result = registry.deleteManifest(id);
+        return sendJSON(res, { ok: true, id: result.id });
+      } catch (e) {
+        return sendJSON(res, { error: e.message || 'delete failed' }, 500);
+      }
+    }
+
     // GET /api/views/:viewName — cards that opt into a named view
     if (parts[0] === 'views' && parts.length === 2 && req.method === 'GET') {
       const viewName = parts[1];

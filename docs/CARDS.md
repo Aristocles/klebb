@@ -86,6 +86,13 @@ The master kill-switch. When `false`, the card is hidden from **every** view
 The data stays in the file; only visibility is suppressed. Toggle via the
 Settings page, or just edit the file yourself.
 
+### `meta.category` (optional)
+
+Free-form grouping label (e.g. `"vitals"`, `"health"`, `"example"`). Used
+by a handful of example manifests and surfaced as data for agents and
+future filters, but not wired into the core layout today. Pass-through:
+the registry stores whatever you give it.
+
 ### `meta.prompt` (optional, default: no prompt)
 
 Turns the card into a **modal-prompt** on app open. Once per day per card,
@@ -166,6 +173,56 @@ Fields:
 
 Same shape as `meta.view`. Typical use: `component: "line-chart"` with `xKey`
 and `yKey` pointing into the data rows.
+
+### `meta.reports` — the Reports view config
+
+Opts the card into the Reports view. Three renderers live here, each
+with its own config. See `MANIFEST-SCHEMA.md` for the full spec; a
+quick tour:
+
+**`adherence-report`** — % adherence for scheduled items (reads
+`data.items[].doses[]`):
+
+```json
+"reports": {
+  "enabled": true,
+  "component": "adherence-report",
+  "showCompliance": true,
+  "showInventory":  true
+}
+```
+
+**`schedule-timeline`** — stacked timeline of scheduled items:
+
+```json
+"reports": {
+  "enabled": true,
+  "component": "schedule-timeline",
+  "windowDays": 14,
+  "showPast": true,
+  "showFuture": true
+}
+```
+
+**`table-list`** — rowset-as-table; rows are free-form objects. Useful
+for blood panels, SNPs, anything ad-hoc:
+
+```json
+"reports": {
+  "enabled": true,
+  "component": "table-list",
+  "columns": [
+    { "field": "date",   "header": "Date" },
+    { "field": "test",   "header": "Test" },
+    { "field": "result", "header": "Result", "format": "number" }
+  ],
+  "sort": { "field": "date", "dir": "desc" }
+}
+```
+
+Runnable examples live at `data.example/example-adherence-report.example.json`,
+`data.example/example-schedule-timeline.example.json`, and
+`data.example/example-table-list.example.json`.
 
 ### `meta.calendar` — Calendar view config
 

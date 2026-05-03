@@ -71,9 +71,11 @@ authenticates with a bearer token instead of a WebAuthn session cookie.
 | Method | Path | Purpose |
 |--------|------|---------|
 | `GET` | `/api/manifests` | List all cards |
+| `POST` | `/api/manifests` | Create a new card from a full manifest body |
 | `GET` | `/api/manifests/:id` | Fetch full manifest |
 | `GET` | `/api/manifests/:id/data` | Fetch just the data block |
 | `POST` | `/api/manifests/:id/data` | Replace the data block |
+| `DELETE` | `/api/manifests/:id` | Remove the card and its file |
 | `POST` | `/api/manifests/reorder` | Reassign `meta.order` across cards |
 | `GET` | `/api/views/:view` | List cards for a view |
 | `GET` | `/api/settings/cards` | List all cards with enable state |
@@ -123,6 +125,64 @@ The registry validates `$schema` and core `meta.*` fields, but does **not**
 impose a schema on the `data` block. Whatever you write is what gets read
 back. This keeps card authorship flexible but means agents must honour the
 per-card convention (typically `{ date: "YYYY-MM-DD", ...fields }` rows).
+
+### Creating and deleting cards
+
+Agents can author brand new cards without filesystem access. `POST
+/api/manifests` takes a full manifest body and writes it to
+`$HEALTH_HOME/data/<meta.id>.json`:
+
+```http
+POST /api/manifests
+Authorization: Bearer $KLEBB_AGENT_TOKEN
+Content-Type: application/json
+
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "blood-pressure",
+    "label": "Blood Pressure",
+    "emoji": "🩺",
+    "view":      { "enabled": true, "component": "list-card" },
+    "writeable": {
+      "fromWebapp": true, "todayAllowed": true, "pastAllowed": true,
+      "inputs": [
+        {"key":"systolic","label":"Systolic","type":"number","required":true},
+        {"key":"diastolic","label":"Diastolic","type":"number","required":true}
+      ]
+    }
+  },
+  "description": "Home BP readings.",
+  "data": []
+}
+```
+
+| Status | Meaning |
+|--------|---------|
+| 201 | Created (`{ok, id, source}`) |
+| 400 | Malformed: bad JSON, wrong `$schema`, missing `meta.id`/`meta.label` |
+| 401 | No auth |
+| 409 | `meta.id` already in use |
+| 422 | `meta.id` fails the sanitiser (format / reserved / path escape) |
+| 500 | Filesystem write failed |
+
+`meta.id` must match `/^[a-z0-9][a-z0-9._-]*$/`, max 64 chars, and not
+be one of the reserved names (`_archive`, `_virtual`, `_meta`,
+`auto-export`, `reports`, `index`). Everything else is pass-through —
+unknown renderer names are accepted on purpose; they render as a
+placeholder card until a matching renderer ships. See
+`MANIFEST-SCHEMA.md` for the full field reference.
+
+Deletion mirrors the create path:
+
+```http
+DELETE /api/manifests/blood-pressure
+Authorization: Bearer $KLEBB_AGENT_TOKEN
+```
+
+Returns `{ok, id}` on success, 404 if the id is unknown. The file is
+unlinked; any data it contained is gone. Prefer `meta.enabled:false`
+if you only want to hide the card.
 
 ### Disabled cards still accept writes
 
