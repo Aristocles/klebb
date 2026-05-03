@@ -41,6 +41,10 @@ Klebb dashboard. For the human-friendly tour, see
                                       //   so inserts can use gaps (150, 250…)
   "enabled":  true,                   // optional bool, default true;
                                       //   false hides card from EVERY view
+  "category": "vitals",               // optional free-form grouping label;
+                                      //   pass-through (not used in core
+                                      //   layout today; surfaces as data
+                                      //   for agents and future filters)
   "view":     { ... },                // optional view config
   "trends":   { ... },                // optional trends config
   "calendar": { ... },                // optional calendar config
@@ -319,6 +323,64 @@ All support: `key` (required), `label`, `required`, `default`, `help`.
 
 ---
 
+## Reports config (`meta.reports`)
+
+The Reports view has its own small set of renderers geared at summarised
+or tabular output. Config shape depends on the renderer:
+
+### `adherence-report`
+
+Summarises scheduled-item adherence across a rolling window. Expects
+the card's `data` to follow the schedule-block shape (`{groups, items,
+items[].doses}` — see `medication-schedule.example.json` and
+`example-adherence-report.example.json`).
+
+```json
+"reports": {
+  "enabled": true,
+  "component": "adherence-report",
+  "showCompliance": true,     // optional, default true
+  "showInventory":  true      // optional
+}
+```
+
+### `schedule-timeline`
+
+Stacked timeline of scheduled items across a window. Typically shares
+the same `data` shape as `adherence-report`.
+
+```json
+"reports": {
+  "enabled": true,
+  "component": "schedule-timeline",
+  "windowDays": 14,           // window to display
+  "showPast":   true,
+  "showFuture": true
+}
+```
+
+### `table-list`
+
+Generic rowset-as-table, useful for blood panels, SNPs, lab results,
+and any ad-hoc tabular data. `data` is an array of row objects.
+
+```json
+"reports": {
+  "enabled": true,
+  "component": "table-list",
+  "columns": [
+    { "field": "date",   "header": "Date" },
+    { "field": "test",   "header": "Test" },
+    { "field": "result", "header": "Result", "format": "number" }
+  ],
+  "sort": { "field": "date", "dir": "desc" }
+}
+```
+
+See `data.example/example-*.example.json` for runnable versions of each.
+
+---
+
 ## Built-in renderers
 
 Use one of these names in `meta.view.component` / `meta.trends.component`:
@@ -427,9 +489,12 @@ agree.
    the other to be logged as an error.
 4. **Legacy compatibility.** Files without `$schema` are silently skipped
    — they may still be valid flat JSON consumed by legacy integrations.
-5. **Empty data hides the card.** Cards with `data: []` or `data: {}` do
-   not render in views (avoids "ghost" cards). Write a dummy entry or
-   just wait until real data exists.
+5. **Empty data still renders the card.** Cards with `data: []` or
+   `data: {}` show in their renderer's empty state (e.g. generic-card
+   uses `meta.view.display.emptyHeadline`), so a newly-created card is
+   immediately visible and loggable. Hide a card by setting
+   `meta.enabled: false` (master) or the per-view `enabled` flag — via
+   the Settings page or by editing the file directly.
 
 ---
 
@@ -441,3 +506,57 @@ changes will bump to v2 and ship a migration script.
 Non-breaking additions (new optional fields, new input types, new
 renderers) do NOT require a version bump — v1 manifests are
 forward-compatible as long as they don't rely on fields introduced later.
+
+---
+
+## HTTP API — create / delete cards
+
+In addition to the existing read + data-replace endpoints (see
+`docs/CHAT-AGENT.md`), two endpoints let callers author new cards
+without touching the filesystem directly:
+
+### `POST /api/manifests`
+
+Creates a brand new card. Body is a full manifest object. Auth matches
+the rest of the `/api/` surface (session cookie for the webapp, Bearer
+token via `AGENT_API_TOKEN` for agents).
+
+Required fields: `$schema === "klebb.datafile.v1"`, `meta.id` matching
+`/^[a-z0-9][a-z0-9._-]*$/` (max 64 chars, not in the reserved set
+`_archive`, `_virtual`, `_meta`, `auto-export`, `reports`, `index`),
+and `meta.label`. Everything else is pass-through.
+
+| Status | Meaning |
+|--------|---------|
+| 201 | Created. Response `{ok, id, source: "<filename>"}` |
+| 400 | Malformed: bad JSON body, wrong `$schema`, missing `meta.id`/`meta.label` |
+| 401 | No auth |
+| 409 | `meta.id` already in use (in-memory or on-disk) |
+| 422 | `meta.id` fails the sanitiser (bad chars, reserved name, path escape) |
+| 500 | Filesystem write failed |
+
+The endpoint is intentionally lenient: any renderer name is accepted,
+including ones not (yet) implemented. Unknown renderers fall through to
+`eh-unknown-card` until a real renderer ships — see "Ad-hoc manifests"
+below.
+
+### `DELETE /api/manifests/:id`
+
+Removes the card from the registry and deletes its file. Same auth
+model.
+
+| Status | Meaning |
+|--------|---------|
+| 200 | Removed. Response `{ok, id}` |
+| 401 | No auth |
+| 404 | Unknown id |
+| 500 | Unlink failed |
+
+### Ad-hoc manifests
+
+When an agent wants a renderer that doesn't exist yet, the
+recommendation is to POST anyway with the best-guess component name.
+The card persists; the renderer registry falls back to the unknown-card
+placeholder on the frontend; a human can retrofit a dedicated renderer
+later without migration. This is the supported path for extending the
+system without a code change.

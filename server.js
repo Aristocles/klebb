@@ -14,6 +14,7 @@ const { convertDateKeyedToArray } = require('./scripts/migrate-date-keyed-to-arr
 const { runFirstBootDemoSeed } = require('./scripts/seed-demo');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
+const { TOOL_DEFS, dispatchToolCall } = require('./chat/tools');
 
 // chat endpoint config (env-driven; see config/env.js)
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
@@ -239,6 +240,104 @@ function extractJsonReply(raw) {
   return null;
 }
 
+// POST one chat-completions payload to the configured gateway and return the
+// parsed JSON response. Promise rejects with a typed Error so the caller can
+// map to the right HTTP status:
+//   'gateway_unavailable: <msg>'  -> 502
+//   'gateway_timeout'             -> 504
+//   'gateway_parse: <msg>'        -> 500
+// Preserves the existing transport options (no keep-alive, self-signed TLS
+// tolerated, 180s per-hop timeout).
+function callGateway({ messages, tools }) {
+  return new Promise((resolve, reject) => {
+    if (!CHAT_ENDPOINT) return reject(new Error('gateway_unavailable: CHAT_ENDPOINT_URL not set'));
+    const body = { model: CHAT_MODEL, messages };
+    if (tools && tools.length) {
+      body.tools = tools;
+      body.tool_choice = 'auto';
+    }
+    const payload = JSON.stringify(body);
+    const options = {
+      hostname: CHAT_ENDPOINT.hostname,
+      port: CHAT_ENDPOINT.port,
+      path: CHAT_ENDPOINT.path,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${CHAT_API_KEY}`,
+        'Content-Length': Buffer.byteLength(payload),
+        'Connection': 'close',
+      },
+      rejectUnauthorized: false,
+      agent: false,
+    };
+    const proxyReq = CHAT_ENDPOINT.transport.request(options, (proxyRes) => {
+      let data = '';
+      proxyRes.on('data', c => data += c);
+      proxyRes.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error('gateway_parse: ' + e.message)); }
+      });
+    });
+    proxyReq.on('error', (e) => reject(new Error('gateway_unavailable: ' + e.message)));
+    proxyReq.setTimeout(180000, () => {
+      proxyReq.destroy();
+      reject(new Error('gateway_timeout'));
+    });
+    proxyReq.write(payload);
+    proxyReq.end();
+  });
+}
+
+// Run the OpenAI-compatible tool-calling loop. Each iteration:
+//   1. call the gateway with current messages (+ TOOL_DEFS)
+//   2. if finish_reason is 'tool_calls', execute each tool_call, append the
+//      assistant turn and one {role:"tool"} per call, loop.
+//   3. otherwise, return the assistant's text as the final reply.
+// Caps at MAX_ITERS to keep a misbehaving model from looping forever; if we
+// hit the cap we return the last text we saw (or a fallback).
+async function runAgentLoop({ systemPrompt, userMessages }) {
+  const MAX_ITERS = 5;
+  const messages = [{ role: 'system', content: systemPrompt }, ...userMessages];
+  let lastAssistantText = '';
+  for (let i = 0; i < MAX_ITERS; i++) {
+    const gw = await callGateway({ messages, tools: TOOL_DEFS });
+    const choice = gw.choices?.[0];
+    const msg = choice?.message || {};
+    const finish = choice?.finish_reason;
+
+    if (typeof msg.content === 'string' && msg.content.trim()) {
+      lastAssistantText = msg.content;
+    }
+
+    if (finish === 'tool_calls' && Array.isArray(msg.tool_calls) && msg.tool_calls.length) {
+      // Preserve tool_calls on the round-trip; your provider rejects the
+      // next turn if the assistant message is missing them.
+      messages.push({
+        role: 'assistant',
+        content: msg.content || '',
+        tool_calls: msg.tool_calls,
+      });
+      for (const tc of msg.tool_calls) {
+        messages.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          name: tc.function?.name,
+          content: dispatchToolCall(tc),
+        });
+      }
+      continue;
+    }
+
+    return { finalText: msg.content || lastAssistantText || '', cappedOut: false };
+  }
+  return {
+    finalText: lastAssistantText ||
+      "I wasn't able to finish that in one turn — please re-ask or be more specific.",
+    cappedOut: true,
+  };
+}
+
 // Synthesise the legacy injection-log.json shape { 'YYYY-MM-DD': { 'PeptideName': { taken: true, time: ISO } } }
 // from the v2 peptides.json data.items[].doses[]. Called by the legacy
 // injection-log endpoints after migration has archived the original file.
@@ -429,6 +528,50 @@ const server = http.createServer(async (req, res) => {
     // GET /api/manifests — list of all registered manifests
     if (parts[0] === 'manifests' && parts.length === 1 && req.method === 'GET') {
       return sendJSON(res, { entries: registry.list(), errors: registry.errors() });
+    }
+
+    // POST /api/manifests — create a brand new card from a full manifest body.
+    // Lenient on purpose: any JSON whose $schema, meta.id, meta.label satisfy
+    // the load path's contract is accepted. Unknown renderer names are allowed
+    // (ad-hoc escape hatch) and render as eh-unknown-card until a matching
+    // renderer exists. Auth is already enforced globally at the top of the
+    // request handler.
+    if (parts[0] === 'manifests' && parts.length === 1 && req.method === 'POST') {
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        let parsed;
+        try { parsed = JSON.parse(body || '{}'); }
+        catch { return sendJSON(res, { error: 'invalid JSON body' }, 400); }
+        try {
+          const result = registry.createManifest(parsed);
+          return sendJSON(res, {
+            ok: true,
+            id: result.id,
+            source: path.basename(result.source),
+          }, 201);
+        } catch (e) {
+          const msg = e.message || 'create failed';
+          const status = /^duplicate id/.test(msg) ? 409
+            : /^invalid id/.test(msg) ? 422
+            : /^(missing |unsupported \$schema)/.test(msg) ? 400
+            : 500;
+          return sendJSON(res, { error: msg }, status);
+        }
+      });
+      return;
+    }
+
+    // DELETE /api/manifests/:id — remove a card + its file.
+    if (parts[0] === 'manifests' && parts.length === 2 && req.method === 'DELETE') {
+      const id = parts[1];
+      if (!registry.get(id)) return send404(res, 'manifest not found');
+      try {
+        const result = registry.deleteManifest(id);
+        return sendJSON(res, { ok: true, id: result.id });
+      } catch (e) {
+        return sendJSON(res, { error: e.message || 'delete failed' }, 500);
+      }
     }
 
     // GET /api/views/:viewName — cards that opt into a named view
@@ -967,68 +1110,35 @@ Original system prompt follows:
             return sendJSON(res, { error: 'Chat endpoint not configured' }, 503);
           }
 
-          const payload = JSON.stringify({
-            model: CHAT_MODEL,
-            messages: fullMessages,
-          });
-
-          const options = {
-            hostname: CHAT_ENDPOINT.hostname,
-            port: CHAT_ENDPOINT.port,
-            path: CHAT_ENDPOINT.path,
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${CHAT_API_KEY}`,
-              'Content-Length': Buffer.byteLength(payload),
-              'Connection': 'close',
-            },
-            rejectUnauthorized: false, // self-signed TLS tolerated; endpoint trust is operator's call
-            agent: false, // disable keep-alive — stale pooled connections hang on some endpoints
-          };
-
-          const proxyReq = CHAT_ENDPOINT.transport.request(options, (proxyRes) => {
-            let data = '';
-            proxyRes.on('data', c => data += c);
-            proxyRes.on('end', () => {
-              try {
-                const result = JSON.parse(data);
-                const rawReply = result.choices?.[0]?.message?.content || '';
-                if (voiceMode) {
-                  // Parse { speak, display } JSON. The model is instructed to
-                  // output nothing but the JSON object; handle stray text + code
-                  // fences defensively.
-                  const parsed = extractJsonReply(rawReply);
-                  if (parsed && (parsed.speak || parsed.display)) {
-                    const speak = (parsed.speak || parsed.display || '').trim();
-                    const display = (parsed.display || parsed.speak || '').trim();
-                    return sendJSON(res, { reply: display, speak });
-                  }
-                  // Fallback if the model didn't produce JSON: use the raw text
-                  // for both (with light emoji stripping for speak)
-                  const speak = rawReply.replace(/\p{Extended_Pictographic}/gu, '').trim();
-                  return sendJSON(res, { reply: rawReply || 'No response', speak });
+          runAgentLoop({ systemPrompt, userMessages: messages })
+            .then(({ finalText }) => {
+              if (voiceMode) {
+                const parsedReply = extractJsonReply(finalText);
+                if (parsedReply && (parsedReply.speak || parsedReply.display)) {
+                  const speak = (parsedReply.speak || parsedReply.display || '').trim();
+                  const display = (parsedReply.display || parsedReply.speak || '').trim();
+                  return sendJSON(res, { reply: display, speak });
                 }
-                sendJSON(res, { reply: rawReply || 'No response' });
-              } catch (e) {
-                console.error('Chat parse error:', e.message);
-                sendJSON(res, { error: 'Failed to parse response' }, 500);
+                const speak = finalText.replace(/\p{Extended_Pictographic}/gu, '').trim();
+                return sendJSON(res, { reply: finalText || 'No response', speak });
               }
+              sendJSON(res, { reply: finalText || 'No response' });
+            })
+            .catch((e) => {
+              const msg = e.message || String(e);
+              if (msg.startsWith('gateway_timeout')) {
+                console.error('Chat gateway timeout');
+                if (!res.headersSent) sendJSON(res, { error: 'Request timed out' }, 504);
+                return;
+              }
+              if (msg.startsWith('gateway_unavailable')) {
+                console.error('Chat proxy error:', msg);
+                if (!res.headersSent) sendJSON(res, { error: 'Gateway unavailable' }, 502);
+                return;
+              }
+              console.error('Chat parse error:', msg);
+              if (!res.headersSent) sendJSON(res, { error: 'Failed to parse response' }, 500);
             });
-          });
-
-          proxyReq.on('error', (e) => {
-            console.error('Chat proxy error:', e.message);
-            if (!res.headersSent) sendJSON(res, { error: 'Gateway unavailable' }, 502);
-          });
-
-          proxyReq.setTimeout(180000, () => {
-            proxyReq.destroy();
-            if (!res.headersSent) sendJSON(res, { error: 'Request timed out' }, 504);
-          });
-
-          proxyReq.write(payload);
-          proxyReq.end();
         } catch (e) {
           sendJSON(res, { error: 'Invalid request' }, 400);
         }
