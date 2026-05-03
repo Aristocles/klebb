@@ -50,6 +50,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Voice notes now work in the Docker image.** The runtime container
+  was missing `ffmpeg`, which the server shells out to for transcoding
+  browser audio (WebM/Opus/MP4) into the 16 kHz mono WAV that Fish ASR
+  reliably accepts. Recording a voice note returned "audio transcode
+  failed; spawn ffmpeg ENOENT". `ffmpeg` is now installed in the
+  runtime stage. Bare-metal deploys were unaffected because ffmpeg
+  already existed on the host. (#57)
 - **Chat no longer aborts an in-flight reply on every momentary tab
   switch.** The visibility-change watcher used to abort any pending
   `/api/chat` request the instant the tab became visible again,

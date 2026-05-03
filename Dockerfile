@@ -32,10 +32,12 @@ LABEL org.opencontainers.image.title="Klebb" \
 #   ca-certificates — HTTPS trust anchors for outbound calls (chat gateway, Fish Audio)
 #   tini            — proper PID 1 so SIGTERM reaches Node cleanly
 #   gosu            — privilege drop from root -> klebb in the entrypoint
+#   ffmpeg          — transcode browser voice-note audio to 16 kHz mono WAV for Fish ASR
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
       tini \
       gosu \
+      ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root runtime user
