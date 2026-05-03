@@ -7,8 +7,65 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Cards with empty data no longer get auto-hidden from views.** The
+  old rule "empty data hides the card" (to avoid ghost cards) made a
+  fresh writeable card invisible to its owner before the first entry
+  — e.g. a brand-new weight card, or anything just created via the
+  chat agent's `create_manifest` tool. Visibility is now driven by
+  the `enabled` flags only (master `meta.enabled` + per-view
+  `enabled`). Renderers handle the empty state themselves
+  (generic-card uses `meta.view.display.emptyHeadline` etc.). Users
+  who want to hide a card still can, via Settings or by setting
+  `meta.enabled: false` in the file. (#65)
+
 ### Added
 
+- **Chat agent actually calls the manifest endpoints now.** #61 shipped
+  `POST /api/manifests` + `DELETE /api/manifests/:id` and taught the
+  system prompt about them, but the in-app agent (Klebbius) had no way
+  to make an HTTP call from inside a chat turn — the chat proxy just
+  forwarded `{model, messages}` to the gateway. This PR wires an
+  OpenAI-compatible tool-calling agent loop into `/api/chat` so the
+  model can call three new tools that dispatch directly into the
+  registry (no HTTP hop to self): `create_manifest(manifest)`,
+  `delete_manifest(id)`, and `list_manifests()`. The loop re-calls
+  the gateway on `finish_reason: "tool_calls"`, appending the
+  assistant turn + tool-result messages each iteration, capped at 5
+  iterations so a misbehaving model can't spin forever. Tool errors
+  (e.g. 409 duplicate id, 422 bad id) come back as the tool-result
+  content so the model can self-correct in the same chat turn; only
+  the final text reply reaches the widget. Tool rounds are not
+  persisted to chat history. System prompt is updated to name the
+  tools (the existing HTTP list stays as reference material for
+  external agents with `AGENT_API_TOKEN`). Verified end-to-end
+  against a live LiteLLM gateway. (#63)
+- **Chat agent can now create and delete cards directly.** Two new
+  endpoints land alongside the existing manifest surface:
+  `POST /api/manifests` creates a brand new card from a full manifest
+  body (201 on success, 409 on duplicate id, 400/422 on validation
+  failure); `DELETE /api/manifests/:id` removes a card and unlinks its
+  file. Auth matches the rest of `/api/` (session cookie or bearer
+  token). The create endpoint is intentionally lenient: any JSON whose
+  `$schema` is `klebb.datafile.v1` and whose `meta.id` + `meta.label`
+  pass validation is accepted, so agents can ship cards with renderer
+  names that don't exist yet (they render as an unknown-card placeholder
+  and data persists). `DEFAULT_HEALTH_SYSTEM_PROMPT` is augmented with a
+  full authoring guide: every built-in renderer, every input type,
+  schedule shape, calendar marker type, `meta.reports` config, and two
+  worked examples. New example manifests cover the three renderers that
+  previously had no proof-by-example: `example-schedule-timeline`,
+  `example-adherence-report`, `example-table-list`.
+  `MANIFEST-SCHEMA.md`, `docs/CARDS.md`, and `docs/CHAT-AGENT.md`
+  document `meta.reports` per renderer, `meta.category`, and the new
+  endpoints. (#61)
+- **Masonry layout on the Today view.** Cards with short content
+  (Symptoms, Appointments) now pack upwards into gaps left by taller
+  neighbours on multi-column viewports, rather than waiting for the
+  tallest row-mate to finish before starting a new row. Reorder mode
+  keeps the grid layout because SortableJS misbehaves in column
+  layouts. (#59)
 - **Calendar markers can now reflect the day's value, not just "had
   data".** `meta.calendar.marker` accepts either a string (static
   glyph, existing behaviour) or an object describing a per-day glyph.

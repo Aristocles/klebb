@@ -162,7 +162,7 @@ describe('manifest registry', () => {
     }
   });
 
-  test('listForView filters by enabled: true AND non-empty data', () => {
+  test('listForView gates on enabled flags only; empty-data cards still render', () => {
     const sandbox = createSandbox({
       seed: {
         'a.json': {
@@ -180,16 +180,25 @@ describe('manifest registry', () => {
           meta: { id: 'c', label: 'C', view: { enabled: true, component: 'generic-card' } },
           data: [],
         },
+        'd.json': {
+          $schema: 'klebb.datafile.v1',
+          meta: {
+            id: 'd', label: 'D',
+            enabled: false,
+            view: { enabled: true, component: 'generic-card' },
+          },
+          data: [{ date: '2026-04-20', v: 3 }],
+        },
       },
     });
     try {
       const registry = freshRegistry(sandbox);
       registry.init();
-      const viewCards = registry.listForView('view');
-      const ids = viewCards.map(c => c.id);
-      assert.ok(ids.includes('a'), 'a should be in view (enabled + has data)');
-      assert.ok(!ids.includes('b'), 'b should NOT be in view (disabled)');
-      assert.ok(!ids.includes('c'), 'c should NOT be in view (empty data)');
+      const ids = registry.listForView('view').map(c => c.id);
+      assert.ok(ids.includes('a'), 'a: view.enabled + data → in');
+      assert.ok(ids.includes('c'), 'c: view.enabled + empty data → in (renderer handles empty state)');
+      assert.ok(!ids.includes('b'), 'b: view.enabled=false → out');
+      assert.ok(!ids.includes('d'), 'd: master enabled=false → out (hidden everywhere)');
     } finally {
       cleanupSandbox(sandbox);
     }
@@ -316,6 +325,195 @@ describe('manifest registry', () => {
       registry.reload();
       assert.equal(registry.errors().length, 0, 'errors should clear after fix + reload');
       assert.equal(registry.list().length, 1, 'and the card should now be listed');
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  // --- createManifest / deleteManifest ---
+
+  test('createManifest writes the file + populates list()', () => {
+    const sandbox = createSandbox();
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      const result = registry.createManifest({
+        $schema: 'klebb.datafile.v1',
+        meta: { id: 'bp', label: 'Blood Pressure', view: { enabled: true, component: 'list-card' } },
+        data: [{ date: '2026-04-20', systolic: 120, diastolic: 80 }],
+      });
+      assert.equal(result.id, 'bp');
+      assert.ok(fs.existsSync(path.join(sandbox, 'data', 'bp.json')));
+      const list = registry.list();
+      assert.equal(list.length, 1);
+      assert.equal(list[0].id, 'bp');
+      assert.equal(list[0].meta.label, 'Blood Pressure');
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('createManifest rejects duplicate id (already in registry)', () => {
+    const sandbox = createSandbox({
+      seed: {
+        'bp.json': {
+          $schema: 'klebb.datafile.v1',
+          meta: { id: 'bp', label: 'BP' },
+          data: [],
+        },
+      },
+    });
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      assert.throws(
+        () => registry.createManifest({
+          $schema: 'klebb.datafile.v1',
+          meta: { id: 'bp', label: 'BP Again' },
+          data: [],
+        }),
+        /duplicate id: bp/,
+      );
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('createManifest rejects when a file already exists on disk (parse error, not in registry)', () => {
+    const sandbox = createSandbox();
+    // Pre-write a broken file so it fails to parse and never lands in _entries
+    fs.writeFileSync(path.join(sandbox, 'data', 'bp.json'), '{broken');
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      assert.throws(
+        () => registry.createManifest({
+          $schema: 'klebb.datafile.v1',
+          meta: { id: 'bp', label: 'BP' },
+          data: [],
+        }),
+        /duplicate id: file already exists on disk/,
+      );
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('createManifest rejects invalid id formats', () => {
+    const sandbox = createSandbox();
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      for (const badId of ['../hack', 'Blood Pressure', 'blood pressure', 'UPPER', '-leading-dash', '.leading-dot']) {
+        assert.throws(
+          () => registry.createManifest({
+            $schema: 'klebb.datafile.v1',
+            meta: { id: badId, label: 'X' },
+            data: [],
+          }),
+          /invalid id/,
+          `id "${badId}" should be rejected`,
+        );
+      }
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('createManifest rejects reserved ids', () => {
+    const sandbox = createSandbox();
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      for (const reserved of ['_archive', 'reports', 'index', 'auto-export']) {
+        assert.throws(
+          () => registry.createManifest({
+            $schema: 'klebb.datafile.v1',
+            meta: { id: reserved, label: 'X' },
+            data: [],
+          }),
+          /invalid id/,
+          `id "${reserved}" should be reserved`,
+        );
+      }
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('createManifest rejects missing $schema / meta.id / meta.label', () => {
+    const sandbox = createSandbox();
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      assert.throws(
+        () => registry.createManifest({ meta: { id: 'x', label: 'X' } }),
+        /missing \$schema/,
+      );
+      assert.throws(
+        () => registry.createManifest({ $schema: 'klebb.datafile.v1', meta: { label: 'X' } }),
+        /missing meta\.id/,
+      );
+      assert.throws(
+        () => registry.createManifest({ $schema: 'klebb.datafile.v1', meta: { id: 'x' } }),
+        /missing meta\.label/,
+      );
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('createManifest accepts ad-hoc unknown renderer names (escape hatch)', () => {
+    const sandbox = createSandbox();
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      const result = registry.createManifest({
+        $schema: 'klebb.datafile.v1',
+        meta: {
+          id: 'sleep-arch',
+          label: 'Sleep Architecture',
+          view: { enabled: true, component: 'sleep-stages-sunburst' },
+        },
+        data: { stages: [{ name: 'REM', pct: 22 }] },
+      });
+      assert.equal(result.id, 'sleep-arch');
+      const entry = registry.get('sleep-arch');
+      assert.equal(entry.meta.view.component, 'sleep-stages-sunburst');
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('deleteManifest removes the file and drops the entry', () => {
+    const sandbox = createSandbox({
+      seed: {
+        'bp.json': {
+          $schema: 'klebb.datafile.v1',
+          meta: { id: 'bp', label: 'BP' },
+          data: [],
+        },
+      },
+    });
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      assert.equal(registry.list().length, 1);
+      registry.deleteManifest('bp');
+      assert.equal(registry.list().length, 0);
+      assert.equal(registry.get('bp'), null);
+      assert.ok(!fs.existsSync(path.join(sandbox, 'data', 'bp.json')));
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('deleteManifest unknown id throws', () => {
+    const sandbox = createSandbox();
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      assert.throws(() => registry.deleteManifest('nonexistent'), /unknown manifest/);
     } finally {
       cleanupSandbox(sandbox);
     }

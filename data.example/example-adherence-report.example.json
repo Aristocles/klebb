@@ -1,0 +1,56 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "example-adherence-report",
+    "label": "Example: Adherence Report",
+    "emoji": "✅",
+    "category": "example",
+    "order": 9200,
+    "reports": {
+      "enabled": true,
+      "component": "adherence-report",
+      "showCompliance": true,
+      "showInventory": true
+    }
+  },
+  "description": "Demonstrates the adherence-report renderer. Reads items[].doses[] from a schedule-shaped data block and computes % compliance over a rolling window. Each dose row is {scheduledDate, takenAt}; leave takenAt null to represent a missed dose. Not shown on Today or Trends — the card only surfaces under the Reports view.",
+  "data": {
+    "groups": [
+      {
+        "id": "daily-meds",
+        "label": "Daily medications",
+        "items": ["morning-dose", "evening-dose"]
+      }
+    ],
+    "items": [
+      {
+        "name": "morning-dose",
+        "dose": "1 tablet",
+        "schedule": { "frequency": "daily", "times_per_day": 1 },
+        "cycles": [{ "type": "on", "start": "2026-04-01", "end": "2026-12-31" }],
+        "doses": [
+          { "scheduledDate": "2026-04-25", "takenAt": "2026-04-25T08:00:00+10:00" },
+          { "scheduledDate": "2026-04-26", "takenAt": "2026-04-26T08:04:00+10:00" },
+          { "scheduledDate": "2026-04-27", "takenAt": null },
+          { "scheduledDate": "2026-04-28", "takenAt": "2026-04-28T08:11:00+10:00" },
+          { "scheduledDate": "2026-04-29", "takenAt": "2026-04-29T07:58:00+10:00" },
+          { "scheduledDate": "2026-04-30", "takenAt": "2026-04-30T08:03:00+10:00" }
+        ]
+      },
+      {
+        "name": "evening-dose",
+        "dose": "1 tablet",
+        "schedule": { "frequency": "daily", "times_per_day": 1 },
+        "cycles": [{ "type": "on", "start": "2026-04-01", "end": "2026-12-31" }],
+        "doses": [
+          { "scheduledDate": "2026-04-25", "takenAt": "2026-04-25T20:10:00+10:00" },
+          { "scheduledDate": "2026-04-26", "takenAt": null },
+          { "scheduledDate": "2026-04-27", "takenAt": "2026-04-27T20:20:00+10:00" },
+          { "scheduledDate": "2026-04-28", "takenAt": "2026-04-28T20:15:00+10:00" },
+          { "scheduledDate": "2026-04-29", "takenAt": "2026-04-29T20:05:00+10:00" },
+          { "scheduledDate": "2026-04-30", "takenAt": null }
+        ]
+      }
+    ]
+  }
+}
