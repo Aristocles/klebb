@@ -9,6 +9,25 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Chat agent actually calls the manifest endpoints now.** #61 shipped
+  `POST /api/manifests` + `DELETE /api/manifests/:id` and taught the
+  system prompt about them, but the in-app agent (Klebbius) had no way
+  to make an HTTP call from inside a chat turn — the chat proxy just
+  forwarded `{model, messages}` to the gateway. This PR wires an
+  OpenAI-compatible tool-calling agent loop into `/api/chat` so the
+  model can call three new tools that dispatch directly into the
+  registry (no HTTP hop to self): `create_manifest(manifest)`,
+  `delete_manifest(id)`, and `list_manifests()`. The loop re-calls
+  the gateway on `finish_reason: "tool_calls"`, appending the
+  assistant turn + tool-result messages each iteration, capped at 5
+  iterations so a misbehaving model can't spin forever. Tool errors
+  (e.g. 409 duplicate id, 422 bad id) come back as the tool-result
+  content so the model can self-correct in the same chat turn; only
+  the final text reply reaches the widget. Tool rounds are not
+  persisted to chat history. System prompt is updated to name the
+  tools (the existing HTTP list stays as reference material for
+  external agents with `AGENT_API_TOKEN`). Verified end-to-end
+  against a live LiteLLM → Bedrock gateway. (#63)
 - **Chat agent can now create and delete cards directly.** Two new
   endpoints land alongside the existing manifest surface:
   `POST /api/manifests` creates a brand new card from a full manifest

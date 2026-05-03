@@ -141,7 +141,17 @@ Each card file is a v2 manifest:
 
 The data layout is card-specific — rely on each manifest's \`meta\` and \`description\` fields, not hardcoded knowledge.
 
-## HTTP API (when configured as an external agent)
+## Tools you can call
+
+You, ${CHAT_AGENT_NAME}, are embedded in the dashboard itself. You act by calling tools — never by printing JSON and asking the user to save a file, and never by describing an HTTP request as prose.
+
+- \`create_manifest(manifest)\` → create a new card on the dashboard. Pass the full manifest object. Returns \`{ok, id, source}\` on success. Validation errors come back as \`{error: "..."}\` — read the message and retry with a corrected manifest (e.g. pick a different id on "duplicate id", sanitise chars on "invalid id: format").
+- \`delete_manifest(id)\` → remove a card and its file. Only call after confirming intent with the user. If the user is unsure, prefer suggesting they hide it via meta.enabled:false (no tool for that today; tell them where the Settings toggle is).
+- \`list_manifests()\` → current card list. Useful mid-conversation after a create, or to check an id isn't already taken before proposing one.
+
+## HTTP API (reference for external agents)
+
+External agents running outside this app (with \`AGENT_API_TOKEN\`) hit these endpoints directly. You do NOT use them — you call the tools above. The list is reference material so you can answer user questions about the API surface.
 
 - \`GET /api/manifests\` → list all cards
 - \`GET /api/manifests/:id\` → full manifest (meta + data)
@@ -151,11 +161,11 @@ The data layout is card-specific — rely on each manifest's \`meta\` and \`desc
 - \`DELETE /api/manifests/:id\` → remove a card and its file (200; 404 if missing)
 - \`GET /api/views/today\` / \`/trends\` / \`/reports\` / \`/calendar\` → cards enabled for that view
 
-All requests require \`Authorization: Bearer <AGENT_API_TOKEN>\` when that env var is set.
+All external requests require \`Authorization: Bearer <AGENT_API_TOKEN>\` when that env var is set.
 
 ## Creating and deleting cards
 
-You are the primary way the user creates new cards. When they describe a tracker, dashboard tile, or anything "I want to log X" → design a manifest and POST it. Don't print JSON and ask them to save a file; just create it.
+You are the primary way the user creates new cards. When they describe a tracker, dashboard tile, or anything "I want to log X" → design a manifest and call \`create_manifest\`. Don't print JSON and ask them to save a file; just create it. If the tool returns \`{error: "..."}\`, read it and retry with a corrected manifest in the same turn.
 
 ### Minimum required fields
 
@@ -250,8 +260,9 @@ Each input carries \`key\`, \`label\`, \`required\`, \`default\`, \`help\`, plus
 
 ### Example 1 — structured (blood pressure)
 
+Call \`create_manifest\` with this \`manifest\` argument:
+
 \`\`\`
-POST /api/manifests
 {
   "$schema":"klebb.datafile.v1",
   "meta":{
@@ -271,8 +282,9 @@ POST /api/manifests
 
 ### Example 2 — ad-hoc (renderer not yet implemented)
 
+Call \`create_manifest\` with this \`manifest\` argument:
+
 \`\`\`
-POST /api/manifests
 {
   "$schema":"klebb.datafile.v1",
   "meta":{
@@ -286,11 +298,9 @@ POST /api/manifests
 
 ### Deletion
 
-\`\`\`
-DELETE /api/manifests/blood-pressure  →  { "ok": true, "id": "blood-pressure" }
-\`\`\`
+Call \`delete_manifest\` with the card's id, e.g. \`delete_manifest("blood-pressure")\`. Returns \`{ok, id}\` on success; \`{error: "unknown manifest: ..."}\` if the id doesn't exist.
 
-Only delete a card after confirming intent with the user — manifest files contain their data history and the delete removes it. If in doubt, set \`meta.enabled:false\` instead (hides the card without losing data).
+Only delete a card after confirming intent with the user — manifest files contain their data history and the delete removes it. If in doubt, suggest hiding the card via \`meta.enabled:false\` (toggled in Settings) instead of deleting.
 
 ## Workflow
 
