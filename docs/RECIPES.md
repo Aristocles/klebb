@@ -587,6 +587,81 @@ recent earlier entry's value at the same field.
 - Apply to HRV, steps, resting heart rate, grip strength — any
   numeric daily reading.
 
+### 11c — Threshold bands (BP, body temp, SpO₂)
+
+When the value falls into **clinical bands** you care about, paint the
+calendar cell with the matching band colour. First rule to match wins,
+so order rules narrow-to-wide just like `display.thresholds`.
+
+```json
+"calendar": {
+  "enabled":   true,
+  "component": "day-marker",
+  "marker": {
+    "type":  "threshold",
+    "field": "systolic",
+    "rules": [
+      { "max": 119, "emoji": "🟢" },
+      { "max": 129, "emoji": "🟡" },
+      { "max": 139, "emoji": "🟠" },
+      { "max": 999, "emoji": "🔴" }
+    ],
+    "fallback": "•"
+  }
+}
+```
+
+**Key bits:**
+- Each rule is `{ min?, max?, emoji }` (at least one bound) or
+  `{ eq, emoji }` for exact string match.
+- Rules are evaluated top-to-bottom; first match wins. Cascade
+  narrowest-first.
+- `fallback` shows when no rule matches or the field is missing.
+
+**Variations:**
+- Body temp with fever bands: `🧊` / `🟢` / `🟡` / `🔥`.
+- SpO₂: invert with `min` — `{ min: 95, emoji: '🟢' }`,
+  `{ min: 90, emoji: '🟡' }`, `{ max: 89, emoji: '🔴' }`.
+- Phase tracking with `eq`: `{ eq: 'loading', emoji: '🔁' }`,
+  `{ eq: 'rest', emoji: '💤' }`.
+
+### 11d — Template (reuse the Today card's emojiMap)
+
+If you already wrote an `emojiMap` under `view.display` for the Today
+card, the `template` type lets the calendar read the **same map** —
+no duplication. Change the map in `display` and the calendar follows.
+
+```json
+"view": {
+  "component": "generic-card",
+  "display": {
+    "template":  "{mood:emoji}",
+    "emojiMap":  { "mood": { "1": "😩", "2": "😴", "3": "😐", "4": "🙂", "5": "😄" } }
+  }
+},
+"calendar": {
+  "enabled":   true,
+  "component": "day-marker",
+  "marker": {
+    "type":     "template",
+    "template": "{mood:emoji}",
+    "fallback": "🙂"
+  }
+}
+```
+
+**Key bits:**
+- `marker.template` uses the same syntax as `display.template` —
+  `{key}`, `{key:emoji}`, `{key:round(N)}`, `{key|default}`, and so on.
+- `{key:emoji}` resolves against `display.emojiMap[key]` — same lookup
+  the Today card uses.
+- `fallback` shows when the template renders empty.
+
+**When to prefer template over field-emoji:**
+- You already have an `emojiMap` in `display` and don't want two
+  copies to keep in sync.
+- You want to combine multiple fields, e.g. `"{wakeUps?😴:✅}"`.
+
 ### Keeping it simple: static marker
 
 If you don't want per-day dynamics, the original shape still works:
@@ -598,8 +673,9 @@ If you don't want per-day dynamics, the original shape still works:
 Every day the card has data gets the same glyph. `marker` can also be
 omitted, in which case the card's `meta.emoji` is used.
 
-See `data.example/mood.example.json` (field-emoji) and
-`data.example/weight.example.json` (trend-arrow).
+See `data.example/mood.example.json` (field-emoji),
+`data.example/weight.example.json` (trend-arrow), and
+`data.example/bp.example.json` (threshold).
 
 ---
 

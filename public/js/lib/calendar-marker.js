@@ -8,6 +8,8 @@
 //   "💊"                                  → same glyph every logged day
 //   { type: "field-emoji", field, emojiMap, fallback? }
 //   { type: "trend-arrow", field, up?, down?, flat?, fallback? }
+//   { type: "threshold",   field, rules: [{ min?, max?, eq?, emoji }], fallback? }
+//   { type: "template",    template, fallback? }
 //
 // Public surface:
 //   extractDatedRows(data) -> Map<"YYYY-MM-DD", row>
@@ -16,9 +18,15 @@
 //     (last by array index for arrays; last by takenAt for doses).
 //
 //   resolveMarker(spec, ctx) -> string
-//     ctx = { date, row, sortedRows, fallback }
-//     sortedRows is dated rows ascending by date; used by trend-arrow.
-//     fallback is the glyph to use if the spec yields nothing.
+//     ctx = { date, row, sortedRows, fallback, display, renderTemplate }
+//     sortedRows: dated rows ascending by date (for trend-arrow).
+//     fallback: glyph used if the spec yields nothing.
+//     display: the card's meta.view.display block (for template type to
+//       reuse its emojiMap).
+//     renderTemplate: an injected string-template render function
+//       (same signature as display-template.renderTemplate). Injected
+//       rather than imported to keep this lib dependency-free and
+//       UMD-simple. Only required when using type: "template".
 
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -135,6 +143,43 @@
         if (currentNum > prevNum) return spec.up || '⬆️';
         if (currentNum < prevNum) return spec.down || '⬇️';
         return spec.flat || '➡️';
+      }
+
+      case 'threshold': {
+        if (!spec.field || !Array.isArray(spec.rules) || !row) {
+          return spec.fallback || fallback;
+        }
+        const v = getValue(row, spec.field);
+        if (v === null || v === undefined || v === '') {
+          return spec.fallback || fallback;
+        }
+        for (const rule of spec.rules) {
+          if (!rule || typeof rule !== 'object') continue;
+          if ('eq' in rule) {
+            if (String(v) === String(rule.eq)) return rule.emoji || spec.fallback || fallback;
+            continue;
+          }
+          const n = Number(v);
+          if (Number.isNaN(n)) continue;
+          if ('min' in rule && n < Number(rule.min)) continue;
+          if ('max' in rule && n > Number(rule.max)) continue;
+          if (!('min' in rule) && !('max' in rule)) continue;
+          return rule.emoji || spec.fallback || fallback;
+        }
+        return spec.fallback || fallback;
+      }
+
+      case 'template': {
+        if (!spec.template || !row) {
+          return spec.fallback || fallback;
+        }
+        const render = ctx && ctx.renderTemplate;
+        if (typeof render !== 'function') {
+          return spec.fallback || fallback;
+        }
+        const out = render(spec.template, row, (ctx && ctx.display) || null);
+        if (out && out.trim()) return out;
+        return spec.fallback || fallback;
       }
 
       default:

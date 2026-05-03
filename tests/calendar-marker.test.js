@@ -226,6 +226,119 @@ describe('resolveMarker', () => {
     });
   });
 
+  describe('threshold', () => {
+    const spec = {
+      type: 'threshold',
+      field: 'systolic',
+      rules: [
+        { max: 119, emoji: '🟢' },
+        { max: 129, emoji: '🟡' },
+        { max: 139, emoji: '🟠' },
+        { max: 999, emoji: '🔴' },
+      ],
+      fallback: '•',
+    };
+
+    test('first-matching rule wins', () => {
+      assert.equal(resolveMarker(spec, { row: { systolic: 110 } }), '🟢');
+      assert.equal(resolveMarker(spec, { row: { systolic: 125 } }), '🟡');
+      assert.equal(resolveMarker(spec, { row: { systolic: 135 } }), '🟠');
+      assert.equal(resolveMarker(spec, { row: { systolic: 160 } }), '🔴');
+    });
+
+    test('min bound matches', () => {
+      const rising = {
+        type: 'threshold',
+        field: 'hr',
+        rules: [{ min: 100, emoji: '⚡' }],
+        fallback: '•',
+      };
+      assert.equal(resolveMarker(rising, { row: { hr: 120 } }), '⚡');
+      assert.equal(resolveMarker(rising, { row: { hr: 80 } }), '•');
+    });
+
+    test('eq matcher for categorical values', () => {
+      const cat = {
+        type: 'threshold',
+        field: 'phase',
+        rules: [
+          { eq: 'loading',     emoji: '🔁' },
+          { eq: 'maintenance', emoji: '✅' },
+          { eq: 'rest',        emoji: '💤' },
+        ],
+        fallback: '•',
+      };
+      assert.equal(resolveMarker(cat, { row: { phase: 'loading' } }), '🔁');
+      assert.equal(resolveMarker(cat, { row: { phase: 'rest' } }), '💤');
+      assert.equal(resolveMarker(cat, { row: { phase: 'other' } }), '•');
+    });
+
+    test('missing field returns fallback', () => {
+      assert.equal(resolveMarker(spec, { row: { diastolic: 80 } }), '•');
+    });
+
+    test('no matching rule returns fallback', () => {
+      const narrow = {
+        type: 'threshold',
+        field: 'kg',
+        rules: [{ min: 60, max: 70, emoji: '✅' }],
+        fallback: '❌',
+      };
+      assert.equal(resolveMarker(narrow, { row: { kg: 90 } }), '❌');
+    });
+
+    test('missing rules array returns fallback', () => {
+      const bad = { type: 'threshold', field: 'kg', fallback: '•' };
+      assert.equal(resolveMarker(bad, { row: { kg: 80 } }), '•');
+    });
+  });
+
+  describe('template', () => {
+    // Fake renderTemplate — just concatenates values so we can prove
+    // the injection path works without pulling in the real engine.
+    const fakeRender = (tpl, row) => tpl.replace(/\{(\w+)\}/g, (_, k) => row[k] ?? '');
+
+    test('renders a template string against the row', () => {
+      const spec = { type: 'template', template: '{m}', fallback: '?' };
+      const r = resolveMarker(spec, {
+        row: { m: '🔥' }, renderTemplate: fakeRender,
+      });
+      assert.equal(r, '🔥');
+    });
+
+    test('reuses display.emojiMap when renderTemplate supports :emoji', () => {
+      // Use the real renderTemplate to prove the end-to-end integration.
+      const realPath = require('path').join(
+        __dirname, '..', 'public', 'js', 'lib', 'display-template.js'
+      );
+      const { renderTemplate } = require(realPath);
+      const spec = { type: 'template', template: '{mood:emoji}', fallback: '🙂' };
+      const display = { emojiMap: { mood: { '1': '😩', '4': '🙂', '5': '😄' } } };
+      assert.equal(
+        resolveMarker(spec, { row: { mood: 5 }, display, renderTemplate }),
+        '😄'
+      );
+    });
+
+    test('blank render result returns fallback', () => {
+      const spec = { type: 'template', template: '{missing}', fallback: '•' };
+      const r = resolveMarker(spec, {
+        row: { other: 1 }, renderTemplate: fakeRender,
+      });
+      assert.equal(r, '•');
+    });
+
+    test('no renderTemplate injected → fallback', () => {
+      const spec = { type: 'template', template: '{m}', fallback: '•' };
+      assert.equal(resolveMarker(spec, { row: { m: 'x' } }), '•');
+    });
+
+    test('missing template returns fallback', () => {
+      const spec = { type: 'template', fallback: '•' };
+      assert.equal(resolveMarker(spec, { row: { m: 'x' }, renderTemplate: fakeRender }), '•');
+    });
+  });
+
   describe('unknown type', () => {
     test('falls back rather than throwing', () => {
       const r = resolveMarker(

@@ -241,6 +241,76 @@ or down compared to the previous reading:
 - First entry ever (no previous) uses `fallback`.
 - `up` / `down` / `flat` default to `⬆️` / `⬇️` / `➡️` if omitted.
 
+**4. `threshold`** — the glyph depends on which *range* (or exact
+value) the reading falls into. Great for clinical bands (BP, body
+temp, SpO₂) or discrete phase labels (`"loading"` / `"maintenance"` /
+`"rest"`):
+
+```json
+"calendar": {
+  "enabled":   true,
+  "component": "day-marker",
+  "marker": {
+    "type":  "threshold",
+    "field": "systolic",
+    "rules": [
+      { "max": 119, "emoji": "🟢" },
+      { "max": 129, "emoji": "🟡" },
+      { "max": 139, "emoji": "🟠" },
+      { "max": 999, "emoji": "🔴" }
+    ],
+    "fallback": "•"
+  }
+}
+```
+
+Rules iterate top-to-bottom, first match wins. Each rule is one of:
+
+- `{ min, max, emoji }` — numeric bands (both bounds optional, at
+  least one required). `min <= row[field] <= max`.
+- `{ eq, emoji }` — exact string match, for categorical values.
+
+This mirrors `display.thresholds` from the generic-card renderer, so
+if you already have threshold rules colour-coding the Today card you
+can reuse the same mental model here.
+
+**5. `template`** — reuse the `display.template` mini-language to
+pick the glyph. Especially useful when you already wrote an
+`emojiMap` under `view.display` (e.g. for Mood) and don't want to
+duplicate it:
+
+```json
+"view": {
+  "component": "generic-card",
+  "display": {
+    "template":  "{mood:emoji}",
+    "emojiMap":  { "mood": { "1": "😩", "2": "😴", "3": "😐", "4": "🙂", "5": "😄" } }
+  }
+},
+"calendar": {
+  "enabled":   true,
+  "component": "day-marker",
+  "marker": {
+    "type":     "template",
+    "template": "{mood:emoji}",
+    "fallback": "🙂"
+  }
+}
+```
+
+Because `template` renders against `view.display`, the calendar reads
+the very same `emojiMap` the Today card uses. One source of truth —
+change the map in `display` and both follow.
+
+Supported template syntax (identical to `display.template`):
+
+- `{key}` — raw value
+- `{key:emoji}` — lookup in `display.emojiMap[key]`
+- `{key:round(N)}` — round numeric to N decimals
+- `{key|default}` — fallback if missing
+- `{key?yes:no}` — ternary on truthiness
+- `{path.to.nested}` — dotted access
+
 **Where the day's row comes from.** The calendar flattens a card's
 `data` into `date -> row`:
 - Array of `{ date, ... }` rows: the last entry for each date wins.
@@ -254,11 +324,10 @@ same-day entry is the one the marker resolves against. Earlier
 same-day readings are still stored — just not reflected in the
 calendar glyph.
 
-**Extension space.** The marker object is discriminated by `type`; new
-kinds can ship without a schema bump. The roadmap includes
-`type: "threshold"` (range-to-emoji mirroring `display.thresholds`) and
-`type: "template"` (reuse the `{key:emoji}` mini-language). Until
-those land, the three forms above cover the common cases.
+**Extension space.** The marker object is discriminated by `type`, so
+the resolver is open to new kinds without breaking the schema. Each
+type is one branch in the resolver; adding a new one is a local
+change. The five currently shipped cover the common cases.
 
 ### `meta.writeable` — input form config
 

@@ -28,15 +28,8 @@
       "enabled": true,
       "component": "day-marker",
       "marker": {
-        "type": "field-emoji",
-        "field": "mood",
-        "emojiMap": {
-          "1": "😩",
-          "2": "😴",
-          "3": "😐",
-          "4": "🙂",
-          "5": "😄"
-        },
+        "type": "template",
+        "template": "{mood:emoji}",
         "fallback": "🙂"
       }
     },
