@@ -19,6 +19,14 @@ const PATHS = require('../config/paths');
 const SUPPORTED_SCHEMAS = ['klebb.datafile.v1'];
 const RESERVED_DIR_PREFIX = '_';
 
+// Id sanitisation rules — shared between the create endpoint and any caller
+// that wants to validate a manifest shape without hitting disk.
+const ID_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
+const ID_MAX_LENGTH = 64;
+const RESERVED_IDS = new Set([
+  '_archive', '_virtual', '_meta', 'auto-export', 'reports', 'index',
+]);
+
 let _entries = new Map();   // id -> { meta, description, schema, data, source, version }
 let _errors = [];           // [{file, error}]
 let _watcher = null;
@@ -45,6 +53,48 @@ function _scanDir(dir) {
   return found;
 }
 
+// Validate the shape of a parsed manifest object. Shared by the on-disk load
+// path (`_parse`) and the HTTP create endpoint. Structural failures throw
+// with a prefix the server handler maps to 400/422:
+//   "missing $schema" / "unsupported $schema:" / "missing meta" / "missing
+//   meta.id" / "missing meta.label"          -> 400
+//   "invalid id: format" / "invalid id: reserved"  -> 422
+// `opts.strictId` applies the id-format sanitiser (filename-safe, reserved
+// names, length). Load-time validation is lenient about id format so legacy
+// files keep loading; the create path sets strictId:true.
+function validateManifestShape(parsed, opts = {}) {
+  const { strictId = false } = opts;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('missing $schema');
+  }
+  const schema = parsed.$schema;
+  if (!schema) throw new Error('missing $schema');
+  if (!SUPPORTED_SCHEMAS.includes(schema)) {
+    throw new Error(`unsupported $schema: ${schema}`);
+  }
+  if (!parsed.meta || typeof parsed.meta !== 'object' || Array.isArray(parsed.meta)) {
+    throw new Error('missing meta block');
+  }
+  if (!parsed.meta.id || typeof parsed.meta.id !== 'string') {
+    throw new Error('missing meta.id');
+  }
+  if (strictId) {
+    if (parsed.meta.id.length > ID_MAX_LENGTH) {
+      throw new Error('invalid id: format (too long)');
+    }
+    if (!ID_PATTERN.test(parsed.meta.id)) {
+      throw new Error('invalid id: format (must match /^[a-z0-9][a-z0-9._-]*$/)');
+    }
+    if (RESERVED_IDS.has(parsed.meta.id)) {
+      throw new Error('invalid id: reserved name');
+    }
+  }
+  if (!parsed.meta.label || typeof parsed.meta.label !== 'string') {
+    throw new Error('missing meta.label');
+  }
+  return parsed;
+}
+
 function _parse(filepath) {
   let raw;
   try {
@@ -58,26 +108,24 @@ function _parse(filepath) {
   } catch (e) {
     return { error: `invalid JSON: ${e.message}` };
   }
+  // Silently skip legacy shapes that pre-date the manifest schema.
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    // Bare arrays / primitives are legacy non-manifest data files. Skip silently.
     return { skip: 'legacy format (not a manifest object)' };
   }
-  const schema = parsed.$schema;
-  if (!schema) {
-    // Not a manifest file — legacy data. Skip silently.
+  if (!parsed.$schema) {
     return { skip: 'no $schema' };
   }
-  if (!SUPPORTED_SCHEMAS.includes(schema)) {
-    return { error: `unsupported $schema: ${schema}` };
-  }
-  if (!parsed.meta || typeof parsed.meta !== 'object') {
-    return { error: 'missing meta block' };
-  }
-  if (!parsed.meta.id || typeof parsed.meta.id !== 'string') {
-    return { error: 'meta.id required' };
-  }
-  if (!parsed.meta.label || typeof parsed.meta.label !== 'string') {
-    return { error: 'meta.label required' };
+  try {
+    validateManifestShape(parsed);
+  } catch (e) {
+    // Translate internal messages to the legacy error strings callers + tests
+    // expect. Keeps backwards-compatible error text.
+    const msg = e.message;
+    if (msg.startsWith('unsupported $schema')) return { error: msg };
+    if (msg === 'missing meta block') return { error: 'missing meta block' };
+    if (msg === 'missing meta.id') return { error: 'meta.id required' };
+    if (msg === 'missing meta.label') return { error: 'meta.label required' };
+    return { error: msg };
   }
   return { manifest: parsed };
 }
@@ -277,12 +325,13 @@ function reorderByIds(ids) {
 }
 
 // Filter for a specific view, returning shape the frontend can consume directly.
+// Only `enabled` flags gate visibility — empty data renders as the card's
+// empty state (generic-card's emptyHeadline etc.) so a newly-created card
+// remains visible and loggable before the first entry lands.
 function listForView(viewName) {
   const result = [];
   for (const entry of _entries.values()) {
     if (!isEnabledIn(entry, viewName)) continue;
-    // Card is enabled in this view, but still hidden if no data (empty files = no card).
-    if (!_hasRenderableData(entry, viewName)) continue;
     result.push({
       id: entry.meta.id,
       meta: entry.meta,
@@ -298,20 +347,67 @@ function listForView(viewName) {
   return result;
 }
 
-function _hasRenderableData(entry, viewName) {
-  // Virtual cards (source:) are always renderable — they compute from other cards
-  if (entry.meta[viewName] && entry.meta[viewName].source) return true;
-  const d = entry.data;
-  if (d === null || d === undefined) return false;
-  if (Array.isArray(d)) return d.length > 0;
-  if (typeof d === 'object') {
-    if (Object.keys(d).length === 0) return false;
-    // For schedule-type data (items array), check that too
-    if (Array.isArray(d.items) && d.items.length === 0) return false;
-    return true;
+// Create a brand-new manifest from a caller-supplied object. Writes it to
+// $HEALTH_HOME/data/<meta.id>.json atomically and populates the in-memory
+// cache so the card is visible immediately (the fs.watch reload will
+// converge later, idempotently). Throws with a prefix the HTTP handler
+// maps to a status code:
+//   "missing *" / "unsupported $schema:"  -> 400
+//   "invalid id: *"                        -> 422
+//   "duplicate id: *"                      -> 409
+// Pass-through: every other field (meta.view, meta.writeable, meta.reports,
+// meta.schedule, data, description, etc.) is stored verbatim. Unknown
+// renderer names are allowed on purpose — the frontend falls back to
+// eh-unknown-card so the card still persists and a human can retrofit.
+function createManifest(manifestObj) {
+  const parsed = validateManifestShape(manifestObj, { strictId: true });
+  const id = parsed.meta.id;
+  if (_entries.has(id)) {
+    throw new Error(`duplicate id: ${id}`);
   }
-  // Primitive (string/number) — count as renderable
-  return true;
+  const targetPath = path.join(PATHS.DATA_DIR, id + '.json');
+  // Defence-in-depth: ID_PATTERN already blocks path separators, but
+  // double-check the resolved path doesn't escape DATA_DIR.
+  const resolved = path.resolve(targetPath);
+  const dataDirResolved = path.resolve(PATHS.DATA_DIR);
+  if (!resolved.startsWith(dataDirResolved + path.sep)) {
+    throw new Error('invalid id: path escapes data dir');
+  }
+  if (fs.existsSync(targetPath)) {
+    // A file exists on disk that wasn't in _entries — likely a parse error
+    // on load. Don't overwrite it silently.
+    throw new Error(`duplicate id: file already exists on disk`);
+  }
+  const tmp = targetPath + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(parsed, null, 2));
+  fs.renameSync(tmp, targetPath);
+  _entries.set(id, {
+    meta: parsed.meta,
+    description: parsed.description || null,
+    schema: parsed.schema || null,
+    data: parsed.data === undefined ? null : parsed.data,
+    source: targetPath,
+    version: parsed.$schema,
+  });
+  return { id, source: targetPath };
+}
+
+// Remove a manifest's file and drop its entry from the cache. Throws if the
+// id is unknown (map to 404 in the handler).
+function deleteManifest(id) {
+  const entry = _entries.get(id);
+  if (!entry) throw new Error(`unknown manifest: ${id}`);
+  try {
+    fs.unlinkSync(entry.source);
+  } catch (e) {
+    // If the file's already gone, drop the cache entry anyway so we
+    // converge to the right state.
+    if (e.code !== 'ENOENT') {
+      throw new Error(`delete failed: ${e.message}`);
+    }
+  }
+  _entries.delete(id);
+  return { id, removed: entry.source };
 }
 
 module.exports = {
@@ -326,4 +422,7 @@ module.exports = {
   isMasterEnabled,
   setMasterEnabled,
   reorderByIds,
+  createManifest,
+  deleteManifest,
+  validateManifestShape,
 };
