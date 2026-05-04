@@ -9,6 +9,7 @@
 // To add a card, drop a valid manifest file into $HEALTH_HOME/data/ — see CARDS.md.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { errorFromResponse } from '../lib/save-error.js';
 
 export class EhSettingsView extends LitElement {
   static properties = {
@@ -38,7 +39,7 @@ export class EhSettingsView extends LitElement {
     this._error = null;
     try {
       const r = await fetch('/api/settings/cards');
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      if (!r.ok) throw await errorFromResponse(r);
       const { cards } = await r.json();
       this._cards = Array.isArray(cards) ? cards : [];
     } catch (e) {
@@ -54,7 +55,7 @@ export class EhSettingsView extends LitElement {
     try {
       const action = card.enabled ? 'disable' : 'enable';
       const r = await fetch(`/api/settings/cards/${encodeURIComponent(card.id)}/${action}`, { method: 'POST' });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      if (!r.ok) throw await errorFromResponse(r);
       await this._load();
     } catch (e) {
       this._error = e.message;

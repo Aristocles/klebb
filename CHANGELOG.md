@@ -7,6 +7,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **Save-failure banners now show the server's reason string.** When a
+  writeable renderer (generic-card, list-card, settings toggles, prompt
+  modal) hit a non-2xx response from \`/api/manifests/:id/data\`, the UI
+  rendered either \`HTTP 403\` or a fixed "Could not save. Try again or
+  dismiss." — hiding the server's actual \`{error: "..."}\` payload. A
+  container running in UTC while the browser is in Australia/Sydney
+  would reject today's writes as "future-dated (2026-05-05) not allowed
+  for this card", but the operator saw only the generic message. New
+  \`public/js/lib/save-error.js\` helper (\`errorFromResponse\`) reads
+  the server's JSON \`error\` field and surfaces it as
+  \`"403: future-dated entry ... not allowed"\`, pointing straight at
+  the \`TZ\` config. Covered by a small unit test. (#106)
+
 ### Added
 
 - **Expand/collapse toggle for the chat panel.** A new header button

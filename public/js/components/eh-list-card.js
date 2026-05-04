@@ -32,6 +32,7 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { renderTemplate } from '../lib/display-template.esm.js';
 import { registerRenderer } from '../renderer-registry.js';
 import { EhBaseCard, invalidateManifestCache } from './eh-base-card.js';
+import { errorFromResponse } from '../lib/save-error.js';
 import './eh-input-form.js';
 
 export class EhListCard extends EhBaseCard {
@@ -147,7 +148,7 @@ export class EhListCard extends EhBaseCard {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: surviving }),
       });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      if (!r.ok) throw await errorFromResponse(r);
 
       invalidateManifestCache(this.card.id);
       this.data = surviving;
