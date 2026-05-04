@@ -84,6 +84,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   paints, and re-runs once async history load completes if the user
   managed to open the panel before the initial \`GET /api/chat/history\`
   landed. (#80)
+- **Chat text input keeps focus after a reply lands.** The input is
+  disabled while a request is in flight, so the browser drops focus
+  and the user had to click the box again to type the next message.
+  Focus is now returned to \`.chat-input\` after \`_sendText\` settles
+  (success or error path), unless the panel was closed in the
+  meantime or the mic is recording. Skipped on mobile (<=480px) so
+  iOS Safari doesn't pop the keyboard back up uninvited. (#84)
 - **Threshold calendar markers work again when written by the chat
   agent.** The \`DEFAULT_HEALTH_SYSTEM_PROMPT\` was telling agents to
   use \`"bands": [...]\` for threshold-marker rules; the renderer
