@@ -55,6 +55,7 @@ COPY --chown=klebb:klebb server.js ./
 COPY --chown=klebb:klebb auth ./auth
 COPY --chown=klebb:klebb chat ./chat
 COPY --chown=klebb:klebb config ./config
+COPY --chown=klebb:klebb health-auto-export ./health-auto-export
 COPY --chown=klebb:klebb manifests ./manifests
 COPY --chown=klebb:klebb public ./public
 COPY --chown=klebb:klebb scripts ./scripts
