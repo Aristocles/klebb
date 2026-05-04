@@ -12,7 +12,7 @@
       "display": {
         "template": "{minutes}",
         "unit": "min",
-        "emptyHeadline": "No active minutes",
+        "emptyHeadline": "No activity data yet",
         "trendArrow": { "field": "minutes" },
         "thresholds": [
           { "ifField": "minutes", "max": 14, "colour": "#ff3333", "label": "Sedentary" },
@@ -30,16 +30,9 @@
       "unit": "min"
     },
     "writeable": {
-      "fromWebapp": true,
-      "todayAllowed": true,
-      "pastAllowed": true,
-      "futureAllowed": false,
-      "maxReadingsPerDay": 1,
-      "inputs": [
-        { "key": "minutes", "type": "number", "label": "Active minutes", "min": 0, "max": 1440, "step": 1, "required": true }
-      ]
+      "fromWebapp": false
     }
   },
-  "description": "Daily minutes of moderate-to-vigorous activity. WHO guideline is 150+ per WEEK (~22/day).",
+  "description": "Daily minutes of moderate-to-vigorous activity (Apple Exercise Time). WHO guideline is 150+ per WEEK (~22/day). Populated by the iPhone Health Auto Export webhook; see docs/HEALTH-AUTO-EXPORT.md. Often consumed by the Activity combination card rather than shown on its own.",
   "data": []
 }
