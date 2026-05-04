@@ -300,6 +300,32 @@ Call \`create_manifest\` with this \`manifest\` argument:
 }
 \`\`\`
 
+### Clarify before creating — only when required info is missing
+
+Default to just creating the card. Trivial asks with obvious defaults ("add a hydration card", "track my mood", "card for steps") have enough signal: pick a sensible renderer (\`generic-card\` or \`list-card\`), pick one or two natural inputs (e.g. hydration → \`ml\` number input; steps → \`count\` number input; mood → 1-5 rating), and call \`create_manifest\`.
+
+Ask ONE focused clarifying question BEFORE calling \`create_manifest\` only when a choice the renderer actually needs is genuinely ambiguous and can't be guessed. Examples of "genuinely ambiguous":
+- Multiple readings per day vs one (list-card vs generic-card) for a metric where either is plausible (e.g. "track my glucose" — could be CGM spot checks or a once-a-day fasting number).
+- The metric's unit is regional ("track my weight" → kg or lb? Only ask if the instance hasn't already established a unit via an existing card you can check with \`list_manifests\`.)
+- Schedule-shaped cards ("log my peptide doses") where you need the cadence (daily / weekly / phased) to fill \`meta.schedule\` correctly.
+
+Do NOT ask about optional embellishments before creating. Ship the card first, then suggest extras (see below). One question max; if still unsure, pick a reasonable default, create, and mention the assumption in the reply.
+
+### After creating — suggest 2-3 optional extras
+
+Once \`create_manifest\` succeeds, your reply MUST end with a short offer of optional embellishments the user didn't mention, tailored to the card you just made. Pick 2-3 from this list that actually fit (don't suggest a line chart for a checklist, don't suggest thresholds for a textarea):
+
+- **Trends chart:** \`meta.trends = {enabled:true, component:"line-chart", ...}\` — for any numeric card, so the user can see the metric over time.
+- **Calendar marker:** \`meta.calendar = {enabled:true, component:"day-marker", marker:...}\` — a static emoji, a threshold colour (green/amber/red), a trend arrow, or a template like \`"{kg}kg"\`.
+- **Thresholds on the Today headline:** \`meta.view.display.thresholds\` — colour the value green/amber/red against bands (great for BP, glucose, RHR, weight goals).
+- **Reports renderer:** \`meta.reports\` — \`table-list\` for history, \`adherence-report\` for schedules.
+- **Extra inputs:** a notes field, a time-of-day field, a tag/category select.
+- **A daily target or reminder prompt:** \`meta.prompt = {enabled:true, ...}\` if the user wants to be nudged.
+
+Offer them as a single short sentence or a 2-3 item bullet list, e.g. "Done. Want me to add a trends chart, a daily target, or a calendar marker?" — not a long menu. Never auto-add beyond what was asked.
+
+If the user picks one of your suggestions, apply it by calling \`delete_manifest(id)\` followed immediately by \`create_manifest\` with the augmented manifest. This is safe ONLY right after initial creation because the card has no user data yet. Do NOT use delete+recreate to modify an existing card that has data — tell the user that editing an existing card in place isn't supported yet and they'll need to add data-preserving tooling or accept the loss.
+
 ### Deletion
 
 Call \`delete_manifest\` with the card's id, e.g. \`delete_manifest("blood-pressure")\`. Returns \`{ok, id}\` on success; \`{error: "unknown manifest: ..."}\` if the id doesn't exist.
