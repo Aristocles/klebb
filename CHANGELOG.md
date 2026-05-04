@@ -31,6 +31,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Chat agent asks for clarification only when a card request is
+  genuinely ambiguous, and offers optional extras after creating.**
+  Previously, "add a hydration card" would just produce a plain
+  generic-card with one number input and no follow-up. The system
+  prompt now tells the agent to (1) default to creating when defaults
+  are obvious (hydration, mood, steps etc. just ship), (2) ask ONE
+  focused question before creating only when a renderer-critical
+  choice is genuinely ambiguous (glucose = list vs generic?; weight =
+  kg vs lb if not already established?; dose-cadence cards need
+  schedule shape), and (3) always end a successful \`create_manifest\`
+  reply with a 2-3 item offer of tailored embellishments (trends
+  chart, calendar marker, headline thresholds, reports, extra inputs,
+  daily target/reminder). Picked extras apply via delete+recreate,
+  safe only right after initial creation before the card has user
+  data. (#81)
+
 - **Threshold rules without bounds now act as a catch-all.** Previously
   a rule with no \`min\`, \`max\`, or \`eq\` was silently skipped, so
   the natural way to write "anything else" (a bare \`{emoji}\` as the
