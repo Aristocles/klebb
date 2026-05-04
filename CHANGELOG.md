@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Chat bubbles render GFM markdown, including tables.** The widget
+  was rolling its own ~25-line regex parser that covered bold / italic
+  / inline code / bullets / paragraphs — enough for most replies, but
+  markdown tables, task lists, strikethrough, and autolinks all
+  rendered as literal pipes/dashes. Swapped to \`marked@15\` with GFM
+  enabled, matching the server-side config. \`DOMPurify@3\` sanitises
+  the output before it reaches the DOM — scripts, event handlers, and
+  \`javascript:\` / \`data:\` URLs are stripped. Assistant-emitted
+  links get \`target="_blank" rel="noopener noreferrer"\` via a
+  DOMPurify hook. Both deps load from esm.sh at pinned versions (same
+  pattern as Lit); no bundler, no \`package.json\` change. (#77)
 - **Chat agent can hide and unhide cards.** Two new tools
   (\`hide_card\`, \`show_card\`) wire the chat agent into the existing
   \`registry.setMasterEnabled\` path, so "hide the hydration card"
