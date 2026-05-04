@@ -51,6 +51,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Chat panel scrolls to the latest turn when reopened.** Opening the
+  panel with existing history used to leave the message list scrolled
+  to the top, so the user always had to flick down to see what they'd
+  just been talking about. Scroll-to-bottom now runs after the panel
+  paints, and re-runs once async history load completes if the user
+  managed to open the panel before the initial \`GET /api/chat/history\`
+  landed. (#80)
 - **Threshold calendar markers work again when written by the chat
   agent.** The \`DEFAULT_HEALTH_SYSTEM_PROMPT\` was telling agents to
   use \`"bands": [...]\` for threshold-marker rules; the renderer
