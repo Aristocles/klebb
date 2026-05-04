@@ -29,6 +29,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { localToday } from '../lib/date-util.js';
+import { errorFromResponse } from '../lib/save-error.js';
 import './eh-input-form.js';
 
 export class EhPromptModal extends LitElement {
@@ -235,14 +236,11 @@ export class EhPromptModal extends LitElement {
         credentials: 'same-origin',
         body: JSON.stringify({ data: updated }),
       });
-      if (!r.ok) {
-        const txt = await r.text().catch(() => '');
-        throw new Error(txt || `HTTP ${r.status}`);
-      }
+      if (!r.ok) throw await errorFromResponse(r);
       this._finish('saved', entry);
     } catch (err) {
       console.warn('[prompt-modal] save failed', err);
-      this._error = 'Could not save. Try again or dismiss.';
+      this._error = err.message || 'Could not save. Try again or dismiss.';
     } finally {
       this._busy = false;
     }
