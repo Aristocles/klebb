@@ -50,7 +50,11 @@ export class EhGenericCard extends EhBaseCard {
   // Local aliases — don't shadow EhBaseCard's _meta getter
   _m() { return this.card?.meta || {}; }
   _vc() { return this.card?.viewConfig || {}; }
-  _display() { return this._vc().display || this._m().view?.display || {}; }
+  _display() {
+    const d = this._vc().display ?? this._m().view?.display;
+    if (typeof d === 'string') return { template: d };
+    return d || {};
+  }
   _dateContext() { return this._vc().dateContext || this._m().view?.dateContext || 'viewedDate'; }
 
   _entries() {
