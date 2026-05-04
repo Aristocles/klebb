@@ -141,6 +141,74 @@ label pill.
 `trendArrow` shows ↑/↓/→ next to the headline, comparing the current
 row to the most recent earlier entry on `field`.
 
+### `combines` (combination-card)
+
+Used by `component: "combination-card"` to compose a single card from
+several sibling manifests. The combination card reads each listed
+source's `data` at render time; it typically carries no `data` of its
+own (`data: []`).
+
+```json
+"meta": {
+  "view": {
+    "component": "combination-card",
+    "layout":    "stack",
+    "skin":      "sleep-stages",
+    "combines": [
+      {
+        "sourceId": "sleep-hours",
+        "role":     "primary",
+        "label":    "Asleep",
+        "units":    "h",
+        "accessor": "value",
+        "colour":   "#6366f1"
+      },
+      {
+        "sourceId": "sleep-stages",
+        "role":     "ring-segment",
+        "label":    "Deep",
+        "accessor": "stages.deep",
+        "colour":   "#3b82f6"
+      },
+      {
+        "sourceId": "mood",
+        "role":     "annotation"
+      }
+    ]
+  }
+}
+```
+
+Top-level view fields:
+
+| field | type | default | purpose |
+|-------|------|---------|---------|
+| `layout` | `"stack"` \| `"grid"` \| `"ring"` | `"stack"` | Overall arrangement of the combined metrics. |
+| `skin` | string \| null | null | Optional pixel-perfect visual preset. Current skins: `"sleep-stages"` (stacked horizontal bar of sleep stages), `"activity-ring"` (close-your-rings visual). |
+| `combines` | array | — | Required, non-empty. Each entry binds one sibling manifest into this card. |
+
+Each `combines[]` entry:
+
+| field | type | required | purpose |
+|-------|------|----------|---------|
+| `sourceId` | string | yes | `meta.id` of the source manifest to read from. |
+| `role` | `"primary"` \| `"secondary"` \| `"annotation"` \| `"ring-segment"` | yes | How this source contributes to the composed view. Renderers use role plus layout/skin to decide visual treatment. |
+| `label` | string | no | Override for the source's own label. Defaults to the source manifest's `meta.label`. |
+| `units` | string | no | Short suffix printed next to the value (e.g. `"h"`, `"kcal"`). |
+| `accessor` | string | no | Dotted path into the source's matched data entry (e.g. `"value"`, `"stages.deep"`). Defaults to the entry for the current date; if the entry is a primitive, it is used directly. |
+| `colour` | string | no | CSS colour for this entry's visual slot (bar segment, ring arc, threshold pill, etc). |
+
+Resolution rules:
+
+- The combination card matches each source's data for the view's
+  current date. If no entry exists for that date, the source is
+  considered empty (renderer decides whether to show "no data" or fall
+  back to the most recent prior entry; default is "no data").
+- Unknown `sourceId`, or a source whose file has been deleted,
+  surfaces inline in the card rather than failing the whole view.
+- The combination card emits no writes. To edit a displayed value the
+  user navigates to the atomic source card.
+
 ### `calendar` — month-grid marker config
 
 `meta.calendar` opts the card into the Calendar view. Each day cell in
@@ -400,6 +468,7 @@ Use one of these names in `meta.view.component` / `meta.trends.component`:
 | `table-list` | Tabular data |
 | `adherence-report` | Med adherence summary |
 | `greeting-banner` | Top-of-page greeting |
+| `combination-card` | Composite view over several sibling manifests (see `combines` config above) |
 
 Unknown renderer names fall back to `eh-unknown-card`, which shows an
 inline warning but keeps the dashboard running.

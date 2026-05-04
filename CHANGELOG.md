@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Manifest schema: `meta.view.combines[]` for combination cards.**
+  New optional block on `meta.view` that lets a manifest declare it is
+  a composite view over several sibling manifests. Each entry binds a
+  `sourceId` with a `role` (`primary`, `secondary`, `annotation`,
+  `ring-segment`), plus optional `label`, `units`, `accessor` (dotted
+  path) and `colour`. Paired with `layout` (`stack` / `grid` / `ring`)
+  and an optional `skin` (`sleep-stages`, `activity-ring`), this is
+  the schema foundation for the forthcoming `combination-card`
+  renderer. Combination manifests typically carry `data: []` of their
+  own; values are resolved from sibling cards at render time.
+  Documentation only; no code changes. (#92)
 - **Expand/collapse toggle for the chat panel.** A new header button
   (\`⤡\` / \`⤢\`) flips between the default 380px-wide panel and an
   expanded variant (\`min(720px, 100vw - 40px)\` wide, up to 900px
