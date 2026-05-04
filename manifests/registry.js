@@ -15,6 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const PATHS = require('../config/paths');
+const { mergePatch, isPlainObject } = require('./merge-patch');
 
 const SUPPORTED_SCHEMAS = ['klebb.datafile.v1'];
 const RESERVED_DIR_PREFIX = '_';
@@ -392,6 +393,69 @@ function createManifest(manifestObj) {
   return { id, source: targetPath };
 }
 
+// Apply a JSON Merge Patch (RFC 7396) to an existing manifest's meta and/or
+// description. `data` and `$schema` are preserved verbatim; `meta.id` cannot
+// change. The full merged manifest is re-validated before writing.
+//
+// Patch shape: { meta?: {...}, description?: "..." }
+//   - Nested objects under meta deep-merge per RFC 7396.
+//   - Arrays replace wholesale (e.g. meta.writeable.inputs replaces).
+//   - `null` in patch removes the key from the target.
+//
+// Throws:
+//   "unknown manifest: <id>"              -> handler maps to 404
+//   "patch touches protected field: ..."  -> 400
+//   "missing meta.id" / "invalid id: *"   -> 400/422 (from validation)
+function patchManifest(id, patch) {
+  const entry = _entries.get(id);
+  if (!entry) throw new Error(`unknown manifest: ${id}`);
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+    throw new Error('patch must be an object');
+  }
+  // Protected fields: reject patches that try to rename or re-version.
+  if ('$schema' in patch) {
+    throw new Error('patch touches protected field: $schema');
+  }
+  if (isPlainObject(patch.meta) && 'id' in patch.meta) {
+    throw new Error('patch touches protected field: meta.id');
+  }
+  if ('data' in patch) {
+    throw new Error('patch touches protected field: data (use writeData)');
+  }
+
+  const merged = {
+    $schema: entry.version,
+    meta: isPlainObject(patch.meta)
+      ? mergePatch(entry.meta, patch.meta)
+      : entry.meta,
+  };
+  // description: patch can set (string) or remove (null). Undefined = keep.
+  if ('description' in patch) {
+    if (patch.description === null) {
+      // removed
+    } else if (typeof patch.description === 'string') {
+      merged.description = patch.description;
+    } else {
+      throw new Error('description must be a string or null');
+    }
+  } else if (entry.description) {
+    merged.description = entry.description;
+  }
+  if (entry.schema) merged.schema = entry.schema;
+  if (entry.data !== null) merged.data = entry.data;
+
+  // Re-validate. strictId:false so we don't reject legacy ids that already
+  // loaded; we already blocked id changes above.
+  validateManifestShape(merged, { strictId: false });
+
+  const tmp = entry.source + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(merged, null, 2));
+  fs.renameSync(tmp, entry.source);
+  entry.meta = merged.meta;
+  entry.description = merged.description || null;
+  return { id };
+}
+
 // Remove a manifest's file and drop its entry from the cache. Throws if the
 // id is unknown (map to 404 in the handler).
 function deleteManifest(id) {
@@ -423,6 +487,7 @@ module.exports = {
   setMasterEnabled,
   reorderByIds,
   createManifest,
+  patchManifest,
   deleteManifest,
   validateManifestShape,
 };
