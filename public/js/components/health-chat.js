@@ -673,12 +673,28 @@ class HealthChat extends LitElement {
 
   _toggle() {
     this._open = !this._open;
-    // When opening, auto-focus the text input after render
+    // When opening, auto-focus the text input after render.
+    // Scroll-to-bottom is handled in updated() so it also fires after
+    // async history load races the panel open.
     if (this._open) {
-      requestAnimationFrame(() => {
+      this._pendingScrollToBottom = true;
+      this.updateComplete.then(() => {
         const input = this.shadowRoot?.querySelector('.chat-input');
         if (input && !this._recording) input.focus();
       });
+    }
+  }
+
+  updated(changed) {
+    // Pin to the latest turn when the panel opens. If history is still
+    // loading from the server at that moment, _messages will change
+    // shortly and we re-scroll then, clearing the flag afterwards.
+    if (this._open && this._pendingScrollToBottom) {
+      const container = this.shadowRoot?.querySelector('.chat-messages');
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+        if (this._messages.length > 0) this._pendingScrollToBottom = false;
+      }
     }
   }
 
