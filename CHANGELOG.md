@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **generic-card tolerates a bare string \`display\` and the chat-agent
+  prompt steers away from authoring one.** Klebbius (and any other
+  agent using \`create_manifest\`) was writing
+  \`"view": { "display": "{bpm} bpm" }\` where the renderer expected
+  \`"display": { "template": "{bpm} bpm" }\`. The card rendered blank
+  even when data was present, because the renderer read
+  \`display.template\` on a string. The renderer now treats a string
+  \`display\` as \`{template: <string>}\`; the system prompt also
+  spells out that \`meta.view.display\` is an object, never a string,
+  and lists the sub-keys (\`template\`, \`secondary\`, \`emptyHeadline\`,
+  etc.) explicitly. (#67)
 - **Cards with empty data no longer get auto-hidden from views.** The
   old rule "empty data hides the card" (to avoid ghost cards) made a
   fresh writeable card invisible to its owner before the first entry
