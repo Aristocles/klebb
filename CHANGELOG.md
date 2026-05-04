@@ -7,6 +7,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **"New chat" button clears immediately, no confirmation prompt.**
+  The 📝 button in the chat widget used to pop a `confirm()` dialog
+  whenever the transcript had any messages. The button label is clear
+  enough on its own; the extra step was friction. (#72)
+
 ### Fixed
 
 - **Threshold calendar markers work again when written by the chat
