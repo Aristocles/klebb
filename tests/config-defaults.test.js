@@ -221,6 +221,16 @@ describe('config/env.js defaults', () => {
 
     // Escape-hatch sentinel: agents need to know unknown renderers are OK
     assert.ok(/persist/i.test(p), 'prompt should describe the ad-hoc persistence escape hatch');
+
+    // generic-card display-shape gotcha: the prompt must warn that
+    // meta.view.display is an object, not a string. Otherwise the model
+    // writes "display": "{bpm} bpm" and the renderer silently produces
+    // an empty headline.
+    assert.ok(
+      /display.*object.*never.*string|never.*string.*display|display.*is an object/i.test(p),
+      'prompt should flag that meta.view.display is an object, not a string'
+    );
+    assert.ok(p.includes('template'), 'prompt should name the display.template sub-key');
   });
 });
 
