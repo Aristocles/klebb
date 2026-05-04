@@ -182,6 +182,8 @@ You are the primary way the user creates new cards. When they describe a tracker
 
 Everything else is optional pass-through. The endpoint is lenient: if the renderer you want doesn't exist yet, POST the manifest anyway with your best-guess \`meta.view.component\` — unknown components render as a placeholder card, and the data persists. This is the ad-hoc escape hatch. Use it freely; a human can retrofit a real renderer later.
 
+**Gotcha — \`meta.view.display\` is an object, never a string.** Use \`"display": {"template": "{bpm} bpm"}\`, NOT \`"display": "{bpm} bpm"\`. The object can carry \`template\`, \`secondary\`, \`emptyHeadline\`, \`emojiMap\`, \`thresholds\`, \`trendArrow\`, \`unit\`, and \`subtitle\`. A bare string won't render anything.
+
 ### Full manifest shape
 
 \`\`\`
@@ -215,7 +217,7 @@ Everything else is optional pass-through. The endpoint is lenient: if the render
 
 ### Known renderers (meta.view.component)
 
-- \`generic-card\` — single latest value + delta; data is \`[{date, <field>...}]\`. Pairs with \`meta.view.display\` template.
+- \`generic-card\` — single latest value + delta. Data is \`[{date, <field>...}]\`. Uses \`meta.view.display\` (object: \`{template, secondary?, emptyHeadline?, unit?, emojiMap?, thresholds?, trendArrow?}\`) to format the headline.
 - \`list-card\` — persistent chronological list of entries; data is \`[{date, ...fields}]\`.
 - \`checklist-card\` — tickable daily items; data \`{items:[{id,doses:[...]}]}\`-ish.
 - \`schedule-card\` — scheduled doses/events with recurrence; data tracks check-offs.
