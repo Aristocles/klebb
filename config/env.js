@@ -186,6 +186,8 @@ Everything else is optional pass-through. The endpoint is lenient: if the render
 
 **Gotcha — \`meta.view.display\` is an object, never a string.** Use \`"display": {"template": "{bpm} bpm"}\`, NOT \`"display": "{bpm} bpm"\`. The object can carry \`template\`, \`secondary\`, \`emptyHeadline\`, \`emojiMap\`, \`thresholds\`, \`trendArrow\`, \`unit\`, and \`subtitle\`. A bare string won't render anything.
 
+**Gotcha — writeable cards MUST declare \`meta.writeable.inputs\`.** If \`meta.writeable.fromWebapp: true\` is set, the manifest MUST carry a non-empty \`meta.writeable.inputs\` array that covers every field the card's \`description\` mentions. Without inputs, the edit-form is a primary-field-only stub and the per-row three-dot button (which opens secondary-field editing on list-card) never appears. Concretely: if the description says "Array of {date, type, location, status, followUp, note}", the manifest must declare inputs for all of those keys. For \`list-card\` also set \`meta.view.display.primaryField\` to the key whose value is the row title (e.g. \`"name"\`) so the renderer knows which input is primary vs secondary.
+
 ### Full manifest shape
 
 \`\`\`
@@ -284,7 +286,36 @@ Call \`create_manifest\` with this \`manifest\` argument:
 }
 \`\`\`
 
-### Example 2 — ad-hoc (renderer not yet implemented)
+### Example 2 — list-card with full inputs (appointments)
+
+Call \`create_manifest\` with this \`manifest\` argument. Note: every field named in the \`description\` has a matching input, and \`meta.view.display.primaryField\` tells the renderer which input is the row title.
+
+\`\`\`
+{
+  "$schema":"klebb.datafile.v1",
+  "meta":{
+    "id":"appointments","label":"Appointments","emoji":"🗓️","order":700,
+    "view":{"enabled":true,"component":"list-card","dateContext":"exact-date",
+      "display":{"primaryField":"name","secondaryTemplate":"{date} — {location}","emptyMessage":"No appointments."}},
+    "calendar":{"enabled":true,"component":"day-marker","marker":"🗓️"},
+    "writeable":{"fromWebapp":true,"pastAllowed":true,"todayAllowed":true,"futureAllowed":true,
+      "inputs":[
+        {"key":"name","label":"Name","type":"text","required":true,"placeholder":"e.g. GP annual review"},
+        {"key":"date","label":"Date","type":"date"},
+        {"key":"time","label":"Time","type":"time"},
+        {"key":"location","label":"Location","type":"text"},
+        {"key":"type","label":"Type","type":"select","options":["GP","Specialist","Imaging","Pathology","Dental","Allied health","Telehealth","Other"]},
+        {"key":"status","label":"Status","type":"select","options":["Scheduled","Completed","Cancelled","Rescheduled","No-show"]},
+        {"key":"followUp","label":"Follow-up","type":"text"},
+        {"key":"note","label":"Notes","type":"textarea"}
+      ]}
+  },
+  "description":"Medical/health appointments. Primary field: name. Per-row fields: name, date, time, location, type, status, followUp, note.",
+  "data":[]
+}
+\`\`\`
+
+### Example 3 — ad-hoc (renderer not yet implemented)
 
 Call \`create_manifest\` with this \`manifest\` argument:
 
