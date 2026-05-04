@@ -107,3 +107,128 @@ describe('combination-card view integration', () => {
     assert.equal(ids[0], 'sleep');
   });
 });
+
+// --- Writeable donor rows (issue #104) ---
+// The renderer uses POST /api/manifests/:donorId/data to save edits made
+// via the combo's inline form. This suite checks the server contract
+// that save relies on, end-to-end.
+describe('combination-card writeable donor save path', () => {
+  let sandbox, server;
+
+  const writeableMood = {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'mood',
+      label: 'Mood',
+      view: { enabled: true, component: 'generic-card', display: { template: '{mood}' } },
+      writeable: {
+        fromWebapp: true,
+        todayAllowed: true,
+        pastAllowed: true,
+        futureAllowed: false,
+        maxReadingsPerDay: 1,
+        inputs: [
+          { key: 'mood', type: 'rating', required: true },
+          { key: 'wakeUps', type: 'number', default: 0 },
+          { key: 'notes', type: 'textarea' },
+        ],
+      },
+    },
+    data: [{ date: '2026-05-04', mood: 3 }],
+  };
+
+  const ingestOnlySleep = {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'sleep-hours',
+      label: 'Sleep',
+      view: { enabled: true, component: 'generic-card', display: { template: '{hours}' } },
+      writeable: { fromWebapp: false },
+    },
+    data: [{ date: '2026-05-04', hours: 7.5 }],
+  };
+
+  const combo = {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'sleep',
+      label: 'Sleep',
+      view: {
+        enabled: true,
+        component: 'combination-card',
+        layout: 'stack',
+        combines: [
+          { sourceId: 'sleep-hours', role: 'primary', accessor: 'hours' },
+          { sourceId: 'mood', role: 'secondary', accessor: 'mood' },
+          { sourceId: 'mood', role: 'annotation', accessor: 'wakeUps', label: 'Wake-ups' },
+        ],
+      },
+    },
+    data: [],
+  };
+
+  before(async () => {
+    sandbox = createSandbox({
+      seed: {
+        'mood.json': writeableMood,
+        'sleep-hours.json': ingestOnlySleep,
+        'sleep.json': combo,
+      },
+    });
+    server = await spawnServer(sandbox);
+  });
+
+  after(async () => {
+    if (server) await server.kill();
+    if (sandbox) cleanupSandbox(sandbox);
+  });
+
+  test('donor meta.writeable is reachable via /api/manifests/:id', async () => {
+    // Renderer reads this endpoint to decide whether to show the pencil
+    // and what inputs to render in the inline form.
+    const res = await req(server.baseUrl, '/api/manifests/mood');
+    assert.equal(res.status, 200);
+    assert.equal(res.json.meta.writeable.fromWebapp, true);
+    assert.equal(res.json.meta.writeable.inputs.length, 3);
+    assert.equal(res.json.meta.writeable.inputs[0].key, 'mood');
+  });
+
+  test('ingest-only donor: writeable.fromWebapp is false (no pencil)', async () => {
+    const res = await req(server.baseUrl, '/api/manifests/sleep-hours');
+    assert.equal(res.status, 200);
+    assert.equal(res.json.meta.writeable.fromWebapp, false);
+  });
+
+  test('POST /api/manifests/mood/data with upserted entry: replaces same-date row', async () => {
+    // Simulate what the combo's _onDonorSubmit does: read current data,
+    // replace today's row, POST the full array.
+    const cur = await req(server.baseUrl, '/api/manifests/mood/data');
+    assert.equal(cur.status, 200);
+    const existing = cur.json.data;
+
+    const entry = { date: '2026-05-04', mood: 5, wakeUps: 1, notes: 'combo-edit' };
+    const others = existing.filter(d => d.date !== entry.date);
+    const updated = [...others, entry]
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    const post = await req(server.baseUrl, '/api/manifests/mood/data', {
+      method: 'POST',
+      body: { data: updated },
+    });
+    assert.equal(post.status, 200);
+    assert.equal(post.json.ok, true);
+
+    // Read back
+    const verify = await req(server.baseUrl, '/api/manifests/mood/data');
+    const today = verify.json.data.find(r => r.date === '2026-05-04');
+    assert.equal(today.mood, 5);
+    assert.equal(today.wakeUps, 1);
+    assert.equal(today.notes, 'combo-edit');
+  });
+
+  test('combo manifest is unchanged by donor writes', async () => {
+    // Writes go to the donor, never to the combo's own data block.
+    const res = await req(server.baseUrl, '/api/manifests/sleep/data');
+    assert.deepEqual(res.json.data, []);
+  });
+});
