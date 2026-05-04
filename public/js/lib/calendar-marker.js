@@ -146,14 +146,21 @@
       }
 
       case 'threshold': {
-        if (!spec.field || !Array.isArray(spec.rules) || !row) {
+        // Accept `rules` (canonical, matches docs) or `bands` (legacy
+        // alias; see #70 — an early system-prompt revision told agents
+        // to use `bands`, so manifests written during that window carry
+        // the old key).
+        const rules = Array.isArray(spec.rules) ? spec.rules
+          : Array.isArray(spec.bands) ? spec.bands
+          : null;
+        if (!spec.field || !rules || !row) {
           return spec.fallback || fallback;
         }
         const v = getValue(row, spec.field);
         if (v === null || v === undefined || v === '') {
           return spec.fallback || fallback;
         }
-        for (const rule of spec.rules) {
+        for (const rule of rules) {
           if (!rule || typeof rule !== 'object') continue;
           if ('eq' in rule) {
             if (String(v) === String(rule.eq)) return rule.emoji || spec.fallback || fallback;
