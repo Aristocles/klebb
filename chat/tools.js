@@ -49,6 +49,38 @@ const TOOL_DEFS = [
   {
     type: 'function',
     function: {
+      name: 'hide_card',
+      description:
+        "Hide a card from every view (Today, Trends, Calendar, Reports) by setting meta.enabled:false. The card's manifest file and data are preserved — use this instead of delete_manifest when the user wants to stop seeing a card but might want it back. The card stays visible in Settings so the user can re-enable it.",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Manifest id.' },
+        },
+        required: ['id'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'show_card',
+      description:
+        "Unhide a previously-hidden card by setting meta.enabled:true. Reverses hide_card. No-op if the card is already enabled.",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Manifest id.' },
+        },
+        required: ['id'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'list_manifests',
       description:
         "Return a compact list of all cards currently on the user's dashboard. Useful to re-check state mid-conversation (e.g. after you just created a card, or before proposing an id to check it's not taken).",
@@ -82,6 +114,14 @@ function dispatchToolCall(tc) {
       case 'delete_manifest': {
         const result = registry.deleteManifest(args.id);
         return JSON.stringify({ ok: true, ...result });
+      }
+      case 'hide_card': {
+        registry.setMasterEnabled(args.id, false);
+        return JSON.stringify({ ok: true, id: args.id, enabled: false });
+      }
+      case 'show_card': {
+        registry.setMasterEnabled(args.id, true);
+        return JSON.stringify({ ok: true, id: args.id, enabled: true });
       }
       case 'list_manifests': {
         const rows = registry.list().map(c => ({

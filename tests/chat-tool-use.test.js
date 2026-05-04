@@ -149,6 +149,58 @@ describe('chat proxy tool-calling agent loop', () => {
     assert.ok(fs.existsSync(onDisk), 'manifest file should exist on disk');
   });
 
+  test('F — hide_card toggles master meta.enabled to false (see #75)', async () => {
+    gateway.reset();
+    // Seed a pre-existing card the agent will hide
+    const seedPath = path.join(sandbox, 'data', 'tool-test-f.json');
+    fs.writeFileSync(seedPath, JSON.stringify({
+      $schema: 'klebb.datafile.v1',
+      meta: {
+        id: 'tool-test-f',
+        label: 'Tool Test F',
+        view: { enabled: true, component: 'generic-card' },
+      },
+      data: [],
+    }, null, 2));
+    // Give fs.watch a beat to notice
+    await new Promise(r => setTimeout(r, 350));
+
+    gateway.pushResponses([
+      toolCallResponse({ name: 'hide_card', args: { id: 'tool-test-f' }, id: 'call_f' }),
+      stopResponse('Hidden.'),
+    ]);
+
+    const res = await req(server.baseUrl, '/api/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'Hide tool-test-f.' }] },
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.json.reply, 'Hidden.');
+
+    const reqs = gateway.getRequests();
+    const toolMsg = reqs[1].messages.find(m => m.role === 'tool');
+    assert.match(toolMsg.content, /"enabled":false/);
+
+    // File on disk now has meta.enabled: false
+    const afterHide = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+    assert.equal(afterHide.meta.enabled, false);
+
+    // Second round: show_card flips it back
+    gateway.reset();
+    gateway.pushResponses([
+      toolCallResponse({ name: 'show_card', args: { id: 'tool-test-f' }, id: 'call_f2' }),
+      stopResponse('Back.'),
+    ]);
+    const res2 = await req(server.baseUrl, '/api/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'Show tool-test-f.' }] },
+    });
+    assert.equal(res2.status, 200);
+    const afterShow = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+    assert.equal(afterShow.meta.enabled, true);
+  });
+
   test('B — error feedback on delete of unknown id', async () => {
     gateway.reset();
     gateway.pushResponses([
