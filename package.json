@@ -39,6 +39,6 @@
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.0",
-    "marked": "^18.0.2"
+    "marked": "^18.0.3"
   }
 }
