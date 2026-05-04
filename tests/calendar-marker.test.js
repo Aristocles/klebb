@@ -291,6 +291,34 @@ describe('resolveMarker', () => {
       const bad = { type: 'threshold', field: 'kg', fallback: '•' };
       assert.equal(resolveMarker(bad, { row: { kg: 80 } }), '•');
     });
+
+    test('legacy `bands` key is accepted as an alias for `rules` (see #70)', () => {
+      const legacy = {
+        type: 'threshold',
+        field: 'systolic',
+        bands: [
+          { max: 119, emoji: '🟢' },
+          { max: 129, emoji: '🟡' },
+          { max: 139, emoji: '🟠' },
+          { max: 999, emoji: '🔴' },
+        ],
+        fallback: '•',
+      };
+      assert.equal(resolveMarker(legacy, { row: { systolic: 110 } }), '🟢');
+      assert.equal(resolveMarker(legacy, { row: { systolic: 135 } }), '🟠');
+      assert.equal(resolveMarker(legacy, { row: { systolic: 160 } }), '🔴');
+    });
+
+    test('`rules` wins over `bands` when both are present', () => {
+      const both = {
+        type: 'threshold',
+        field: 'kg',
+        rules: [{ max: 100, emoji: '✅' }],
+        bands: [{ max: 100, emoji: '❌' }],
+        fallback: '•',
+      };
+      assert.equal(resolveMarker(both, { row: { kg: 80 } }), '✅');
+    });
   });
 
   describe('template', () => {

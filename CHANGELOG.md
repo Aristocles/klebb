@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Threshold calendar markers work again when written by the chat
+  agent.** The \`DEFAULT_HEALTH_SYSTEM_PROMPT\` was telling agents to
+  use \`"bands": [...]\` for threshold-marker rules; the renderer
+  reads \`spec.rules\` (as the other docs all say). Agents wrote
+  \`bands\`, the renderer found no \`rules\`, and fell back to the
+  card's static emoji on every day with a reading. Prompt now matches
+  the renderer and docs; the renderer also accepts the legacy
+  \`bands\` alias so manifests written during the buggy window keep
+  working. (#70)
 - **generic-card tolerates a bare string \`display\` and the chat-agent
   prompt steers away from authoring one.** Klebbius (and any other
   agent using \`create_manifest\`) was writing
