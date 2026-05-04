@@ -219,6 +219,14 @@ describe('config/env.js defaults', () => {
       assert.ok(p.includes(marker), `prompt should mention marker type "${marker}"`);
     }
 
+    // Threshold marker: the rules-array key is "rules", NOT "bands"
+    // (renderer at public/js/lib/calendar-marker.js reads spec.rules).
+    // Guards against the #70 typo regressing.
+    const thresholdLine = p.split('\n').find(l => l.includes('"threshold"'));
+    assert.ok(thresholdLine, 'prompt should illustrate the threshold marker');
+    assert.match(thresholdLine, /"rules"\s*:/, 'threshold marker example should use "rules":');
+    assert.doesNotMatch(thresholdLine, /"bands"\s*:/, 'threshold marker example must NOT use "bands":');
+
     // Escape-hatch sentinel: agents need to know unknown renderers are OK
     assert.ok(/persist/i.test(p), 'prompt should describe the ad-hoc persistence escape hatch');
 

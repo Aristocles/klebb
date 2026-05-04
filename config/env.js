@@ -251,7 +251,7 @@ Each input carries \`key\`, \`label\`, \`required\`, \`default\`, \`help\`, plus
 - Static emoji: \`"marker": "💊"\`
 - \`{ "type":"field-emoji", "field":"mood" }\` — emoji pulled from row data
 - \`{ "type":"trend-arrow", "field":"kg", "goodDirection":"down" }\`
-- \`{ "type":"threshold", "field":"systolic", "bands":[{"max":120,"emoji":"✅"},...] }\`
+- \`{ "type":"threshold", "field":"systolic", "rules":[{"max":120,"emoji":"✅"},...] }\`
 - \`{ "type":"template", "template":"{kg:round(1)}kg" }\`
 
 ### meta.reports config by renderer
