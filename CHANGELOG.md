@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Expand/collapse toggle for the chat panel.** A new header button
+  (\`⤡\` / \`⤢\`) flips between the default 380px-wide panel and an
+  expanded variant (\`min(720px, 100vw - 40px)\` wide, up to 900px
+  tall on desktop). The preference lives in \`localStorage\` so it
+  sticks across sessions. On viewports ≤480px the width is already
+  pinned full-bleed, so expanding on mobile grows the message list
+  vertically only, clamped to \`100vh - 56px - safe-area\`; nothing
+  can overflow the screen. Toggling also re-pins the scroll to the
+  latest turn so the visible viewport doesn't suddenly show old
+  content after a resize. (#82)
 - **Chat bubbles render GFM markdown, including tables.** The widget
   was rolling its own ~25-line regex parser that covered bold / italic
   / inline code / bullets / paragraphs — enough for most replies, but
