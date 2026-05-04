@@ -91,6 +91,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   (success or error path), unless the panel was closed in the
   meantime or the mic is recording. Skipped on mobile (<=480px) so
   iOS Safari doesn't pop the keyboard back up uninvited. (#84)
+- **Chat agent confirms card deletion exactly once: never zero,
+  never twice.** Deletion used to take three turns of
+  confirm-and-confirm-again. An earlier fix over-corrected: the
+  agent started running \`delete_manifest\` with no warning at all.
+  The system prompt now mandates exactly one confirmation, regardless
+  of how emphatic the first request was, and the confirmation
+  message must warn that the data is gone permanently and offer
+  \`hide_card\` as the non-destructive alternative. Any affirmative
+  reply on the next turn calls \`delete_manifest\` immediately.
+  (#88)
 - **Threshold calendar markers work again when written by the chat
   agent.** The \`DEFAULT_HEALTH_SYSTEM_PROMPT\` was telling agents to
   use \`"bands": [...]\` for threshold-marker rules; the renderer
