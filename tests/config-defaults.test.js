@@ -200,6 +200,11 @@ describe('config/env.js defaults', () => {
     assert.ok(p.includes('POST /api/manifests'), 'should advertise POST /api/manifests');
     assert.ok(p.includes('DELETE /api/manifests/:id'), 'should advertise DELETE /api/manifests/:id');
 
+    // Tools the agent can call (see #75)
+    for (const tool of ['create_manifest', 'delete_manifest', 'hide_card', 'show_card', 'list_manifests']) {
+      assert.ok(p.includes(tool), `prompt should name tool "${tool}"`);
+    }
+
     // Every built-in renderer name, so the agent picks correctly
     for (const renderer of [
       'generic-card', 'list-card', 'checklist-card', 'schedule-card',

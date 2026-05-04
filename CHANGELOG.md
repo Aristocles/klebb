@@ -7,6 +7,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Chat agent can hide and unhide cards.** Two new tools
+  (\`hide_card\`, \`show_card\`) wire the chat agent into the existing
+  \`registry.setMasterEnabled\` path, so "hide the hydration card"
+  actually works instead of being answered with "go to Settings". The
+  deletion guidance in the system prompt now steers the model toward
+  \`hide_card\` whenever the user just wants a card off their
+  dashboard, since it's reversible and preserves all logged data.
+  (#75)
+
 ### Changed
 
 - **Threshold rules without bounds now act as a catch-all.** Previously
