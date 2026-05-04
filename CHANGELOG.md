@@ -56,6 +56,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   daily target/reminder). Picked extras apply via delete+recreate,
   safe only right after initial creation before the card has user
   data. (#81)
+- **Chat agent ships every writeable card with a full \`inputs\`
+  array.** Klebbius was creating writeable list-cards with the
+  \`writeable\` booleans set but no \`inputs\`. Result: Edit mode on a
+  list-card row showed only the primary-field text box — the
+  per-row three-dot button for secondary fields never appeared
+  because there were no secondaries to render. Prompt now demands
+  that every manifest with \`meta.writeable.fromWebapp:true\` carry
+  a non-empty \`meta.writeable.inputs\` array covering every field
+  the description mentions, and for list-card also set
+  \`meta.view.display.primaryField\`. A new worked example (full
+  appointments manifest) is in the prompt. (#90)
 
 - **Threshold rules without bounds now act as a catch-all.** Previously
   a rule with no \`min\`, \`max\`, or \`eq\` was silently skipped, so
