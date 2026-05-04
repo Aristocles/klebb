@@ -788,6 +788,15 @@ class HealthChat extends LitElement {
     this._loading = false;
     this._abortController = null;
     this._scrollToBottom();
+    // Input lost focus because it was disabled while loading. Put it
+    // back so the user can type the next message without re-clicking.
+    // Skip on mobile: touch keyboards re-opening uninvited is jarring.
+    this.updateComplete.then(() => {
+      if (!this._open || this._recording) return;
+      if (matchMedia('(max-width: 480px)').matches) return;
+      const input = this.shadowRoot?.querySelector('.chat-input');
+      if (input && !input.disabled) input.focus();
+    });
   }
 
   _handleKeydown(e) {
