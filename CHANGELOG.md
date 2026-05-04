@@ -9,6 +9,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Docs: combination-card renderer + worked recipe.** `docs/CARDS.md`
+  grows a "combination-card renderer" section alongside the
+  generic-card and list-card sections, covering layouts (`stack` /
+  `grid` / `ring`), skins (`sleep-stages`, `activity-ring`), the role
+  vocabulary, the full `combines[]` entry shape, and the resolution
+  rules for missing sources / missing dates. `docs/RECIPES.md` adds
+  Recipe 12: a morning-dashboard example built out of existing
+  atomic cards with no new writeable surface. (#95)
 - **Manifest schema: `meta.view.combines[]` for combination cards.**
   New optional block on `meta.view` that lets a manifest declare it is
   a composite view over several sibling manifests. Each entry binds a

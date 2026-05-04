@@ -681,6 +681,78 @@ See `data.example/mood.example.json` (field-emoji),
 
 ---
 
+## Recipe 12: Morning dashboard from existing atomic cards
+
+**Want:** one card that shows last night's sleep, this morning's mood,
+and yesterday's step count side by side, without collapsing those
+metrics into a single card's data file.
+
+**Use:** `combination-card` with a `stack` layout and three
+`combines[]` entries pointing at existing atomic cards. No new
+writeable surface: you keep logging on the individual cards, the
+combination card just reads from them.
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "morning-dashboard",
+    "label": "Morning",
+    "emoji": "🌅",
+    "order": 10,
+    "view": {
+      "enabled": true,
+      "component": "combination-card",
+      "layout": "stack",
+      "combines": [
+        {
+          "sourceId": "sleep-hours",
+          "role": "primary",
+          "label": "Sleep",
+          "accessor": "hours",
+          "units": "hrs",
+          "colour": "#6366f1"
+        },
+        {
+          "sourceId": "mood",
+          "role": "secondary",
+          "label": "Mood",
+          "accessor": "mood",
+          "colour": "#a78bfa"
+        },
+        {
+          "sourceId": "steps",
+          "role": "annotation",
+          "label": "Steps yesterday",
+          "accessor": "count"
+        }
+      ]
+    }
+  },
+  "description": "Morning glance card. Reads sleep-hours, mood, and steps; edits happen on the source cards.",
+  "data": []
+}
+```
+
+**Behaviour notes:**
+
+- `accessor` is a dotted path into each source's date-matched row. If
+  your `mood` card stores `{ date, mood: 4, wakeUps: 1 }`, use
+  `"mood"`. For a nested field like `stages.deep`, just write
+  `"stages.deep"`.
+- Missing sources render as `"source missing"`; missing rows render
+  as an em dash. The card never fails the whole view.
+- Combination manifests do not take a `writeable` block because they
+  emit no writes. Log on the source cards; this card updates
+  automatically via the `manifest-data-changed` event.
+- For a more visual sleep overview (stacked stage bar) or an
+  activity ring, see `data.example/sleep-overview.example.json` and
+  `data.example/activity-overview.example.json`.
+
+**See:** [`CARDS.md`: combination-card renderer](CARDS.md#the-combination-card-renderer-composite-view-over-other-cards).
+
+---
+
 ## Next steps
 
 - For the full manifest spec (every field, every input type, every

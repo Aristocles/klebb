@@ -632,6 +632,135 @@ is set automatically per row on create and isn't shown in the form.
 
 ---
 
+## The `combination-card` renderer: composite view over other cards
+
+`meta.view.component = "combination-card"` renders a single card whose
+content is pulled from several **other** manifests. Use this when a
+cluster of related metrics belongs in one visual unit (a sleep
+overview, an activity ring, a morning dashboard) without collapsing
+the underlying data into a single card's file.
+
+Source cards stay atomic and independently editable; the combination
+card is a **view** over them. It owns no data of its own and writes
+nothing; users edit values on the source cards directly.
+
+### Meta config
+
+```json
+"view": {
+  "enabled":   true,
+  "component": "combination-card",
+  "layout":    "stack",
+  "skin":      null,
+  "combines": [
+    {
+      "sourceId": "sleep-hours",
+      "role":     "primary",
+      "label":    "Asleep",
+      "units":    "hrs",
+      "accessor": "hours",
+      "colour":   "#6366f1"
+    },
+    {
+      "sourceId": "sleep-quality",
+      "role":     "secondary",
+      "label":    "Quality",
+      "accessor": "rating",
+      "units":    "/ 5"
+    },
+    {
+      "sourceId": "mood",
+      "role":     "annotation",
+      "label":    "Wake-ups",
+      "accessor": "wakeUps"
+    }
+  ]
+},
+"writeable": { "fromWebapp": false }
+```
+
+`data` in the manifest is typically `[]`. It is ignored by the
+renderer.
+
+### Layouts
+
+| `layout` | Shape |
+|----------|-------|
+| `stack`  | Vertical list of label / value rows. Sensible default for 2-5 metrics. |
+| `grid`   | CSS auto-fit grid of metric cells. Good for dense dashboards. |
+| `ring`   | Concentric SVG arcs driven by any entry with `role: "ring-segment"`. Arcs normalise to the largest value in the set. Secondary roles render as a legend alongside. |
+
+### Skins
+
+`skin` is an optional pixel-perfect visual override layered on top of
+the base layout. Current skins:
+
+| `skin` | Visual |
+|--------|--------|
+| `sleep-stages` | Stacked horizontal bar of `ring-segment` durations (core / REM / deep / awake). Renders below the stack layout. |
+| `activity-ring` | Apple-style close-your-rings visual. Use with `layout: "ring"`. |
+
+### Roles
+
+| `role` | Meaning |
+|--------|---------|
+| `primary` | The headline metric. In `stack` layout it takes the prominent value style. |
+| `secondary` | Supporting metrics; rendered smaller. |
+| `annotation` | Context the user glances at (mood, wake-up count, workout type). Smallest type. |
+| `ring-segment` | In `ring` layout drives one concentric arc; in a `sleep-stages` skin drives one bar segment. Ignored in plain `stack`. |
+
+### Entry fields
+
+Each `combines[]` entry:
+
+| field | Required | Meaning |
+|-------|----------|---------|
+| `sourceId` | yes | `meta.id` of the source manifest to read from. |
+| `role`     | yes | One of the four roles above. |
+| `label`    | no  | Override for the source's label. Defaults to the source manifest's `meta.label`. |
+| `units`    | no  | Short suffix printed next to the value (e.g. `"hrs"`, `"kcal"`). |
+| `accessor` | no  | Dotted path into the source's date-matched row, e.g. `"hours"` or `"stages.deep"`. Defaults to `row.value` if the row has a `value` field, otherwise `null`. |
+| `colour`   | no  | CSS colour for the entry's visual slot (bar segment, ring arc, side stripe). |
+
+### Resolution rules
+
+- The combination card looks up each source's data for the view's
+  current date.
+- If the source exists but has no row for that date: rendered as an
+  em dash in `stack` / `grid`; the arc stays at zero in `ring`.
+- If the source manifest doesn't exist at all: rendered as `"source
+  missing"` inline. The rest of the view keeps working.
+- The card automatically re-resolves when any source card fires
+  `manifest-data-changed` (the same event atomic cards use after an
+  edit), so source edits propagate without a full view reload.
+- Combination cards emit no writes. Add a writeable card of your own
+  for each metric you want to log.
+
+### Example presets
+
+Two ready-to-drop example manifests ship under `data.example/`:
+
+- `sleep-overview.example.json`: `stack` layout combining
+  `sleep-hours` (primary) + `sleep-quality` (secondary) + `mood`
+  wake-ups (annotation).
+- `activity-overview.example.json`: `ring` layout combining `steps`
+  + `active-minutes` as ring segments, `workouts.type` as annotation.
+
+Both run against the existing atomic example cards out of the box:
+copy the source manifests into `$HEALTH_HOME/data/`, then copy the
+combination manifest, and the composite card appears.
+
+### Differences from `generic-card` and `list-card`
+
+| Dimension | generic-card | list-card | combination-card |
+|------|-------------|-----------|------------------|
+| Data source | this card's `data[]` | this card's `data[]` | other cards' `data[]` by `sourceId` |
+| Writes | supported | supported | never |
+| Scope | one dated entry | full roster | one dated entry per source |
+| Editing | inline form | inline list editor | edit the source cards directly |
+
+---
+
 ## The `data` block
 
 Card-specific. The convention for most cards is an array of dated entries:
