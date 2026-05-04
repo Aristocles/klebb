@@ -114,6 +114,12 @@ function getSessionSecret() {
   return _sessionSecret;
 }
 
+// --- Health Auto Export ingest ---
+// When set, enables POST /api/health-auto-export for the iPhone HAE app's
+// webhook. Unset disables the endpoint entirely (returns 501). See
+// docs/HEALTH-AUTO-EXPORT.md for setup.
+const HEALTH_AUTO_EXPORT_TOKEN = (process.env.HEALTH_AUTO_EXPORT_TOKEN || '').trim() || null;
+
 // --- Feature flags ---
 const DEBUG_LOG = process.env.HEALTH_DEBUG === '1';
 
@@ -409,6 +415,7 @@ module.exports = {
   WEBAUTHN_RP_ID,
   WEBAUTHN_ORIGIN,
   getSessionSecret,
+  HEALTH_AUTO_EXPORT_TOKEN,
   DEBUG_LOG,
   HEALTH_SYSTEM_PROMPT,
 };
