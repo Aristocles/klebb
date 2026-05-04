@@ -80,7 +80,7 @@ cholesterol ratios, fasting glucose).
           { "ifField": "systolic", "max": 119, "colour": "#44ff88", "label": "Optimal" },
           { "ifField": "systolic", "max": 129, "colour": "#aaaa44", "label": "Elevated" },
           { "ifField": "systolic", "max": 139, "colour": "#ff7733", "label": "Stage 1" },
-          { "ifField": "systolic", "max": 999, "colour": "#ff3333", "label": "Stage 2" }
+          { "ifField": "systolic",              "colour": "#ff3333", "label": "Stage 2" }
         ]
       }
     },
@@ -604,7 +604,7 @@ so order rules narrow-to-wide just like `display.thresholds`.
       { "max": 119, "emoji": "🟢" },
       { "max": 129, "emoji": "🟡" },
       { "max": 139, "emoji": "🟠" },
-      { "max": 999, "emoji": "🔴" }
+      { "emoji": "🔴" }
     ],
     "fallback": "•"
   }
@@ -612,8 +612,10 @@ so order rules narrow-to-wide just like `display.thresholds`.
 ```
 
 **Key bits:**
-- Each rule is `{ min?, max?, emoji }` (at least one bound) or
-  `{ eq, emoji }` for exact string match.
+- Each rule is `{ min?, max?, emoji }` (numeric band; either bound
+  optional), `{ eq, emoji }` (exact string match), or `{ emoji }` on
+  its own (catch-all — matches anything not caught by the rules above;
+  put it last).
 - Rules are evaluated top-to-bottom; first match wins. Cascade
   narrowest-first.
 - `fallback` shows when no rule matches or the field is missing.

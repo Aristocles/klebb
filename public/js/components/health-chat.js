@@ -524,9 +524,6 @@ class HealthChat extends LitElement {
   }
 
   async _clearHistory() {
-    if (this._messages.some(m => m.role === 'user' || m.role === 'assistant')) {
-      if (!confirm('Start a new chat? The current conversation will be cleared.')) return;
-    }
     stopSharedAudio();
     this._audioCache.forEach(v => { try { URL.revokeObjectURL(v.url); } catch {} });
     this._audioCache.clear();
