@@ -37,7 +37,6 @@
           },
           {
             "ifField": "systolic",
-            "max": 999,
             "colour": "#ff3333",
             "label": "Stage 2"
           }
@@ -93,7 +92,7 @@
           { "max": 119, "emoji": "🟢" },
           { "max": 129, "emoji": "🟡" },
           { "max": 139, "emoji": "🟠" },
-          { "max": 999, "emoji": "🔴" }
+          { "emoji": "🔴" }
         ],
         "fallback": "💓"
       }

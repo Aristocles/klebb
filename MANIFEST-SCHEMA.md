@@ -227,7 +227,7 @@ phase labels.
     { "max": 119, "emoji": "🟢" },
     { "max": 129, "emoji": "🟡" },
     { "max": 139, "emoji": "🟠" },
-    { "max": 999, "emoji": "🔴" }
+    { "emoji": "🔴" }
   ],
   "fallback": "•"
 }
@@ -237,10 +237,13 @@ phase labels.
 - `rules` (array, required): each rule is
   `{ min?, max?, eq?, emoji }`. Rules iterate top-to-bottom; the
   first rule whose field exists and satisfies the matcher wins.
-- Matchers: `min <= row[field] <= max` (both optional, at least one
-  required), or `row[field]` stringly-equals `eq`.
+- Matchers: `min <= row[field] <= max` (either bound optional), or
+  `row[field]` stringly-equals `eq`, or — if the rule declares no
+  `min`, `max`, or `eq` — it's a **catch-all** that matches any
+  non-null value. Put a catch-all last to paint the "anything else"
+  colour rather than falling through to `fallback`.
 - `fallback` (string, optional): glyph when no rule matches or the
-  field is missing.
+  field is missing. Typically unnecessary if you include a catch-all.
 
 **`type: "template"`** — render a template string against the day's
 row using the same mini-language as `view.display.template`. Great

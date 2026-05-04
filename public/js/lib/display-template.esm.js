@@ -106,11 +106,13 @@ export function evaluateThresholds(row, thresholds) {
       if (String(v) === String(rule.eq)) return rule;
       continue;
     }
+    // Bounds-less rule = catch-all (matches any value at this field).
+    // Put it last as a fallback for values that missed every specific band.
+    if (!('min' in rule) && !('max' in rule)) return rule;
     const n = Number(v);
     if (Number.isNaN(n)) continue;
     if ('min' in rule && n < Number(rule.min)) continue;
     if ('max' in rule && n > Number(rule.max)) continue;
-    if (!('min' in rule) && !('max' in rule)) continue;
     return rule;
   }
   return null;
