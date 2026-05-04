@@ -314,7 +314,7 @@ temp, SpO₂) or discrete phase labels (`"loading"` / `"maintenance"` /
       { "max": 119, "emoji": "🟢" },
       { "max": 129, "emoji": "🟡" },
       { "max": 139, "emoji": "🟠" },
-      { "max": 999, "emoji": "🔴" }
+      { "emoji": "🔴" }
     ],
     "fallback": "•"
   }
@@ -323,9 +323,13 @@ temp, SpO₂) or discrete phase labels (`"loading"` / `"maintenance"` /
 
 Rules iterate top-to-bottom, first match wins. Each rule is one of:
 
-- `{ min, max, emoji }` — numeric bands (both bounds optional, at
-  least one required). `min <= row[field] <= max`.
+- `{ min, max, emoji }` — numeric bands (either bound optional).
+  `min <= row[field] <= max`.
 - `{ eq, emoji }` — exact string match, for categorical values.
+- `{ emoji }` with no `min`/`max`/`eq` — **catch-all**. Matches any
+  non-null value at the field. Put it last; paints "anything that
+  didn't match the explicit bands above" without falling through to
+  `fallback`.
 
 This mirrors `display.thresholds` from the generic-card renderer, so
 if you already have threshold rules colour-coding the Today card you

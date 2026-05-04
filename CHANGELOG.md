@@ -9,6 +9,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Threshold rules without bounds now act as a catch-all.** Previously
+  a rule with no \`min\`, \`max\`, or \`eq\` was silently skipped, so
+  the natural way to write "anything else" (a bare \`{emoji}\` as the
+  last rule, matching the CSS / switch-default pattern) produced no
+  marker. Agents and users both wrote this pattern unprompted; the BP
+  card on klebbtest showed 🩺 on readings over 140 because the
+  catch-all \`{emoji:"🔴"}\` was ignored. Now a bounds-less rule
+  matches any non-null value at the field — put it last. Applies to
+  both \`display.thresholds\` (Today headline colouring) and
+  \`meta.calendar.marker.{type:"threshold"}\` (calendar glyph). The
+  old workaround of \`{max:999, emoji:"..."}\` still works. Docs,
+  Recipe 11c, the system prompt, and \`data.example/bp.example.json\`
+  all updated to use the catch-all form. (#73)
 - **"New chat" button clears immediately, no confirmation prompt.**
   The 📝 button in the chat widget used to pop a `confirm()` dialog
   whenever the transcript had any messages. The button label is clear

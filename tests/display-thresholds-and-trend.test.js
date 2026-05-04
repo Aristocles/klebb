@@ -81,13 +81,23 @@ describe('evaluateThresholds', () => {
     assert.equal(evaluateThresholds(null, bpRules), null);
   });
 
-  test('rule without any min/max/eq/ifField is ignored', () => {
+  test('rule without ifField is ignored', () => {
     const rules = [
       { label: 'wrong' },                  // no ifField
-      { ifField: 'x' },                    // no bounds
       { ifField: 'x', min: 5, max: 10, label: 'right' },
     ];
     assert.equal(evaluateThresholds({ x: 7 }, rules).label, 'right');
+  });
+
+  test('bounds-less rule (no min/max/eq) acts as a catch-all', () => {
+    const rules = [
+      { ifField: 'x', max: 10, label: 'low' },
+      { ifField: 'x', min: 20, label: 'high' },
+      { ifField: 'x', label: 'middle' },      // catch-all: 10 < x < 20
+    ];
+    assert.equal(evaluateThresholds({ x: 5  }, rules).label, 'low');
+    assert.equal(evaluateThresholds({ x: 15 }, rules).label, 'middle');
+    assert.equal(evaluateThresholds({ x: 25 }, rules).label, 'high');
   });
 
   test('accepts field alias (backwards compat)', () => {
