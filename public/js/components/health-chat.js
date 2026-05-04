@@ -111,6 +111,7 @@ class HealthChat extends LitElement {
     _playingMsgId: { state: true },
     _agentName: { state: true },
     _agentEmoji: { state: true },
+    _expanded: { state: true },
   };
 
   static styles = css`
@@ -206,6 +207,12 @@ class HealthChat extends LitElement {
       box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
       overflow: hidden;
     }
+    /* Expanded variant: wider on desktop, taller on phones.
+       Width is always clamped to the viewport so nothing can overflow. */
+    .chat-panel.expanded {
+      width: min(720px, calc(100vw - 40px));
+      max-height: min(900px, calc(100vh - 80px));
+    }
 
     .chat-header {
       padding: 14px 18px;
@@ -245,6 +252,10 @@ class HealthChat extends LitElement {
       gap: 10px;
       min-height: 200px;
       max-height: 360px;
+    }
+    /* In expanded mode, let the message list grow to fill the taller panel. */
+    .chat-panel.expanded .chat-messages {
+      max-height: calc(100vh - 220px);
     }
 
     .msg {
@@ -495,6 +506,17 @@ class HealthChat extends LitElement {
         max-height: calc(100vh - 56px - env(safe-area-inset-bottom, 0px));
         border-radius: 16px 16px 0 0;
       }
+      /* On mobile, width is already maxed; 'expanded' grows vertically.
+         The small-state max-height already clamps to the viewport, so
+         expanded on mobile just matches it; no overflow possible. */
+      .chat-panel.expanded {
+        width: 100vw;
+        max-width: 100vw;
+        max-height: calc(100vh - 56px - env(safe-area-inset-bottom, 0px));
+      }
+      .chat-panel.expanded .chat-messages {
+        max-height: calc(100vh - 200px - env(safe-area-inset-bottom, 0px));
+      }
       .fab { bottom: 14px; right: 14px; width: 50px; height: 50px; font-size: 20px; }
     }
 
@@ -529,6 +551,7 @@ class HealthChat extends LitElement {
     this._audioCache = new Map();
     this._agentName = 'Chat';
     this._agentEmoji = '\u{1F4AC}'; // 💬 speech balloon
+    this._expanded = localStorage.getItem('klebb-chat-expanded') === '1';
     this._saveTimer = null;
     this._checkVoiceAvailability();
     this._loadInstance();
@@ -974,6 +997,14 @@ class HealthChat extends LitElement {
     }
   }
 
+  _toggleExpanded() {
+    this._expanded = !this._expanded;
+    localStorage.setItem('klebb-chat-expanded', this._expanded ? '1' : '0');
+    // Pin to the latest turn after resize so the visible viewport
+    // doesn't suddenly show old content when the panel grows.
+    this._pendingScrollToBottom = true;
+  }
+
   _cyclePlaybackSpeed() {
     const speeds = [0.5, 1, 1.25, 1.5, 2];
     const idx = speeds.indexOf(this._playbackSpeed);
@@ -1053,13 +1084,21 @@ class HealthChat extends LitElement {
     const askName = this._agentName || 'Chat';
     return html`
       ${this._open ? html`
-        <div class="chat-panel">
+        <div class="chat-panel ${this._expanded ? 'expanded' : ''}">
           <div class="chat-header">
             <span class="chat-header-icon">${this._agentEmoji}</span>
             <span class="chat-header-text">${this._agentName}</span>
             ${this._voiceAvailable ? html`
               <button class="speed-btn" @click=${this._cyclePlaybackSpeed} title="Playback speed">${this._playbackSpeed}x</button>
             ` : html`<span class="chat-header-sub">Health Assistant</span>`}
+            <button
+              class="speed-btn"
+              @click=${this._toggleExpanded}
+              aria-label=${this._expanded ? 'Shrink chat' : 'Expand chat'}
+              aria-pressed=${this._expanded}
+              title=${this._expanded ? 'Shrink' : 'Expand'}
+              style="margin-left: 6px; min-width: 28px;"
+            >${this._expanded ? '\u2922' : '\u2921'}</button>
             <button
               class="speed-btn"
               @click=${this._clearHistory}
