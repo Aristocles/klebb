@@ -309,6 +309,25 @@ describe('resolveMarker', () => {
       assert.equal(resolveMarker(legacy, { row: { systolic: 160 } }), '🔴');
     });
 
+    test('bounds-less rule acts as a catch-all (see #73)', () => {
+      const bp = {
+        type: 'threshold',
+        field: 'systolic',
+        rules: [
+          { max: 120, emoji: '✅' },
+          { max: 130, emoji: '🟡' },
+          { max: 140, emoji: '🟠' },
+          { emoji: '🔴' },                  // catch-all for >140
+        ],
+        fallback: '•',
+      };
+      assert.equal(resolveMarker(bp, { row: { systolic: 110 } }), '✅');
+      assert.equal(resolveMarker(bp, { row: { systolic: 125 } }), '🟡');
+      assert.equal(resolveMarker(bp, { row: { systolic: 135 } }), '🟠');
+      assert.equal(resolveMarker(bp, { row: { systolic: 190 } }), '🔴');
+      assert.equal(resolveMarker(bp, { row: { systolic: 250 } }), '🔴');
+    });
+
     test('`rules` wins over `bands` when both are present', () => {
       const both = {
         type: 'threshold',
