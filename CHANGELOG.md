@@ -9,6 +9,26 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **`POST /api/health-auto-export/<type>` ingest endpoint.** Lets an
+  external caller (typically an iOS Shortcut) push health metrics into
+  Klebb. Off by default: the endpoint returns 501 until
+  `HEALTH_AUTO_EXPORT_TOKEN` is set. When configured, the caller
+  supplies `Authorization: Bearer <token>` and a canonical JSON body
+  of the form `{ date, metrics: {...} }`. Supported types are `sleep`
+  (metrics: `hours`, `stages.{core,rem,deep,awake}`, `bedTime`,
+  `wakeTime`) and `activity` (metrics: `steps`, `activeEnergy`,
+  `exerciseMinutes`, `standHours`). The handler archives the raw
+  payload under `$HEALTH_HOME/data/auto-export/<type>/<date>.json`
+  (mirroring the predecessor layout) and fans each recognised metric
+  out to its own atomic `klebb.datafile.v1` card: `sleep-hours`,
+  `sleep-stages`, `sleep-bed-wake`, `steps`, `active-energy`,
+  `exercise-minutes`, `stand-hours`. Missing target manifests are
+  created on first write from a baked-in template. Re-posting the
+  same date is idempotent: only that date's row is overwritten in
+  each affected card. Partial writes merge on the same date (a
+  follow-up POST carrying only `wakeTime` preserves a previously
+  posted `bedTime`). Unknown metric keys are silently ignored so the
+  payload shape can grow without breaking older clients. (#94)
 - **Expand/collapse toggle for the chat panel.** A new header button
   (\`⤡\` / \`⤢\`) flips between the default 380px-wide panel and an
   expanded variant (\`min(720px, 100vw - 40px)\` wide, up to 900px

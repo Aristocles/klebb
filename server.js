@@ -491,6 +491,68 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Health Auto Export ingest: POST /api/health-auto-export/<type>.
+  // Auth model is independent of the webapp session: a bearer token from
+  // HEALTH_AUTO_EXPORT_TOKEN, so an iOS Shortcut (or any external tool) can
+  // push data without owning a session cookie. Handled before the global
+  // session gate to avoid double-gating.
+  if (pathname.startsWith('/api/health-auto-export/') && req.method === 'POST') {
+    const type = pathname.slice('/api/health-auto-export/'.length);
+    if (!ENV.HEALTH_AUTO_EXPORT_TOKEN) {
+      res.writeHead(501, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'health-auto-export ingest is not configured on this instance' }));
+      return;
+    }
+    const auth = req.headers['authorization'] || '';
+    const ok = auth.startsWith('Bearer ') && auth.slice(7).trim() === ENV.HEALTH_AUTO_EXPORT_TOKEN;
+    if (!ok) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'invalid or missing bearer token' }));
+      return;
+    }
+    if (!require('./health-auto-export/ingest').TYPES.includes(type)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `unsupported type: ${type}` }));
+      return;
+    }
+    let body = '';
+    req.on('data', c => { body += c; });
+    req.on('end', () => {
+      let parsed;
+      try { parsed = JSON.parse(body || '{}'); }
+      catch {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid JSON body' }));
+        return;
+      }
+      try {
+        const result = require('./health-auto-export/ingest').ingest({
+          type,
+          body: parsed,
+          rawBody: parsed,
+          autoExportDir: PATHS.AUTO_EXPORT_DIR,
+          registry,
+        });
+        if (!result.ok) {
+          res.writeHead(result.status || 400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: result.error }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          ok: true,
+          type: result.type,
+          date: result.date,
+          targets: result.targets,
+        }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message || 'ingest failed' }));
+      }
+    });
+    return;
+  }
+
   // Handle auth routes first
   if (pathname.startsWith('/auth/')) {
     const result = await handleAuthRoutes(req, res, pathname);

@@ -117,6 +117,12 @@ function getSessionSecret() {
 // --- Feature flags ---
 const DEBUG_LOG = process.env.HEALTH_DEBUG === '1';
 
+// --- Health Auto Export ingest (optional) ---
+// When set, enables POST /api/health-auto-export/<type>. The caller (an iOS
+// Shortcut, typically) must send Authorization: Bearer <HEALTH_AUTO_EXPORT_TOKEN>.
+// When unset, the endpoint returns 501 so the feature is off by default.
+const HEALTH_AUTO_EXPORT_TOKEN = (process.env.HEALTH_AUTO_EXPORT_TOKEN || '').trim();
+
 // --- Health system prompt (used by chat proxy) ---
 //
 // Default prompt is generic and references whatever cards the registry
@@ -410,5 +416,6 @@ module.exports = {
   WEBAUTHN_ORIGIN,
   getSessionSecret,
   DEBUG_LOG,
+  HEALTH_AUTO_EXPORT_TOKEN,
   HEALTH_SYSTEM_PROMPT,
 };
