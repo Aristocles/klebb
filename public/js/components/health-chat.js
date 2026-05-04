@@ -19,6 +19,27 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { unsafeHTML } from 'https://esm.sh/lit@3/directives/unsafe-html.js';
+import { marked } from 'https://esm.sh/marked@15.0.7';
+import DOMPurify from 'https://esm.sh/dompurify@3.2.4';
+
+// Same parser + flags as the server (server.js uses marked w/ gfm + breaks).
+// GFM gets us tables, task lists, strikethrough, autolinks.
+marked.setOptions({ gfm: true, breaks: true });
+
+// Assistant text is untrusted (model output). marked emits raw HTML for
+// anything that looks like HTML; DOMPurify strips scripts, event handlers,
+// and javascript:/data: URLs before we hand the result to unsafeHTML().
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener noreferrer');
+  }
+});
+
+function renderMarkdown(src) {
+  const raw = marked.parse(src ?? '');
+  return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
+}
 
 // ---------- Module-level persistent audio element ----------
 // This is THE element iOS unlocks on first user gesture. We reuse it forever;
@@ -251,6 +272,48 @@ class HealthChat extends LitElement {
     .msg.assistant ul, .msg.assistant ol { padding-left: 18px; margin: 4px 0; }
     .msg.assistant li { margin: 2px 0; }
     .msg.assistant p { margin: 4px 0; }
+    .msg.assistant h1, .msg.assistant h2, .msg.assistant h3,
+    .msg.assistant h4, .msg.assistant h5, .msg.assistant h6 {
+      margin: 8px 0 4px;
+      font-size: 1em;
+      font-weight: 700;
+    }
+    .msg.assistant a {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+    .msg.assistant del { opacity: 0.7; }
+    .msg.assistant pre {
+      overflow-x: auto;
+      max-width: 100%;
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .msg.assistant blockquote {
+      margin: 4px 0;
+      padding-left: 10px;
+      border-left: 3px solid var(--border, rgba(0, 0, 0, 0.15));
+      color: var(--text-secondary);
+    }
+    .msg.assistant table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 6px 0;
+      font-size: 0.9em;
+    }
+    .msg.assistant th, .msg.assistant td {
+      border: 1px solid var(--border, rgba(0, 0, 0, 0.15));
+      padding: 4px 8px;
+      text-align: left;
+    }
+    .msg.assistant thead { background: rgba(0, 0, 0, 0.05); }
+    .msg.assistant tbody tr:nth-child(even) { background: rgba(0, 0, 0, 0.02); }
+    .msg.assistant input[type="checkbox"] {
+      margin-right: 6px;
+      vertical-align: middle;
+    }
     .msg.error {
       align-self: center;
       background: rgba(255, 68, 102, 0.08);
@@ -904,34 +967,6 @@ class HealthChat extends LitElement {
     if (audio) audio.playbackRate = this._playbackSpeed;
   }
 
-  // ---------- Markdown ----------
-
-  _parseMarkdown(text) {
-    let s = String(text || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
-    const lines = s.split('\n');
-    const result = [];
-    let inList = false;
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.match(/^[-•]\s/)) {
-        if (!inList) { result.push('<ul>'); inList = true; }
-        result.push(`<li>${trimmed.replace(/^[-•]\s/, '')}</li>`);
-      } else {
-        if (inList) { result.push('</ul>'); inList = false; }
-        if (trimmed === '') result.push('');
-        else result.push(`<p>${trimmed}</p>`);
-      }
-    }
-    if (inList) result.push('</ul>');
-    return result.join('');
-  }
-
   // ---------- Render ----------
 
   _renderMessages() {
@@ -962,7 +997,7 @@ class HealthChat extends LitElement {
           const hasAudio = m.id && this._voiceAvailable && m.speakText;
           return html`
             <div class="msg assistant">
-              ${unsafeHTML(this._parseMarkdown(m.content))}
+              ${unsafeHTML(renderMarkdown(m.content))}
               ${hasAudio ? this._renderAudioSlot(m) : ''}
             </div>
           `;
