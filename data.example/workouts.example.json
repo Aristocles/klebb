@@ -11,23 +11,14 @@
       "dateContext": "viewedDate",
       "display": {
         "template": "{trained?✅ Trained:❌ Rest}",
-        "secondary": "{notes|}",
-        "emptyHeadline": "Log a workout"
+        "secondary": "{type|}",
+        "emptyHeadline": "No workout data yet"
       }
     },
     "writeable": {
-      "fromWebapp": true,
-      "todayAllowed": true,
-      "pastAllowed": true,
-      "futureAllowed": false,
-      "maxReadingsPerDay": 1,
-      "inputs": [
-        { "key": "trained", "type": "checkbox", "label": "Trained today?", "default": false },
-        { "key": "type", "type": "select", "label": "Type", "options": ["Strength", "Cardio", "Mobility", "Sport", "Mixed"], "placeholder": "— pick —" },
-        { "key": "notes", "type": "textarea", "label": "Notes", "rows": 2, "placeholder": "optional" }
-      ]
+      "fromWebapp": false
     }
   },
-  "description": "Simple yes/no training tracker. When trained is true, the type field captures a coarse category. For detailed strength/cardio logging use a dedicated app; this card is for the adherence checkbox.",
+  "description": "Simple yes/no training tracker derived from iPhone workouts. When trained is true, the type field captures a coarse category. Populated by the Health Auto Export webhook; see docs/HEALTH-AUTO-EXPORT.md. Often consumed by the Activity combination card rather than shown on its own.",
   "data": []
 }
