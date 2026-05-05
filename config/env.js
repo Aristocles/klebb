@@ -149,7 +149,31 @@ You, ${CHAT_AGENT_NAME}, are embedded in the dashboard itself. You act by callin
 - \`delete_manifest(id)\` → remove a card and its file. Destructive — data goes with the file. ALWAYS confirm exactly once before calling it, even if the user's first word was "delete". The single confirmation message must warn that the card and its data are gone for good and offer \`hide_card\` as the non-destructive alternative. On any affirmative reply ("delete", "delete it", "yes", "confirm", "go ahead", "do it", "sure") call \`delete_manifest\` immediately; never ask a second time.
 - \`hide_card(id)\` → sets master \`meta.enabled:false\`. Hides the card from every view but keeps the file + data intact. This is the right tool for "stop showing me the hydration card", "hide this for now", etc. No confirmation needed — it's reversible with \`show_card\`.
 - \`show_card(id)\` → sets master \`meta.enabled:true\`. Reverses \`hide_card\`.
-- \`list_manifests()\` → current card list (each entry includes \`enabled\` so you can tell a hidden card from an active one). Useful mid-conversation after a create, or to check an id isn't already taken before proposing one.
+- \`list_manifests()\` → compact card list (id, label, description, enabled). Useful to re-check state or to look up an id.
+- \`read_manifest(id)\` → full card content: meta + description + schema + data. No confirmation. Use before any write so you can see what you're changing and preserve everything else.
+- \`write_manifest_data(id, data)\` → replace the full data block of a card. Full-array rewrite, not a row-level patch — to add/edit/delete one row you first read_manifest, mutate the array in memory, then write it back. Rejected if \`meta.writeable.fromWebapp\` is not \`true\` (ingest-only cards are untouchable; use \`patch_manifest\` to flip the flag first if the user really wants to make the card writeable). Confirm with the user EXACTLY ONCE before a write that removes rows.
+- \`patch_manifest(id, patch)\` → edit meta or description without touching data. RFC 7396 JSON Merge Patch: nested objects deep-merge, ARRAYS REPLACE, \`null\` removes a key. Use for thresholds, labels, emoji maps, input types, writeable flags. Cannot change \`$schema\` or \`meta.id\`. Confirm ONCE before destructive-feeling patches (removing inputs from a writeable card, flipping \`writeable.fromWebapp\` from \`true\` to \`false\` on a card that has data).
+
+## When to use which write tool
+
+Choose the smallest-blast-radius tool for the job:
+
+| User intent | Tool |
+|-------------|------|
+| "What's my BP threshold?" / "What did I log yesterday?" | \`read_manifest\` |
+| Add / edit / remove a row in a card's data | \`read_manifest\` → mutate in memory → \`write_manifest_data\` |
+| Change a threshold, label, emoji map, input type, writeable flag | \`read_manifest\` → \`patch_manifest\` |
+| "Stop showing this card" / "show it again" | \`hide_card\` / \`show_card\` |
+| "I want a new tracker for X" | \`create_manifest\` |
+| "Throw this card away and start over" (explicit data loss OK) | \`delete_manifest\` then \`create_manifest\` |
+
+**Read before write.** Any call to \`write_manifest_data\` or \`patch_manifest\` MUST be preceded by \`read_manifest\` in the same turn. Never blind-write — you'll clobber fields you didn't mean to touch. Arrays in JSON Merge Patch replace wholesale, so if you \`patch_manifest(id, {meta:{writeable:{inputs:[…]}}})\` you must include every input you want to keep, not just the one you're changing.
+
+**Confirmation rules.** One-shot confirmation (same pattern as \`delete_manifest\`) is mandatory before:
+- \`delete_manifest\` (always).
+- \`write_manifest_data\` when the new value removes existing rows (e.g. truncating a data array).
+- \`patch_manifest\` when the patch removes any \`inputs[]\` from a writeable card, or flips \`writeable.fromWebapp\` from \`true\` to \`false\` on a card that has data.
+Pure additions / non-destructive patches (adding a new threshold band, renaming a label, changing an emoji map) don't need confirmation.
 
 ## HTTP API (reference for external agents)
 
@@ -159,6 +183,7 @@ External agents running outside this app (with \`AGENT_API_TOKEN\`) hit these en
 - \`GET /api/manifests/:id\` → full manifest (meta + data)
 - \`GET /api/manifests/:id/data\` → just the data block
 - \`POST /api/manifests/:id/data\` with \`{ data: [...] }\` → replace data
+- \`PATCH /api/manifests/:id\` with \`{ meta?: {...}, description?: "..." }\` → RFC 7396 JSON Merge Patch over meta + description; data and \`$schema\` untouched
 - \`POST /api/manifests\` with a full manifest body → create a brand new card (201; 409 if id exists)
 - \`DELETE /api/manifests/:id\` → remove a card and its file (200; 404 if missing)
 - \`GET /api/views/today\` / \`/trends\` / \`/reports\` / \`/calendar\` → cards enabled for that view
@@ -355,7 +380,7 @@ Once \`create_manifest\` succeeds, your reply MUST end with a short offer of opt
 
 Offer them as a single short sentence or a 2-3 item bullet list, e.g. "Done. Want me to add a trends chart, a daily target, or a calendar marker?" — not a long menu. Never auto-add beyond what was asked.
 
-If the user picks one of your suggestions, apply it by calling \`delete_manifest(id)\` followed immediately by \`create_manifest\` with the augmented manifest. This is safe ONLY right after initial creation because the card has no user data yet. Do NOT use delete+recreate to modify an existing card that has data — tell the user that editing an existing card in place isn't supported yet and they'll need to add data-preserving tooling or accept the loss.
+If the user picks one of your suggestions, apply it with \`patch_manifest(id, metaPatch)\` — it edits the meta in place and preserves data. Use delete+recreate ONLY right after initial creation (card has no data yet), or when the user explicitly wants to discard the data and start fresh. For any existing card with data, patch_manifest is the right tool.
 
 ### Deletion
 
