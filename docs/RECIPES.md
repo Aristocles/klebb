@@ -681,6 +681,70 @@ See `data.example/mood.example.json` (field-emoji),
 
 ---
 
+## Recipe 12 — Morning dashboard combination card
+
+**Goal.** One tile on Today that surfaces three metrics you actually
+check each morning — last night's sleep, today's mood, and steps so
+far. Read-only; edits happen on the underlying cards.
+
+**Prerequisites.** You already have `sleep-hours`, `mood`, and
+`steps` cards. If not, build them first with Recipes 1, 3, 1.
+
+**File.** `$HEALTH_HOME/data/morning.json`:
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "morning",
+    "label": "Morning",
+    "emoji": "☀️",
+    "order": 10,
+    "view": {
+      "enabled": true,
+      "component": "combination-card",
+      "layout": "stack",
+      "dateContext": "viewedDate",
+      "combines": [
+        { "sourceId": "sleep-hours", "role": "primary",   "label": "Asleep", "accessor": "hours", "unit": "h" },
+        { "sourceId": "mood",        "role": "secondary", "label": "Mood",   "accessor": "mood",
+          "emojiMap": { "1":"😩","2":"😴","3":"😐","4":"🙂","5":"😄" } },
+        { "sourceId": "steps",       "role": "annotation","label": "Steps",  "accessor": "count" }
+      ]
+    }
+  },
+  "description": "Read-only morning summary over sleep-hours, mood, steps.",
+  "data": []
+}
+```
+
+**What you get.**
+
+- A single "Morning" tile on Today with three rows: a large sleep
+  headline, a medium mood emoji, a muted step count.
+- If `mood.meta.writeable.fromWebapp` is `true`, an edit pencil next
+  to the Mood row opens a form over `mood.json`. `sleep-hours` and
+  `steps` stay read-only (typical when they're populated by Health
+  Auto Export, see `docs/HEALTH-AUTO-EXPORT.md`).
+- Empty states: if any source has no row for the viewed date, its
+  row renders muted with a "no entry" hint instead of breaking the
+  layout.
+
+**Tips.**
+
+- Set the absorbed source's `meta.enabled: false` (via Settings or
+  klebbius) to avoid the mood card showing twice on Today.
+- Multiple `combines[]` entries can point at the same source — e.g.
+  pull both `mood` and `wakeUps` off the mood card as two rows.
+- Accessor is dotted-path aware: `accessor: "stats.avg"` reads
+  nested scalars.
+
+See `docs/CARDS.md` → "The `combination-card` renderer" for the full
+field reference, including how the pencil inherits donor date rules
+and why only one pencil per donor renders.
+
+---
+
 ## Next steps
 
 - For the full manifest spec (every field, every input type, every

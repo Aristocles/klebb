@@ -632,6 +632,175 @@ is set automatically per row on create and isn't shown in the form.
 
 ---
 
+## The `combination-card` renderer — one card, many sources
+
+A **combination card** is a read-only window over other cards' data. It
+owns no data of its own — its `data` block stays `[]` — and instead
+projects the current day's row from each of several source manifests
+into one tile.
+
+When it's useful:
+
+- Apple-Health-style summaries ("Sleep" composed of sleep-hours + mood,
+  "Activity" composed of steps + active-minutes + workouts).
+- Morning dashboards pulling the three metrics you actually check each
+  day into one tile.
+- Any time two or three cards carry fragments of the same concept and
+  you want them shown together.
+
+### Minimum shape
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "sleep",
+    "label": "Sleep",
+    "emoji": "😴",
+    "view": {
+      "enabled": true,
+      "component": "combination-card",
+      "layout": "stack",
+      "combines": [
+        { "sourceId": "sleep-hours", "role": "primary", "accessor": "hours", "unit": "h" },
+        { "sourceId": "mood", "role": "secondary", "accessor": "mood" }
+      ]
+    }
+  },
+  "description": "Read-only composite of sleep-hours + mood.",
+  "data": []
+}
+```
+
+Edits happen on the source cards, not here. The combo re-fetches when
+`manifest-data-changed` fires, so changes show up immediately.
+
+### `layout`
+
+Picks the visual treatment.
+
+| value | what it renders | MVP | Notes |
+|-------|-----------------|-----|-------|
+| `stack` | Vertical label / value rows. Primary rows render large, secondary smaller, annotation muted. | ✓ | Default. |
+| `rings` | Concentric progress rings (planned). | planned | Reserved name; renders as `stack` until the ring layout ships. |
+| `chart` | Reuses `line-chart` inside the combo shell (planned). | planned | Reserved name; renders as `stack` until the chart layout ships. |
+
+Unknown layout values fall back to `stack` so typos don't break the
+card.
+
+### `combines[]`
+
+An ordered array — the order is the render order. Each entry:
+
+| field | required | meaning |
+|-------|----------|---------|
+| `sourceId` | yes | Must match a loaded manifest's `meta.id`. If absent, renderer shows a placeholder — not an error. |
+| `role` | yes | `primary` \| `secondary` \| `annotation`. Drives visual weight in `stack`. `ring-segment` and `bar-series` are reserved for future layouts. |
+| `label` | no | Overrides the source's `meta.label` for this view. |
+| `accessor` | no | Path into the day's row. Dotted paths supported (`stats.avg`). Default: first non-`date` scalar on the row. |
+| `unit` | no | Short string rendered next to the value (e.g. `h`, `kcal`). |
+| `emojiMap` | no | Stringified-value → emoji, for enum sources (`{ "1": "😩", "4": "🙂" }`). |
+
+Multiple entries can point at the same source — e.g. Sleep combo pulls
+both `mood` and `wakeUps` from the mood card via two separate
+`combines[]` entries.
+
+### Row resolution
+
+For each `combines[]` entry, the renderer resolves the viewed date to
+one of:
+
+| state | meaning | how it renders |
+|-------|---------|----------------|
+| `ok` | Source exists, row for that date exists, accessor yields a value. | Normal row. |
+| `no-source` | `sourceId` is not a loaded manifest. | Muted placeholder. |
+| `no-entry` | Source loaded but has no row for the viewed date. | Muted placeholder. |
+| `no-accessor-match` | Row exists but the accessor path yields `undefined`/`null`. | Muted placeholder. |
+
+Non-`ok` states never throw — partial data just renders muted.
+
+### Editing donor data from the combo
+
+If a source declares `writeable.fromWebapp: true` with `inputs[]`, the
+combo shows an edit pencil next to the **first row for that source**.
+Clicking opens an inline form with the donor's **full** `inputs[]`
+array (not just the fields the combo references) and writes back to
+the donor's manifest. The combo refreshes on save.
+
+Rules:
+
+- One pencil per source, not per combines row. The Mood source might
+  drive three rows in the Sleep combo (mood, wakeUps, notes) — you
+  still see one pencil.
+- Donor's `writeable.todayAllowed` / `pastAllowed` / `futureAllowed`
+  are respected verbatim. If the donor denies past-dated edits, the
+  pencil hides on past dates.
+- Ingest-only donors (`writeable.fromWebapp: false`) never show a
+  pencil. Good for atomic cards populated by Health Auto Export.
+
+### Pairing with absorbed cards
+
+A combo usually absorbs one or more atomic cards. To avoid seeing the
+same value twice on Today (once in the combo, once in the atomic
+card), set the absorbed card's `meta.enabled: false`. The card stays
+in Settings (reactive-enable later if you want) and is still editable
+via the combo.
+
+### Worked example
+
+`data.example/sleep.example.json` — the shipped Sleep preset:
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "sleep",
+    "label": "Sleep",
+    "emoji": "😴",
+    "order": 25,
+    "view": {
+      "enabled": true,
+      "component": "combination-card",
+      "layout": "stack",
+      "dateContext": "viewedDate",
+      "combines": [
+        {
+          "sourceId": "sleep-hours",
+          "role": "primary",
+          "label": "Asleep",
+          "accessor": "hours",
+          "unit": "h"
+        },
+        {
+          "sourceId": "mood",
+          "role": "secondary",
+          "label": "Mood",
+          "accessor": "mood",
+          "emojiMap": { "1":"😩","2":"😴","3":"😐","4":"🙂","5":"😄" }
+        },
+        {
+          "sourceId": "mood",
+          "role": "annotation",
+          "label": "Wake-ups",
+          "accessor": "wakeUps"
+        }
+      ]
+    }
+  },
+  "description": "Composite Sleep card. Read-only view over sleep-hours + mood.",
+  "data": []
+}
+```
+
+Drop that alongside working `sleep-hours.json` + `mood.json` files and
+you'll see one Sleep tile showing hours + mood + wake-ups, with a
+pencil next to the Mood row (if mood is writeable).
+
+See also `data.example/activity.example.json` for an Activity combo
+over `steps` + `active-minutes` + `workouts`.
+
+---
+
 ## The `data` block
 
 Card-specific. The convention for most cards is an array of dated entries:
