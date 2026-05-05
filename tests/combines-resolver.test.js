@@ -12,6 +12,8 @@ const {
   getByPath,
   firstScalarKey,
   stringifyValue,
+  canEditDonor,
+  donorIdsInOrder,
 } = require('../public/js/lib/combines-resolver.js');
 
 describe('getByPath', () => {
@@ -255,5 +257,94 @@ describe('resolveCombines', () => {
     assert.equal(out[0].state, 'ok');
     assert.equal(out[1].state, 'no-source');
     assert.equal(out[2].state, 'no-accessor-match');
+  });
+});
+
+describe('canEditDonor', () => {
+  const writeable = {
+    fromWebapp: true,
+    todayAllowed: true,
+    pastAllowed: true,
+    futureAllowed: false,
+    inputs: [{ key: 'mood', type: 'rating' }],
+  };
+
+  test('returns false for null/undefined meta', () => {
+    assert.equal(canEditDonor(null, 'today'), false);
+    assert.equal(canEditDonor(undefined, 'today'), false);
+  });
+
+  test('returns false when writeable block missing', () => {
+    assert.equal(canEditDonor({}, 'today'), false);
+    assert.equal(canEditDonor({ label: 'x' }, 'today'), false);
+  });
+
+  test('returns false when fromWebapp is false (ingest-only donor)', () => {
+    assert.equal(canEditDonor({ writeable: { fromWebapp: false, inputs: [{ key: 'x', type: 'number' }] } }, 'today'), false);
+  });
+
+  test('returns false when inputs array is empty or missing', () => {
+    assert.equal(canEditDonor({ writeable: { fromWebapp: true } }, 'today'), false);
+    assert.equal(canEditDonor({ writeable: { fromWebapp: true, inputs: [] } }, 'today'), false);
+  });
+
+  test('today allowed by default when todayAllowed absent', () => {
+    const m = { writeable: { fromWebapp: true, inputs: [{ key: 'x', type: 'number' }] } };
+    assert.equal(canEditDonor(m, 'today'), true);
+  });
+
+  test('today disallowed when todayAllowed: false', () => {
+    const m = { writeable: { fromWebapp: true, todayAllowed: false, inputs: [{ key: 'x', type: 'number' }] } };
+    assert.equal(canEditDonor(m, 'today'), false);
+  });
+
+  test('past allowed only when explicitly true', () => {
+    const yes = { writeable: { ...writeable, pastAllowed: true } };
+    const no  = { writeable: { ...writeable, pastAllowed: false } };
+    const absent = { writeable: { fromWebapp: true, inputs: [{ key: 'x', type: 'number' }] } };
+    assert.equal(canEditDonor(yes, 'past'), true);
+    assert.equal(canEditDonor(no, 'past'), false);
+    assert.equal(canEditDonor(absent, 'past'), false);
+  });
+
+  test('future allowed only when explicitly true', () => {
+    const yes = { writeable: { fromWebapp: true, futureAllowed: true, inputs: [{ key: 'x', type: 'number' }] } };
+    const no  = { writeable: { fromWebapp: true, futureAllowed: false, inputs: [{ key: 'x', type: 'number' }] } };
+    assert.equal(canEditDonor(yes, 'future'), true);
+    assert.equal(canEditDonor(no, 'future'), false);
+  });
+
+  test('unknown dateMode returns false', () => {
+    assert.equal(canEditDonor({ writeable }, 'weird'), false);
+    assert.equal(canEditDonor({ writeable }, undefined), false);
+  });
+});
+
+describe('donorIdsInOrder', () => {
+  test('preserves first-appearance order', () => {
+    const combines = [
+      { sourceId: 'sleep-hours' },
+      { sourceId: 'mood', accessor: 'mood' },
+      { sourceId: 'mood', accessor: 'wakeUps' },
+      { sourceId: 'sleep-hours', accessor: 'note' },
+      { sourceId: 'hydration' },
+    ];
+    assert.deepEqual(donorIdsInOrder(combines), ['sleep-hours', 'mood', 'hydration']);
+  });
+
+  test('empty/missing input returns []', () => {
+    assert.deepEqual(donorIdsInOrder(null), []);
+    assert.deepEqual(donorIdsInOrder(undefined), []);
+    assert.deepEqual(donorIdsInOrder([]), []);
+  });
+
+  test('skips entries with no sourceId', () => {
+    const combines = [
+      { sourceId: 'mood' },
+      { role: 'annotation' },
+      { sourceId: null },
+      { sourceId: 'hydration' },
+    ];
+    assert.deepEqual(donorIdsInOrder(combines), ['mood', 'hydration']);
   });
 });

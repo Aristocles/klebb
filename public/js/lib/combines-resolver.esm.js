@@ -93,3 +93,27 @@ export function resolveCombines(combines, sources, date) {
   if (!Array.isArray(combines)) return [];
   return combines.map(entry => resolveEntry(entry, sources, date));
 }
+
+export function canEditDonor(donorMeta, dateMode) {
+  if (!donorMeta || typeof donorMeta !== 'object') return false;
+  const w = donorMeta.writeable;
+  if (!w || !w.fromWebapp) return false;
+  if (!Array.isArray(w.inputs) || w.inputs.length === 0) return false;
+  if (dateMode === 'today')  return w.todayAllowed !== false;
+  if (dateMode === 'past')   return w.pastAllowed === true;
+  if (dateMode === 'future') return w.futureAllowed === true;
+  return false;
+}
+
+export function donorIdsInOrder(combines) {
+  if (!Array.isArray(combines)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const c of combines) {
+    const id = c?.sourceId;
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
