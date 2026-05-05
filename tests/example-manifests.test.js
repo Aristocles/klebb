@@ -30,6 +30,7 @@ const KNOWN_COMPONENTS = new Set([
   'progress-bars-card',  // Used by existing goals.json
   'list-card',           // Persistent-items list, eh-list-card
   'day-marker',          // Calendar-only marker config (meta.calendar.component)
+  'combination-card',    // Read-only composite over sibling manifests
 ]);
 
 const KNOWN_INPUT_TYPES = new Set([
