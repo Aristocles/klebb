@@ -15,6 +15,7 @@ const { runFirstBootDemoSeed } = require('./scripts/seed-demo');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 const { TOOL_DEFS, dispatchToolCall } = require('./chat/tools');
+const hae = require('./health-auto-export/ingest');
 
 // chat endpoint config (env-driven; see config/env.js)
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
@@ -497,8 +498,14 @@ const server = http.createServer(async (req, res) => {
     if (result !== null) return;
   }
 
+  // The HAE webhook carries its own token (HEALTH_AUTO_EXPORT_TOKEN) and
+  // the handler enforces it. Let the request through the outer auth gate
+  // so the handler can respond with 501/401/200 as appropriate. No session
+  // cookie or AGENT_API_TOKEN is expected from the iPhone app.
+  const isHaeIngest = pathname === '/api/health-auto-export' && req.method === 'POST';
+
   // Redirect to setup or login if not authenticated
-  if (!isAuthenticated(req) && !isPublicPath(pathname)) {
+  if (!isAuthenticated(req) && !isHaeIngest && !isPublicPath(pathname)) {
     if (pathname.startsWith('/api/')) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Unauthorized' }));
@@ -803,6 +810,58 @@ const server = http.createServer(async (req, res) => {
       const data = readJSONFile(path.join(DATA_DIR, 'info', `${parts[1]}.json`));
       if (data) return sendJSON(res, data);
       return send404(res);
+    }
+
+    // POST /api/health-auto-export — iPhone Health Auto Export webhook.
+    //
+    // Auth: Bearer <HEALTH_AUTO_EXPORT_TOKEN>. If the env var is unset, the
+    // endpoint returns 501 (feature off). If the header is wrong or
+    // missing, returns 401. Otherwise the raw payload is archived, parsed,
+    // and upserted into atomic manifests (sleep-hours, steps,
+    // active-minutes, workouts).
+    //
+    // Errors that occur AFTER auth passes are swallowed into a 200 with a
+    // warning so the iPhone app's retry loop doesn't spiral. The raw
+    // payload is always archived, so parse failures are debuggable later.
+    if (parts[0] === 'health-auto-export' && parts.length === 1 && req.method === 'POST') {
+      const token = ENV.HEALTH_AUTO_EXPORT_TOKEN;
+      if (!token) return sendJSON(res, { error: 'ingest disabled' }, 501);
+      const auth = req.headers['authorization'];
+      if (!auth || !auth.startsWith('Bearer ') || auth.slice(7).trim() !== token) {
+        return sendJSON(res, { error: 'unauthorised' }, 401);
+      }
+
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        // Archive the raw payload unconditionally. Stamp carries
+        // milliseconds so rapid successive pushes don't clobber each
+        // other's archive file.
+        const rawDir = path.join(PATHS.AUTO_EXPORT_DIR, 'raw');
+        try { fs.mkdirSync(rawDir, { recursive: true }); } catch {}
+        const stamp = new Date().toISOString().replace(/[:.]/g, '');
+        const rawFile = path.join(rawDir, `${stamp}.json`);
+        try { fs.writeFileSync(rawFile, body); } catch (e) {
+          console.error('[hae] failed to archive raw payload:', e.message);
+        }
+
+        let payload;
+        try {
+          payload = JSON.parse(body);
+        } catch {
+          return sendJSON(res, { ok: true, warning: 'parse failed, raw saved' });
+        }
+
+        try {
+          const parsed = hae.parseHAEPayload(payload);
+          const summary = hae.upsertInto(registry, parsed);
+          return sendJSON(res, { ok: true, ingested: summary });
+        } catch (e) {
+          console.error('[hae] upsert failed:', e.message);
+          return sendJSON(res, { ok: true, warning: 'upsert failed, raw saved' });
+        }
+      });
+      return;
     }
 
     // Auto-export endpoints: sleep, workouts, vitals, activity
