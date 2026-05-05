@@ -44,14 +44,24 @@ export function stringifyValue(value, emojiMap) {
 
 export function resolveEntry(entry, sources, date) {
   const sourceId = entry?.sourceId;
+  const role = entry?.role || 'annotation';
   const base = {
     sourceId,
-    role: entry?.role || 'annotation',
+    role,
     label: entry?.label || null,
     unit: entry?.unit || null,
     colour: entry?.colour || null,
     emojiMap: entry?.emojiMap || null,
   };
+
+  const isRingSegment = role === 'ring-segment';
+  const goalDaily = isRingSegment ? Number(entry?.goalDaily) : null;
+  const hasValidGoal = isRingSegment
+    && Number.isFinite(goalDaily)
+    && goalDaily > 0;
+  if (isRingSegment && !hasValidGoal) {
+    return { ...base, state: 'no-goal', value: null, displayValue: null, row: null };
+  }
 
   if (!sourceId) {
     return { ...base, state: 'no-source', value: null, displayValue: null, row: null };
@@ -80,13 +90,25 @@ export function resolveEntry(entry, sources, date) {
     return { ...base, state: 'no-accessor-match', value: null, displayValue: null, row };
   }
 
-  return {
+  const result = {
     ...base,
     state: 'ok',
     value,
     displayValue: stringifyValue(value, base.emojiMap),
     row,
   };
+
+  if (isRingSegment) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return { ...base, state: 'no-accessor-match', value: null, displayValue: null, row };
+    }
+    result.goalDaily = goalDaily;
+    result.ratio = numeric / goalDaily;
+    result.complete = result.ratio >= 1;
+  }
+
+  return result;
 }
 
 export function resolveCombines(combines, sources, date) {

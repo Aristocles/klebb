@@ -16,11 +16,17 @@
 // Each resolved row has:
 //   {
 //     sourceId, role, label, unit, colour?, emojiMap?,
-//     state: 'ok' | 'no-source' | 'no-entry' | 'no-accessor-match',
+//     state: 'ok' | 'no-source' | 'no-entry' | 'no-accessor-match' | 'no-goal',
 //     value: any | null,
 //     displayValue: string | null,  // value rendered to a display string
 //     row: object | null,            // the full source row, or null
+//     // Present only when role === 'ring-segment' and state === 'ok':
+//     goalDaily?: number,
+//     ratio?: number,        // value / goalDaily (unclamped; > 1 means overshoot)
+//     complete?: boolean,    // ratio >= 1
 //   }
+// The 'no-goal' state is emitted when a ring-segment entry is missing
+// a positive finite goalDaily — renderer treats it as a placeholder.
 
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -74,14 +80,27 @@
 
   function resolveEntry(entry, sources, date) {
     const sourceId = entry?.sourceId;
+    const role = entry?.role || 'annotation';
     const base = {
       sourceId,
-      role: entry?.role || 'annotation',
+      role,
       label: entry?.label || null,
       unit: entry?.unit || null,
       colour: entry?.colour || null,
       emojiMap: entry?.emojiMap || null,
     };
+
+    // Ring-segment entries MUST carry a positive finite goalDaily; without
+    // one there's nothing to compute a ratio against. Renderer shows a
+    // muted placeholder for this state, same as no-entry.
+    const isRingSegment = role === 'ring-segment';
+    const goalDaily = isRingSegment ? Number(entry?.goalDaily) : null;
+    const hasValidGoal = isRingSegment
+      && Number.isFinite(goalDaily)
+      && goalDaily > 0;
+    if (isRingSegment && !hasValidGoal) {
+      return { ...base, state: 'no-goal', value: null, displayValue: null, row: null };
+    }
 
     if (!sourceId) {
       return { ...base, state: 'no-source', value: null, displayValue: null, row: null };
@@ -111,13 +130,25 @@
       return { ...base, state: 'no-accessor-match', value: null, displayValue: null, row };
     }
 
-    return {
+    const result = {
       ...base,
       state: 'ok',
       value,
       displayValue: stringifyValue(value, base.emojiMap),
       row,
     };
+
+    if (isRingSegment) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) {
+        return { ...base, state: 'no-accessor-match', value: null, displayValue: null, row };
+      }
+      result.goalDaily = goalDaily;
+      result.ratio = numeric / goalDaily;
+      result.complete = result.ratio >= 1;
+    }
+
+    return result;
   }
 
   function resolveCombines(combines, sources, date) {
