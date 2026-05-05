@@ -125,11 +125,45 @@
     return combines.map(entry => resolveEntry(entry, sources, date));
   }
 
+  // Given a donor manifest's meta and the viewed dateMode
+  // ("today" | "past" | "future"), decide whether the combo card should
+  // render an edit affordance for that donor. Mirrors the _canWrite
+  // getter in EhBaseCard so donors behave identically whether edited
+  // via the atomic card or via the combo.
+  function canEditDonor(donorMeta, dateMode) {
+    if (!donorMeta || typeof donorMeta !== 'object') return false;
+    const w = donorMeta.writeable;
+    if (!w || !w.fromWebapp) return false;
+    if (!Array.isArray(w.inputs) || w.inputs.length === 0) return false;
+    if (dateMode === 'today')  return w.todayAllowed !== false;
+    if (dateMode === 'past')   return w.pastAllowed === true;
+    if (dateMode === 'future') return w.futureAllowed === true;
+    return false;
+  }
+
+  // Unique sourceIds in the order they first appear in combines[]. The
+  // combo renderer attaches the edit pencil to the first row of each
+  // donor group.
+  function donorIdsInOrder(combines) {
+    if (!Array.isArray(combines)) return [];
+    const seen = new Set();
+    const out = [];
+    for (const c of combines) {
+      const id = c?.sourceId;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+    return out;
+  }
+
   return {
     resolveCombines,
     resolveEntry,
     getByPath,
     firstScalarKey,
     stringifyValue,
+    canEditDonor,
+    donorIdsInOrder,
   };
 }));
