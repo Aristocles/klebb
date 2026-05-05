@@ -400,9 +400,99 @@ Use one of these names in `meta.view.component` / `meta.trends.component`:
 | `table-list` | Tabular data |
 | `adherence-report` | Med adherence summary |
 | `greeting-banner` | Top-of-page greeting |
+| `combination-card` | Read-only composite over sibling manifests (see [Combination cards](#combination-cards)) |
 
 Unknown renderer names fall back to `eh-unknown-card`, which shows an
 inline warning but keeps the dashboard running.
+
+---
+
+## Combination cards
+
+A combination card is a read-only window over other cards' data. It
+declares which sibling manifests to read from and how to surface their
+values, and owns no data of its own (its `data` block is ignored).
+
+Shape:
+
+```json
+"meta": {
+  "view": {
+    "enabled":   true,
+    "component": "combination-card",
+    "layout":    "stack",
+    "combines": [
+      {
+        "sourceId": "sleep-hours",
+        "role":     "primary",
+        "label":    "Asleep",
+        "accessor": "hours",
+        "unit":     "h"
+      },
+      {
+        "sourceId": "mood",
+        "role":     "secondary",
+        "label":    "Mood",
+        "accessor": "mood",
+        "emojiMap": { "1": "😩", "2": "😴", "3": "😐", "4": "🙂", "5": "😄" }
+      }
+    ]
+  }
+}
+```
+
+### `layout`
+
+Picks the visual treatment.
+
+| value | behaviour |
+|-------|-----------|
+| `stack` | Vertical label/value rows. Primary rows render large, secondary smaller, annotation muted. |
+
+Values `rings` and `chart` are reserved for future renderers. An
+unknown layout falls back to `stack`.
+
+### `combines[]`
+
+An ordered array of source entries. Each entry:
+
+| field | required | meaning |
+|-------|----------|---------|
+| `sourceId` | yes | Must match a loaded manifest's `meta.id`. Missing source renders a placeholder, not an error. |
+| `role` | yes | `primary` \| `secondary` \| `annotation`. Drives visual weight. `ring-segment` and `bar-series` are reserved. |
+| `label` | no | Overrides the source's `meta.label` for this view. |
+| `accessor` | no | Path into the day's row. Dotted paths (`stats.avg`) supported. Default: first non-`date` scalar on the row. |
+| `unit` | no | Short string rendered next to the value (e.g. `h`, `kcal`). |
+| `emojiMap` | no | Stringified-value → emoji, for enum sources (mood, etc). |
+
+### Row resolution
+
+For a viewed date, the renderer resolves each source to one of:
+
+| state | meaning |
+|-------|---------|
+| `ok` | Source exists, has a row for that date, accessor yields a value. |
+| `no-source` | `sourceId` is not a loaded manifest. |
+| `no-entry` | Source loaded but has no row for the viewed date. |
+| `no-accessor-match` | Row exists but the accessor yields `undefined`/`null`. |
+
+States other than `ok` render as a muted placeholder so partial data
+doesn't break the layout.
+
+### Editing
+
+Combination cards are read-only; they have no `writeable` block and
+emit no writes. To change a value, edit the source manifest; the
+combo re-resolves on `manifest-data-changed` (fired by the app shell
+whenever any manifest's data block changes).
+
+### Typical pairing
+
+A combo card usually absorbs one or more atomic cards. To avoid
+showing the same data twice, set the absorbed card's `meta.enabled:
+false` (master disable) so it stays in Settings but drops from every
+view. See `data.example/sleep.example.json` for a worked example
+that combines `sleep-hours` and `mood`.
 
 ---
 
