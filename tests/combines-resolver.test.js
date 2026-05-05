@@ -348,3 +348,130 @@ describe('donorIdsInOrder', () => {
     assert.deepEqual(donorIdsInOrder(combines), ['mood', 'hydration']);
   });
 });
+
+describe('resolveEntry: ring-segment role', () => {
+  const sources = {
+    'steps': {
+      loaded: true, meta: { label: 'Steps' },
+      data: [{ date: '2026-05-05', count: 7200 }],
+    },
+    'active-minutes': {
+      loaded: true, meta: { label: 'Active Minutes' },
+      data: [{ date: '2026-05-05', minutes: 45 }],
+    },
+    'mood': {
+      loaded: true, meta: { label: 'Mood' },
+      data: [{ date: '2026-05-05', mood: 'okay' }],
+    },
+  };
+
+  test('valid ring-segment: state=ok, ratio + complete computed', () => {
+    const r = resolveEntry(
+      { sourceId: 'steps', role: 'ring-segment', accessor: 'count', goalDaily: 10000 },
+      sources, '2026-05-05',
+    );
+    assert.equal(r.state, 'ok');
+    assert.equal(r.value, 7200);
+    assert.equal(r.goalDaily, 10000);
+    assert.equal(r.ratio, 0.72);
+    assert.equal(r.complete, false);
+  });
+
+  test('overshoot: ratio > 1, complete = true', () => {
+    const r = resolveEntry(
+      { sourceId: 'active-minutes', role: 'ring-segment', accessor: 'minutes', goalDaily: 30 },
+      sources, '2026-05-05',
+    );
+    assert.equal(r.state, 'ok');
+    assert.equal(r.ratio, 1.5);
+    assert.equal(r.complete, true);
+  });
+
+  test('exactly-at-goal: ratio = 1, complete = true', () => {
+    const exact = { 'x': { loaded: true, meta: {}, data: [{ date: '2026-05-05', v: 30 }] } };
+    const r = resolveEntry(
+      { sourceId: 'x', role: 'ring-segment', accessor: 'v', goalDaily: 30 },
+      exact, '2026-05-05',
+    );
+    assert.equal(r.ratio, 1);
+    assert.equal(r.complete, true);
+  });
+
+  test('missing goalDaily → no-goal state', () => {
+    const r = resolveEntry(
+      { sourceId: 'steps', role: 'ring-segment', accessor: 'count' },
+      sources, '2026-05-05',
+    );
+    assert.equal(r.state, 'no-goal');
+    assert.equal(r.value, null);
+  });
+
+  test('zero goalDaily → no-goal state (defensive; avoids divide-by-zero)', () => {
+    const r = resolveEntry(
+      { sourceId: 'steps', role: 'ring-segment', accessor: 'count', goalDaily: 0 },
+      sources, '2026-05-05',
+    );
+    assert.equal(r.state, 'no-goal');
+  });
+
+  test('negative goalDaily → no-goal state', () => {
+    const r = resolveEntry(
+      { sourceId: 'steps', role: 'ring-segment', accessor: 'count', goalDaily: -100 },
+      sources, '2026-05-05',
+    );
+    assert.equal(r.state, 'no-goal');
+  });
+
+  test('non-numeric goalDaily → no-goal state', () => {
+    const r = resolveEntry(
+      { sourceId: 'steps', role: 'ring-segment', accessor: 'count', goalDaily: 'a lot' },
+      sources, '2026-05-05',
+    );
+    assert.equal(r.state, 'no-goal');
+  });
+
+  test('non-numeric value on ring-segment → no-accessor-match', () => {
+    const r = resolveEntry(
+      { sourceId: 'mood', role: 'ring-segment', accessor: 'mood', goalDaily: 5 },
+      sources, '2026-05-05',
+    );
+    assert.equal(r.state, 'no-accessor-match');
+  });
+
+  test('no-goal check runs BEFORE source lookup (goal is malformed regardless of source)', () => {
+    // Even if the source is missing, a missing goal is still the primary
+    // problem. Test documents that goal validation is first.
+    const r = resolveEntry(
+      { sourceId: 'nonexistent', role: 'ring-segment', accessor: 'x' },
+      sources, '2026-05-05',
+    );
+    assert.equal(r.state, 'no-goal');
+  });
+
+  test('no ring fields on non-ring-segment entries', () => {
+    const r = resolveEntry(
+      { sourceId: 'steps', role: 'primary', accessor: 'count', goalDaily: 10000 },
+      sources, '2026-05-05',
+    );
+    assert.equal(r.state, 'ok');
+    assert.equal('ratio' in r, false);
+    assert.equal('complete' in r, false);
+    assert.equal('goalDaily' in r, false);
+  });
+
+  test('no-entry still propagates for ring-segment with valid goal', () => {
+    const r = resolveEntry(
+      { sourceId: 'steps', role: 'ring-segment', accessor: 'count', goalDaily: 10000 },
+      sources, '2099-01-01',
+    );
+    assert.equal(r.state, 'no-entry');
+  });
+
+  test('ring-segment preserves colour field', () => {
+    const r = resolveEntry(
+      { sourceId: 'steps', role: 'ring-segment', accessor: 'count', goalDaily: 10000, colour: '#0ea5e9' },
+      sources, '2026-05-05',
+    );
+    assert.equal(r.colour, '#0ea5e9');
+  });
+});

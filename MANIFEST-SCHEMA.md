@@ -448,9 +448,10 @@ Picks the visual treatment.
 | value | behaviour |
 |-------|-----------|
 | `stack` | Vertical label/value rows. Primary rows render large, secondary smaller, annotation muted. |
+| `rings` | Concentric progress arcs driven by `role: "ring-segment"` entries. Non-ring roles render as a stack row below the arcs. |
 
-Values `rings` and `chart` are reserved for future renderers. An
-unknown layout falls back to `stack`.
+Value `chart` is reserved for a future line-chart layout. Unknown
+layouts fall back to `stack`.
 
 ### `combines[]`
 
@@ -459,11 +460,13 @@ An ordered array of source entries. Each entry:
 | field | required | meaning |
 |-------|----------|---------|
 | `sourceId` | yes | Must match a loaded manifest's `meta.id`. Missing source renders a placeholder, not an error. |
-| `role` | yes | `primary` \| `secondary` \| `annotation`. Drives visual weight. `ring-segment` and `bar-series` are reserved. |
+| `role` | yes | `primary` \| `secondary` \| `annotation` \| `ring-segment`. Drives visual treatment. `bar-series` is reserved. |
 | `label` | no | Overrides the source's `meta.label` for this view. |
 | `accessor` | no | Path into the day's row. Dotted paths (`stats.avg`) supported. Default: first non-`date` scalar on the row. |
 | `unit` | no | Short string rendered next to the value (e.g. `h`, `kcal`). |
 | `emojiMap` | no | Stringified-value → emoji, for enum sources (mood, etc). |
+| `goalDaily` | yes for `ring-segment` | Positive finite number. Ring fills `min(value / goalDaily, 1)`; overshoot paints a "complete" glow. |
+| `colour` | no | CSS colour for a `ring-segment`. Falls back to the renderer's theme palette by ring index. |
 
 ### Row resolution
 
@@ -475,9 +478,12 @@ For a viewed date, the renderer resolves each source to one of:
 | `no-source` | `sourceId` is not a loaded manifest. |
 | `no-entry` | Source loaded but has no row for the viewed date. |
 | `no-accessor-match` | Row exists but the accessor yields `undefined`/`null`. |
+| `no-goal` | Ring-segment entry missing a positive finite `goalDaily`. |
 
 States other than `ok` render as a muted placeholder so partial data
-doesn't break the layout.
+doesn't break the layout. Ring-segment entries with `state: "ok"`
+additionally carry `goalDaily`, `ratio` (unclamped; `>1` means
+overshoot), and `complete` (boolean; `ratio >= 1`).
 
 ### Editing
 
@@ -485,6 +491,24 @@ Combination cards are read-only; they have no `writeable` block and
 emit no writes. To change a value, edit the source manifest; the
 combo re-resolves on `manifest-data-changed` (fired by the app shell
 whenever any manifest's data block changes).
+
+### Rings layout specifics
+
+`layout: "rings"` renders one concentric progress arc per entry with
+`role: "ring-segment"`. Each such entry needs a numeric accessor and
+a `goalDaily` target. Overshoots (`value > goalDaily`) fill the full
+ring and paint a complete indicator on the legend row; missing or
+malformed goals render a muted placeholder.
+
+Non-ring-segment roles in the same `combines[]` array (primary /
+secondary / annotation) render as stack-style rows beneath the ring
+figure — useful for a one-off "trained today?" flag or free-text
+notes sitting next to rings.
+
+Ring colour falls back to the renderer's theme palette by ring
+index; set `colour` on the entry to override.
+
+See `data.example/activity-rings.example.json` for a worked example.
 
 ### Typical pairing
 

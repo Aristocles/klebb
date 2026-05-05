@@ -232,3 +232,118 @@ describe('combination-card writeable donor save path', () => {
     assert.deepEqual(res.json.data, []);
   });
 });
+
+// --- layout: rings (issue #111) ---
+// Verify the rings preset round-trips through the view API with
+// goalDaily + colour intact, so the client renderer sees the full
+// config.
+describe('combination-card layout:"rings" round-trip', () => {
+  let sandbox, server;
+
+  const steps = {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'steps',
+      label: 'Steps',
+      view: { enabled: true, component: 'generic-card', display: { template: '{count}' } },
+      writeable: { fromWebapp: false },
+    },
+    data: [{ date: '2026-05-05', count: 7200 }],
+  };
+
+  const active = {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'active-minutes',
+      label: 'Active Minutes',
+      view: { enabled: true, component: 'generic-card', display: { template: '{minutes}' } },
+      writeable: { fromWebapp: false },
+    },
+    data: [{ date: '2026-05-05', minutes: 45 }],
+  };
+
+  const workouts = {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'workouts',
+      label: 'Workouts',
+      view: { enabled: true, component: 'generic-card', display: { template: '{trained}' } },
+      writeable: { fromWebapp: false },
+    },
+    data: [{ date: '2026-05-05', trained: true, type: 'Running' }],
+  };
+
+  const activityRings = {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'activity-rings',
+      label: 'Activity Rings',
+      emoji: '🏅',
+      order: 66,
+      view: {
+        enabled: true,
+        component: 'combination-card',
+        layout: 'rings',
+        combines: [
+          { sourceId: 'steps',          role: 'ring-segment', label: 'Steps',  accessor: 'count',   goalDaily: 10000, unit: 'steps', colour: '#0ea5e9' },
+          { sourceId: 'active-minutes', role: 'ring-segment', label: 'Active', accessor: 'minutes', goalDaily: 30,    unit: 'min',   colour: '#f59e0b' },
+          { sourceId: 'workouts',       role: 'annotation',   label: 'Trained', accessor: 'trained' },
+        ],
+      },
+    },
+    data: [],
+  };
+
+  before(async () => {
+    sandbox = createSandbox({
+      seed: {
+        'steps.json': steps,
+        'active-minutes.json': active,
+        'workouts.json': workouts,
+        'activity-rings.json': activityRings,
+      },
+    });
+    server = await spawnServer(sandbox);
+  });
+
+  after(async () => {
+    if (server) await server.kill();
+    if (sandbox) cleanupSandbox(sandbox);
+  });
+
+  test('GET /api/views/view surfaces layout:"rings" with combines[] intact', async () => {
+    const res = await req(server.baseUrl, '/api/views/view');
+    assert.equal(res.status, 200);
+    const combo = res.json.cards.find(c => c.id === 'activity-rings');
+    assert.ok(combo, 'rings preset present in view');
+    assert.equal(combo.viewConfig.component, 'combination-card');
+    assert.equal(combo.viewConfig.layout, 'rings');
+    assert.equal(combo.viewConfig.combines.length, 3);
+  });
+
+  test('ring-segment entries carry goalDaily + colour client-side', async () => {
+    const res = await req(server.baseUrl, '/api/views/view');
+    const combo = res.json.cards.find(c => c.id === 'activity-rings');
+    const rings = combo.viewConfig.combines.filter(c => c.role === 'ring-segment');
+    assert.equal(rings.length, 2);
+    assert.equal(rings[0].goalDaily, 10000);
+    assert.equal(rings[0].colour, '#0ea5e9');
+    assert.equal(rings[1].goalDaily, 30);
+    assert.equal(rings[1].colour, '#f59e0b');
+  });
+
+  test('non-ring-segment roles are preserved alongside ring-segments', async () => {
+    const res = await req(server.baseUrl, '/api/views/view');
+    const combo = res.json.cards.find(c => c.id === 'activity-rings');
+    const annotation = combo.viewConfig.combines.find(c => c.role === 'annotation');
+    assert.ok(annotation);
+    assert.equal(annotation.sourceId, 'workouts');
+  });
+
+  test('source manifests remain independently readable', async () => {
+    const stepsRes = await req(server.baseUrl, '/api/manifests/steps/data');
+    assert.equal(stepsRes.json.data[0].count, 7200);
+    const activeRes = await req(server.baseUrl, '/api/manifests/active-minutes/data');
+    assert.equal(activeRes.json.data[0].minutes, 45);
+  });
+});
