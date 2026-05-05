@@ -6,14 +6,16 @@
 //
 // Opt a manifest into this renderer by setting:
 //   meta.view.component = "combination-card"
-//   meta.view.layout    = "stack"   (MVP; "rings" and "chart" reserved)
+//   meta.view.layout    = "stack" | "rings"   ("chart" reserved)
 //   meta.view.combines  = [ { sourceId, role, label?, accessor?, unit?, emojiMap? } ]
 //
-// See MANIFEST-SCHEMA.md "Combination cards" for the full contract.
+// Ring-segment entries (role: "ring-segment") carry goalDaily + optional
+// colour. See MANIFEST-SCHEMA.md "Combination cards" for the full contract.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { registerRenderer } from '../renderer-registry.js';
 import { resolveCombines, canEditDonor } from '../lib/combines-resolver.esm.js';
+import { loadECharts, chartTheme } from './eh-chart-base.js';
 import './eh-input-form.js';
 
 export class EhCombinationCard extends LitElement {
@@ -52,6 +54,9 @@ export class EhCombinationCard extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('manifest-data-changed', this._onDataChanged);
+    if (this._chart) { try { this._chart.dispose(); } catch {} this._chart = null; }
+    if (this._themeObserver) { this._themeObserver.disconnect(); this._themeObserver = null; }
+    if (this._resizeObserver) { this._resizeObserver.disconnect(); this._resizeObserver = null; }
   }
 
   _onDataChanged(e) {
@@ -70,8 +75,9 @@ export class EhCombinationCard extends LitElement {
 
   _layout() {
     const l = this.card?.viewConfig?.layout || 'stack';
-    // Unknown layouts fall back to stack (documented behaviour).
-    return l === 'stack' ? 'stack' : 'stack';
+    // Known layouts pass through; unknown fall back to stack.
+    if (l === 'stack' || l === 'rings') return l;
+    return 'stack';
   }
 
   async _fetchAll() {
@@ -107,9 +113,9 @@ export class EhCombinationCard extends LitElement {
     }
   }
 
-  updated(changed) {
-    if (changed.has('card')) this._fetchAll();
-  }
+  // `updated()` is defined further down in the rings lifecycle section
+  // so it can also drive the ECharts refresh; it handles `card` change
+  // identically to what used to live here.
 
   // --- Editable donor support ---
 
@@ -275,6 +281,7 @@ export class EhCombinationCard extends LitElement {
   render() {
     const m = this.card?.meta || {};
     const combines = this._combines();
+    const layout = this._layout();
 
     if (this._loading) {
       return html`
@@ -289,7 +296,6 @@ export class EhCombinationCard extends LitElement {
     }
 
     const resolved = resolveCombines(combines, this._sources, this.date);
-    const allMissing = resolved.length > 0 && resolved.every(r => r.state !== 'ok');
     const firstByDonor = this._firstRowIndexPerDonor(resolved);
 
     return html`
@@ -300,22 +306,195 @@ export class EhCombinationCard extends LitElement {
           ${this.dateMode === 'future' ? html`<span class="badge future">🔮 Planned</span>` : ''}
           ${this.dateMode === 'past'   ? html`<span class="badge past">Past</span>` : ''}
         </div>
-        <div class="body layout-${this._layout()}">
+        <div class="body layout-${layout}">
           ${combines.length === 0 ? html`
             <div class="empty">No sources configured.</div>
-          ` : allMissing ? html`
-            <div class="empty">No data for this date.</div>
-          ` : resolved.map((r, i) => {
-            const isFirstForDonor = firstByDonor[r.sourceId] === i;
+          ` : layout === 'rings'
+            ? this._renderRings(resolved, firstByDonor)
+            : this._renderStack(resolved, firstByDonor)}
+          ${this._editingDonor ? this._renderEditForm(this._editingDonor) : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  _renderStack(resolved, firstByDonor) {
+    const allMissing = resolved.length > 0 && resolved.every(r => r.state !== 'ok');
+    if (allMissing) return html`<div class="empty">No data for this date.</div>`;
+    return resolved.map((r, i) => {
+      const isFirstForDonor = firstByDonor[r.sourceId] === i;
+      const showPencil = isFirstForDonor
+                       && r.sourceId !== this._editingDonor
+                       && this._canEditDonor(r.sourceId);
+      return this._renderRow(r, showPencil);
+    });
+  }
+
+  _renderRings(resolved, firstByDonor) {
+    // Partition: ring-segment entries drive the gauge, everything else
+    // renders below as normal stack rows. Non-ring-segment roles behave
+    // exactly as in `stack` layout.
+    const ringEntries = resolved.filter(r => r.role === 'ring-segment');
+    const otherEntries = resolved.filter(r => r.role !== 'ring-segment');
+
+    if (ringEntries.length === 0) {
+      return html`<div class="empty">No ring segments configured. Add role: "ring-segment" entries with goalDaily.</div>`;
+    }
+
+    return html`
+      <div class="rings-figure">
+        <div class="rings-chart"></div>
+      </div>
+      <div class="rings-legend">
+        ${ringEntries.map((r, i) => this._renderRingLegend(r, i))}
+      </div>
+      ${otherEntries.length > 0 ? html`
+        <div class="rings-extras">
+          ${otherEntries.map((r) => {
+            // Still honour per-donor pencil rules for non-ring rows.
+            const donorIdx = resolved.indexOf(r);
+            const isFirstForDonor = firstByDonor[r.sourceId] === donorIdx;
             const showPencil = isFirstForDonor
                              && r.sourceId !== this._editingDonor
                              && this._canEditDonor(r.sourceId);
             return this._renderRow(r, showPencil);
           })}
-          ${this._editingDonor ? this._renderEditForm(this._editingDonor) : ''}
         </div>
+      ` : ''}
+    `;
+  }
+
+  _renderRingLegend(resolved, index) {
+    const label = resolved.label || resolved.sourceId;
+    const theme = this._cachedTheme || chartTheme();
+    const colour = resolved.colour || theme.color[index % theme.color.length];
+
+    if (resolved.state !== 'ok') {
+      const hint = resolved.state === 'no-goal' ? 'needs goalDaily'
+                 : resolved.state === 'no-source' ? 'source not loaded'
+                 : resolved.state === 'no-entry' ? 'no entry for this date'
+                 : 'no value';
+      return html`
+        <div class="ring-legend-row placeholder">
+          <span class="ring-swatch" style="background:${colour};opacity:.3;"></span>
+          <span class="ring-label">${label}</span>
+          <span class="ring-placeholder">${hint}</span>
+        </div>
+      `;
+    }
+
+    const pct = Math.round(resolved.ratio * 100);
+    const valueStr = resolved.displayValue;
+    const goalStr = String(resolved.goalDaily);
+    return html`
+      <div class="ring-legend-row ${resolved.complete ? 'complete' : ''}">
+        <span class="ring-swatch" style="background:${colour};"></span>
+        <span class="ring-label">${label}</span>
+        <span class="ring-values">
+          <span class="ring-value">${valueStr}</span>
+          <span class="ring-sep">/</span>
+          <span class="ring-goal">${goalStr}${resolved.unit ? ` ${resolved.unit}` : ''}</span>
+          <span class="ring-pct">${pct}%${resolved.complete ? ' ✨' : ''}</span>
+        </span>
       </div>
     `;
+  }
+
+  // --- ECharts lifecycle for rings layout ---
+
+  firstUpdated() { this._maybeUpdateChart(); }
+
+  async _maybeUpdateChart() {
+    if (this._layout() !== 'rings') {
+      // If we swapped away from rings, tear down the chart.
+      if (this._chart) { try { this._chart.dispose(); } catch {} this._chart = null; }
+      return;
+    }
+    const el = this.renderRoot.querySelector('.rings-chart');
+    if (!el) return;
+    const echarts = await loadECharts();
+    if (!this._chart) {
+      this._chart = echarts.init(el);
+      this._themeObserver = new MutationObserver(() => {
+        this._cachedTheme = null;
+        this._applyChart();
+        this.requestUpdate();  // re-render legend so swatches match new theme
+      });
+      this._themeObserver.observe(document.documentElement, {
+        attributes: true, attributeFilter: ['data-theme'],
+      });
+      if (typeof ResizeObserver !== 'undefined') {
+        this._resizeObserver = new ResizeObserver(() => {
+          try { this._chart.resize(); } catch {}
+        });
+        this._resizeObserver.observe(el);
+      }
+    }
+    this._applyChart();
+  }
+
+  _applyChart() {
+    if (!this._chart) return;
+    const theme = chartTheme();
+    this._cachedTheme = theme;
+    const resolved = resolveCombines(this._combines(), this._sources, this.date);
+    const ringEntries = resolved.filter(r => r.role === 'ring-segment');
+
+    // Concentric gauges. ECharts gauge supports radius as a percentage of
+    // the container; we space rings by 18% radius per layer.
+    const BASE_RADIUS = 88;
+    const GAP = 18;
+    const series = ringEntries.map((r, i) => {
+      const colour = r.colour || theme.color[i % theme.color.length];
+      const radius = Math.max(BASE_RADIUS - i * GAP, 30);
+      const value = r.state === 'ok' ? Math.min(r.ratio, 1) : 0;
+      return {
+        type: 'gauge',
+        radius: `${radius}%`,
+        startAngle: 90,
+        endAngle: -270,
+        min: 0,
+        max: 1,
+        progress: {
+          show: true,
+          width: 12,
+          roundCap: true,
+          itemStyle: { color: colour },
+        },
+        axisLine: {
+          lineStyle: {
+            width: 12,
+            color: [[1, theme.yAxis?.splitLine?.lineStyle?.color || 'rgba(128,128,128,0.15)']],
+          },
+        },
+        pointer: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: { show: false },
+        title: { show: false },
+        detail: { show: false },
+        data: [{ value }],
+        animation: true,
+        animationDuration: 600,
+      };
+    });
+
+    this._chart.setOption({
+      ...theme,
+      backgroundColor: 'transparent',
+      series,
+    }, true);
+  }
+
+  updated(changed) {
+    // Trigger _fetchAll when `card` changes (existing behaviour) AND refresh
+    // the chart when inputs that affect it change.
+    if (changed.has('card')) {
+      this._fetchAll();
+    }
+    if (!this._loading) {
+      this._maybeUpdateChart();
+    }
   }
 
   static styles = css`
@@ -464,6 +643,82 @@ export class EhCombinationCard extends LitElement {
 
     @media (prefers-reduced-motion: reduce) {
       .edit-btn { transition: none; }
+    }
+
+    /* --- Rings layout --- */
+    .body.layout-rings { display: flex; flex-direction: column; gap: 10px; }
+
+    .rings-figure {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .rings-chart {
+      width: 100%;
+      max-width: 260px;
+      height: 180px;
+    }
+
+    .rings-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ring-legend-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 13px;
+      min-width: 0;
+    }
+    .ring-legend-row.placeholder { opacity: 0.7; }
+    .ring-legend-row.complete .ring-pct {
+      color: var(--accent-green, #44ff88);
+      font-weight: 700;
+    }
+    .ring-swatch {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .ring-label {
+      color: var(--text-muted, var(--text-secondary));
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .ring-values {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      color: var(--text-primary);
+    }
+    .ring-value { font-weight: 600; }
+    .ring-sep { opacity: 0.4; }
+    .ring-goal {
+      font-size: 11px;
+      color: var(--text-muted, var(--text-secondary));
+    }
+    .ring-pct {
+      margin-left: 6px;
+      font-size: 12px;
+      color: var(--text-muted, var(--text-secondary));
+    }
+    .ring-placeholder {
+      margin-left: auto;
+      font-size: 11px;
+      font-style: italic;
+      color: var(--text-muted, var(--text-secondary));
+    }
+
+    .rings-extras {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
     }
   `;
 }
