@@ -574,6 +574,37 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // PATCH /api/manifests/:id — RFC 7396 JSON Merge Patch over meta + description.
+    // Body: { meta?: {...}, description?: "..." }
+    //   - Nested objects deep-merge; arrays replace; null removes.
+    //   - data + $schema + meta.id are protected.
+    if (parts[0] === 'manifests' && parts.length === 2 && req.method === 'PATCH') {
+      const id = parts[1];
+      if (!registry.get(id)) return send404(res, 'manifest not found');
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        let patch;
+        try {
+          patch = JSON.parse(body || '{}');
+        } catch (e) {
+          return sendJSON(res, { error: 'invalid JSON body' }, 400);
+        }
+        try {
+          const result = registry.patchManifest(id, patch);
+          return sendJSON(res, { ok: true, id: result.id });
+        } catch (e) {
+          const msg = e.message || 'patch failed';
+          const status = /unknown manifest/.test(msg) ? 404
+            : /protected field|patch must be|missing|description must/.test(msg) ? 400
+            : /invalid id/.test(msg) ? 422
+            : 500;
+          return sendJSON(res, { error: msg }, status);
+        }
+      });
+      return;
+    }
+
     // GET /api/views/:viewName — cards that opt into a named view
     if (parts[0] === 'views' && parts.length === 2 && req.method === 'GET') {
       const viewName = parts[1];

@@ -91,6 +91,64 @@ const TOOL_DEFS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'read_manifest',
+      description:
+        "Return the full content of a single card: meta, description, schema, and the data block. Use this before any write (write_manifest_data or patch_manifest) so you can see what you're about to change and preserve everything you don't want to touch. Also the right tool for answering 'what did I log for X', 'what's my threshold', etc.",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Manifest id.' },
+        },
+        required: ['id'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'write_manifest_data',
+      description:
+        "Replace a card's entire data block. This is a full rewrite, not a row-level patch — to add/edit/delete a row, first call read_manifest to get the current data, mutate the array (or object) in memory, then pass the whole new value here. Rejected if meta.writeable.fromWebapp is false (ingest-only cards). Destructive-feeling writes (removing rows) must be confirmed with the user exactly once before calling this.",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Manifest id.' },
+          data: {
+            description:
+              "The full new data value. Shape matches what read_manifest returned: usually an array of rows like [{date, ...}], but some cards use {items:[...]}, {markdown:'...'}, etc. Pass whatever shape the card uses.",
+          },
+        },
+        required: ['id', 'data'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'patch_manifest',
+      description:
+        "Edit a card's meta or description in place without touching its data. Uses RFC 7396 JSON Merge Patch: nested objects deep-merge, arrays replace wholesale, null removes a key. Use this for any meta-only change — thresholds, labels, emoji maps, input types, writeable flags. The data block is preserved byte-for-byte. You CANNOT change $schema or meta.id via this tool; for those, delete_manifest + create_manifest is the path (and data will be lost). ALWAYS call read_manifest first so you're patching over the real current meta. Destructive-feeling patches (removing inputs from a writeable card, flipping writeable.fromWebapp from true to false on a card that has data) must be confirmed with the user exactly once before calling this.",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Manifest id.' },
+          patch: {
+            type: 'object',
+            description:
+              "Partial manifest. Only meta and description are patchable. Example: {meta: {writeable: {inputs: [{key:'mood', type:'emoji-picker', emojis:['😩','😴','😐','🙂','😄'], emitIndex:true, required:true, autoSubmit:false}, ...]}}} — note that meta.writeable.inputs is an ARRAY, so the WHOLE array replaces. You have to include every input you want to keep.",
+            additionalProperties: true,
+          },
+        },
+        required: ['id', 'patch'],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // Execute a single tool_call from an assistant response. Always returns a
@@ -131,6 +189,34 @@ function dispatchToolCall(tc) {
           enabled: c.meta?.enabled !== false,
         }));
         return JSON.stringify({ cards: rows });
+      }
+      case 'read_manifest': {
+        const entry = registry.get(args.id);
+        if (!entry) {
+          return JSON.stringify({ error: `unknown manifest: ${args.id}` });
+        }
+        return JSON.stringify({
+          meta: entry.meta,
+          description: entry.description || null,
+          schema: entry.schema || null,
+          data: entry.data,
+        });
+      }
+      case 'write_manifest_data': {
+        const entry = registry.get(args.id);
+        if (!entry) {
+          return JSON.stringify({ error: `unknown manifest: ${args.id}` });
+        }
+        const w = entry.meta?.writeable;
+        if (!w || !w.fromWebapp) {
+          return JSON.stringify({ error: `${args.id} is not writeable from the webapp (meta.writeable.fromWebapp is not true). Use patch_manifest to flip the flag first if the user wants to make it writeable.` });
+        }
+        registry.writeData(args.id, args.data);
+        return JSON.stringify({ ok: true, id: args.id });
+      }
+      case 'patch_manifest': {
+        const result = registry.patchManifest(args.id, args.patch);
+        return JSON.stringify({ ok: true, ...result });
       }
       default:
         return JSON.stringify({ error: 'unknown tool: ' + name });
