@@ -1,0 +1,18 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "welcome",
+    "label": "Welcome to Klebb",
+    "emoji": "👋",
+    "order": 1,
+    "view": {
+      "enabled": true,
+      "component": "welcome-card"
+    },
+    "welcome": {
+      "autoHideApplied": false
+    }
+  },
+  "description": "Auto-created on first boot. Explains the three ways to add your own cards. Hides itself the first time you create any other card. Restore it from Settings at any time, or delete the file if you do not want it back.",
+  "data": {}
+}

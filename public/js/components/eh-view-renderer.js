@@ -21,6 +21,7 @@ import './eh-schedule-timeline.js';
 import './eh-adherence-report.js';
 import './eh-table-list.js';
 import './eh-combination-card.js';
+import './eh-welcome-card.js';
 
 export class EhViewRenderer extends LitElement {
   static properties = {
