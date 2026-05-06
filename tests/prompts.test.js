@@ -15,11 +15,11 @@ const PROMPTS_DIR = path.join(__dirname, '..', 'prompts');
 // Minimal YAML frontmatter parser: top-level keys only, array values via
 // [a, b, c] syntax. Good enough for our controlled prompt files.
 function parseFrontmatter(raw) {
-  const m = raw.match(/^---\n([\s\S]*?)\n---\n/);
+  const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
   if (!m) return null;
   const body = raw.slice(m[0].length);
   const frontmatter = {};
-  for (const line of m[1].split('\n')) {
+  for (const line of m[1].split(/\r?\n/)) {
     if (!line.trim()) continue;
     const kv = line.match(/^([a-z][a-z0-9_-]*):\s*(.+)$/i);
     if (!kv) continue;
