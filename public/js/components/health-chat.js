@@ -733,6 +733,21 @@ class HealthChat extends LitElement {
       if (!this._open) this._toggle();
     };
     window.addEventListener('klebb-open-chat', this._onOpenChat);
+    this._onPasteIntoChat = (e) => {
+      const text = e.detail?.text || '';
+      this._input = text;
+      if (!this._open) this._toggle();
+      this.updateComplete.then(() => {
+        const input = this.shadowRoot?.querySelector('.chat-input');
+        if (input) {
+          input.focus();
+          // Move caret to end so the user can continue typing after the paste.
+          const n = input.value.length;
+          input.setSelectionRange(n, n);
+        }
+      });
+    };
+    window.addEventListener('klebb-paste-into-chat', this._onPasteIntoChat);
   }
 
   disconnectedCallback() {
@@ -742,6 +757,9 @@ class HealthChat extends LitElement {
     }
     if (this._onOpenChat) {
       window.removeEventListener('klebb-open-chat', this._onOpenChat);
+    }
+    if (this._onPasteIntoChat) {
+      window.removeEventListener('klebb-paste-into-chat', this._onPasteIntoChat);
     }
   }
 
