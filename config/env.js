@@ -255,7 +255,7 @@ Everything else is optional pass-through. The endpoint is lenient: if the render
 - \`generic-card\` — single latest value + delta. Data is \`[{date, <field>...}]\`. Uses \`meta.view.display\` (object: \`{template, secondary?, emptyHeadline?, unit?, emojiMap?, thresholds?, trendArrow?}\`) to format the headline.
 - \`list-card\` — persistent chronological list of entries; data is \`[{date, ...fields}]\`.
 - \`checklist-card\` — tickable daily items; data \`{items:[{id,doses:[...]}]}\`-ish.
-- \`schedule-card\` — scheduled doses/events with recurrence; data tracks check-offs.
+- \`schedule-card\` — scheduled doses/events with recurrence; data is \`{items:[{name, dose_mg?, dose_units?, route?, schedule, doses?:[]}]}\`. Each item's \`schedule\` is a schedule-shape object (see below). **Items ALWAYS live in \`data.items[]\`; never in \`meta.schedule\`.** \`meta.schedule\` is only used by the \`schedule-timeline\` renderer for a single card-level cadence, and it's rare.
 - \`schedule-timeline\` — stacked timeline across a window; reads \`meta.schedule\`.
 - \`markdown-doc\` — renders markdown; data \`{markdown:"..."}\`.
 - \`line-chart\` — time-series chart (aliases: \`area-chart\`, \`bar-chart\`); data \`[{date,value}]\` or rows keyed via \`meta.trends.field\`/\`series\`.
@@ -346,7 +346,39 @@ Call \`create_manifest\` with this \`manifest\` argument. Note: every field name
 }
 \`\`\`
 
-### Example 3 — ad-hoc (renderer not yet implemented)
+### Example 3 — schedule-card (peptide/medication cycle)
+
+Call \`create_manifest\` with this \`manifest\` argument. **Note:** items live in \`data.items[]\`, not \`meta.schedule\`. Each item carries its own \`schedule\` object. Leave \`doses\` as \`[]\` on creation; check-offs are appended as the user taps the card.
+
+\`\`\`
+{
+  "$schema":"klebb.datafile.v1",
+  "meta":{
+    "id":"peptide-cycle","label":"Peptide Cycle","emoji":"💉","order":320,
+    "view":{"enabled":true,"component":"schedule-card","dateContext":"exact-date"},
+    "writeable":{"fromWebapp":true,"pastAllowed":true,"todayAllowed":true,"futureAllowed":false}
+  },
+  "description":"Injectable peptide cycle. Each item has name, dose_mg, dose_units, route, and a schedule. Doses are appended as check-offs.",
+  "data":{
+    "items":[
+      {
+        "name":"BPC-157",
+        "dose_mg":0.25,"dose_units":"mg","route":"subcutaneous",
+        "schedule":{"type":"daily","times_per_day":1,"start_date":"2026-05-06","cycle_weeks":6},
+        "doses":[]
+      },
+      {
+        "name":"TB-500",
+        "dose_mg":2.5,"dose_units":"mg","route":"subcutaneous",
+        "schedule":{"type":"weekly","on_days":["Mon","Thu"],"start_date":"2026-05-06","cycle_weeks":6},
+        "doses":[]
+      }
+    ]
+  }
+}
+\`\`\`
+
+### Example 4 — ad-hoc (renderer not yet implemented)
 
 Call \`create_manifest\` with this \`manifest\` argument:
 
@@ -385,6 +417,8 @@ Once \`create_manifest\` succeeds, your reply MUST end with a short offer of opt
 - **A daily target or reminder prompt:** \`meta.prompt = {enabled:true, ...}\` if the user wants to be nudged.
 
 Offer them as a single short sentence or a 2-3 item bullet list, e.g. "Done. Want me to add a trends chart, a daily target, or a calendar marker?" — not a long menu. Never auto-add beyond what was asked.
+
+**Embellishments are opt-in only.** Do NOT set \`meta.prompt\`, \`meta.calendar\`, \`meta.trends\`, \`meta.reports\`, or \`meta.view.display.thresholds\` on a \`create_manifest\` call unless the user explicitly asked for them. The initial manifest should contain only: \`$schema\`, \`meta.id\`, \`meta.label\`, \`meta.emoji\` (if obvious), \`meta.order\` (sensible default), \`meta.view\`, \`meta.writeable\` (if the card is user-writeable), \`description\`, and \`data\`. Everything else waits for the user to pick from your suggestions.
 
 If the user picks one of your suggestions, apply it with \`patch_manifest(id, metaPatch)\` — it edits the meta in place and preserves data. Use delete+recreate ONLY right after initial creation (card has no data yet), or when the user explicitly wants to discard the data and start fresh. For any existing card with data, patch_manifest is the right tool.
 

@@ -105,6 +105,40 @@ describe('chat proxy dynamic card-list injection', () => {
     assert.ok(sp.includes('weight'));
   });
 
+  test('system prompt injects today\'s absolute date', async () => {
+    const res = await req(server.baseUrl, '/api/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'hi' }], voiceMode: false },
+    });
+    assert.equal(res.status, 200);
+    const sp = gateway.getLastPrompt();
+    assert.ok(sp.includes("Today's date"), 'prompt has the date header');
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: process.env.TZ || undefined });
+    assert.ok(sp.includes(today), `prompt includes today's ISO date (${today})`);
+  });
+
+  test('system prompt teaches schedule-card data.items[] shape', async () => {
+    const res = await req(server.baseUrl, '/api/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'hi' }], voiceMode: false },
+    });
+    assert.equal(res.status, 200);
+    const sp = gateway.getLastPrompt();
+    assert.ok(sp.includes('data.items[]'), 'prompt mentions data.items[] for schedule-card');
+    assert.ok(/never in .?meta\.schedule.?/i.test(sp), 'prompt warns against meta.schedule');
+  });
+
+  test('system prompt forbids silent embellishments on create', async () => {
+    const res = await req(server.baseUrl, '/api/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'hi' }], voiceMode: false },
+    });
+    assert.equal(res.status, 200);
+    const sp = gateway.getLastPrompt();
+    assert.ok(/embellishments are opt-in/i.test(sp), 'prompt states opt-in rule');
+    assert.ok(sp.includes('meta.prompt'), 'prompt names meta.prompt as opt-in');
+  });
+
   test('with zero cards, prompt says "(none yet)"', async () => {
     // Temporarily clear data/ then trigger another request
     const fs = require('fs');
