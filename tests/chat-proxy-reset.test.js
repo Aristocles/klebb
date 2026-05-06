@@ -4,11 +4,19 @@
 // Regression: if the chat gateway sends a complete response and then RSTs the
 // TCP socket, the proxy must still deliver the reply to the client and must
 // not crash the server by trying to write a 502 on an already-ended response.
+//
+// Skipped on Windows: `socket.resetAndDestroy()` sends a TCP RST that purges
+// the kernel receive buffer before Node's HTTP parser can deliver any bytes
+// to user-land, so the simulation can't reliably reproduce the production
+// shape (where the response body has already been buffered by the time the
+// RST lands). Linux CI covers this path on every run.
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 const net = require('net');
 const { createSandbox, cleanupSandbox, spawnServer, req } = require('./helpers/sandbox');
+
+const skipOnWindows = { skip: process.platform === 'win32' ? 'unreliable on Windows: RST drops receive buffer before Node reads it' : false };
 
 function startResetGateway() {
   const body = JSON.stringify({
@@ -61,7 +69,7 @@ function makeCard(id) {
   };
 }
 
-describe('chat proxy survives upstream RST after successful response', () => {
+describe('chat proxy survives upstream RST after successful response', skipOnWindows, () => {
   let sandbox, server, gateway;
 
   before(async () => {
