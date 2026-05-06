@@ -1181,7 +1181,12 @@ const server = http.createServer(async (req, res) => {
             ? `\n\n## Currently available cards\n\n${cardList}\n`
             : '\n\n## Currently available cards\n\n(none yet)\n';
 
-          let systemPrompt = HEALTH_SYSTEM_PROMPT + cardListBlock;
+          // Inject today's absolute date (in the server's TZ) so the agent
+          // computes relative dates from ground truth rather than guessing
+          // from training data.
+          const todayBlock = `\n\n## Today's date\n\nToday is ${todayIso()}. Use this as the reference point for any relative date ("next Monday", "in two weeks", "three months from now"). Never hardcode a year from training data.\n`;
+
+          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock;
           if (voiceMode) {
             systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Chat'}, a health assistant.
 Voice mode is active: the user is speaking to you and will hear your reply aloud.
@@ -1214,7 +1219,7 @@ Return STRICTLY the JSON object. No leading/trailing text. No markdown fences.
 
 Original system prompt follows:
 
-` + HEALTH_SYSTEM_PROMPT + cardListBlock;
+` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock;
           }
 
           // Prepend system prompt
