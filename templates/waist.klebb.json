@@ -1,0 +1,39 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "waist",
+      "title": "Waist measurement",
+      "summary": "Single-number circumference measurement with a trend line.",
+      "category": "tracking",
+      "tags": ["measurement", "trend"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "📏",
+    "order": 110,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{cm:round(1)}",
+        "unit": "{{string:unit}}",
+        "trendArrow": { "field": "cm" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "cm"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "cm", "type": "number", "required": true, "min": 30, "max": 250, "step": 0.5 }
+      ]
+    }
+  },
+  "description": "Waist circumference, typically at the navel. One entry per day.",
+  "data": []
+}

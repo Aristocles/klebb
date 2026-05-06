@@ -262,6 +262,23 @@ hygiene tests will catch you).
 Bug reports + feature requests: use the templates at
 <https://github.com/Aristocles/klebb/issues/new/choose>.
 
+### Contributing templates and prompts
+
+The easiest way to contribute to Klebb is to add a starter card or
+prompt. Both live in the repo as plain files: no code required.
+
+- **Templates** — single-card starter manifests that appear in the Add
+  Card gallery. Drop a `.klebb.json` into `templates/`. See
+  [`CONTRIBUTING-TEMPLATES.md`](CONTRIBUTING-TEMPLATES.md).
+- **Prompts** — natural-language prompts for the chat agent that build
+  multi-card protocols (GLP-1 cycles, supplement stacks, post-op
+  recovery, etc.). Drop a `.md` with frontmatter into `prompts/`. See
+  [`CONTRIBUTING-PROMPTS.md`](CONTRIBUTING-PROMPTS.md).
+
+Both are surfaced in-app through the welcome card's three entry
+points. Contributions here help every user of Klebb without requiring
+them to know the manifest schema.
+
 Security issues: see [`SECURITY.md`](SECURITY.md). Don't open a public
 issue for those.
 

@@ -9,6 +9,24 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **\`templates/\` + \`prompts/\` directories.** Ten starter card
+  templates and seven conversational prompts covering the main Klebb
+  use cases (weight, BP, waist, resting HR, injection protocol,
+  supplement stack, medication schedule, mood, daily notes, hydration,
+  sleep-hours via HAE; plus prompts for GLP-1 cycles, peptide cycles,
+  supplement stacks, post-op recovery, strength training, mood-sleep
+  basics, and the \`new-to-klebb.md\` conversational onboarding meta-
+  prompt). Templates use a typed placeholder syntax
+  (\`{{type:name}}\`, types: string, number, boolean, date, enum) and
+  carry a \`meta.template\` block describing gallery rendering.
+  Prompts ship as markdown with YAML frontmatter (title, summary,
+  tags). Two new test suites walk both directories and validate shape.
+  Contribution guides land at repo root:
+  \`CONTRIBUTING-TEMPLATES.md\` and \`CONTRIBUTING-PROMPTS.md\`. None
+  of this is wired into the UI yet; the Add Card gallery, prompts
+  gallery, and \`/api/templates\` + \`/api/prompts\` endpoints land in
+  follow-up PRs. (#115)
+
 - **Welcome card + first-boot onboarding.** Fresh installs (empty
   \`HEALTH_HOME/data\`) now auto-create a single \`welcome.klebb.json\`
   that explains the three ways to add cards: Add Card gallery (landing

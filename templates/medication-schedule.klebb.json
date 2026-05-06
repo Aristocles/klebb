@@ -1,0 +1,47 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "medication-schedule",
+      "title": "Medication schedule",
+      "summary": "Scheduled oral or topical medications with per-dose check-offs and adherence reports.",
+      "category": "protocols",
+      "tags": ["medication", "schedule", "adherence"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "🏥",
+    "order": 320,
+    "view": {
+      "enabled": true,
+      "component": "checklist-card",
+      "dateContext": "exact-date"
+    },
+    "trends": {
+      "enabled": true,
+      "component": "schedule-timeline",
+      "itemsPath": "items"
+    },
+    "reports": {
+      "enabled": true,
+      "component": "adherence-report",
+      "showCompliance": true,
+      "showInventory": true
+    },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": "💊"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "pastAllowed": true,
+      "todayAllowed": true,
+      "futureAllowed": false
+    }
+  },
+  "description": "Prescription medications on a defined schedule, with cycle windows and adherence tracking. Add items via the chat agent or the in-card item editor.",
+  "data": {
+    "items": []
+  }
+}
