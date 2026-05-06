@@ -771,6 +771,14 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, { prompts: listPrompts() });
     }
 
+    // GET /api/chat/status — is a chat endpoint configured? UI affordances
+    // that depend on the agent use this to render an enabled/disabled state
+    // without making an actual chat request.
+    if (parts[0] === 'chat' && parts[1] === 'status' && parts.length === 2 && req.method === 'GET') {
+      res.setHeader('Cache-Control', 'no-store');
+      return sendJSON(res, { configured: !!CHAT_ENDPOINT });
+    }
+
     // === End content endpoints ===
 
     // Simple JSON file endpoints

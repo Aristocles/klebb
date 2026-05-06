@@ -9,6 +9,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Starter prompts gallery.** The welcome card's third action now
+  opens a modal listing prompts from \`/api/prompts\`, with the
+  \`new-to-klebb\` meta-prompt featured at the top. Clicking "Load
+  into chat" pastes the prompt body into the chat input (without
+  sending) and opens the chat widget; the user reviews, edits, then
+  sends themselves. If the chat gateway isn't configured, the
+  primary action becomes "Copy to clipboard" and a banner explains
+  how to enable the gateway. Each row has a Preview toggle to show
+  the full prompt body inline before sending. New \`GET
+  /api/chat/status\` endpoint exposes a boolean \`configured\` flag
+  the gallery uses to pick its action mode; the chat widget gains a
+  \`klebb-paste-into-chat\` window-event listener so the gallery can
+  drive it. (#118)
+
 - **Add Card modal.** Click the welcome card's "Add a card" action
   to open a modal with three panes: a searchable template gallery
   grouped by category (Tracking, Protocols, Lifestyle, Imported), a
