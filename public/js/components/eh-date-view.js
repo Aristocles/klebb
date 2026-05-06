@@ -7,6 +7,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import './eh-view-renderer.js';
+import { isEditableTarget } from '../lib/event-target.js';
 
 function todayStr() {
   const d = new Date();
@@ -146,9 +147,7 @@ export class EhDateView extends LitElement {
   }
 
   _onKeydown(e) {
-    // Ignore if focus is on an input/textarea/select etc.
-    const t = e.target;
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    if (isEditableTarget(e)) return;
     if (e.key === 'ArrowLeft') { this._shift(-1); e.preventDefault(); }
     else if (e.key === 'ArrowRight') { this._shift(+1); e.preventDefault(); }
   }
