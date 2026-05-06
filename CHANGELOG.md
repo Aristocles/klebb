@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Left/right arrow keys work inside the chat textarea again.** The
+  date-view's window-level arrow handler was calling
+  \`preventDefault()\` on every ArrowLeft/ArrowRight, with a guard
+  that only skipped if \`e.target.tagName\` was an input. For events
+  fired inside a shadow root (like the chat widget's textarea),
+  \`e.target\` retargets to the shadow host, so the guard missed and
+  the caret never moved. Guard now walks \`e.composedPath()\` via
+  a shared \`isEditableTarget\` helper in
+  \`public/js/lib/event-target.js\`. (Fixes #136)
+
 - **Chat agent no longer builds empty schedule-cards.** The agent was
   writing items into \`meta.schedule[]\` (not a real field on the
   \`schedule-card\` shape) and leaving \`data\` empty, so the card
