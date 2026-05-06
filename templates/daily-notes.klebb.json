@@ -1,0 +1,33 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "daily-notes",
+      "title": "Daily notes",
+      "summary": "Freeform journal-style notes, one entry per day.",
+      "category": "lifestyle",
+      "tags": ["journal", "notes", "freeform"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "📝",
+    "order": 410,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{note|(no notes today)}",
+        "truncate": 200
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "note", "type": "textarea", "required": true }
+      ]
+    }
+  },
+  "description": "A single freeform note per day. Later entries replace earlier ones on the same date.",
+  "data": []
+}

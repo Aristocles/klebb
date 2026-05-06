@@ -1,0 +1,58 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "blood-pressure",
+      "title": "Blood pressure",
+      "summary": "Systolic / diastolic with colour-coded threshold bands.",
+      "category": "tracking",
+      "tags": ["vitals", "cardiac", "threshold"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "🩺",
+    "order": 200,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{systolic} / {diastolic}",
+        "unit": "mmHg",
+        "thresholds": [
+          { "ifField": "systolic", "max": 120, "colour": "#44ff88", "label": "Optimal" },
+          { "ifField": "systolic", "max": 129, "colour": "#aaff66", "label": "Elevated" },
+          { "ifField": "systolic", "max": 139, "colour": "#ffaa33", "label": "Stage 1" },
+          { "ifField": "systolic", "colour": "#ff4444", "label": "Stage 2" }
+        ]
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "fields": ["systolic", "diastolic"]
+    },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": {
+        "type": "threshold",
+        "field": "systolic",
+        "rules": [
+          { "max": 120, "emoji": "🟢" },
+          { "max": 139, "emoji": "🟡" },
+          { "emoji": "🔴" }
+        ]
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 3,
+      "inputs": [
+        { "key": "systolic", "type": "number", "required": true, "min": 60, "max": 250 },
+        { "key": "diastolic", "type": "number", "required": true, "min": 40, "max": 160 }
+      ]
+    }
+  },
+  "description": "Blood pressure readings. Up to three per day; new entries are appended.",
+  "data": []
+}
