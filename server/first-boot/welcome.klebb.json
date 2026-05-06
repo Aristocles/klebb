@@ -7,7 +7,8 @@
     "order": 1,
     "view": {
       "enabled": true,
-      "component": "welcome-card"
+      "component": "welcome-card",
+      "slot": "top"
     },
     "welcome": {
       "autoHideApplied": false
