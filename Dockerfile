@@ -60,6 +60,9 @@ COPY --chown=klebb:klebb public ./public
 COPY --chown=klebb:klebb scripts ./scripts
 COPY --chown=klebb:klebb voice ./voice
 COPY --chown=klebb:klebb health-auto-export ./health-auto-export
+COPY --chown=klebb:klebb server ./server
+COPY --chown=klebb:klebb templates ./templates
+COPY --chown=klebb:klebb prompts ./prompts
 
 # Data dir — mount a volume here in production. The entrypoint chowns
 # this to the runtime user at container start so bind-mounts owned by
