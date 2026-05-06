@@ -105,6 +105,7 @@ class HealthChat extends LitElement {
     _input: { state: true },
     _loading: { state: true },
     _voiceAvailable: { state: true },
+    _chatConfigured: { state: true },
     _recording: { state: true },
     _recordingStarted: { state: true },
     _playbackSpeed: { state: true },
@@ -417,8 +418,9 @@ class HealthChat extends LitElement {
       flex-shrink: 0;
       transition: all 0.15s;
     }
-    .mic-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .mic-btn:hover:not(:disabled):not(.unconfigured) { border-color: var(--accent); color: var(--accent); }
     .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .mic-btn.unconfigured { opacity: 0.4; cursor: help; }
     .mic-btn.recording {
       background: #ff4466;
       color: white;
@@ -467,6 +469,18 @@ class HealthChat extends LitElement {
       padding: 40px 20px;
     }
     .empty-state .icon { font-size: 28px; margin-bottom: 8px; }
+    .empty-state .not-configured {
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: rgba(255, 170, 0, 0.08);
+      border: 1px solid rgba(255, 170, 0, 0.3);
+      color: var(--text-primary);
+      border-radius: 8px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      text-align: left;
+    }
+    .empty-state .not-configured a { color: var(--accent); }
     .suggestions {
       display: flex;
       flex-wrap: wrap;
@@ -542,6 +556,7 @@ class HealthChat extends LitElement {
     this._input = '';
     this._loading = false;
     this._voiceAvailable = false;
+    this._chatConfigured = null;
     this._recording = false;
     this._recordingStarted = 0;
     this._recordTimerId = null;
@@ -560,6 +575,7 @@ class HealthChat extends LitElement {
     this._expanded = localStorage.getItem('klebb-chat-expanded') === '1';
     this._saveTimer = null;
     this._checkVoiceAvailability();
+    this._checkChatConfigured();
     this._loadInstance();
     this._loadHistory();
     this._stallWatcher();
@@ -602,7 +618,7 @@ class HealthChat extends LitElement {
   async _flushHistory() {
     this._saveTimer = null;
     const keep = this._messages
-      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.voiceUnconfiguredNotice)
       .map(m => ({ id: m.id, role: m.role, content: m.content }))
       .slice(-200);
     try {
@@ -635,6 +651,17 @@ class HealthChat extends LitElement {
         this._voiceAvailable = !!s.enabled;
       }
     } catch {}
+  }
+
+  async _checkChatConfigured() {
+    try {
+      const r = await fetch('/api/chat/status');
+      if (!r.ok) { this._chatConfigured = false; return; }
+      const body = await r.json();
+      this._chatConfigured = !!body.configured;
+    } catch {
+      this._chatConfigured = false;
+    }
   }
 
   async _loadInstance() {
@@ -856,6 +883,24 @@ class HealthChat extends LitElement {
   // ---------- Voice: mic -> recording -> transcribe -> chat -> tts -> play ----------
 
   async _micTap() {
+    if (!this._voiceAvailable) {
+      // Ephemeral notice: shown in the UI only, not persisted to server
+      // history. Otherwise a reload would replay it as a regular assistant
+      // reply, which is misleading.
+      const already = this._messages.some(m => m.voiceUnconfiguredNotice);
+      if (!already) {
+        const id = `m${++this._msgCounter}-${Date.now()}`;
+        this._messages = [...this._messages, {
+          id,
+          role: 'assistant',
+          content: "Voice isn't configured. Klebb uses Fish Audio for speech. [See docs](https://github.com/Aristocles/klebb/blob/main/docs/DEPLOY.md#voice-chat-optional) to set it up.",
+          voiceUnconfiguredNotice: true,
+        }];
+        this._scrollToBottom();
+      }
+      return;
+    }
+
     // CRITICAL: prime the shared audio element inside THIS gesture.
     // Every tap primes it (safe, idempotent on iOS).
     primeSharedAudio();
@@ -1069,6 +1114,22 @@ class HealthChat extends LitElement {
 
   _renderMessages() {
     if (this._messages.length === 0) {
+      if (this._chatConfigured === false) {
+        return html`
+          <div class="empty-state">
+            <div class="icon">💊</div>
+            <div class="not-configured">
+              <strong>Chat agent not configured.</strong>
+              Klebb is LLM-first and works best with a chat agent wired up.
+              <a
+                href="https://github.com/Aristocles/klebb/blob/main/docs/CHAT-AGENT.md"
+                target="_blank"
+                rel="noopener"
+              >See docs</a> to set one up.
+            </div>
+          </div>
+        `;
+      }
       const agent = this._agentName || 'the assistant';
       return html`
         <div class="empty-state">
@@ -1174,25 +1235,29 @@ class HealthChat extends LitElement {
             </div>
           ` : ''}
           <div class="chat-input-bar">
-            ${this._voiceAvailable ? html`
-              <button
-                class="mic-btn ${this._recording ? 'recording' : ''}"
-                @click=${this._micTap}
-                ?disabled=${this._loading && !this._recording}
-                title=${this._recording ? 'Stop and send' : 'Start recording'}
-                aria-label=${this._recording ? 'stop recording' : 'start recording'}
-              >${this._recording ? '\u23F9' : '\u{1F3A4}'}</button>
-            ` : ''}
+            <button
+              class="mic-btn ${this._recording ? 'recording' : ''} ${!this._voiceAvailable ? 'unconfigured' : ''}"
+              @click=${this._micTap}
+              ?disabled=${this._loading && !this._recording}
+              title=${!this._voiceAvailable
+                ? 'Voice not configured: click for setup info'
+                : (this._recording ? 'Stop and send' : 'Start recording')}
+              aria-label=${!this._voiceAvailable
+                ? 'voice not configured'
+                : (this._recording ? 'stop recording' : 'start recording')}
+            >${this._recording ? '\u23F9' : '\u{1F3A4}'}</button>
             <textarea
               class="chat-input"
               rows="1"
-              placeholder=${this._recording ? 'Recording…' : 'Ask about your health...'}
+              placeholder=${this._chatConfigured === false
+                ? 'Chat agent not configured'
+                : (this._recording ? 'Recording…' : 'Ask about your health...')}
               .value=${this._input}
               @input=${(e) => { this._input = e.target.value; this._autoSize(e.target); }}
               @keydown=${this._handleKeydown}
-              ?disabled=${this._loading || this._recording}
+              ?disabled=${this._loading || this._recording || this._chatConfigured === false}
             ></textarea>
-            <button class="send-btn" @click=${this._sendText} ?disabled=${this._loading || this._recording || !this._input.trim()}>\u2191</button>
+            <button class="send-btn" @click=${this._sendText} ?disabled=${this._loading || this._recording || !this._input.trim() || this._chatConfigured === false}>\u2191</button>
           </div>
         </div>
       ` : ''}

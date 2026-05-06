@@ -178,6 +178,32 @@ sudo nginx -t && sudo systemctl reload nginx
 2. Tap "Register Passkey", authenticate with Face ID / Touch ID
 3. You're logged in; future visits go straight to the dashboard
 
+### Voice chat (optional)
+
+Klebb ships with optional voice input (speech-to-text) and voice replies
+(text-to-speech) powered by Fish Audio. When configured, a microphone
+button appears in the chat input row and every voice-mode reply gets a
+native audio control for playback. When it isn't configured, the mic is
+still visible but greyed out and clicking it shows an in-chat message
+pointing back to this section.
+
+To enable it, set these in your env file:
+
+```ini
+FISH_AUDIO_API_KEY=<key>
+FISH_AUDIO_DEFAULT_VOICE=<voice-model-id>
+```
+
+Then restart the service. Sanity-check from the server:
+
+```bash
+curl -s http://127.0.0.1:8080/api/voice/config | jq
+# → { "enabled": true, ... }
+```
+
+If `enabled` is `false`, the key is missing or the Fish Audio API
+rejected it. Details surface under `/api/voice/config`.
+
 ---
 
 ## 2. Multi-user / public-facing deploy
