@@ -239,6 +239,7 @@ defaults.
 - [`docs/RECIPES.md`](docs/RECIPES.md) — 10 copy-pasteable card patterns (cookbook)
 - [`MANIFEST-SCHEMA.md`](MANIFEST-SCHEMA.md) — Manifest format reference
 - [`docs/CHAT-AGENT.md`](docs/CHAT-AGENT.md) — Chat widget + server-to-server integration
+- [`docs/VOICE.md`](docs/VOICE.md) — Voice chat (Fish Audio) configuration
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — Single-user + multi-user deploy guide
 - [`docs/CI.md`](docs/CI.md) — CI workflow overview
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — Contributor conventions
