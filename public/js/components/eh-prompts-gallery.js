@@ -223,8 +223,13 @@ export class EhPromptsGallery extends LitElement {
           ${notConfigured ? html`
             <div class="banner">
               <strong>Chat agent not configured.</strong>
+              Klebb is LLM-first and works best with a chat agent wired up.
               You can still copy any prompt to paste into another tool, or
-              set up a chat gateway (see docs) to use them with Klebb's chat.
+              set up a chat gateway (<a
+                href="https://github.com/Aristocles/klebb/blob/main/docs/CHAT-AGENT.md"
+                target="_blank"
+                rel="noopener"
+              >see docs</a>) to use them with Klebb's chat.
             </div>
           ` : ''}
           <div class="body">${this._renderList()}</div>
@@ -287,6 +292,7 @@ export class EhPromptsGallery extends LitElement {
       font-size: 12.5px;
       line-height: 1.5;
     }
+    .banner a { color: var(--accent, #2d7ff9); }
     .body { overflow: auto; padding: 6px 18px 18px; }
     .empty {
       padding: 24px 10px;
