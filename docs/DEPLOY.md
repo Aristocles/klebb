@@ -76,7 +76,7 @@ CHAT_MODEL=<model-id>
 # Optional: server-to-server agent writes
 # AGENT_API_TOKEN=<random-strong-token>
 
-# Optional: voice chat via Fish Audio
+# Optional: voice chat via Fish Audio — see docs/VOICE.md
 # FISH_AUDIO_API_KEY=<key>
 # FISH_AUDIO_DEFAULT_VOICE=<voice-model-id>
 ```
@@ -180,29 +180,8 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ### Voice chat (optional)
 
-Klebb ships with optional voice input (speech-to-text) and voice replies
-(text-to-speech) powered by Fish Audio. When configured, a microphone
-button appears in the chat input row and every voice-mode reply gets a
-native audio control for playback. When it isn't configured, the mic is
-still visible but greyed out and clicking it shows an in-chat message
-pointing back to this section.
-
-To enable it, set these in your env file:
-
-```ini
-FISH_AUDIO_API_KEY=<key>
-FISH_AUDIO_DEFAULT_VOICE=<voice-model-id>
-```
-
-Then restart the service. Sanity-check from the server:
-
-```bash
-curl -s http://127.0.0.1:8080/api/voice/config | jq
-# → { "enabled": true, ... }
-```
-
-If `enabled` is `false`, the key is missing or the Fish Audio API
-rejected it. Details surface under `/api/voice/config`.
+Voice input and voice replies are supported via Fish Audio. See
+[`docs/VOICE.md`](VOICE.md) for configuration and troubleshooting.
 
 ---
 
@@ -374,8 +353,8 @@ Mismatch between browser origin and server RP_ID is the #1 cause.
 `CHAT_ENDPOINT_URL` or `CHAT_API_KEY` is unset. Set both in the env file and restart.
 
 **Voice doesn't work.**
-`FISH_AUDIO_API_KEY` is unset or invalid. Check `/api/voice/config` in
-the browser dev tools to see the error.
+See [`docs/VOICE.md`](VOICE.md) for Fish Audio configuration and the
+full troubleshooting list.
 
 **Server starts but dashboard is blank.**
 Look at `journalctl -u klebb -n 100`. Common cause: malformed
