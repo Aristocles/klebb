@@ -9,6 +9,7 @@ import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
 import { registerRenderer } from '../renderer-registry.js';
 import './eh-add-card-modal.js';
+import './eh-prompts-gallery.js';
 
 export class EhWelcomeCard extends EhBaseCard {
   static styles = [
@@ -139,6 +140,12 @@ export class EhWelcomeCard extends EhBaseCard {
     window.dispatchEvent(new CustomEvent('klebb-open-chat'));
   }
 
+  _openPrompts() {
+    const m = document.createElement('eh-prompts-gallery');
+    document.body.appendChild(m);
+    requestAnimationFrame(() => m.open());
+  }
+
   renderCard() {
     return html`
       <p class="intro">
@@ -170,7 +177,7 @@ export class EhWelcomeCard extends EhBaseCard {
           </p>
           <span class="path-cta">Open chat <span class="path-cta-arrow">→</span></span>
         </button>
-        <button type="button" class="path" disabled aria-disabled="true">
+        <button type="button" class="path" @click=${this._openPrompts}>
           <div class="path-head">
             <div class="path-emoji">📚</div>
             <h3 class="path-title">Starter prompts</h3>
@@ -180,7 +187,7 @@ export class EhWelcomeCard extends EhBaseCard {
             stack, post-op recovery). Loads into the chat so you can
             tweak before sending.
           </p>
-          <span class="path-cta muted">Coming soon</span>
+          <span class="path-cta">Browse prompts <span class="path-cta-arrow">→</span></span>
         </button>
       </div>
       <p class="foot">
