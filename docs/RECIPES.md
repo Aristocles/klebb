@@ -53,9 +53,6 @@ yesterday (weight, steps, HRV, resting heart rate).
 - For **steps** use `"step": 1`, large `"max": 100000`, no rounding.
 - For **HRV** add `"source"` text input (Oura, Whoop, Apple Watch).
 
-See `data.example/weight.example.json`, `steps.example.json`,
-`resting-hrv.example.json`.
-
 ---
 
 ## Recipe 2 — Two-number metric with colour-coded thresholds
@@ -108,8 +105,6 @@ cholesterol ratios, fasting glucose).
 - For single-metric thresholds (sleep hours), keep the same pattern with
   one field.
 
-See `data.example/bp.example.json`, `sleep-hours.example.json`,
-`body-temperature.example.json`.
 
 ---
 
@@ -160,7 +155,6 @@ numbers.
 - Add secondary inputs (mood + wake-ups + notes) — keep `autoSubmit: false`
   on the primary so the form doesn't close prematurely
 
-See `data.example/mood.example.json`.
 
 ---
 
@@ -206,8 +200,6 @@ for stress, energy, or any dimension you'll chart over time.
 - `min`/`max` set the range (default 1-5, can use e.g. 1-10)
 - `eq` thresholds colour the pill per exact value
 
-See `data.example/stress.example.json`, `energy.example.json`,
-`sleep-quality.example.json`.
 
 ---
 
@@ -262,7 +254,6 @@ meaningful colour (Bristol stool, pain level, urine colour).
 - Thresholds use `eq` (not `min/max`) for exact-match categorical colouring
 - `maxReadingsPerDay > 1` since this is often multi-per-day
 
-See `data.example/bristol-stool.example.json`.
 
 ---
 
@@ -304,7 +295,6 @@ supplements.
   `yes` text when truthy, `no` text when falsy
 - `type: "checkbox"` → on/off toggle
 
-See `data.example/workouts.example.json`.
 
 ---
 
@@ -348,7 +338,6 @@ and the full text available via the edit form.
 - For longer preview use `truncate(160)` and consider `display.secondary`
   for tags or metadata on a second line.
 
-See `data.example/notes.example.json`, `reflections.example.json`.
 
 ---
 
@@ -675,9 +664,6 @@ If you don't want per-day dynamics, the original shape still works:
 Every day the card has data gets the same glyph. `marker` can also be
 omitted, in which case the card's `meta.emoji` is used.
 
-See `data.example/mood.example.json` (field-emoji),
-`data.example/weight.example.json` (trend-arrow), and
-`data.example/bp.example.json` (threshold).
 
 ---
 

@@ -7,6 +7,23 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Removed
+
+- **Demo cards, demo reports, and first-boot seed machinery.** Deleted
+  \`data.example/\`, \`data.demo/\`, \`scripts/seed.js\`,
+  \`scripts/seed-demo.js\`, and \`scripts/lib/demo-cards.js\` along with
+  the \`seed\` / \`seed:demo\` package scripts, the \`runFirstBootDemoSeed\`
+  call in \`server.js\`, the \`KLEBB_SKIP_DEMO_SEED\` env var, and the
+  \`.klebb-seeded\` sentinel. Fresh installs now start with an empty
+  dashboard; onboarding lands in a follow-up PR (welcome card +
+  templates + prompts gallery). Existing installs are unaffected: their
+  \`data/\` directories already hold real manifests and the old seed
+  logic silently skipped non-empty data dirs. Tests
+  \`tests/seed-demo.test.js\` and \`tests/example-manifests.test.js\`
+  removed; the latter's role will be taken over by a successor that
+  walks \`templates/\`. README Quickstart updated to point users at the
+  inline JSON example. (#113)
+
 ### Changed
 
 - **Save-failure banners now show the server's reason string.** When a

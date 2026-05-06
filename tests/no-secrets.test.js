@@ -22,8 +22,6 @@ const SKIP_DIRS = new Set([
   '.git',
   '_legacy-v1',
   'tests',              // fixtures use placeholder tokens like 'test-agent-token-ab12cd34ef56'
-  'data.example',       // example data may contain plausible-but-fake IDs
-  'seed',
 ]);
 
 const SCAN_EXTS = new Set(['.js', '.md', '.html', '.css', '.json', '.yml', '.yaml', '.sh', '.service']);

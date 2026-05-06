@@ -60,10 +60,6 @@ COPY --chown=klebb:klebb public ./public
 COPY --chown=klebb:klebb scripts ./scripts
 COPY --chown=klebb:klebb voice ./voice
 COPY --chown=klebb:klebb health-auto-export ./health-auto-export
-# Demo seed content: markdown report templates copied at first-boot seed.
-# Card manifests are generated from scripts/lib/demo-cards.js (no static JSON
-# needed — dates are computed relative to seed time).
-COPY --chown=klebb:klebb data.demo ./data.demo
 
 # Data dir — mount a volume here in production. The entrypoint chowns
 # this to the runtime user at container start so bind-mounts owned by

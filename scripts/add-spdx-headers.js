@@ -37,7 +37,6 @@ const STYLES = {
 const SKIP_PREFIXES = [
   'node_modules/',
   'public/js/components/_legacy-v1/',
-  'data.example/',   // JSON only anyway
   '.git/',
 ];
 
