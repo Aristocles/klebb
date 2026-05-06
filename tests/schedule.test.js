@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { isScheduledOnDate, enumerateDates } from '../public/js/lib/schedule.js';
+import { isScheduledOnDate, enumerateDates, effectiveCycles } from '../public/js/lib/schedule.js';
 
 // --- Canonical schema tests ---
 
@@ -211,4 +211,87 @@ test('enumerateDates: single-day range', () => {
 test('enumerateDates: handles month boundary', () => {
   const out = enumerateDates('2026-03-30', '2026-04-02');
   assert.deepEqual(out, ['2026-03-30', '2026-03-31', '2026-04-01', '2026-04-02']);
+});
+
+// --- effectiveCycles: synthesised cycles from schedule.start_date + duration ---
+
+test('effectiveCycles: explicit cycles[] wins over schedule-derived', () => {
+  const item = {
+    schedule: { type: 'daily', start_date: '2026-01-01', cycle_weeks: 4 },
+    cycles: [{ type: 'on', start: '2026-05-01', end: '2026-05-10' }],
+  };
+  assert.deepEqual(effectiveCycles(item), [{ type: 'on', start: '2026-05-01', end: '2026-05-10' }]);
+});
+
+test('effectiveCycles: schedule.start_date + cycle_weeks → bounded synthetic cycle', () => {
+  const item = {
+    schedule: { type: 'weekly', on_days: ['Mon', 'Wed', 'Fri'], start_date: '2026-05-06', cycle_weeks: 6 },
+  };
+  // 6 weeks = 42 days inclusive of the start date → end = 2026-06-16
+  assert.deepEqual(effectiveCycles(item), [{ type: 'on', start: '2026-05-06', end: '2026-06-16' }]);
+});
+
+test('effectiveCycles: schedule.start_date + cycle_days → bounded synthetic cycle', () => {
+  const item = {
+    schedule: { type: 'daily', start_date: '2026-05-01', cycle_days: 20 },
+  };
+  assert.deepEqual(effectiveCycles(item), [{ type: 'on', start: '2026-05-01', end: '2026-05-20' }]);
+});
+
+test('effectiveCycles: start_date only → open-ended synthetic cycle', () => {
+  const item = { schedule: { type: 'daily', start_date: '2026-05-06' } };
+  assert.deepEqual(effectiveCycles(item), [{ type: 'on', start: '2026-05-06' }]);
+});
+
+test('effectiveCycles: no cycles and no start_date → null', () => {
+  const item = { schedule: { type: 'daily' } };
+  assert.equal(effectiveCycles(item), null);
+});
+
+test('effectiveCycles: legacy schedule.startDate also feeds the synthesiser', () => {
+  const item = { schedule: { type: 'daily', startDate: '2026-05-06' } };
+  assert.deepEqual(effectiveCycles(item), [{ type: 'on', start: '2026-05-06' }]);
+});
+
+// --- isScheduledOnDate with synthesised cycles ---
+//
+// Regression for #138: agent-authored peptide cards land with only
+// schedule.start_date + cycle_weeks/cycle_days. The renderer must treat
+// them the same as cards carrying an explicit cycles[] array.
+
+test('isScheduledOnDate: synth cycle from cycle_weeks gates dates inside window', () => {
+  // BPC-157 shape from the #138 reproduction manifest.
+  const item = {
+    name: 'BPC-157',
+    schedule: { type: 'weekly', on_days: ['Mon', 'Wed', 'Fri'], start_date: '2026-05-06', cycle_weeks: 6 },
+  };
+  // 2026-05-06 is a Wed → scheduled (start of cycle)
+  assert.equal(isScheduledOnDate(item, '2026-05-06'), 'scheduled');
+  // 2026-05-08 Fri → scheduled
+  assert.equal(isScheduledOnDate(item, '2026-05-08'), 'scheduled');
+  // 2026-05-07 Thu → rest (within cycle, not a scheduled day)
+  assert.equal(isScheduledOnDate(item, '2026-05-07'), 'rest');
+  // Before the cycle start → outside all cycles
+  assert.equal(isScheduledOnDate(item, '2026-05-05'), false);
+  // After the 6-week window (2026-06-17) → outside all cycles
+  assert.equal(isScheduledOnDate(item, '2026-06-17'), false);
+});
+
+test('isScheduledOnDate: synth cycle from cycle_days honours end boundary', () => {
+  // Epitalon shape from the #138 reproduction manifest.
+  const item = {
+    name: 'Epitalon',
+    schedule: { type: 'daily', start_date: '2026-05-01', cycle_days: 20 },
+  };
+  assert.equal(isScheduledOnDate(item, '2026-05-01'), 'scheduled');
+  assert.equal(isScheduledOnDate(item, '2026-05-20'), 'scheduled'); // last day
+  assert.equal(isScheduledOnDate(item, '2026-05-21'), false);       // past end
+  assert.equal(isScheduledOnDate(item, '2026-04-30'), false);       // before start
+});
+
+test('isScheduledOnDate: open-ended synth cycle lets schedule run forever', () => {
+  const item = { schedule: { type: 'daily', start_date: '2026-05-06' } };
+  assert.equal(isScheduledOnDate(item, '2026-05-06'), 'scheduled');
+  assert.equal(isScheduledOnDate(item, '2030-01-01'), 'scheduled');
+  assert.equal(isScheduledOnDate(item, '2026-05-05'), false);
 });

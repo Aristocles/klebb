@@ -17,7 +17,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
-import { isScheduledOnDate } from '../lib/schedule.js';
+import { isScheduledOnDate, effectiveCycles } from '../lib/schedule.js';
 import { registerRenderer } from '../renderer-registry.js';
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -53,8 +53,9 @@ function weekDatesFor(dateStr) {
 
 // Find the active cycle that contains the given date.
 function activeCycle(item, dateStr) {
-  if (!Array.isArray(item.cycles)) return null;
-  for (const c of item.cycles) {
+  const cycles = effectiveCycles(item);
+  if (!cycles) return null;
+  for (const c of cycles) {
     const start = c.start || c.start_date;
     const end = c.end || c.end_date;
     if (!start) continue;
