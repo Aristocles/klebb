@@ -729,12 +729,19 @@ class HealthChat extends LitElement {
       }
     };
     window.addEventListener('keydown', this._onGlobalKeydown);
+    this._onOpenChat = () => {
+      if (!this._open) this._toggle();
+    };
+    window.addEventListener('klebb-open-chat', this._onOpenChat);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     if (this._onGlobalKeydown) {
       window.removeEventListener('keydown', this._onGlobalKeydown);
+    }
+    if (this._onOpenChat) {
+      window.removeEventListener('klebb-open-chat', this._onOpenChat);
     }
   }
 

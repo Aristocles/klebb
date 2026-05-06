@@ -16,64 +16,112 @@ export class EhWelcomeCard extends EhBaseCard {
     css`
       .intro {
         font-size: 14px;
-        line-height: 1.5;
+        line-height: 1.55;
         color: var(--text-primary);
-        margin: 0 0 12px;
+        margin: 0 0 16px;
       }
       .paths {
         display: grid;
-        gap: 10px;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      @media (min-width: 560px) {
+        .paths {
+          grid-template-columns: repeat(3, 1fr);
+        }
       }
       .path {
         display: flex;
-        gap: 10px;
-        padding: 10px 12px;
-        background: var(--bg-input, rgba(255, 255, 255, 0.03));
+        flex-direction: column;
+        gap: 8px;
+        padding: 16px 14px 14px;
+        background: var(--bg-input, rgba(0, 0, 0, 0.02));
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 12px;
         text-align: left;
         width: 100%;
         color: inherit;
         font: inherit;
         cursor: pointer;
+        appearance: none;
+        transition: transform 0.12s ease, border-color 0.12s ease,
+                    box-shadow 0.12s ease, background 0.12s ease;
+        position: relative;
+        min-height: 170px;
       }
-      button.path { appearance: none; }
-      button.path:hover { border-color: var(--accent, #00d4aa); }
-      button.path:focus {
-        outline: none;
+      button.path:hover {
         border-color: var(--accent, #00d4aa);
+        background: var(--bg-card, #fff);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+      }
+      button.path:focus-visible {
+        outline: 2px solid var(--accent, #00d4aa);
+        outline-offset: 2px;
+      }
+      button.path:active {
+        transform: translateY(0);
       }
       button.path:disabled {
         cursor: default;
-        opacity: 0.7;
+        opacity: 0.6;
       }
-      button.path:disabled:hover { border-color: var(--border); }
+      button.path:disabled:hover {
+        border-color: var(--border);
+        background: var(--bg-input, rgba(0, 0, 0, 0.02));
+        transform: none;
+        box-shadow: none;
+      }
+      .path-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
       .path-emoji {
-        font-size: 20px;
-        line-height: 1.2;
+        font-size: 28px;
+        line-height: 1;
         flex-shrink: 0;
       }
-      .path-body {
-        flex: 1;
-        min-width: 0;
-      }
       .path-title {
-        font-size: 13px;
-        font-weight: 600;
+        font-size: 15px;
+        font-weight: 700;
         color: var(--text-primary);
-        margin: 0 0 2px;
+        margin: 0;
+        letter-spacing: -0.01em;
       }
       .path-copy {
-        font-size: 12px;
-        line-height: 1.45;
+        font-size: 12.5px;
+        line-height: 1.5;
         color: var(--text-secondary);
         margin: 0;
+        flex: 1;
+      }
+      .path-cta {
+        margin-top: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--accent, #00d4aa);
+        padding: 6px 10px;
+        background: rgba(0, 212, 170, 0.1);
+        border-radius: 6px;
+        align-self: flex-start;
+      }
+      .path-cta.muted {
+        color: var(--text-muted, var(--text-secondary));
+        background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+      }
+      .path-cta-arrow {
+        font-size: 13px;
+        line-height: 1;
       }
       .foot {
-        margin-top: 12px;
-        font-size: 11px;
+        margin-top: 14px;
+        font-size: 11.5px;
         color: var(--text-muted, var(--text-secondary));
-        line-height: 1.4;
+        line-height: 1.45;
       }
     `,
   ];
@@ -87,45 +135,53 @@ export class EhWelcomeCard extends EhBaseCard {
     requestAnimationFrame(() => m.open());
   }
 
+  _openChat() {
+    window.dispatchEvent(new CustomEvent('klebb-open-chat'));
+  }
+
   renderCard() {
     return html`
       <p class="intro">
         Klebb is a file-driven dashboard: every card is a JSON file on disk.
-        Drop one in, it appears. Here are three ways to get started.
+        Drop one in, it appears. Pick one of the three ways below to add
+        your first card.
       </p>
       <div class="paths">
         <button type="button" class="path" @click=${this._openAddCard}>
-          <div class="path-emoji">➕</div>
-          <div class="path-body">
-            <p class="path-title">Add a card</p>
-            <p class="path-copy">
-              Pick from a gallery of starter cards (weight, blood pressure,
-              injections, supplements, and more) and fill in a few fields.
-            </p>
+          <div class="path-head">
+            <div class="path-emoji">➕</div>
+            <h3 class="path-title">Add a card</h3>
           </div>
+          <p class="path-copy">
+            Pick from a gallery of starter cards (weight, blood pressure,
+            injections, supplements, and more) and fill in a few fields.
+          </p>
+          <span class="path-cta">Open gallery <span class="path-cta-arrow">→</span></span>
         </button>
-        <div class="path">
-          <div class="path-emoji">💬</div>
-          <div class="path-body">
-            <p class="path-title">Describe what you want to track</p>
-            <p class="path-copy">
-              Open the chat widget and tell the agent what you're tracking;
-              it will propose a card and create it once you approve.
-              Requires an LLM gateway (see docs).
-            </p>
+        <button type="button" class="path" @click=${this._openChat}>
+          <div class="path-head">
+            <div class="path-emoji">💬</div>
+            <h3 class="path-title">Describe it</h3>
           </div>
-        </div>
-        <div class="path">
-          <div class="path-emoji">📚</div>
-          <div class="path-body">
-            <p class="path-title">Browse starter prompts</p>
-            <p class="path-copy">
-              Curated prompts for common protocols (GLP-1 cycle, supplement
-              stack, post-op recovery). Loads into the chat widget so you
-              can tweak before sending. <em>Coming soon.</em>
-            </p>
+          <p class="path-copy">
+            Tell the chat agent what you want to track. It proposes a
+            card and creates it once you approve. Requires an LLM
+            gateway (see docs).
+          </p>
+          <span class="path-cta">Open chat <span class="path-cta-arrow">→</span></span>
+        </button>
+        <button type="button" class="path" disabled aria-disabled="true">
+          <div class="path-head">
+            <div class="path-emoji">📚</div>
+            <h3 class="path-title">Starter prompts</h3>
           </div>
-        </div>
+          <p class="path-copy">
+            Curated prompts for common protocols (GLP-1 cycle, supplement
+            stack, post-op recovery). Loads into the chat so you can
+            tweak before sending.
+          </p>
+          <span class="path-cta muted">Coming soon</span>
+        </button>
       </div>
       <p class="foot">
         This card hides itself the first time you add any other card. You can
