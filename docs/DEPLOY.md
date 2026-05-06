@@ -36,8 +36,6 @@ npm install --omit=dev
 
 ```bash
 mkdir -p ~/klebb/data
-# Optionally start with an example card:
-cp /opt/klebb/data.example/weight.example.json ~/klebb/data/weight.json
 ```
 
 ### Environment file
@@ -63,8 +61,8 @@ PORT=8080
 HOST=127.0.0.1
 
 # Timezone (IANA zone; default UTC if unset)
-# Set this to your local zone if you want card dates, demo seed
-# entries, and log timestamps to match your wall clock.
+# Set this to your local zone if you want card dates and log
+# timestamps to match your wall clock.
 # TZ=Australia/Sydney
 
 # Optional: chat agent (any OpenAI-compatible chat-completions endpoint)
@@ -317,7 +315,6 @@ cd klebb
 npm install
 export HEALTH_HOME=~/klebb-dev
 mkdir -p $HEALTH_HOME/data
-cp data.example/weight.example.json $HEALTH_HOME/data/weight.json
 npm start
 # open http://localhost:8080
 ```
@@ -336,8 +333,9 @@ npm test
 ## 5. Troubleshooting
 
 **"No cards yet" on the dashboard.**
-The `$HEALTH_HOME/data/` directory is empty. Drop a valid manifest file in
-(copy from `data.example/`).
+The `$HEALTH_HOME/data/` directory is empty. Drop a valid manifest file in;
+see `docs/CARDS.md` for the authoring guide and `MANIFEST-SCHEMA.md` for
+the full schema.
 
 **Passkey registration fails with "WebAuthn not supported" or similar.**
 Check `HEALTH_RP_ID` and `HEALTH_ORIGIN` match the URL you're visiting.

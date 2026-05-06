@@ -220,9 +220,6 @@ for blood panels, SNPs, anything ad-hoc:
 }
 ```
 
-Runnable examples live at `data.example/example-adherence-report.example.json`,
-`data.example/example-schedule-timeline.example.json`, and
-`data.example/example-table-list.example.json`.
 
 ### `meta.calendar` — Calendar view config
 
@@ -748,7 +745,7 @@ via the combo.
 
 ### Worked example
 
-`data.example/sleep.example.json` — the shipped Sleep preset:
+A Sleep composite that wraps `sleep-hours` + `mood`:
 
 ```json
 {
@@ -796,8 +793,8 @@ Drop that alongside working `sleep-hours.json` + `mood.json` files and
 you'll see one Sleep tile showing hours + mood + wake-ups, with a
 pencil next to the Mood row (if mood is writeable).
 
-See also `data.example/activity.example.json` for an Activity combo
-over `steps` + `active-minutes` + `workouts`.
+An Activity combo can be built the same way over `steps` +
+`active-minutes` + `workouts`.
 
 ---
 
@@ -867,22 +864,6 @@ Writes sparse-numbered `meta.order` to each listed card. Unlisted cards
 keep their existing order. Any unknown id causes the whole operation to
 fail with no writes. See [`CHAT-AGENT.md`](CHAT-AGENT.md) for the full
 agent API surface.
-
----
-
-## Example cards
-
-See the `data.example/` directory in the repo for reference manifests:
-- `weight.example.json` — metric card with a line-chart trend
-- `bp.example.json` — two-number metric (systolic/diastolic)
-- `mood.example.json` — emoji-picker mood card
-- `notes.example.json` — freeform daily notes
-- `medication-schedule.example.json` — schedule-card for peptides/meds
-- `greeting.example.json` — greeting banner
-- `welcome.example.json` — welcome card using `markdown-doc`
-
-Copy any of these into your `$HEALTH_HOME/data/` directory and rename to
-drop the `.example`.
 
 ---
 

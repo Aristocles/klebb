@@ -22,8 +22,6 @@ const SKIP_DIRS = new Set([
   '.git',
   'tests',                 // tests can legitimately mention names (they are fixtures)
   '_legacy-v1',            // legacy UI not loaded anymore
-  'data.example',          // example cards can contain anonymised names
-  'seed',                  // seed content (not currently used, but allowed)
 ]);
 
 // File suffixes to scan.
