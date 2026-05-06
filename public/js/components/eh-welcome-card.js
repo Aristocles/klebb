@@ -40,6 +40,7 @@ export class EhWelcomeCard extends EhBaseCard {
         border-radius: 12px;
         text-align: left;
         width: 100%;
+        box-sizing: border-box;
         color: inherit;
         font: inherit;
         cursor: pointer;
