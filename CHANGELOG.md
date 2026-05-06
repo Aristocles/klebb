@@ -7,6 +7,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Welcome card + first-boot onboarding.** Fresh installs (empty
+  \`HEALTH_HOME/data\`) now auto-create a single \`welcome.klebb.json\`
+  that explains the three ways to add cards: Add Card gallery (landing
+  in a follow-up PR), the chat agent, and starter prompts (also
+  follow-up). The welcome card is a regular manifest: hideable,
+  deletable, re-enablable from Settings. It hides itself the first time
+  any other card is created (tracked via \`meta.welcome.autoHideApplied\`
+  so the auto-hide fires at most once — a user who later re-enables it
+  in Settings won't have the system fight them on the next Add Card).
+  New renderer \`eh-welcome-card\` backs the \`welcome-card\` component
+  name; new module \`server/first-boot/\` holds the seed logic and the
+  canonical fixture. (#114)
+
 ### Removed
 
 - **Demo cards, demo reports, and first-boot seed machinery.** Deleted

@@ -390,7 +390,42 @@ function createManifest(manifestObj) {
     source: targetPath,
     version: parsed.$schema,
   });
-  return { id, source: targetPath };
+  // One-time welcome-card auto-hide. When any other card is created, the
+  // welcome card disables itself and records that the auto-hide has fired,
+  // so a user who later re-enables it in Settings won't have the system
+  // fight them on their next Add Card.
+  const autoHidden = maybeAutoHideWelcome(id);
+  return { id, source: targetPath, welcomeAutoHidden: autoHidden };
+}
+
+function maybeAutoHideWelcome(createdId) {
+  if (createdId === 'welcome') return false;
+  const welcome = _entries.get('welcome');
+  if (!welcome) return false;
+  const wmeta = welcome.meta.welcome;
+  if (wmeta && wmeta.autoHideApplied === true) return false;
+  if (welcome.meta.enabled === false) return false;
+  welcome.meta = {
+    ...welcome.meta,
+    enabled: false,
+    welcome: { ...(wmeta || {}), autoHideApplied: true },
+  };
+  const full = {
+    $schema: welcome.version,
+    meta: welcome.meta,
+  };
+  if (welcome.description) full.description = welcome.description;
+  if (welcome.schema) full.schema = welcome.schema;
+  if (welcome.data !== null) full.data = welcome.data;
+  const tmp = welcome.source + '.tmp';
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(full, null, 2));
+    fs.renameSync(tmp, welcome.source);
+    return true;
+  } catch (e) {
+    console.warn('[welcome] auto-hide write failed:', e.message);
+    return false;
+  }
 }
 
 // Apply a JSON Merge Patch (RFC 7396) to an existing manifest's meta and/or

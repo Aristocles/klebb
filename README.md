@@ -44,12 +44,13 @@ npm start
 # open http://localhost:8080
 ```
 
-A fresh install starts with an empty dashboard. To add your first
-card, drop a manifest file into `$HEALTH_HOME/data/` and refresh. A
-minimal weight card looks like the JSON example in the next section;
-save it as `$HEALTH_HOME/data/weight.json`, tweak the fields, and it
-will appear on the dashboard. See [`docs/CARDS.md`](docs/CARDS.md) for
-the full authoring guide.
+A fresh install starts with a single Welcome card that explains the
+three ways to add your own cards (Add Card gallery, chat agent, and
+starter prompts). The Welcome card hides itself the first time you
+create any other card; you can restore it from Settings or delete it
+entirely. See [`docs/CARDS.md`](docs/CARDS.md) for the full manifest
+authoring guide, or the JSON example in the next section for a minimal
+hand-authored card.
 
 ### Screenshots
 
