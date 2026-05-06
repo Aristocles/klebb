@@ -1,0 +1,52 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "mood",
+      "title": "Mood",
+      "summary": "Daily mood check-in on a 1-5 scale with an emoji marker on the calendar.",
+      "category": "lifestyle",
+      "tags": ["mood", "daily", "emoji"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "🙂",
+    "order": 400,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{mood:emoji}",
+        "secondary": "{notes|(no notes)}",
+        "emojiMap": {
+          "mood": { "1": "😩", "2": "😴", "3": "😐", "4": "🙂", "5": "😄" }
+        }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "mood"
+    },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": {
+        "type": "field-emoji",
+        "field": "mood",
+        "emojiMap": { "1": "😩", "2": "😴", "3": "😐", "4": "🙂", "5": "😄" },
+        "fallback": "🙂"
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "mood", "type": "rating", "min": 1, "max": 5, "required": true },
+        { "key": "notes", "type": "textarea", "required": false }
+      ]
+    }
+  },
+  "description": "Daily mood rating (1-5) with optional notes. One entry per day; new entries replace earlier ones on the same date.",
+  "data": []
+}

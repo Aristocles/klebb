@@ -1,0 +1,46 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "injection-protocol",
+      "title": "Injection protocol",
+      "summary": "Scheduled injectable with cycle start and end, reconstitution details, and check-off state.",
+      "category": "protocols",
+      "tags": ["injection", "schedule", "cycle"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "💉",
+    "order": 300,
+    "view": {
+      "enabled": true,
+      "component": "checklist-card",
+      "dateContext": "exact-date"
+    },
+    "trends": {
+      "enabled": true,
+      "component": "schedule-timeline",
+      "itemsPath": "items"
+    },
+    "reports": {
+      "enabled": true,
+      "component": "adherence-report",
+      "showCompliance": true
+    },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": "💉"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "pastAllowed": true,
+      "todayAllowed": true,
+      "futureAllowed": false
+    }
+  },
+  "description": "Injectable on a fixed schedule within a cycle window. The card's + Add item affordance lands with the in-card item editor in a later PR; for now, hand-edit this file or use the chat agent to append to items[].",
+  "data": {
+    "items": []
+  }
+}
