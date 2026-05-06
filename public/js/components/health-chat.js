@@ -775,6 +775,9 @@ class HealthChat extends LitElement {
     window.addEventListener('klebb-open-chat', this._onOpenChat);
     this._onPasteIntoChat = (e) => {
       const text = e.detail?.text || '';
+      // Starter prompts are explicit "new workflow" entry points; carrying
+      // prior conversation into them bleeds stale context into the reply.
+      this._clearHistory();
       this._input = text;
       if (!this._open) this._toggle();
       this.updateComplete.then(() => {
