@@ -11,6 +11,33 @@ function dayName(dateStr) {
   return DAY_NAMES_SHORT[d.getDay()];
 }
 
+function iso(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Resolve the cycles to evaluate for a schedule-card item.
+// Explicit item.cycles[] always wins. When absent, synthesise a single
+// cycle from schedule.start_date (+ schedule.cycle_weeks or cycle_days)
+// so agent-authored manifests render without needing a separate cycles
+// array. Returns null when nothing usable is declared.
+export function effectiveCycles(item) {
+  if (Array.isArray(item.cycles) && item.cycles.length > 0) return item.cycles;
+  const s = item.schedule;
+  const start = s && (s.start_date || s.startDate);
+  if (!start) return null;
+  if (s.cycle_weeks > 0) {
+    const d = new Date(start + 'T00:00:00');
+    d.setDate(d.getDate() + s.cycle_weeks * 7 - 1);
+    return [{ type: 'on', start, end: iso(d) }];
+  }
+  if (s.cycle_days > 0) {
+    const d = new Date(start + 'T00:00:00');
+    d.setDate(d.getDate() + s.cycle_days - 1);
+    return [{ type: 'on', start, end: iso(d) }];
+  }
+  return [{ type: 'on', start }];
+}
+
 // Returns one of:
 //   'scheduled' — on an active cycle + schedule day
 //   'rest'      — on an active cycle but a rest day per the schedule
@@ -18,7 +45,7 @@ function dayName(dateStr) {
 //   false       — outside all cycles
 export function isScheduledOnDate(item, dateStr) {
   const sched = item.schedule;
-  const cycles = item.cycles;
+  const cycles = effectiveCycles(item);
 
   // If no cycles: just use schedule directly + optional item-level dates
   if (!cycles || cycles.length === 0) {

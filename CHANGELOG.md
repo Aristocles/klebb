@@ -31,6 +31,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   spanning -14..+60 days in the server's TZ, and instructs the agent
   not to compute weekdays itself. (Fixes #143)
 
+- **`schedule-card` renders items that only declare their cycle on the
+  schedule object.** The renderer's visibility filter required every
+  item to carry an explicit `cycles[]` array; agent-authored manifests
+  carry the cycle on `schedule.start_date` + `schedule.cycle_weeks`
+  (or `cycle_days`) instead, so every item got filtered out and the
+  card appeared empty. `public/js/lib/schedule.js` now synthesises a
+  single cycle from the schedule's start date + duration when an
+  explicit `cycles[]` is absent; explicit cycles still win. Unit tests
+  cover both shapes, open-ended (no duration), and the legacy
+  `schedule.startDate` alias. (Fixes #138)
+
 - **Left/right arrow keys work inside the chat textarea again.** The
   date-view's window-level arrow handler was calling
   \`preventDefault()\` on every ArrowLeft/ArrowRight, with a guard
