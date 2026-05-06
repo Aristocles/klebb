@@ -435,6 +435,11 @@ class HealthChat extends LitElement {
       font-size: 16px;
       font-family: inherit;
       outline: none;
+      resize: none;
+      line-height: 1.4;
+      min-height: 36px;
+      max-height: 240px;
+      overflow-y: auto;
     }
     .chat-input:focus { border-color: var(--accent); }
     .chat-input:disabled { opacity: 0.5; }
@@ -741,6 +746,7 @@ class HealthChat extends LitElement {
         const input = this.shadowRoot?.querySelector('.chat-input');
         if (input) {
           input.focus();
+          this._autoSize(input);
           // Move caret to end so the user can continue typing after the paste.
           const n = input.value.length;
           input.setSelectionRange(n, n);
@@ -797,6 +803,10 @@ class HealthChat extends LitElement {
     if (!text || this._loading) return;
     this._addMsg('user', text);
     this._input = '';
+    this.updateComplete.then(() => {
+      const input = this.shadowRoot?.querySelector('.chat-input');
+      if (input) this._autoSize(input);
+    });
     this._loading = true;
     this._scrollToBottom();
     const chatMessages = this._messages.filter(m => m.role !== 'error');
@@ -829,6 +839,12 @@ class HealthChat extends LitElement {
       e.preventDefault();
       this._sendText();
     }
+  }
+
+  _autoSize(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 240) + 'px';
   }
 
   _useSuggestion(text) {
@@ -1166,14 +1182,15 @@ class HealthChat extends LitElement {
                 aria-label=${this._recording ? 'stop recording' : 'start recording'}
               >${this._recording ? '\u23F9' : '\u{1F3A4}'}</button>
             ` : ''}
-            <input
+            <textarea
               class="chat-input"
+              rows="1"
               placeholder=${this._recording ? 'Recording…' : 'Ask about your health...'}
               .value=${this._input}
-              @input=${(e) => this._input = e.target.value}
+              @input=${(e) => { this._input = e.target.value; this._autoSize(e.target); }}
               @keydown=${this._handleKeydown}
               ?disabled=${this._loading || this._recording}
-            />
+            ></textarea>
             <button class="send-btn" @click=${this._sendText} ?disabled=${this._loading || this._recording || !this._input.trim()}>\u2191</button>
           </div>
         </div>
