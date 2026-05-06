@@ -16,6 +16,7 @@ const { listTemplates, listPrompts } = require('./server/content');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 const { TOOL_DEFS, dispatchToolCall } = require('./chat/tools');
+const { pickEmbellishments } = require('./chat/embellish');
 const { buildDateContextBlock } = require('./chat/date-context');
 const hae = require('./health-auto-export/ingest');
 
@@ -302,6 +303,7 @@ function callGateway({ messages, tools }) {
 async function runAgentLoop({ systemPrompt, userMessages }) {
   const MAX_ITERS = 5;
   const messages = [{ role: 'system', content: systemPrompt }, ...userMessages];
+  const ctx = { touches: [] };
   let lastAssistantText = '';
   for (let i = 0; i < MAX_ITERS; i++) {
     const gw = await callGateway({ messages, tools: TOOL_DEFS });
@@ -326,19 +328,39 @@ async function runAgentLoop({ systemPrompt, userMessages }) {
           role: 'tool',
           tool_call_id: tc.id,
           name: tc.function?.name,
-          content: dispatchToolCall(tc),
+          content: dispatchToolCall(tc, ctx),
         });
       }
       continue;
     }
 
-    return { finalText: msg.content || lastAssistantText || '', cappedOut: false };
+    return { finalText: msg.content || lastAssistantText || '', cappedOut: false, ctx };
   }
   return {
     finalText: lastAssistantText ||
       "I wasn't able to finish that in one turn — please re-ask or be more specific.",
     cappedOut: true,
+    ctx,
   };
+}
+
+// Given the post-loop ctx, build a `followup` object for the chat
+// response if the agent touched a manifest this turn. Returns null when
+// no manifest was touched, the touched manifest no longer exists, or
+// the picker has nothing eligible to offer. The last touch wins: if a
+// turn created one card and patched another, we offer chips on the more
+// recent operation.
+function buildFollowup(ctx) {
+  if (!ctx || !Array.isArray(ctx.touches) || ctx.touches.length === 0) return null;
+  const last = ctx.touches[ctx.touches.length - 1];
+  const entry = registry.get(last.id);
+  if (!entry) return null;
+  const manifest = { meta: entry.meta, data: entry.data };
+  return pickEmbellishments(manifest, { flow: last.flow });
+}
+
+function withFollowup(body, followup) {
+  return followup ? { ...body, followup } : body;
 }
 
 // Synthesise the legacy injection-log.json shape { 'YYYY-MM-DD': { 'PeptideName': { taken: true, time: ISO } } }
@@ -1235,18 +1257,19 @@ Original system prompt follows:
           }
 
           runAgentLoop({ systemPrompt, userMessages: messages })
-            .then(({ finalText }) => {
+            .then(({ finalText, ctx }) => {
+              const followup = buildFollowup(ctx);
               if (voiceMode) {
                 const parsedReply = extractJsonReply(finalText);
                 if (parsedReply && (parsedReply.speak || parsedReply.display)) {
                   const speak = (parsedReply.speak || parsedReply.display || '').trim();
                   const display = (parsedReply.display || parsedReply.speak || '').trim();
-                  return sendJSON(res, { reply: display, speak });
+                  return sendJSON(res, withFollowup({ reply: display, speak }, followup));
                 }
                 const speak = finalText.replace(/\p{Extended_Pictographic}/gu, '').trim();
-                return sendJSON(res, { reply: finalText || 'No response', speak });
+                return sendJSON(res, withFollowup({ reply: finalText || 'No response', speak }, followup));
               }
-              sendJSON(res, { reply: finalText || 'No response' });
+              sendJSON(res, withFollowup({ reply: finalText || 'No response' }, followup));
             })
             .catch((e) => {
               const msg = e.message || String(e);

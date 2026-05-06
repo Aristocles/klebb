@@ -14,7 +14,7 @@ const TOOL_DEFS = [
     function: {
       name: 'create_manifest',
       description:
-        "Create a new card on the user's dashboard. Pass a full klebb.datafile.v1 manifest object. Returns {ok, id, source} on success; validation errors come back as {error} — read the message and retry with a fixed manifest (e.g. pick a different id on 'duplicate id', sanitise bad chars on 'invalid id'). IMPORTANT: per-renderer data shape matters: e.g. schedule-card items live in data.items[], NOT meta.schedule. Do NOT set optional embellishments (meta.prompt, meta.calendar, meta.trends, meta.reports, meta.view.display.thresholds) unless the user explicitly asked for them; offer them afterwards and apply via patch_manifest if accepted. Use today's absolute date (provided in the system prompt) for any date field; never guess the year from training data.",
+        "Create a new card on the user's dashboard. Pass a full klebb.datafile.v1 manifest object. Returns {ok, id, source} on success; validation errors come back as {error} — read the message and retry with a fixed manifest (e.g. pick a different id on 'duplicate id', sanitise bad chars on 'invalid id'). IMPORTANT: per-renderer data shape matters: e.g. schedule-card items live in data.items[], NOT meta.schedule. Do NOT set optional embellishments (meta.prompt, meta.calendar, meta.trends, meta.reports, meta.view.display.thresholds) unless the user explicitly asked for them; the webapp offers the user follow-up chips after a successful create so they can opt in. Use today's absolute date (provided in the system prompt) for any date field; never guess the year from training data.",
       parameters: {
         type: 'object',
         properties: {
@@ -155,7 +155,12 @@ const TOOL_DEFS = [
 // string (stringified JSON) — both success and failure paths. The string
 // becomes the `content` of the matching {role:"tool"} message on the next
 // gateway request.
-function dispatchToolCall(tc) {
+//
+// Optional `ctx` collects side-effects the caller can inspect after the
+// loop resolves. Today that's `ctx.touches`: an ordered list of successful
+// create / patch / write_data calls, used to drive the post-turn
+// embellishment chips. Kept as a plain array (last entry is the newest).
+function dispatchToolCall(tc, ctx) {
   const name = tc.function?.name;
   let args = {};
   try {
@@ -167,6 +172,7 @@ function dispatchToolCall(tc) {
     switch (name) {
       case 'create_manifest': {
         const result = registry.createManifest(args.manifest);
+        recordTouch(ctx, { id: result.id, flow: 'create' });
         return JSON.stringify({ ok: true, ...result });
       }
       case 'delete_manifest': {
@@ -212,10 +218,12 @@ function dispatchToolCall(tc) {
           return JSON.stringify({ error: `${args.id} is not writeable from the webapp (meta.writeable.fromWebapp is not true). Use patch_manifest to flip the flag first if the user wants to make it writeable.` });
         }
         registry.writeData(args.id, args.data);
+        recordTouch(ctx, { id: args.id, flow: 'edit' });
         return JSON.stringify({ ok: true, id: args.id });
       }
       case 'patch_manifest': {
         const result = registry.patchManifest(args.id, args.patch);
+        recordTouch(ctx, { id: args.id, flow: 'edit' });
         return JSON.stringify({ ok: true, ...result });
       }
       default:
@@ -224,6 +232,17 @@ function dispatchToolCall(tc) {
   } catch (e) {
     return JSON.stringify({ error: e.message || String(e) });
   }
+}
+
+// Record a manifest-touch for post-turn consumers. If the same id is
+// touched twice in one turn (e.g. create then patch), keep the original
+// flow — a create-then-patch is still fundamentally a create and the
+// chips that come back should read as such.
+function recordTouch(ctx, touch) {
+  if (!ctx || !Array.isArray(ctx.touches)) return;
+  const existing = ctx.touches.find(t => t.id === touch.id);
+  if (existing) return;
+  ctx.touches.push(touch);
 }
 
 module.exports = { TOOL_DEFS, dispatchToolCall };
