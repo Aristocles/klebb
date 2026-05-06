@@ -1,8 +1,21 @@
 # Contributing templates
 
-A **template** is a starter card manifest that lives in `templates/` and
-shows up in the Add Card gallery. Picking a template opens a small form;
-filling it in produces a real card in `$HEALTH_HOME/data/`.
+A **template** is a reference card manifest that lives in `templates/`.
+Templates serve three roles:
+
+- **Documentation** — canonical worked examples of every renderer
+  type, referenced from `docs/CARDS.md` and the README.
+- **Hand-authoring starting points** — advanced users copy a
+  template file into their `$HEALTH_HOME/data/` directory, rename
+  it, and edit to taste.
+- **Chat-agent fodder** — exposed at `GET /api/templates`, so the
+  chat agent and future tools can draw on them when a user
+  describes a card that already matches an existing shape.
+
+Templates are not directly surfaced in any modal today; the
+Add Card gallery that used to consume them was removed in favour
+of an LLM-first onboarding flow (see #127). A template you add
+still reaches users via the three roles above.
 
 ## File shape
 
@@ -82,11 +95,12 @@ The response is:
 ] }
 ```
 
-`manifest` is the full template JSON with placeholders intact. The
-Add Card modal substitutes placeholder tokens client-side as the user
-types, then POSTs the substituted manifest to `/api/manifests`. The
-server-side endpoint reads `templates/` at request time, so
-newly-added templates appear without a restart.
+`manifest` is the full template JSON with placeholder tokens intact
+(e.g. `{{string:id}}`). No consumer in-app today substitutes them;
+they remain in the on-disk files as reference for hand-authors and
+as a future agent-tool contract. The server-side endpoint reads
+`templates/` at request time, so newly-added templates appear
+without a restart.
 
 ## Examples
 

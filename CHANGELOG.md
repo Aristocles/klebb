@@ -7,6 +7,23 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **Onboarding is LLM-first.** Removed the Add Card modal and its
+  template-substitution lib; the welcome card now surfaces three
+  paths in order of usefulness: starter prompts (primary, with a
+  "Start here" chip), describing it in the chat (secondary), and
+  hand-authoring JSON (tertiary, points at \`docs/CARDS.md\` and
+  \`templates/\`). The Add Card modal was producing shell cards
+  that needed a follow-up chat turn to be useful, which made it a
+  weaker parallel to the chat agent rather than a complement.
+  README and \`docs/DEPLOY.md\` now document Klebb as LLM-first and
+  make setting up a chat gateway part of the Quickstart rather
+  than an optional step. \`templates/\`, \`/api/templates\`, and
+  \`CONTRIBUTING-TEMPLATES.md\` all stay — they're useful as
+  canonical reference manifests for contributors and as future
+  chat-agent fodder. (#127)
+
 ### Added
 
 - **Starter prompts gallery.** The welcome card's third action now
