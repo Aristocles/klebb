@@ -9,6 +9,25 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Add Card modal.** Click the welcome card's "Add a card" action
+  to open a modal with three panes: a searchable template gallery
+  grouped by category (Tracking, Protocols, Lifestyle, Imported), a
+  live card preview using the real renderer component, and a form
+  with one input per placeholder in the selected template. Typing in
+  a field updates the preview immediately; fields are typed (number,
+  date, boolean, string) based on the placeholder declaration. On
+  submit, placeholders are substituted client-side and the manifest
+  is POSTed to \`/api/manifests\`. If the id collides, the client
+  auto-suffixes (\`weight\`, \`weight-2\`, …) until it lands. Does
+  not require an LLM gateway: the deterministic path to creating any
+  card. New module \`public/js/lib/template-substitute.js\` holds
+  the pure substitution logic (tested standalone); new component
+  \`public/js/components/eh-add-card-modal.js\` holds the modal.
+  Welcome card's primary action now creates actual cards instead of
+  showing "coming soon". A \`klebb-cards-changed\` window event is
+  dispatched on success so the view renderer refreshes without a
+  page reload. (#117)
+
 - **\`GET /api/templates\` and \`GET /api/prompts\` endpoints.** Plain
   JSON read-only endpoints that surface the contents of \`templates/\`
   and \`prompts/\` for the Add Card modal and prompts gallery to

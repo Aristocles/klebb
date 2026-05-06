@@ -8,6 +8,7 @@
 import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
 import { registerRenderer } from '../renderer-registry.js';
+import './eh-add-card-modal.js';
 
 export class EhWelcomeCard extends EhBaseCard {
   static styles = [
@@ -30,7 +31,23 @@ export class EhWelcomeCard extends EhBaseCard {
         background: var(--bg-input, rgba(255, 255, 255, 0.03));
         border: 1px solid var(--border);
         border-radius: 8px;
+        text-align: left;
+        width: 100%;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
       }
+      button.path { appearance: none; }
+      button.path:hover { border-color: var(--accent, #00d4aa); }
+      button.path:focus {
+        outline: none;
+        border-color: var(--accent, #00d4aa);
+      }
+      button.path:disabled {
+        cursor: default;
+        opacity: 0.7;
+      }
+      button.path:disabled:hover { border-color: var(--border); }
       .path-emoji {
         font-size: 20px;
         line-height: 1.2;
@@ -61,6 +78,15 @@ export class EhWelcomeCard extends EhBaseCard {
     `,
   ];
 
+  _openAddCard() {
+    const m = document.createElement('eh-add-card-modal');
+    m.addEventListener('eh-add-card-done', () => {
+      window.dispatchEvent(new CustomEvent('klebb-cards-changed'));
+    });
+    document.body.appendChild(m);
+    requestAnimationFrame(() => m.open());
+  }
+
   renderCard() {
     return html`
       <p class="intro">
@@ -68,17 +94,16 @@ export class EhWelcomeCard extends EhBaseCard {
         Drop one in, it appears. Here are three ways to get started.
       </p>
       <div class="paths">
-        <div class="path">
+        <button type="button" class="path" @click=${this._openAddCard}>
           <div class="path-emoji">➕</div>
           <div class="path-body">
             <p class="path-title">Add a card</p>
             <p class="path-copy">
               Pick from a gallery of starter cards (weight, blood pressure,
               injections, supplements, and more) and fill in a few fields.
-              <em>Coming soon.</em>
             </p>
           </div>
-        </div>
+        </button>
         <div class="path">
           <div class="path-emoji">💬</div>
           <div class="path-body">
