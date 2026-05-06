@@ -22,6 +22,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Chat proxy RST test no longer flakes on Windows.** The test
+  simulates an upstream gateway that RSTs its TCP socket immediately
+  after flushing a successful response. On Linux the response bytes
+  have already been buffered by Node's HTTP parser before the RST
+  arrives, so the client still gets the reply; on Windows the RST
+  purges the kernel receive buffer before any bytes surface, losing
+  the response. The production path is unaffected (Linux CI has
+  always passed); the test is now gated on non-Windows platforms so
+  local dev on Windows stops hitting a false-positive failure.
+  (Fixes #146)
+
 - **Chat agent no longer hallucinates weekdays for relative dates.**
   Asked "what's on 5 days from now?" on a Wednesday, the agent would
   compute the ISO date correctly (+5) but then confidently name the
