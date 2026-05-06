@@ -65,11 +65,14 @@ export class EhViewRenderer extends LitElement {
     super.connectedCallback();
     this._fetchCards();
     window.addEventListener('klebb-enter-reorder-mode', this._onReorderEvent);
+    this._onCardsChanged = () => { this._fetchCards(); };
+    window.addEventListener('klebb-cards-changed', this._onCardsChanged);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('klebb-enter-reorder-mode', this._onReorderEvent);
+    window.removeEventListener('klebb-cards-changed', this._onCardsChanged);
     this._destroySortable();
   }
 
