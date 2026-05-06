@@ -893,7 +893,7 @@ class HealthChat extends LitElement {
         this._messages = [...this._messages, {
           id,
           role: 'assistant',
-          content: "Voice isn't configured. Klebb uses Fish Audio for speech. [See docs](https://github.com/Aristocles/klebb/blob/main/docs/DEPLOY.md#voice-chat-optional) to set it up.",
+          content: "Voice isn't configured. Klebb uses Fish Audio for speech. [See docs](https://github.com/Aristocles/klebb/blob/main/docs/VOICE.md) to set it up.",
           voiceUnconfiguredNotice: true,
         }];
         this._scrollToBottom();
