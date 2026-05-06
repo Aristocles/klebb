@@ -1,0 +1,45 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "supplement-stack",
+      "title": "Supplement stack",
+      "summary": "Daily supplement checklist, grouped by time of day.",
+      "category": "protocols",
+      "tags": ["supplements", "daily", "checklist"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "💊",
+    "order": 310,
+    "view": {
+      "enabled": true,
+      "component": "checklist-card",
+      "dateContext": "exact-date"
+    },
+    "reports": {
+      "enabled": true,
+      "component": "adherence-report",
+      "showCompliance": true
+    },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": "💊"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "pastAllowed": true,
+      "todayAllowed": true,
+      "futureAllowed": false
+    }
+  },
+  "description": "Daily supplement check-off. Group items by time-of-day (morning, evening) using the groups[] block. Add items via the chat agent or the in-card item editor (landing in a later PR).",
+  "data": {
+    "groups": [
+      { "id": "morning", "label": "Morning", "items": [] },
+      { "id": "evening", "label": "Evening", "items": [] }
+    ],
+    "items": []
+  }
+}

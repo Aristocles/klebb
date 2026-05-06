@@ -1,0 +1,39 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "resting-heart-rate",
+      "title": "Resting heart rate",
+      "summary": "Beats per minute, typically logged shortly after waking.",
+      "category": "tracking",
+      "tags": ["vitals", "cardiac", "trend"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "❤️",
+    "order": 220,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{bpm}",
+        "unit": "bpm",
+        "trendArrow": { "field": "bpm" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "bpm"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "bpm", "type": "number", "required": true, "min": 30, "max": 200 }
+      ]
+    }
+  },
+  "description": "Resting heart rate in beats per minute. One entry per day.",
+  "data": []
+}

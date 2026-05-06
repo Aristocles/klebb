@@ -1,0 +1,38 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "hydration",
+      "title": "Water intake",
+      "summary": "Cumulative daily water tally with a target line.",
+      "category": "lifestyle",
+      "tags": ["hydration", "water", "counter"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "💧",
+    "order": 420,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{ml}",
+        "unit": "ml"
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "ml"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "ml", "type": "stepper", "step": 250, "min": 0, "max": 10000, "required": true }
+      ]
+    }
+  },
+  "description": "Daily water intake in millilitres. One entry per day; use the stepper to bump by 250ml at a time.",
+  "data": []
+}

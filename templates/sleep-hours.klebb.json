@@ -1,0 +1,32 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "sleep-hours",
+      "title": "Sleep hours (Apple Health)",
+      "summary": "Total sleep per night, populated by the iPhone Health Auto Export webhook.",
+      "category": "imported",
+      "tags": ["sleep", "apple-health", "hae", "ingest-only"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "😴",
+    "order": 500,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{hours:round(1)}",
+        "unit": "hrs",
+        "trendArrow": { "field": "hours" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "hours"
+    }
+  },
+  "description": "Total sleep duration for the night. Populated by the iPhone Health Auto Export webhook; see docs/HEALTH-AUTO-EXPORT.md for setup. Ingest-only: no webapp writes.",
+  "data": []
+}
