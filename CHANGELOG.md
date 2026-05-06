@@ -7,7 +7,29 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Embellishment chips after chat creates/edits a card.** When the chat
+  agent successfully creates or patches a manifest, the chat response now
+  carries a small follow-up row of one-click suggestions tailored to the
+  card's renderer (add an emoji, show on the calendar, add a target
+  range, include in Trends, track adherence in Reports, and so on). The
+  picker in `chat/embellish.js` is pure, renderer-aware, and only
+  surfaces embellishments whose target field is currently absent.
+  Clicking a chip sends a canned prompt back through the agent and
+  disables the chip row so the same offer can't be applied twice.
+  (Fixes #142)
+
 ### Fixed
+
+- **Chat agent no longer hallucinates weekdays for relative dates.**
+  Asked "what's on 5 days from now?" on a Wednesday, the agent would
+  compute the ISO date correctly (+5) but then confidently name the
+  wrong weekday ("Friday" for a Monday). Language models are
+  unreliable at weekday arithmetic from an ISO date, so the system
+  prompt now carries a pre-computed offset/weekday/ISO lookup table
+  spanning -14..+60 days in the server's TZ, and instructs the agent
+  not to compute weekdays itself. (Fixes #143)
 
 - **Left/right arrow keys work inside the chat textarea again.** The
   date-view's window-level arrow handler was calling
