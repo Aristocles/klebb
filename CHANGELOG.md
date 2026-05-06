@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **\`GET /api/templates\` and \`GET /api/prompts\` endpoints.** Plain
+  JSON read-only endpoints that surface the contents of \`templates/\`
+  and \`prompts/\` for the Add Card modal and prompts gallery to
+  consume. Both session-gated (inherit the app-wide auth), both set
+  \`Cache-Control: no-store\`, both read the directories at request
+  time so contributor additions are picked up without a restart.
+  Malformed files are logged and skipped; the response stays 200 and
+  carries the rest. (#116)
+
 - **\`templates/\` + \`prompts/\` directories.** Ten starter card
   templates and seven conversational prompts covering the main Klebb
   use cases (weight, BP, waist, resting HR, injection protocol,

@@ -74,6 +74,24 @@ briefing for the agent, not the user. Good prompts:
       renderer.
 - [ ] File name is `kebab-case.md` and matches the topic.
 
+## How the app consumes prompts
+
+The server exposes prompts at `GET /api/prompts` (session-gated). The
+response is:
+
+```json
+{ "prompts": [
+  { "id": "glp1-cycle", "title": "...", "summary": "...",
+    "tags": ["..."], "body": "..." }
+] }
+```
+
+`body` is the markdown content with frontmatter stripped. The prompts
+gallery modal loads the body into the chat input without sending; the
+user reviews, edits if they want, then sends themselves. The
+server-side endpoint reads `prompts/` at request time, so newly-added
+prompts appear without a restart.
+
 ## Examples
 
 See `prompts/new-to-klebb.md` for the conversational onboarding
