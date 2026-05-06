@@ -11,6 +11,7 @@ const PATHS = require('./config/paths');
 const ENV = require('./config/env');
 const registry = require('./manifests/registry');
 const { convertDateKeyedToArray } = require('./scripts/migrate-date-keyed-to-array');
+const { runFirstBoot } = require('./server/first-boot');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 const { TOOL_DEFS, dispatchToolCall } = require('./chat/tools');
@@ -555,6 +556,7 @@ const server = http.createServer(async (req, res) => {
             ok: true,
             id: result.id,
             source: path.basename(result.source),
+            welcomeAutoHidden: !!result.welcomeAutoHidden,
           }, 201);
         } catch (e) {
           const msg = e.message || 'create failed';
@@ -1468,6 +1470,13 @@ Original system prompt follows:
 
 server.listen(PORT, HOST, () => {
   console.log(`Health dashboard running at http://${HOST}:${PORT} (TZ=${ENV.TZ})`);
+
+  // First-boot welcome card. Only seeds when HEALTH_HOME/data is empty.
+  try {
+    runFirstBoot({ dataDir: PATHS.DATA_DIR });
+  } catch (e) {
+    console.warn('[first-boot] error (continuing):', e.message);
+  }
 
   // Initialise manifest registry (discovers + watches data files)
   try {
