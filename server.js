@@ -12,6 +12,7 @@ const ENV = require('./config/env');
 const registry = require('./manifests/registry');
 const { convertDateKeyedToArray } = require('./scripts/migrate-date-keyed-to-array');
 const { runFirstBoot } = require('./server/first-boot');
+const { listTemplates, listPrompts } = require('./server/content');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 const { TOOL_DEFS, dispatchToolCall } = require('./chat/tools');
@@ -754,6 +755,23 @@ const server = http.createServer(async (req, res) => {
     }
 
     // === End settings endpoints ===
+
+    // === Content endpoints (templates + prompts) ===
+    // Served from templates/ and prompts/ at the repo root. Read at request
+    // time so a contributor's newly added content is picked up without a
+    // restart; the directories are small and traffic is infrequent.
+
+    if (parts[0] === 'templates' && parts.length === 1 && req.method === 'GET') {
+      res.setHeader('Cache-Control', 'no-store');
+      return sendJSON(res, { templates: listTemplates() });
+    }
+
+    if (parts[0] === 'prompts' && parts.length === 1 && req.method === 'GET') {
+      res.setHeader('Cache-Control', 'no-store');
+      return sendJSON(res, { prompts: listPrompts() });
+    }
+
+    // === End content endpoints ===
 
     // Simple JSON file endpoints
     const simpleFiles = {
