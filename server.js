@@ -16,6 +16,7 @@ const { listTemplates, listPrompts } = require('./server/content');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 const { TOOL_DEFS, dispatchToolCall } = require('./chat/tools');
+const { buildDateContextBlock } = require('./chat/date-context');
 const hae = require('./health-auto-export/ingest');
 
 // chat endpoint config (env-driven; see config/env.js)
@@ -1181,10 +1182,11 @@ const server = http.createServer(async (req, res) => {
             ? `\n\n## Currently available cards\n\n${cardList}\n`
             : '\n\n## Currently available cards\n\n(none yet)\n';
 
-          // Inject today's absolute date (in the server's TZ) so the agent
-          // computes relative dates from ground truth rather than guessing
-          // from training data.
-          const todayBlock = `\n\n## Today's date\n\nToday is ${todayIso()}. Use this as the reference point for any relative date ("next Monday", "in two weeks", "three months from now"). Never hardcode a year from training data.\n`;
+          // Inject today's absolute date + a pre-computed weekday lookup
+          // table in the server's TZ. Language models are unreliable at
+          // weekday arithmetic from an ISO date, so we hand them the
+          // answer rather than asking them to compute it.
+          const todayBlock = buildDateContextBlock({ tz: ENV.TZ });
 
           let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock;
           if (voiceMode) {
