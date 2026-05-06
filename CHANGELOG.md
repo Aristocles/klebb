@@ -7,6 +7,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Chat agent no longer builds empty schedule-cards.** The agent was
+  writing items into \`meta.schedule[]\` (not a real field on the
+  \`schedule-card\` shape) and leaving \`data\` empty, so the card
+  rendered blank. The system prompt now carries a full
+  schedule-card example with items in \`data.items[]\`, spells out
+  which renderer reads which path, and forbids silently setting
+  optional embellishments (\`meta.prompt\`, \`meta.calendar\`,
+  \`meta.trends\`, \`meta.reports\`, thresholds) on initial create.
+  The server also injects today's absolute date into the system
+  prompt so the agent stops hallucinating 2025 dates; the
+  \`create_manifest\` tool description reinforces both rules.
+  (Fixes #130)
+
 ### Changed
 
 - **Onboarding is LLM-first.** Removed the Add Card modal and its

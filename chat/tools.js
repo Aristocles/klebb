@@ -14,7 +14,7 @@ const TOOL_DEFS = [
     function: {
       name: 'create_manifest',
       description:
-        "Create a new card on the user's dashboard. Pass a full klebb.datafile.v1 manifest object. Returns {ok, id, source} on success; validation errors come back as {error} — read the message and retry with a fixed manifest (e.g. pick a different id on 'duplicate id', sanitise bad chars on 'invalid id').",
+        "Create a new card on the user's dashboard. Pass a full klebb.datafile.v1 manifest object. Returns {ok, id, source} on success; validation errors come back as {error} — read the message and retry with a fixed manifest (e.g. pick a different id on 'duplicate id', sanitise bad chars on 'invalid id'). IMPORTANT: per-renderer data shape matters: e.g. schedule-card items live in data.items[], NOT meta.schedule. Do NOT set optional embellishments (meta.prompt, meta.calendar, meta.trends, meta.reports, meta.view.display.thresholds) unless the user explicitly asked for them; offer them afterwards and apply via patch_manifest if accepted. Use today's absolute date (provided in the system prompt) for any date field; never guess the year from training data.",
       parameters: {
         type: 'object',
         properties: {
