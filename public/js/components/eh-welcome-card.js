@@ -8,7 +8,6 @@
 import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
 import { registerRenderer } from '../renderer-registry.js';
-import './eh-add-card-modal.js';
 import './eh-prompts-gallery.js';
 
 export class EhWelcomeCard extends EhBaseCard {
@@ -48,31 +47,49 @@ export class EhWelcomeCard extends EhBaseCard {
         transition: transform 0.12s ease, border-color 0.12s ease,
                     box-shadow 0.12s ease, background 0.12s ease;
         position: relative;
-        min-height: 170px;
+        min-height: 190px;
+        text-decoration: none;
       }
-      button.path:hover {
+      a.path {
+        display: flex;
+      }
+      button.path:hover,
+      a.path:hover {
         border-color: var(--accent, #00d4aa);
         background: var(--bg-card, #fff);
         transform: translateY(-1px);
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
       }
-      button.path:focus-visible {
+      button.path:focus-visible,
+      a.path:focus-visible {
         outline: 2px solid var(--accent, #00d4aa);
         outline-offset: 2px;
       }
-      button.path:active {
-        transform: translateY(0);
+      button.path:active,
+      a.path:active { transform: translateY(0); }
+
+      /* Featured variant for the primary "Start here" path. */
+      .path.featured {
+        border-color: var(--accent, #00d4aa);
+        background: rgba(0, 212, 170, 0.06);
       }
-      button.path:disabled {
-        cursor: default;
-        opacity: 0.6;
+      .path.featured:hover {
+        background: rgba(0, 212, 170, 0.1);
       }
-      button.path:disabled:hover {
-        border-color: var(--border);
-        background: var(--bg-input, rgba(0, 0, 0, 0.02));
-        transform: none;
-        box-shadow: none;
+      .start-chip {
+        position: absolute;
+        top: -9px;
+        left: 14px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        background: var(--accent, #00d4aa);
+        color: #000;
+        border-radius: 10px;
       }
+
       .path-head {
         display: flex;
         align-items: center;
@@ -106,13 +123,9 @@ export class EhWelcomeCard extends EhBaseCard {
         font-weight: 600;
         color: var(--accent, #00d4aa);
         padding: 6px 10px;
-        background: rgba(0, 212, 170, 0.1);
+        background: rgba(0, 212, 170, 0.12);
         border-radius: 6px;
         align-self: flex-start;
-      }
-      .path-cta.muted {
-        color: var(--text-muted, var(--text-secondary));
-        background: var(--bg-hover, rgba(0, 0, 0, 0.04));
       }
       .path-cta-arrow {
         font-size: 13px;
@@ -127,11 +140,8 @@ export class EhWelcomeCard extends EhBaseCard {
     `,
   ];
 
-  _openAddCard() {
-    const m = document.createElement('eh-add-card-modal');
-    m.addEventListener('eh-add-card-done', () => {
-      window.dispatchEvent(new CustomEvent('klebb-cards-changed'));
-    });
+  _openPrompts() {
+    const m = document.createElement('eh-prompts-gallery');
     document.body.appendChild(m);
     requestAnimationFrame(() => m.open());
   }
@@ -140,59 +150,60 @@ export class EhWelcomeCard extends EhBaseCard {
     window.dispatchEvent(new CustomEvent('klebb-open-chat'));
   }
 
-  _openPrompts() {
-    const m = document.createElement('eh-prompts-gallery');
-    document.body.appendChild(m);
-    requestAnimationFrame(() => m.open());
-  }
-
   renderCard() {
     return html`
       <p class="intro">
-        Klebb is a file-driven dashboard: every card is a JSON file on disk.
-        Drop one in, it appears. Pick one of the three ways below to add
-        your first card.
+        Klebb is a file-driven dashboard powered by a chat agent: every
+        card is a JSON file on disk, and the chat agent writes those
+        files for you. Start with one of the three paths below.
       </p>
       <div class="paths">
-        <button type="button" class="path" @click=${this._openAddCard}>
-          <div class="path-head">
-            <div class="path-emoji">➕</div>
-            <h3 class="path-title">Add a card</h3>
-          </div>
-          <p class="path-copy">
-            Pick from a gallery of starter cards (weight, blood pressure,
-            injections, supplements, and more) and fill in a few fields.
-          </p>
-          <span class="path-cta">Open gallery <span class="path-cta-arrow">→</span></span>
-        </button>
-        <button type="button" class="path" @click=${this._openChat}>
-          <div class="path-head">
-            <div class="path-emoji">💬</div>
-            <h3 class="path-title">Describe it</h3>
-          </div>
-          <p class="path-copy">
-            Tell the chat agent what you want to track. It proposes a
-            card and creates it once you approve. Requires an LLM
-            gateway (see docs).
-          </p>
-          <span class="path-cta">Open chat <span class="path-cta-arrow">→</span></span>
-        </button>
-        <button type="button" class="path" @click=${this._openPrompts}>
+        <button type="button" class="path featured" @click=${this._openPrompts}>
+          <span class="start-chip">★ Start here</span>
           <div class="path-head">
             <div class="path-emoji">📚</div>
-            <h3 class="path-title">Starter prompts</h3>
+            <h3 class="path-title">Pick a starter prompt</h3>
           </div>
           <p class="path-copy">
             Curated prompts for common protocols (GLP-1 cycle, supplement
-            stack, post-op recovery). Loads into the chat so you can
-            tweak before sending.
+            stack, strength training, post-op recovery, and more). The
+            agent asks a few questions and builds out a whole dashboard
+            for you.
           </p>
           <span class="path-cta">Browse prompts <span class="path-cta-arrow">→</span></span>
         </button>
+
+        <button type="button" class="path" @click=${this._openChat}>
+          <div class="path-head">
+            <div class="path-emoji">💬</div>
+            <h3 class="path-title">Describe it yourself</h3>
+          </div>
+          <p class="path-copy">
+            Tell the chat agent what you want to track in your own words.
+            It proposes a card and creates it once you approve. Works
+            best when you know exactly what you want.
+          </p>
+          <span class="path-cta">Open chat <span class="path-cta-arrow">→</span></span>
+        </button>
+
+        <a class="path"
+           href="https://github.com/Aristocles/klebb/blob/main/docs/CARDS.md"
+           target="_blank" rel="noopener noreferrer">
+          <div class="path-head">
+            <div class="path-emoji">⚙️</div>
+            <h3 class="path-title">Hand-author JSON</h3>
+          </div>
+          <p class="path-copy">
+            For advanced users. Drop a manifest file into your data
+            directory and it appears as a card. Canonical examples live
+            in the repo's <code>templates/</code> folder.
+          </p>
+          <span class="path-cta">Open docs <span class="path-cta-arrow">→</span></span>
+        </a>
       </div>
       <p class="foot">
-        This card hides itself the first time you add any other card. You can
-        restore it from Settings, or delete it entirely if you prefer.
+        This card hides itself the first time you add any other card. You
+        can restore it from Settings, or delete it entirely if you prefer.
       </p>
     `;
   }
