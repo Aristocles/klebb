@@ -14,6 +14,6 @@
       "autoHideApplied": false
     }
   },
-  "description": "Auto-created on first boot. Explains the three ways to add your own cards. Hides itself the first time you create any other card. Restore it from Settings at any time, or delete the file if you do not want it back.",
+  "description": "Auto-created on first boot. Explains the three ways to add cards to Klebb: starter prompts (recommended), describing in the chat, or hand-authoring a JSON file. Hides itself the first time you create any other card. Restore it from Settings at any time, or delete the file if you do not want it back.",
   "data": {}
 }

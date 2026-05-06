@@ -65,10 +65,13 @@ HOST=127.0.0.1
 # timestamps to match your wall clock.
 # TZ=Australia/Sydney
 
-# Optional: chat agent (any OpenAI-compatible chat-completions endpoint)
-# CHAT_ENDPOINT_URL=https://api.openai.com/v1/chat/completions
-# CHAT_API_KEY=<bearer-token>
-# CHAT_MODEL=<model-id>
+# Chat agent — strongly recommended. Klebb is LLM-first: card creation,
+# editing, and most ongoing interaction flows through the chat agent.
+# Without it, users are limited to hand-authoring manifest files.
+# Any OpenAI-compatible chat-completions endpoint works.
+CHAT_ENDPOINT_URL=https://api.openai.com/v1/chat/completions
+CHAT_API_KEY=<bearer-token>
+CHAT_MODEL=<model-id>
 
 # Optional: server-to-server agent writes
 # AGENT_API_TOKEN=<random-strong-token>

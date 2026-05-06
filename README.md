@@ -30,6 +30,20 @@ Works equally well as:
 - [Contributing](#contributing)
 - [License](#license)
 
+## How Klebb works
+
+Klebb is **LLM-first**. Cards are JSON files on disk, but you don't
+write that JSON yourself in day-to-day use — you talk to a built-in
+chat agent that does it for you. "Track my weekly semaglutide cycle
+at 0.5mg" turns into a fully configured injection card; "I want a
+weight tracker in kg" produces a weight card with the right trend
+chart. Starter prompts take this further: paste one into the chat
+and the agent builds out a whole dashboard in one conversation.
+
+You still own your data (it's all plain JSON in `$HEALTH_HOME/data/`,
+which you can back up, version-control, or edit by hand) but you
+don't *have* to touch it. Most users won't.
+
 ## Quickstart
 
 ```bash
@@ -39,18 +53,38 @@ npm install
 
 export HEALTH_HOME=~/klebb-data
 mkdir -p "$HEALTH_HOME/data"
+```
 
+Then set up a chat gateway (required for onboarding and ongoing use).
+Any OpenAI-compatible chat-completions endpoint works; see
+[`docs/CHAT-AGENT.md`](docs/CHAT-AGENT.md) for the minimum config.
+Minimum:
+
+```bash
+export CHAT_ENDPOINT_URL=https://your-gateway/v1/chat/completions
+export CHAT_API_KEY=your-bearer-token
+export CHAT_MODEL=your-model-id
+```
+
+Start the server:
+
+```bash
 npm start
 # open http://localhost:8080
 ```
 
-A fresh install starts with a single Welcome card that explains the
-three ways to add your own cards (Add Card gallery, chat agent, and
-starter prompts). The Welcome card hides itself the first time you
-create any other card; you can restore it from Settings or delete it
-entirely. See [`docs/CARDS.md`](docs/CARDS.md) for the full manifest
-authoring guide, or the JSON example in the next section for a minimal
-hand-authored card.
+A fresh install shows a Welcome card with three onboarding paths:
+**Pick a starter prompt** (recommended), **Describe it yourself**
+(ad-hoc chat), or **Hand-author JSON** (for users who already know
+what they want and prefer the text editor). Pick one and go.
+
+### Without an LLM
+
+You can still run Klebb without a chat gateway, but the experience
+is stripped down: hand-author manifest files into `$HEALTH_HOME/data/`
+using the examples in [`templates/`](templates/) and the full authoring
+guide in [`docs/CARDS.md`](docs/CARDS.md). The JSON example below is
+a minimal weight card to get you started.
 
 ### Screenshots
 

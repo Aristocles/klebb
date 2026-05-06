@@ -5,8 +5,12 @@ dashboard is a JSON file in `$HEALTH_HOME/data/`. There's no database, no
 catalog, no "install" step — if the file exists and is a valid manifest, the
 card appears. If you delete the file, the card is gone.
 
-This doc is for **users and card authors**. If you're writing a chat-agent
-integration, see [`CHAT-AGENT.md`](./CHAT-AGENT.md).
+This doc is for **users and card authors** who want to hand-author
+manifests. Most Klebb users won't need to; the built-in chat agent
+writes these files for them from plain-English descriptions. See
+[`CHAT-AGENT.md`](./CHAT-AGENT.md) for the agent integration, or
+the [`templates/`](../templates/) directory in the repo for canonical
+examples of every renderer type you can copy-paste from.
 
 ---
 
