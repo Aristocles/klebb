@@ -20,6 +20,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   disables the chip row so the same offer can't be applied twice.
   (Fixes #142)
 
+### Changed
+
+- **Starter prompts now clear chat history before loading.** Picking a
+  starter prompt from the welcome card or prompts gallery is an
+  explicit "new workflow" entry point, so the paste-into-chat handler
+  now calls `_clearHistory()` before pasting. Prior turns no longer
+  bleed context into what was meant to be a fresh conversation.
+  (Fixes #148)
+
 ### Fixed
 
 - **Chat proxy RST test no longer flakes on Windows.** The test
