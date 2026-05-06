@@ -26,9 +26,9 @@ services:
       PORT: "10002"
       HOST: "0.0.0.0"
       # --- Timezone ---
-      # Server-wide timezone. Affects every Date the app constructs: demo
-      # seed anchor, card entry dates, sentinel timestamps, chat agent
-      # "today" prompts, log output. Default UTC. Set to your IANA zone
+      # Server-wide timezone. Affects every Date the app constructs: card
+      # entry dates, sentinel timestamps, chat agent "today" prompts, log
+      # output. Default UTC. Set to your IANA zone
       # (e.g. Australia/Sydney, America/Los_Angeles, Europe/London) if
       # you want on-screen dates to match your local calendar.
       TZ: "${TZ:-UTC}"
@@ -57,14 +57,6 @@ services:
       # Legacy aliases (kept for backwards compat with older deploys)
       FISH_AUDIO_DEFAULT_VOICE: "${FISH_AUDIO_DEFAULT_VOICE:-}"
       FISH_BACKEND: "${FISH_BACKEND:-}"
-      # --- First-boot demo seed ---
-      # A fresh install (empty /data) auto-populates with 15 demo cards and
-      # 5 sample markdown reports on first server boot. A .klebb-seeded
-      # sentinel in /data prevents re-seed on future restarts. Set this to
-      # any truthy value to skip the auto-seed (production installs that
-      # want to start truly empty). Existing installs with data are never
-      # touched regardless.
-      KLEBB_SKIP_DEMO_SEED: "${KLEBB_SKIP_DEMO_SEED:-}"
     volumes:
       - ./data:/data
     ports:

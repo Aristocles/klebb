@@ -142,8 +142,7 @@ function upsertOne(registry, id, rows, templateFn) {
   return rows.length;
 }
 
-// Minimal templates used only when a target manifest is absent. Match the
-// shipped data.example/*.example.json shapes at a surface level; users can
+// Minimal templates used only when a target manifest is absent. Users can
 // edit freely after first creation.
 const TEMPLATES = {
   'sleep-hours': rows => ({

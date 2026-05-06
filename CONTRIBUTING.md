@@ -14,7 +14,6 @@ npm ci
 # Data dir for your dev instance
 export HEALTH_HOME="$HOME/klebb-dev"
 mkdir -p "$HEALTH_HOME/data"
-cp data.example/weight.example.json "$HEALTH_HOME/data/weight.json"
 
 # Run
 npm start

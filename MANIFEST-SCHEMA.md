@@ -380,7 +380,6 @@ and any ad-hoc tabular data. `data` is an array of row objects.
 }
 ```
 
-See `data.example/example-*.example.json` for runnable versions of each.
 
 ---
 
@@ -508,15 +507,12 @@ notes sitting next to rings.
 Ring colour falls back to the renderer's theme palette by ring
 index; set `colour` on the entry to override.
 
-See `data.example/activity-rings.example.json` for a worked example.
-
 ### Typical pairing
 
 A combo card usually absorbs one or more atomic cards. To avoid
 showing the same data twice, set the absorbed card's `meta.enabled:
 false` (master disable) so it stays in Settings but drops from every
-view. See `data.example/sleep.example.json` for a worked example
-that combines `sleep-hours` and `mood`.
+view.
 
 ---
 
