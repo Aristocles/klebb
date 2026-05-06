@@ -70,6 +70,24 @@ Before opening a PR:
 - [ ] The template describes a real-world tracking use case, not a
       demonstration of schema features.
 
+## How the app consumes templates
+
+The server exposes templates at `GET /api/templates` (session-gated).
+The response is:
+
+```json
+{ "templates": [
+  { "id": "weight", "title": "Weight", "summary": "...",
+    "category": "tracking", "tags": ["..."], "manifest": { ... } }
+] }
+```
+
+`manifest` is the full template JSON with placeholders intact. The
+Add Card modal substitutes placeholder tokens client-side as the user
+types, then POSTs the substituted manifest to `/api/manifests`. The
+server-side endpoint reads `templates/` at request time, so
+newly-added templates appear without a restart.
+
 ## Examples
 
 See the templates already in `templates/` for worked examples across
