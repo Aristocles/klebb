@@ -17,7 +17,6 @@ Thumbs.db
 .env
 .env.*
 *.env
-!data.example/*.env    # example files are safe to ship
 !.env.example          # template is safe to ship
 
 # Docker local overrides — never commit

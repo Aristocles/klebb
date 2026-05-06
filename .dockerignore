@@ -17,8 +17,7 @@ reports
 /sessions/
 /reports/
 
-# Example data + tests are not needed at runtime
-data.example
+# Tests are not needed at runtime
 tests
 fixtures
 
