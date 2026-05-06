@@ -498,6 +498,13 @@ class HealthChat extends LitElement {
       color: var(--text-secondary);
     }
     .suggestion:hover { border-color: var(--accent); color: var(--accent); }
+    .embellish { margin-top: 10px; }
+    .embellish-intro {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .embellish-chips { justify-content: flex-start; margin-top: 0; }
 
     .typing {
       align-self: flex-start;
@@ -844,7 +851,13 @@ class HealthChat extends LitElement {
       // confusing "Gateway unavailable" errors on slow (tool-using) replies.
       const data = await this._fetchChat(chatMessages, false, 120000);
       if (data.error) this._pushError(data.error);
-      else this._addMsg('assistant', data.reply);
+      else {
+        const extra = data.followup ? {
+          followupText: data.followup.text,
+          embellishments: Array.isArray(data.followup.embellishments) ? data.followup.embellishments : [],
+        } : {};
+        this._addMsg('assistant', data.reply, extra);
+      }
     } catch (e) {
       this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
     }
@@ -1154,9 +1167,13 @@ class HealthChat extends LitElement {
           // produced in response to voice input (speakText set). Typed
           // input gets a text-only reply — no audio UI.
           const hasAudio = m.id && this._voiceAvailable && m.speakText;
+          const chips = Array.isArray(m.embellishments) && m.embellishments.length
+            ? this._renderEmbellishChips(m)
+            : '';
           return html`
             <div class="msg assistant">
               ${unsafeHTML(renderMarkdown(m.content))}
+              ${chips}
               ${hasAudio ? this._renderAudioSlot(m) : ''}
             </div>
           `;
@@ -1166,6 +1183,28 @@ class HealthChat extends LitElement {
       })}
       ${this._loading ? html`<div class="typing"><div class="typing-dots"><span></span><span></span><span></span></div></div>` : ''}
     `;
+  }
+
+  _renderEmbellishChips(msg) {
+    const intro = msg.followupText ? html`<div class="embellish-intro">${msg.followupText}</div>` : '';
+    return html`
+      <div class="embellish">
+        ${intro}
+        <div class="suggestions embellish-chips">
+          ${msg.embellishments.map(e => html`
+            <span class="suggestion" @click=${() => this._applyEmbellishment(msg.id, e)}>${e.label}</span>
+          `)}
+        </div>
+      </div>
+    `;
+  }
+
+  _applyEmbellishment(msgId, embellishment) {
+    if (!embellishment || !embellishment.prompt) return;
+    // Clear chips on the originating message so they can't be clicked twice.
+    this._updateMsg(msgId, { embellishments: [], followupText: '' });
+    this._input = embellishment.prompt;
+    this._sendText();
   }
 
   _renderAudioSlot(msg) {
