@@ -1,0 +1,37 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "blood-pressure-systolic",
+      "title": "Systolic BP (Apple Health)",
+      "summary": "Daily systolic blood pressure in mmHg, populated by the iPhone Health Auto Export webhook.",
+      "category": "imported",
+      "tags": ["vitals", "cardiac", "apple-health", "hae", "ingest-only"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "🩺",
+    "order": 575,
+    "ingest": {
+      "source": "hae",
+      "metric": "blood_pressure_systolic"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{systolic}",
+        "unit": "mmHg",
+        "trendArrow": { "field": "systolic" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "systolic"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Systolic blood pressure from Apple Health (pushed by a connected BP cuff or manually entered in the Health app). Populated by the iPhone Health Auto Export webhook. Pair with a diastolic card via a combination card to show a full reading. If you'd rather log BP directly in klebb with colour-coded threshold bands, use the 'Blood pressure' manual-entry template instead.",
+  "data": []
+}

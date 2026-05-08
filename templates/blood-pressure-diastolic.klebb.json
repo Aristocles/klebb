@@ -1,0 +1,37 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "blood-pressure-diastolic",
+      "title": "Diastolic BP (Apple Health)",
+      "summary": "Daily diastolic blood pressure in mmHg, populated by the iPhone Health Auto Export webhook.",
+      "category": "imported",
+      "tags": ["vitals", "cardiac", "apple-health", "hae", "ingest-only"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "🩺",
+    "order": 580,
+    "ingest": {
+      "source": "hae",
+      "metric": "blood_pressure_diastolic"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{diastolic}",
+        "unit": "mmHg",
+        "trendArrow": { "field": "diastolic" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "diastolic"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Diastolic blood pressure from Apple Health (pushed by a connected BP cuff or manually entered in the Health app). Populated by the iPhone Health Auto Export webhook. Pair with a systolic card via a combination card to show a full reading.",
+  "data": []
+}

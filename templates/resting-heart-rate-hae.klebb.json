@@ -1,0 +1,37 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "resting-heart-rate-hae",
+      "title": "Resting heart rate (Apple Health)",
+      "summary": "Resting bpm populated by the iPhone Health Auto Export webhook.",
+      "category": "imported",
+      "tags": ["vitals", "cardiac", "apple-health", "hae", "ingest-only"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "❤️",
+    "order": 545,
+    "ingest": {
+      "source": "hae",
+      "metric": "resting_heart_rate"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{bpm}",
+        "unit": "bpm",
+        "trendArrow": { "field": "bpm" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "bpm"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Resting heart rate in beats per minute, derived from Apple Watch. Populated by the iPhone Health Auto Export webhook; see docs/HEALTH-AUTO-EXPORT.md for setup. Ingest-only: no webapp writes. If you'd rather log RHR by hand, use the 'Resting heart rate' manual-entry template instead.",
+  "data": []
+}

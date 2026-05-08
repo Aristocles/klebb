@@ -1,0 +1,37 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "walking-heart-rate-average",
+      "title": "Walking heart rate average (Apple Health)",
+      "summary": "Average bpm while walking, populated by the iPhone Health Auto Export webhook.",
+      "category": "imported",
+      "tags": ["vitals", "cardiac", "activity", "apple-health", "hae", "ingest-only"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "🚶",
+    "order": 550,
+    "ingest": {
+      "source": "hae",
+      "metric": "walking_heart_rate_average"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{bpm}",
+        "unit": "bpm",
+        "trendArrow": { "field": "bpm" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "bpm"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Walking heart rate average from Apple Watch. Populated by the iPhone Health Auto Export webhook; see docs/HEALTH-AUTO-EXPORT.md for setup. Ingest-only: no webapp writes.",
+  "data": []
+}
