@@ -1,0 +1,31 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "workouts",
+      "title": "Workout today (Apple Health)",
+      "summary": "Yes/no training tracker based on whether any workout was logged to Apple Health that day.",
+      "category": "imported",
+      "tags": ["activity", "apple-health", "hae", "ingest-only"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "🏋️",
+    "order": 530,
+    "ingest": {
+      "source": "hae",
+      "metric": "workouts"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{trained?✅ Trained:❌ Rest}",
+        "secondary": "{type|}"
+      }
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Simple yes/no training tracker derived from Apple Health workout records. Populated by the iPhone Health Auto Export webhook; see docs/HEALTH-AUTO-EXPORT.md for setup. Ingest-only: no webapp writes.",
+  "data": []
+}

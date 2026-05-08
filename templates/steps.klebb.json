@@ -1,0 +1,37 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "steps",
+      "title": "Steps (Apple Health)",
+      "summary": "Daily step count, populated by the iPhone Health Auto Export webhook.",
+      "category": "imported",
+      "tags": ["activity", "apple-health", "hae", "ingest-only"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "👣",
+    "order": 520,
+    "ingest": {
+      "source": "hae",
+      "metric": "step_count"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{count}",
+        "unit": "steps",
+        "trendArrow": { "field": "count" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "count"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Daily step count. Populated by the iPhone Health Auto Export webhook; see docs/HEALTH-AUTO-EXPORT.md for setup. Ingest-only: no webapp writes.",
+  "data": []
+}
