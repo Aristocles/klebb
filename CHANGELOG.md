@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Health Auto Export panel in Settings.** The Settings view now
+  leads with a panel showing the webhook's endpoint URL (with a copy
+  button), token-configured status, a link to the setup guide, and a
+  last-push summary ("X rows across Y cards, N minutes ago") that
+  expands into a full diagnostic detail: receive time, payload size,
+  per-subscriber rows written + notes, metrics present but
+  unsubscribed, and any warnings. The panel reads from
+  `GET /api/health-auto-export/status`; the webhook URL is derived
+  from the request host so the panel always shows the URL the iPhone
+  app should be posting to. (Fixes #153)
+
 - **Apple Health discovery card.** When the HAE webhook receives
   metrics nothing on your dashboard subscribes to yet, a pinned info
   card appears at the top of the Today view listing each newly-seen
