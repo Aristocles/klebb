@@ -211,6 +211,26 @@ automation should be posting to.
 
 ---
 
+## Backfill on card create
+
+When you create an HAE-backed manifest — whether via klebbius, a
+template, or by dropping a file in `$HEALTH_HOME/data/` — klebb
+replays its raw archive for that manifest's metric and populates
+`data[]` in one go. So "the iPhone pushed yesterday, I built the
+card today" still ends up with yesterday's data visible on the
+card.
+
+The replay is per-metric: it only affects the freshly-created
+manifest, and only if `data[]` is empty. Creating a card over an
+existing manifest that already has data is a no-op.
+
+True historical backfill (multi-year Apple Health export) still
+comes from a manual export in the HAE app: set the date range,
+tap export, the app POSTs one big push, klebb upserts everything
+by date into whichever subscribers exist.
+
+---
+
 ## Discovering new metrics
 
 When a push contains metrics that no manifest subscribes to, klebb
