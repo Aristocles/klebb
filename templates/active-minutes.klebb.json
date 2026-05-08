@@ -1,0 +1,37 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "active-minutes",
+      "title": "Active minutes (Apple Health)",
+      "summary": "Daily Apple Exercise Time, populated by the iPhone Health Auto Export webhook.",
+      "category": "imported",
+      "tags": ["activity", "apple-health", "hae", "ingest-only"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "⏱️",
+    "order": 525,
+    "ingest": {
+      "source": "hae",
+      "metric": "apple_exercise_time"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{minutes}",
+        "unit": "min",
+        "trendArrow": { "field": "minutes" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "minutes"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Daily active minutes (Apple Exercise Time). Populated by the iPhone Health Auto Export webhook; see docs/HEALTH-AUTO-EXPORT.md for setup. Ingest-only: no webapp writes.",
+  "data": []
+}

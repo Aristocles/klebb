@@ -19,6 +19,7 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const SCHEMA_SCRIPT = path.join(REPO_ROOT, 'scripts', 'migrate-to-klebb.js');
 const CARDS_SCRIPT  = path.join(REPO_ROOT, 'scripts', 'migrate-cards-to-generic.js');
 const V1_SCRIPT     = path.join(REPO_ROOT, 'scripts', 'migrate-v1-to-v2.js');
+const HAE_INGEST_SCRIPT = path.join(REPO_ROOT, 'scripts', 'migrate-hae-ingest.js');
 
 function run(script, args = []) {
   return execSync(`node ${script} ${args.join(' ')}`, {
@@ -336,6 +337,87 @@ describe('migrate-v1-to-v2.js (bare-array → v2 manifest)', () => {
       assert.ok(stamps.length >= 1, 'should have at least one migration-<date> dir');
       assert.ok(fs.existsSync(path.join(archiveRoot, stamps[0], 'weight.json')),
         'original file should be archived');
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+});
+
+describe('migrate-hae-ingest.js (adds meta.ingest to HAE-backed manifests)', () => {
+  function writeManifest(dir, id, extraMeta = {}) {
+    fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify({
+      $schema: 'klebb.datafile.v1',
+      meta: { id, label: id, order: 100, ...extraMeta },
+      data: [{ date: '2026-04-20', v: 1 }],
+    }, null, 2));
+  }
+
+  test('adds meta.ingest to the four HAE manifests', () => {
+    const sandbox = createSandbox();
+    const dataDir = path.join(sandbox, 'data');
+    writeManifest(dataDir, 'sleep-hours');
+    writeManifest(dataDir, 'steps');
+    writeManifest(dataDir, 'active-minutes');
+    writeManifest(dataDir, 'workouts');
+    try {
+      execSync(`node ${HAE_INGEST_SCRIPT} ${dataDir}`, { encoding: 'utf8' });
+
+      const check = (id, metric) => {
+        const parsed = JSON.parse(fs.readFileSync(path.join(dataDir, `${id}.json`), 'utf8'));
+        assert.deepEqual(parsed.meta.ingest, { source: 'hae', metric });
+        assert.equal(parsed.data[0].v, 1);
+      };
+      check('sleep-hours', 'sleep_analysis');
+      check('steps', 'step_count');
+      check('active-minutes', 'apple_exercise_time');
+      check('workouts', 'workouts');
+
+      const backups = fs.readdirSync(dataDir).filter(f => f.includes('.pre-hae-'));
+      assert.equal(backups.length, 4);
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('idempotent: re-run is a no-op', () => {
+    const sandbox = createSandbox();
+    const dataDir = path.join(sandbox, 'data');
+    writeManifest(dataDir, 'sleep-hours',
+      { ingest: { source: 'hae', metric: 'sleep_analysis' } });
+    try {
+      const out = execSync(`node ${HAE_INGEST_SCRIPT} ${dataDir}`, { encoding: 'utf8' });
+      assert.ok(out.includes('already migrated'));
+      const backups = fs.readdirSync(dataDir).filter(f => f.includes('.pre-hae-'));
+      assert.equal(backups.length, 0);
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('--dry-run does not mutate files', () => {
+    const sandbox = createSandbox();
+    const dataDir = path.join(sandbox, 'data');
+    writeManifest(dataDir, 'sleep-hours');
+    const before = fs.readFileSync(path.join(dataDir, 'sleep-hours.json'), 'utf8');
+    try {
+      const out = execSync(`node ${HAE_INGEST_SCRIPT} ${dataDir} --dry-run`, { encoding: 'utf8' });
+      assert.ok(out.includes('would migrate'));
+      const after = fs.readFileSync(path.join(dataDir, 'sleep-hours.json'), 'utf8');
+      assert.equal(before, after);
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('skips files that are not in the HAE mapping', () => {
+    const sandbox = createSandbox();
+    const dataDir = path.join(sandbox, 'data');
+    writeManifest(dataDir, 'weight');
+    const before = fs.readFileSync(path.join(dataDir, 'weight.json'), 'utf8');
+    try {
+      execSync(`node ${HAE_INGEST_SCRIPT} ${dataDir}`, { encoding: 'utf8' });
+      const after = fs.readFileSync(path.join(dataDir, 'weight.json'), 'utf8');
+      assert.equal(before, after, 'non-HAE manifest untouched');
     } finally {
       cleanupSandbox(sandbox);
     }

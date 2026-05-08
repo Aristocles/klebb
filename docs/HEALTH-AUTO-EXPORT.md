@@ -2,33 +2,75 @@
 
 Klebb can receive a webhook push from the iPhone
 [Health Auto Export](https://apps.apple.com/app/health-auto-export-json-csv/id1115567069)
-app. Each push writes the raw payload to disk for audit, then upserts
-daily rows into four atomic manifests that the Sleep and Activity
-combination cards consume.
+app. Each push archives the raw payload, then dispatches the parsed
+metric data to whichever manifests subscribe to it via `meta.ingest`.
 
-This page tells you how to set it up.
+This page tells you how to set it up, what metrics are supported, and
+how to author your own HAE-backed cards.
 
 ---
 
-## What gets populated
+## How it works
 
-With the webhook enabled, each HAE push updates these four manifests:
+Klebb ships a **catalogue** of supported Apple Health metrics in
+`health-auto-export/catalogue.js`. Each catalogue entry knows how to
+turn an HAE payload entry into a normalised row and how to aggregate
+multiple rows for the same date.
 
-| Source metric (HAE) | Klebb manifest | Row shape |
-|---------------------|----------------|-----------|
-| `sleep_analysis` | `sleep-hours` | `{ date, hours, source? }` |
-| `step_count` (summed per date) | `steps` | `{ date, count }` |
-| `apple_exercise_time` (summed per date) | `active-minutes` | `{ date, minutes }` |
-| `workouts[]` | `workouts` | `{ date, trained: true, type }` |
+A card receives HAE data by subscribing to a catalogue metric from its
+manifest:
 
-A manifest is created automatically on the first push if it doesn't
-already exist. Re-posting the same date overwrites only that date's
-row; other dates are untouched.
+```json
+"meta": {
+  "id": "sleep",
+  "label": "Sleep",
+  "emoji": "😴",
+  "ingest": { "source": "hae", "metric": "sleep_analysis" },
+  "view": {
+    "enabled": true,
+    "component": "generic-card",
+    "display": { "template": "{hours:round(1)}", "unit": "hrs" }
+  },
+  "writeable": { "fromWebapp": false }
+}
+```
+
+On every push, the dispatcher finds every manifest whose
+`meta.ingest.source === "hae"`, shapes the corresponding payload slice
+using the catalogue, and upserts the rows by date into that manifest's
+`data[]`. Any number of manifests can subscribe to the same metric.
 
 The raw payload is archived unchanged at
 `$HEALTH_HOME/data/auto-export/raw/<ms-stamp>.json` regardless of
-whether parsing succeeds. Safe to delete at any time if disk space
-is tight.
+whether parsing succeeds. Safe to delete if disk space is tight.
+
+---
+
+## Supported metrics (day-one catalogue)
+
+| Metric key (use in `meta.ingest.metric`) | Row shape | Aggregation |
+|---|---|---|
+| `sleep_analysis` | `{ date, hours, source? }` | last per date |
+| `step_count` | `{ date, count }` | sum per date |
+| `apple_exercise_time` | `{ date, minutes }` | sum per date |
+| `workouts` (pseudo-metric, reads from `data.workouts[]`) | `{ date, trained, type? }` | any-true per date |
+| `heart_rate_variability` | `{ date, ms }` | mean per date |
+| `resting_heart_rate` | `{ date, bpm }` | last per date |
+| `walking_heart_rate_average` | `{ date, bpm }` | last per date |
+| `blood_oxygen_saturation` | `{ date, pct }` | mean per date |
+| `mindful_minutes` | `{ date, minutes }` | sum per date |
+| `body_mass` | `{ date, kg }` | last per date |
+| `body_fat_percentage` | `{ date, pct }` | last per date |
+| `blood_pressure_systolic` | `{ date, systolic }` | last per date |
+| `blood_pressure_diastolic` | `{ date, diastolic }` | last per date |
+
+Metrics not in the catalogue are archived in the raw payload but not
+ingested. Adding a new metric is a one-line entry in
+`health-auto-export/catalogue.js`; open a feature request if you need
+something that's not here.
+
+Blood pressure is two separate entries; combine them with a
+combination card if you want them shown together.
 
 ---
 
@@ -60,15 +102,52 @@ In Health Auto Export:
    Content-Type: application/json
    Authorization: Bearer <your-HEALTH_AUTO_EXPORT_TOKEN>
    ```
-5. **Metrics**: select at minimum Sleep Analysis, Step Count, Apple
-   Exercise Time, Workouts. Add any others you want archived — the
-   server ignores metrics it doesn't recognise but still keeps them
-   in the raw archive.
+5. **Metrics**: pick from the table above. Enabling more than you
+   subscribe to is harmless — unsubscribed metrics are archived only.
 6. **Export format**: JSON.
 7. **Frequency**: every 6 hours is a reasonable default. Hourly also
    works; klebb is cheap to hit.
 
-### 3. Verify
+### 3. Create subscriber manifests
+
+Klebb no longer auto-seeds cards on first push. Pick the cards you
+want and create them explicitly. The fastest path is the Templates
+gallery in Settings — four templates ship for the canonical HAE-backed
+cards (`sleep-hours`, `steps`, `active-minutes`, `workouts`).
+
+To hand-author one, drop a file like this into
+`$HEALTH_HOME/data/my-hrv.json`:
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "my-hrv",
+    "label": "HRV",
+    "emoji": "💓",
+    "order": 540,
+    "ingest": { "source": "hae", "metric": "heart_rate_variability" },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": { "template": "{ms}", "unit": "ms" }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "ms"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Heart rate variability (SDNN) from Apple Watch via HAE.",
+  "data": []
+}
+```
+
+You can also ask klebbius in chat: *"Create a new HAE-backed card for
+heart rate variability"* and it will write the file for you.
+
+### 4. Verify
 
 Manually trigger the first push from the HAE app, or wait for the
 schedule.
@@ -90,32 +169,82 @@ If nothing shows up:
 - Check klebb's logs for `[hae]` lines.
 - Hit the endpoint manually with `curl -X POST -H "Authorization:
   Bearer <token>" -H "Content-Type: application/json" -d
-  '{"data":{}}'` — expect `200 {"ok":true,"ingested":{...}}`.
+  '{"data":{}}'` — expect `200 {"ok":true,"ingested":{}}`.
 - Wrong token → `401`.
 - Missing env var → `501`.
 
 ---
 
-## Atomic manifests are ingest-only by default
+## Response shape
 
-The four atomic manifests listed above (`sleep-hours`, `steps`,
-`active-minutes`, `workouts`) ship with `writeable.fromWebapp: false`.
-That means klebb's webapp shows them read-only: no `+` button, no
-edit form. HAE is their only writer.
+A successful push returns:
 
-The rationale: manual entry plus ingest would double-display the same
-metric on Today (combo card + atomic card + input form) and every
-HAE push would silently overwrite whatever you typed. Ingest-only
-avoids both problems.
+```json
+{
+  "ok": true,
+  "ingested": { "sleep-hours": 1, "steps": 1 },
+  "availableUnsubscribed": ["heart_rate_variability", "resting_heart_rate"]
+}
+```
 
-If you're not using HAE and want to log these metrics by hand,
-either:
+- `ingested` maps manifest id → rows written.
+- `availableUnsubscribed` lists metric keys present in the payload that
+  no manifest subscribes to. This is how you discover "I could build a
+  card for this".
 
-- Flip `writeable.fromWebapp: true` in the manifest file (and add an
-  `inputs[]` block), or
-- Ask klebbius: "make the steps card writeable from the webapp with
-  a single number input for count". It'll patch the manifest in
-  place.
+---
+
+## Migrating an existing install
+
+If you have existing manifests from a klebb version that auto-seeded
+the four canonical HAE cards, run the migration script once to add
+`meta.ingest` to them:
+
+```bash
+node scripts/migrate-hae-ingest.js
+# or with an explicit data dir:
+node scripts/migrate-hae-ingest.js /path/to/data
+# --dry-run shows what would change without writing anything.
+```
+
+Takes a timestamped backup (`<file>.pre-hae-<stamp>.json`) before
+writing. Idempotent: re-running is a no-op.
+
+---
+
+## Ingest-only writes, manual-entry cards, combination cards
+
+Subscriber manifests typically set `writeable.fromWebapp: false` so the
+webapp shows them read-only — input forms and write APIs would fight
+the next push.
+
+If you want a card that holds *both* ingested data and manual entries
+(e.g. HAE sleep hours alongside a manual sleep-quality rating), don't
+try to make one manifest do both. Build it as a combination card:
+
+1. A read-only HAE-backed manifest for the objective metric.
+2. A manual-input manifest for the subjective one.
+3. A combination card that lists both as donors. The pencil icon only
+   appears on the writeable donor.
+
+See `MANIFEST-SCHEMA.md` ("Combination cards") for the CC contract.
+
+---
+
+## Failure modes
+
+| Scenario | Behaviour |
+|---|---|
+| Manifest subscribes to a metric the payload omits | Logged; manifest untouched |
+| Payload contains a metric no manifest subscribes to | Archived; reported in `availableUnsubscribed` |
+| All entries for a metric are malformed (no date, non-numeric qty) | Logged; manifest untouched |
+| Mixed: some entries valid, some malformed | Valid rows upserted, invalid ones dropped silently |
+| `meta.ingest.metric` is not in the catalogue | Manifest loads; warning logged per push |
+| Webhook body is not valid JSON | `200 + {warning}`, raw archived for inspection |
+
+The no-op-on-empty invariant means manifest files are only rewritten
+when the dispatcher produced at least one row for them. A push that
+does nothing does not churn any file.
 
 ---
 
@@ -128,31 +257,12 @@ Content-Type: application/json
 ```
 
 | Response | Meaning |
-|----------|---------|
-| `200 {ok:true, ingested:{...}}` | Parsed and upserted. Counts per source. |
-| `200 {ok:true, warning:"..."}` | Parse or upsert failed but raw was archived. HAE will retry. |
-| `401` | Token missing or wrong. |
-| `501 {error:"ingest disabled"}` | `HEALTH_AUTO_EXPORT_TOKEN` env var not set. |
+|---|---|
+| `200 {ok:true, ingested:{...}, availableUnsubscribed:[...]}` | Parsed and dispatched |
+| `200 {ok:true, warning:"..."}` | Parse or dispatch failed but raw was archived; HAE will retry |
+| `401` | Token missing or wrong |
+| `501 {error:"ingest disabled"}` | `HEALTH_AUTO_EXPORT_TOKEN` env var not set |
 
 Errors after auth passes are swallowed into `200 + warning` on
 purpose: the iPhone app retries aggressively on non-2xx, and we'd
 rather have a raw archive to debug than a spiral.
-
----
-
-## What's not in MVP
-
-- **Richer sleep manifests** (stages, bed/wake times, HRV, respiration).
-  Coming in a follow-up that adds `sleep-stages` and `sleep-bed-wake`
-  manifests alongside the current `sleep-hours`.
-- **Per-workout detail** (type, duration, avg/max HR, distance). The
-  current `workouts` card is a one-bit `trained: true` summary;
-  richer data lands with a `workouts-detailed` manifest later.
-- **Vitals ingestion** (heart rate, HRV, SpO₂, blood oxygen). Raw is
-  archived; the parser doesn't yet fan out to manifests.
-- **File-drop mode** (iCloud sync). HTTP webhook is the only
-  supported transport today.
-
-See the ingest parser at `health-auto-export/ingest.js` if you want to
-add metrics — the parser is pure, ~100 lines, and straightforward to
-extend.
