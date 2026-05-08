@@ -20,6 +20,7 @@ const { pickEmbellishments } = require('./chat/embellish');
 const { buildDateContextBlock } = require('./chat/date-context');
 const hae = require('./health-auto-export/ingest');
 const haeDiagnostics = require('./health-auto-export/diagnostics');
+const haeDiscoveries = require('./health-auto-export/discoveries');
 
 // chat endpoint config (env-driven; see config/env.js)
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
@@ -935,6 +936,11 @@ const server = http.createServer(async (req, res) => {
             availableUnsubscribed: summary.availableUnsubscribed,
             warnings: summary.warnings,
           });
+          const subscribedMetrics = hae.findSubscribers(registry).map(s => s.metric);
+          haeDiscoveries.sync({
+            seen: summary.availableUnsubscribed,
+            subscribed: subscribedMetrics,
+          });
           const ingested = {};
           for (const s of summary.subscribers) ingested[s.id] = s.rowsWritten;
           return sendJSON(res, {
@@ -969,6 +975,28 @@ const server = http.createServer(async (req, res) => {
         endpointUrl: `${scheme}://${host}/api/health-auto-export`,
         lastPush: haeDiagnostics.readLastPush(),
       });
+    }
+
+    // GET /api/health-auto-export/discoveries — list metrics present in
+    // past HAE pushes that no manifest subscribes to. Shape:
+    //   { undismissed: [{metric, firstSeenAt}], dismissed: [{metric, ...}] }
+    if (parts[0] === 'health-auto-export' && parts[1] === 'discoveries'
+        && parts.length === 2 && req.method === 'GET') {
+      return sendJSON(res, haeDiscoveries.list());
+    }
+
+    // POST /api/health-auto-export/discoveries/:metric/dismiss
+    // POST /api/health-auto-export/discoveries/:metric/unhide
+    if (parts[0] === 'health-auto-export' && parts[1] === 'discoveries'
+        && parts.length === 4 && req.method === 'POST') {
+      const metric = decodeURIComponent(parts[2]);
+      const action = parts[3];
+      let ok = false;
+      if (action === 'dismiss') ok = haeDiscoveries.dismiss(metric);
+      else if (action === 'unhide') ok = haeDiscoveries.unhide(metric);
+      else return sendJSON(res, { error: 'unknown action' }, 404);
+      if (!ok) return sendJSON(res, { error: 'unknown metric' }, 404);
+      return sendJSON(res, { ok: true });
     }
 
     // Auto-export endpoints: sleep, workouts, vitals, activity

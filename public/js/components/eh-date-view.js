@@ -7,6 +7,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import './eh-view-renderer.js';
+import './eh-hae-discovery-card.js';
 import { isEditableTarget } from '../lib/event-target.js';
 
 function todayStr() {
@@ -228,6 +229,9 @@ export class EhDateView extends LitElement {
           <button class="today-btn" @click=${() => this._navigate(this._today)}>Today</button>
         ` : ''}
       </div>
+      ${this._dateMode === 'today'
+        ? html`<eh-hae-discovery-card></eh-hae-discovery-card>`
+        : ''}
       <eh-view-renderer
         view="view"
         .date=${this.date}
