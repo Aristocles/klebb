@@ -12,6 +12,10 @@
     "label": "{{string:label}}",
     "emoji": "😴",
     "order": 500,
+    "ingest": {
+      "source": "hae",
+      "metric": "sleep_analysis"
+    },
     "view": {
       "enabled": true,
       "component": "generic-card",

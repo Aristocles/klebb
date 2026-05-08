@@ -9,6 +9,32 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Health Auto Export ingest now runs off a catalogue and per-manifest
+  subscription.** Manifests opt into receiving HAE data by declaring
+  `meta.ingest: { source: "hae", metric: "<name>" }`. The dispatcher
+  walks the registry on every push and routes payload slices to
+  whichever manifests subscribe, using row shapes + aggregation rules
+  defined in `health-auto-export/catalogue.js`. Day-one catalogue
+  covers 13 metrics (sleep, steps, exercise minutes, workouts, HRV,
+  resting HR, walking HR avg, SpO₂, mindful minutes, body mass, body
+  fat, systolic BP, diastolic BP). Users can now author any number of
+  HAE-backed cards without a code change; the response body also
+  reports `availableUnsubscribed` metrics so the UI can surface
+  "discovered" data in a future change. (Fixes #150)
+
+### Changed
+
+- **HAE webhook no longer auto-seeds manifests.** Previously, a first
+  push would materialise `sleep-hours`, `steps`, `active-minutes`, and
+  `workouts` manifests from hardcoded templates if they did not already
+  exist. Now the dispatcher is strictly subscribe-by-manifest: a push
+  with no subscribers writes nothing (the raw payload is still
+  archived). The four previously-autoseeded manifests ship as
+  `templates/*.klebb.json` and can be created from the Templates
+  gallery as normal. Existing installs are patched in place by
+  `scripts/migrate-hae-ingest.js`, which adds `meta.ingest` to the
+  four manifests and takes a timestamped backup. (Refs #150)
+
 - **Embellishment chips after chat creates/edits a card.** When the chat
   agent successfully creates or patches a manifest, the chat response now
   carries a small follow-up row of one-click suggestions tailored to the

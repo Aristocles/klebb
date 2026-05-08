@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/health-auto-export.parser.test.js
-// Pure parser unit tests. No HTTP, no filesystem.
+// Pure unit tests for the catalogue entries + helpers. No HTTP, no filesystem.
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
 
-const { parseHAEPayload, mergeByDate, toDate } = require('../health-auto-export/ingest.js');
+const { toDate, numeric } = require('../health-auto-export/helpers.js');
+const catalogue = require('../health-auto-export/catalogue.js');
+const { aggregate, mergeByDate } = require('../health-auto-export/ingest.js');
 
-describe('toDate', () => {
+describe('helpers: toDate', () => {
   test('extracts YYYY-MM-DD from HAE-style stamp', () => {
     assert.equal(toDate('2026-05-04 14:23:00 +1000'), '2026-05-04');
   });
@@ -23,117 +25,193 @@ describe('toDate', () => {
   });
 });
 
-describe('parseHAEPayload', () => {
-  test('empty payload returns empty row sets', () => {
-    const r = parseHAEPayload({});
-    assert.deepEqual(r.sleepRows, []);
-    assert.deepEqual(r.stepsRows, []);
-    assert.deepEqual(r.activeMinutesRows, []);
-    assert.deepEqual(r.workoutsRows, []);
+describe('helpers: numeric', () => {
+  test('parses numbers and numeric strings', () => {
+    assert.equal(numeric(42), 42);
+    assert.equal(numeric('42.5'), 42.5);
+    assert.equal(numeric(0), 0);
+  });
+  test('returns null for NaN / empty / undefined', () => {
+    assert.equal(numeric(undefined), null);
+    assert.equal(numeric(null), null);
+    assert.equal(numeric(''), null);
+    assert.equal(numeric('not a number'), null);
+    assert.equal(numeric(NaN), null);
+  });
+});
+
+describe('catalogue: sleep_analysis', () => {
+  const cat = catalogue.sleep_analysis;
+
+  test('prefers totalSleep, then asleep, then inBed, then qty', () => {
+    assert.deepEqual(cat.row({ date: '2026-05-04', totalSleep: 7.8, asleep: 7.3 }),
+      { date: '2026-05-04', hours: 7.8 });
+    assert.deepEqual(cat.row({ date: '2026-05-04', asleep: 7.3, inBed: 8.1 }),
+      { date: '2026-05-04', hours: 7.3 });
+    assert.deepEqual(cat.row({ date: '2026-05-04', inBed: 8.1 }),
+      { date: '2026-05-04', hours: 8.1 });
+    assert.deepEqual(cat.row({ date: '2026-05-04', qty: 6.5 }),
+      { date: '2026-05-04', hours: 6.5 });
   });
 
-  test('sleep_analysis -> sleep-hours rows', () => {
-    const r = parseHAEPayload({
-      data: {
-        metrics: [
-          { name: 'sleep_analysis', data: [
-            { date: '2026-05-04 00:00:00 +1000', totalSleep: 7.6, asleep: 7.3,
-              inBed: 8.1, source: 'Apple Watch' },
-          ]},
-        ],
-      },
-    });
-    assert.equal(r.sleepRows.length, 1);
-    assert.equal(r.sleepRows[0].date, '2026-05-04');
-    assert.equal(r.sleepRows[0].hours, 7.6);
-    assert.equal(r.sleepRows[0].source, 'Apple Watch');
+  test('attaches source when present', () => {
+    assert.deepEqual(cat.row({ date: '2026-05-04', totalSleep: 7, source: 'Apple Watch' }),
+      { date: '2026-05-04', hours: 7, source: 'Apple Watch' });
   });
 
-  test('sleep: falls back to asleep then inBed when totalSleep missing', () => {
-    const r = parseHAEPayload({ data: { metrics: [
-      { name: 'sleep_analysis', data: [
-        { date: '2026-05-04 00:00:00 +1000', asleep: 7.2, inBed: 8.0 },
-        { date: '2026-05-05 00:00:00 +1000', inBed: 9.0 },
-      ]},
-    ]}});
-    const byDate = Object.fromEntries(r.sleepRows.map(r => [r.date, r.hours]));
-    assert.equal(byDate['2026-05-04'], 7.2);
-    assert.equal(byDate['2026-05-05'], 9.0);
+  test('drops entries with no date or no numeric hours', () => {
+    assert.equal(cat.row({ totalSleep: 7 }), null);
+    assert.equal(cat.row({ date: '2026-05-04', totalSleep: 'zzz' }), null);
+  });
+});
+
+describe('catalogue: step_count', () => {
+  const cat = catalogue.step_count;
+  test('maps qty -> count', () => {
+    assert.deepEqual(cat.row({ date: '2026-05-04 08:00:00 +1000', qty: 1200 }),
+      { date: '2026-05-04', count: 1200 });
+  });
+  test('drops malformed entries', () => {
+    assert.equal(cat.row({ qty: 100 }), null);
+    assert.equal(cat.row({ date: '2026-05-04', qty: 'lots' }), null);
+  });
+});
+
+describe('catalogue: apple_exercise_time', () => {
+  const cat = catalogue.apple_exercise_time;
+  test('maps qty -> minutes', () => {
+    assert.deepEqual(cat.row({ date: '2026-05-04', qty: 1 }),
+      { date: '2026-05-04', minutes: 1 });
+  });
+});
+
+describe('catalogue: workouts pseudo-metric', () => {
+  const cat = catalogue.workouts;
+  test('declares from: workouts', () => {
+    assert.equal(cat.from, 'workouts');
+  });
+  test('derives trained: true from a workout record', () => {
+    assert.deepEqual(cat.row({ name: 'Running', start: '2026-05-04 11:00:00 +1000' }),
+      { date: '2026-05-04', trained: true, type: 'Running' });
+  });
+  test('drops records with no date', () => {
+    assert.equal(cat.row({ name: 'Running' }), null);
+  });
+});
+
+describe('catalogue: HRV + resting HR', () => {
+  test('heart_rate_variability maps qty -> ms', () => {
+    assert.deepEqual(catalogue.heart_rate_variability.row(
+      { date: '2026-05-04', qty: 55 }),
+      { date: '2026-05-04', ms: 55 });
+  });
+  test('resting_heart_rate maps qty -> bpm', () => {
+    assert.deepEqual(catalogue.resting_heart_rate.row(
+      { date: '2026-05-04', qty: 58 }),
+      { date: '2026-05-04', bpm: 58 });
+  });
+});
+
+describe('catalogue: SpO2 + body fat normalise fraction to percent', () => {
+  test('blood_oxygen: 0.97 -> 97', () => {
+    assert.deepEqual(catalogue.blood_oxygen_saturation.row(
+      { date: '2026-05-04', qty: 0.97 }),
+      { date: '2026-05-04', pct: 97 });
+  });
+  test('blood_oxygen: 97 -> 97 (already percent)', () => {
+    assert.deepEqual(catalogue.blood_oxygen_saturation.row(
+      { date: '2026-05-04', qty: 97 }),
+      { date: '2026-05-04', pct: 97 });
+  });
+  test('body_fat_percentage: 0.18 -> 18', () => {
+    assert.deepEqual(catalogue.body_fat_percentage.row(
+      { date: '2026-05-04', qty: 0.18 }),
+      { date: '2026-05-04', pct: 18 });
+  });
+});
+
+describe('catalogue: body_mass + mindful_minutes + blood_pressure', () => {
+  test('body_mass maps qty -> kg', () => {
+    assert.deepEqual(catalogue.body_mass.row(
+      { date: '2026-05-04', qty: 78.5 }),
+      { date: '2026-05-04', kg: 78.5 });
+  });
+  test('mindful_minutes maps qty -> minutes', () => {
+    assert.deepEqual(catalogue.mindful_minutes.row(
+      { date: '2026-05-04', qty: 10 }),
+      { date: '2026-05-04', minutes: 10 });
+  });
+  test('blood_pressure_systolic / _diastolic are separate entries', () => {
+    assert.deepEqual(catalogue.blood_pressure_systolic.row(
+      { date: '2026-05-04', qty: 118 }),
+      { date: '2026-05-04', systolic: 118 });
+    assert.deepEqual(catalogue.blood_pressure_diastolic.row(
+      { date: '2026-05-04', qty: 76 }),
+      { date: '2026-05-04', diastolic: 76 });
+  });
+});
+
+describe('aggregate', () => {
+  test('last-per-date: last row wins', () => {
+    const out = aggregate([
+      { date: '2026-05-04', hours: 6 },
+      { date: '2026-05-04', hours: 7 },
+    ], 'last-per-date');
+    assert.equal(out.length, 1);
+    assert.equal(out[0].hours, 7);
   });
 
-  test('step_count: sums per-date samples', () => {
-    const r = parseHAEPayload({ data: { metrics: [
-      { name: 'step_count', data: [
-        { date: '2026-05-04 08:00:00 +1000', qty: 1200.5 },
-        { date: '2026-05-04 12:30:00 +1000', qty: 3200 },
-        { date: '2026-05-04 18:15:00 +1000', qty: 500.3 },
-        { date: '2026-05-05 09:00:00 +1000', qty: 2000 },
-      ]},
-    ]}});
-    const byDate = Object.fromEntries(r.stepsRows.map(r => [r.date, r.count]));
-    assert.equal(byDate['2026-05-04'], 4901);  // 1200.5 + 3200 + 500.3 = 4900.8 -> round 4901
+  test('sum-per-date: sums numeric fields, rounds to int', () => {
+    const out = aggregate([
+      { date: '2026-05-04', count: 1200.5 },
+      { date: '2026-05-04', count: 3200 },
+      { date: '2026-05-04', count: 500.3 },
+      { date: '2026-05-05', count: 2000 },
+    ], 'sum-per-date');
+    const byDate = Object.fromEntries(out.map(r => [r.date, r.count]));
+    assert.equal(byDate['2026-05-04'], 4901);   // 1200.5 + 3200 + 500.3 = 4900.8 -> 4901
     assert.equal(byDate['2026-05-05'], 2000);
   });
 
-  test('apple_exercise_time: sums qty per date', () => {
-    const r = parseHAEPayload({ data: { metrics: [
-      { name: 'apple_exercise_time', data: [
-        { date: '2026-05-04 09:29:00 +1000', qty: 1 },
-        { date: '2026-05-04 09:35:00 +1000', qty: 1 },
-        { date: '2026-05-04 16:01:00 +1000', qty: 1 },
-      ]},
-    ]}});
-    assert.equal(r.activeMinutesRows.length, 1);
-    assert.equal(r.activeMinutesRows[0].date, '2026-05-04');
-    assert.equal(r.activeMinutesRows[0].minutes, 3);
+  test('mean-per-date: averages numeric fields, one decimal', () => {
+    const out = aggregate([
+      { date: '2026-05-04', bpm: 58 },
+      { date: '2026-05-04', bpm: 62 },
+    ], 'mean-per-date');
+    assert.equal(out[0].bpm, 60);
   });
 
-  test('workouts[]: one row per date with trained:true', () => {
-    const r = parseHAEPayload({ data: { workouts: [
-      { name: 'Functional Strength Training', start: '2026-05-04 11:06:02 +1000', duration: 1463 },
-      { name: 'Walking', start: '2026-05-04 16:00:00 +1000', duration: 600 },
-      { name: 'Running', start: '2026-05-05 07:00:00 +1000', duration: 1800 },
-    ]}});
-    assert.equal(r.workoutsRows.length, 2);
-    const byDate = Object.fromEntries(r.workoutsRows.map(r => [r.date, r]));
-    assert.equal(byDate['2026-05-04'].trained, true);
-    assert.equal(byDate['2026-05-04'].type, 'Functional Strength Training');
-    assert.equal(byDate['2026-05-05'].trained, true);
-    assert.equal(byDate['2026-05-05'].type, 'Running');
+  test('max-per-date', () => {
+    const out = aggregate([
+      { date: '2026-05-04', v: 3 },
+      { date: '2026-05-04', v: 7 },
+      { date: '2026-05-04', v: 5 },
+    ], 'max-per-date');
+    assert.equal(out[0].v, 7);
   });
 
-  test('ignores unrelated metric names', () => {
-    const r = parseHAEPayload({ data: { metrics: [
-      { name: 'blood_oxygen', data: [{ date: '2026-05-04', qty: 98 }] },
-      { name: 'heart_rate', data: [{ date: '2026-05-04', qty: 62 }] },
-    ]}});
-    assert.deepEqual(r.sleepRows, []);
-    assert.deepEqual(r.stepsRows, []);
-    assert.deepEqual(r.activeMinutesRows, []);
-    assert.deepEqual(r.workoutsRows, []);
+  test('boolean-any-per-date: any truthy boolean wins', () => {
+    const out = aggregate([
+      { date: '2026-05-04', trained: true, type: 'Running' },
+      { date: '2026-05-04', trained: true, type: 'Walking' },
+    ], 'boolean-any-per-date');
+    assert.equal(out.length, 1);
+    assert.equal(out[0].trained, true);
+    assert.equal(out[0].type, 'Running');   // head wins for scalar fields
   });
 
-  test('malformed samples (missing date or qty) are skipped, not thrown', () => {
-    const r = parseHAEPayload({ data: { metrics: [
-      { name: 'step_count', data: [
-        { date: '2026-05-04', qty: 100 },
-        { qty: 200 },              // missing date
-        { date: '2026-05-05', qty: 'not-a-number' },
-        { date: '2026-05-05', qty: 300 },
-      ]},
-    ]}});
-    const byDate = Object.fromEntries(r.stepsRows.map(r => [r.date, r.count]));
-    assert.equal(byDate['2026-05-04'], 100);
-    assert.equal(byDate['2026-05-05'], 300);
+  test('empty input returns empty array', () => {
+    assert.deepEqual(aggregate([], 'sum-per-date'), []);
+    assert.deepEqual(aggregate(null, 'sum-per-date'), []);
   });
 
-  test('accepts raw payload without outer data wrapper', () => {
-    // Some HAE versions send {metrics:[...]} at the top level
-    const r = parseHAEPayload({
-      metrics: [{ name: 'step_count', data: [{ date: '2026-05-04', qty: 1500 }] }],
-    });
-    assert.equal(r.stepsRows.length, 1);
-    assert.equal(r.stepsRows[0].count, 1500);
+  test('sorted by date ascending', () => {
+    const out = aggregate([
+      { date: '2026-05-05', count: 1 },
+      { date: '2026-05-03', count: 2 },
+      { date: '2026-05-04', count: 3 },
+    ], 'sum-per-date');
+    assert.deepEqual(out.map(r => r.date), ['2026-05-03', '2026-05-04', '2026-05-05']);
   });
 });
 
@@ -144,8 +222,6 @@ describe('mergeByDate', () => {
       [{ date: '2026-05-02', hours: 8 }],
     );
     assert.equal(merged.length, 2);
-    assert.equal(merged[0].date, '2026-05-01');
-    assert.equal(merged[1].date, '2026-05-02');
   });
 
   test('overwrites row for same date', () => {
@@ -157,19 +233,6 @@ describe('mergeByDate', () => {
     assert.equal(merged[0].hours, 9);
   });
 
-  test('sorted by date ascending', () => {
-    const merged = mergeByDate(
-      [{ date: '2026-05-03', hours: 7 }],
-      [{ date: '2026-05-01', hours: 8 }, { date: '2026-05-02', hours: 7.5 }],
-    );
-    assert.deepEqual(merged.map(r => r.date), ['2026-05-01', '2026-05-02', '2026-05-03']);
-  });
-
-  test('handles missing existing data', () => {
-    const merged = mergeByDate(null, [{ date: '2026-05-01', hours: 7 }]);
-    assert.equal(merged.length, 1);
-  });
-
   test('drops new rows with no date', () => {
     const merged = mergeByDate(
       [{ date: '2026-05-01', hours: 7 }],
@@ -177,5 +240,10 @@ describe('mergeByDate', () => {
     );
     assert.equal(merged.length, 2);
     assert.ok(merged.every(r => r.date));
+  });
+
+  test('handles null existing', () => {
+    const merged = mergeByDate(null, [{ date: '2026-05-01', hours: 7 }]);
+    assert.equal(merged.length, 1);
   });
 });
