@@ -9,6 +9,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **HAE ingest diagnostics + status endpoint.** Every webhook push now
+  writes a snapshot to `$HEALTH_HOME/data/auto-export/last-push.json`
+  describing what happened: receive time, payload bytes, per-subscriber
+  rows-written counts, metrics present in the payload but unsubscribed,
+  and any warnings. A new authenticated endpoint
+  `GET /api/health-auto-export/status` returns that snapshot alongside
+  `{ tokenSet, endpointUrl }` (URL derived from the request host so it
+  reflects the actual deployment, including `X-Forwarded-Proto` for
+  HTTPS behind a reverse proxy). The 100 MB body cap on the webhook is
+  now explicit and emits a `413` + diagnostic on overflow, so a
+  multi-year manual-backfill push either lands cleanly or fails loudly.
+  (Fixes #152)
+
 - **Health Auto Export ingest now runs off a catalogue and per-manifest
   subscription.** Manifests opt into receiving HAE data by declaring
   `meta.ingest: { source: "hae", metric: "<name>" }`. The dispatcher
