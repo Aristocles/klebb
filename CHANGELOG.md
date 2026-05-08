@@ -7,6 +7,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **New HAE-backed manifests backfill from the raw archive.** Before
+  this fix, a card created after an HAE push arrived stayed empty
+  until the next push, because the dispatcher only routed to
+  subscribers present at push time. The discovery card's "Build a
+  card" flow hit this every time, leaving users staring at an empty
+  card. `createManifest` now replays `$HEALTH_HOME/data/auto-export/raw/*.json`
+  against any new HAE-backed manifest with empty `data[]`, producing
+  aggregated rows just as if the pushes had arrived after the card
+  existed. Idempotent: skipped when `data[]` is non-empty. Also
+  graduates the metric out of `discovered.json` so the discovery
+  card drops the row on its next refresh. The discovery card now
+  listens for `manifest-data-changed` and `klebb-cards-changed` so
+  it re-fetches without a page reload. (Fixes #160)
+
 ### Added
 
 - **Health Auto Export panel in Settings.** The Settings view now
