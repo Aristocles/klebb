@@ -194,6 +194,23 @@ A successful push returns:
 
 ---
 
+## Settings panel
+
+Klebb's Settings view leads with a Health Auto Export panel showing:
+
+- The effective webhook URL (copy to clipboard).
+- Whether `HEALTH_AUTO_EXPORT_TOKEN` is set.
+- Time and summary of the most recent push, expandable to show the
+  full diagnostic (rows per subscriber, unsubscribed metrics seen,
+  warnings).
+
+The panel is the first place to look when debugging "is my iPhone
+pushing?". The URL shown is derived from the request host and
+`X-Forwarded-Proto`, so whatever it shows is what your HAE
+automation should be posting to.
+
+---
+
 ## Discovering new metrics
 
 When a push contains metrics that no manifest subscribes to, klebb
