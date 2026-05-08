@@ -19,6 +19,7 @@ const { TOOL_DEFS, dispatchToolCall } = require('./chat/tools');
 const { pickEmbellishments } = require('./chat/embellish');
 const { buildDateContextBlock } = require('./chat/date-context');
 const hae = require('./health-auto-export/ingest');
+const haeDiagnostics = require('./health-auto-export/diagnostics');
 
 // chat endpoint config (env-driven; see config/env.js)
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
@@ -881,9 +882,26 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, { error: 'unauthorised' }, 401);
       }
 
+      // 100 MB cap: enough to accept a years-long HAE manual backfill
+      // push without letting a pathological client exhaust memory.
+      const HAE_MAX_BODY = 100 * 1024 * 1024;
+      const receivedAt = new Date().toISOString();
       let body = '';
-      req.on('data', c => body += c);
+      let tooBig = false;
+      req.on('data', c => {
+        body += c;
+        if (body.length > HAE_MAX_BODY) { tooBig = true; req.destroy(); }
+      });
       req.on('end', () => {
+        if (tooBig) {
+          haeDiagnostics.writeLastPush({
+            receivedAt, payloadBytes: body.length,
+            subscribers: [], availableUnsubscribed: [],
+            warnings: [`payload exceeded ${HAE_MAX_BODY} bytes`],
+          });
+          return sendJSON(res, { error: 'payload too large' }, 413);
+        }
+
         // Archive the raw payload unconditionally. Stamp carries
         // milliseconds so rapid successive pushes don't clobber each
         // other's archive file.
@@ -895,17 +913,28 @@ const server = http.createServer(async (req, res) => {
           console.error('[hae] failed to archive raw payload:', e.message);
         }
 
+        const payloadBytes = Buffer.byteLength(body);
+
         let payload;
         try {
           payload = JSON.parse(body);
         } catch {
+          haeDiagnostics.writeLastPush({
+            receivedAt, payloadBytes,
+            subscribers: [], availableUnsubscribed: [],
+            warnings: ['parse failed, raw saved'],
+          });
           return sendJSON(res, { ok: true, warning: 'parse failed, raw saved' });
         }
 
         try {
           const summary = hae.dispatch(registry, payload);
-          // Echo a compact ingested-per-subscriber map for back-compat with
-          // the original response shape; full detail lives in `summary`.
+          haeDiagnostics.writeLastPush({
+            receivedAt, payloadBytes,
+            subscribers: summary.subscribers,
+            availableUnsubscribed: summary.availableUnsubscribed,
+            warnings: summary.warnings,
+          });
           const ingested = {};
           for (const s of summary.subscribers) ingested[s.id] = s.rowsWritten;
           return sendJSON(res, {
@@ -915,10 +944,31 @@ const server = http.createServer(async (req, res) => {
           });
         } catch (e) {
           console.error('[hae] dispatch failed:', e.message);
+          haeDiagnostics.writeLastPush({
+            receivedAt, payloadBytes,
+            subscribers: [], availableUnsubscribed: [],
+            warnings: [`dispatch failed: ${e.message}`],
+          });
           return sendJSON(res, { ok: true, warning: 'dispatch failed, raw saved' });
         }
       });
       return;
+    }
+
+    // GET /api/health-auto-export/status — settings-facing diagnostic.
+    // Reports whether the ingest token is configured, the effective
+    // webhook URL (derived from the request host), and the most recent
+    // push snapshot written by the dispatcher.
+    if (parts[0] === 'health-auto-export' && parts[1] === 'status'
+        && parts.length === 2 && req.method === 'GET') {
+      const token = ENV.HEALTH_AUTO_EXPORT_TOKEN;
+      const host = req.headers['host'] || `${HOST}:${PORT}`;
+      const scheme = (req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
+      return sendJSON(res, {
+        tokenSet: !!token,
+        endpointUrl: `${scheme}://${host}/api/health-auto-export`,
+        lastPush: haeDiagnostics.readLastPush(),
+      });
     }
 
     // Auto-export endpoints: sleep, workouts, vitals, activity
