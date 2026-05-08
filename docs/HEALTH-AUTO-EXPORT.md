@@ -194,6 +194,50 @@ A successful push returns:
 
 ---
 
+## Diagnostics: last-push snapshot
+
+Every push (success, parse failure, or overflow) overwrites
+`$HEALTH_HOME/data/auto-export/last-push.json` with a snapshot of
+what happened. Shape:
+
+```json
+{
+  "receivedAt": "2026-05-08T14:22:11.003Z",
+  "payloadBytes": 42318,
+  "subscribers": [
+    { "id": "sleep-hours", "metric": "sleep_analysis", "rowsWritten": 1 },
+    { "id": "steps", "metric": "step_count", "rowsWritten": 0,
+      "note": "no entries in payload" }
+  ],
+  "availableUnsubscribed": ["heart_rate_variability"],
+  "warnings": []
+}
+```
+
+This is a single-snapshot diagnostic, not an audit log; the raw
+archive under `auto-export/raw/` is the durable history. The snapshot
+powers the authenticated status endpoint:
+
+```
+GET /api/health-auto-export/status
+```
+
+Returns `{ tokenSet, endpointUrl, lastPush }`. The `endpointUrl` is
+computed from the request's host header and `X-Forwarded-Proto` (if
+set), so whatever URL the status page reports is the same URL your
+iPhone app should be posting to.
+
+The settings view reads from this endpoint to render the HAE panel.
+
+### Body size limit
+
+The webhook accepts payloads up to 100 MB. Historical manual-backfill
+pushes from the iPhone app can be in the tens of MB; 100 MB gives
+multiple years of headroom. Anything larger is rejected with `413`
+and a diagnostic warning.
+
+---
+
 ## Migrating an existing install
 
 If you have existing manifests from a klebb version that auto-seeded
