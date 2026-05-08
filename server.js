@@ -903,12 +903,19 @@ const server = http.createServer(async (req, res) => {
         }
 
         try {
-          const parsed = hae.parseHAEPayload(payload);
-          const summary = hae.upsertInto(registry, parsed);
-          return sendJSON(res, { ok: true, ingested: summary });
+          const summary = hae.dispatch(registry, payload);
+          // Echo a compact ingested-per-subscriber map for back-compat with
+          // the original response shape; full detail lives in `summary`.
+          const ingested = {};
+          for (const s of summary.subscribers) ingested[s.id] = s.rowsWritten;
+          return sendJSON(res, {
+            ok: true,
+            ingested,
+            availableUnsubscribed: summary.availableUnsubscribed,
+          });
         } catch (e) {
-          console.error('[hae] upsert failed:', e.message);
-          return sendJSON(res, { ok: true, warning: 'upsert failed, raw saved' });
+          console.error('[hae] dispatch failed:', e.message);
+          return sendJSON(res, { ok: true, warning: 'dispatch failed, raw saved' });
         }
       });
       return;

@@ -49,7 +49,8 @@ Klebb dashboard. For the human-friendly tour, see
   "trends":   { ... },                // optional trends config
   "calendar": { ... },                // optional calendar config
   "reports":  { ... },                // optional reports config
-  "writeable": { ... }                // optional input config
+  "writeable": { ... },               // optional input config
+  "ingest":   { ... }                 // optional ingest subscription
 }
 ```
 
@@ -80,6 +81,43 @@ in `meta.order` ascending. Shown-today state is tracked in
 `localStorage` under the key `klebb-prompt-shown-{cardId}-{YYYY-MM-DD}`.
 Dismissing still marks as shown. See `docs/CARDS.md` for the full
 behaviour notes.
+
+### Ingest subscription (`meta.ingest`)
+
+Opts a manifest into receiving data from an external ingest source. Today
+the only supported source is the iPhone Health Auto Export webhook.
+
+```json
+"meta": {
+  "ingest": {
+    "source": "hae",           // required; only "hae" today
+    "metric": "sleep_analysis" // required; must match a catalogue key
+  },
+  "writeable": { "fromWebapp": false }  // recommended for HAE-fed cards
+}
+```
+
+Behaviour:
+
+- On every HAE push, the dispatcher walks all manifests with
+  `meta.ingest.source === "hae"`, reshapes the payload slice for each
+  via `health-auto-export/catalogue.js`, and upserts daily rows into
+  `data[]` by date.
+- Any number of manifests can subscribe to the same metric.
+- Multiple subscribers to the same metric each receive their own copy
+  of the rows; they do not share storage.
+- If `metric` is not in the catalogue, the manifest still loads; it
+  simply never receives ingest data. Server logs a warning per push.
+- Setting `writeable.fromWebapp: false` is the recommended default for
+  ingest-fed cards — otherwise the webapp input form can overwrite
+  rows that the next push will then re-overwrite.
+- The four historically-autoseeded manifests (`sleep-hours`, `steps`,
+  `active-minutes`, `workouts`) are no longer created on first push.
+  Author them via `templates/*.klebb.json` or drop them directly into
+  `$HEALTH_HOME/data/`.
+
+See `docs/HEALTH-AUTO-EXPORT.md` for the supported-metrics table and
+catalogue row shapes.
 
 ### View config (`meta.view`, `meta.trends`, etc.)
 
