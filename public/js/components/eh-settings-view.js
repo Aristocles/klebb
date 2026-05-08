@@ -20,6 +20,9 @@ export class EhSettingsView extends LitElement {
     _filter: { state: true },
     _hiddenDiscoveries: { state: true },
     _busyMetric: { state: true },
+    _haeStatus: { state: true },
+    _haeLastPushExpanded: { state: true },
+    _haeCopied: { state: true },
   };
 
   constructor() {
@@ -31,12 +34,49 @@ export class EhSettingsView extends LitElement {
     this._filter = '';
     this._hiddenDiscoveries = [];
     this._busyMetric = null;
+    this._haeStatus = null;
+    this._haeLastPushExpanded = false;
+    this._haeCopied = false;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this._load();
     this._loadHiddenDiscoveries();
+    this._loadHaeStatus();
+  }
+
+  async _loadHaeStatus() {
+    try {
+      const r = await fetch('/api/health-auto-export/status');
+      if (!r.ok) return;
+      this._haeStatus = await r.json();
+    } catch {
+      // Silent — settings still works without this section.
+    }
+  }
+
+  async _copyEndpoint() {
+    if (!this._haeStatus?.endpointUrl) return;
+    try {
+      await navigator.clipboard.writeText(this._haeStatus.endpointUrl);
+      this._haeCopied = true;
+      setTimeout(() => { this._haeCopied = false; }, 1800);
+    } catch {
+      // Fallback: hidden textarea selection.
+      const ta = document.createElement('textarea');
+      ta.value = this._haeStatus.endpointUrl;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch {}
+      document.body.removeChild(ta);
+      this._haeCopied = true;
+      setTimeout(() => { this._haeCopied = false; }, 1800);
+    }
+  }
+
+  _toggleLastPushDetail() {
+    this._haeLastPushExpanded = !this._haeLastPushExpanded;
   }
 
   async _loadHiddenDiscoveries() {
@@ -295,6 +335,173 @@ export class EhSettingsView extends LitElement {
       color: var(--accent);
     }
     .unhide-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .hae-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-card);
+      margin-bottom: 20px;
+    }
+    .hae-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      font-size: 13px;
+      flex-wrap: wrap;
+    }
+    .hae-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted, var(--text-secondary));
+      min-width: 80px;
+    }
+    .hae-endpoint {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+    .endpoint-code {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 12px;
+      background: var(--bg-input, rgba(0, 0, 0, 0.04));
+      padding: 4px 8px;
+      border-radius: 6px;
+      color: var(--text-primary);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .copy-btn {
+      font: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .hae-token {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-primary);
+    }
+    .hae-token .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .hae-token.on .dot { background: var(--accent-green, #44ff88); }
+    .hae-token.off .dot { background: var(--accent-amber, #ffaa33); }
+    .hae-token code {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 11px;
+      padding: 1px 4px;
+      background: var(--bg-input, rgba(0, 0, 0, 0.04));
+      border-radius: 4px;
+    }
+    .hae-lastpush {
+      display: inline-flex;
+      gap: 8px;
+      align-items: baseline;
+      flex-wrap: wrap;
+      color: var(--text-primary);
+    }
+    .muted { color: var(--text-muted, var(--text-secondary)); font-style: italic; }
+    .warn-pill {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      background: var(--accent-amber-bg, rgba(255, 170, 51, 0.15));
+      color: var(--accent-amber, #ffaa33);
+      font-weight: 600;
+    }
+    .hae-detail-row {
+      margin-top: 2px;
+    }
+    .detail-toggle {
+      font: inherit;
+      font-size: 12px;
+      padding: 2px 0;
+      background: transparent;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .detail-toggle:hover { text-decoration: underline; }
+    .hae-detail {
+      margin-top: 6px;
+      padding: 10px 12px;
+      background: var(--bg-input, rgba(0, 0, 0, 0.02));
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .detail-list {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 6px 12px;
+      margin: 0;
+    }
+    .detail-list dt {
+      font-weight: 600;
+      color: var(--text-muted, var(--text-secondary));
+    }
+    .detail-list dd {
+      margin: 0;
+      color: var(--text-primary);
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .sub-list, .warn-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .sub-list code {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 11px;
+    }
+    .sub-note { color: var(--text-muted, var(--text-secondary)); margin-left: 4px; }
+    .metric-tag-list {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 11px;
+      color: var(--text-primary);
+    }
+    .warn-list li {
+      color: var(--accent-amber, #ffaa33);
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    @media (max-width: 560px) {
+      .detail-list {
+        grid-template-columns: 1fr;
+        gap: 2px 0;
+      }
+      .detail-list dt { margin-top: 6px; }
+    }
   `;
 
   _onFilterInput(e) {
@@ -318,6 +525,8 @@ export class EhSettingsView extends LitElement {
     const totalAll = this._cards.length;
 
     return html`
+      ${this._renderHaePanel()}
+
       ${this._hiddenDiscoveries.length > 0 ? html`
         <h2>Hidden Apple Health metrics</h2>
         <div class="lede">
@@ -384,6 +593,141 @@ export class EhSettingsView extends LitElement {
 
       ${this._error ? html`<div class="error">${this._error}</div>` : ''}
     `;
+  }
+
+  _renderHaePanel() {
+    if (!this._haeStatus) return '';
+    const s = this._haeStatus;
+    const lp = s.lastPush;
+    return html`
+      <h2>Health Auto Export</h2>
+      <div class="lede">
+        Push iPhone health data into Klebb via the Health Auto Export app.
+        <a href="https://github.com/Aristocles/klebb/blob/main/docs/HEALTH-AUTO-EXPORT.md" target="_blank" rel="noopener">Setup guide →</a>
+      </div>
+      <div class="hae-panel">
+        <div class="hae-row">
+          <span class="hae-label">Endpoint</span>
+          <span class="hae-endpoint">
+            <code class="endpoint-code">${s.endpointUrl}</code>
+            <button
+              class="copy-btn"
+              @click=${this._copyEndpoint}
+              aria-label="Copy endpoint URL"
+            >${this._haeCopied ? 'Copied ✓' : 'Copy'}</button>
+          </span>
+        </div>
+        <div class="hae-row">
+          <span class="hae-label">Token</span>
+          <span class="hae-token ${s.tokenSet ? 'on' : 'off'}">
+            ${s.tokenSet
+              ? html`<span class="dot"></span>Set`
+              : html`<span class="dot"></span>Not set — add
+                  <code>HEALTH_AUTO_EXPORT_TOKEN</code> to your
+                  <code>.env</code>`}
+          </span>
+        </div>
+        <div class="hae-row">
+          <span class="hae-label">Last push</span>
+          <span class="hae-lastpush">
+            ${this._renderLastPushSummary(lp)}
+          </span>
+        </div>
+        ${lp ? html`
+          <div class="hae-detail-row">
+            <button
+              class="detail-toggle"
+              @click=${this._toggleLastPushDetail}
+              aria-expanded=${this._haeLastPushExpanded}
+            >${this._haeLastPushExpanded ? 'Hide detail ▲' : 'Show detail ▼'}</button>
+          </div>
+          ${this._haeLastPushExpanded ? html`
+            <div class="hae-detail">${this._renderLastPushDetail(lp)}</div>
+          ` : ''}
+        ` : ''}
+      </div>
+    `;
+  }
+
+  _renderLastPushSummary(lp) {
+    if (!lp) return html`<span class="muted">Nothing received yet</span>`;
+    const rowsTotal = (lp.subscribers || [])
+      .reduce((acc, s) => acc + (s.rowsWritten || 0), 0);
+    const subsWithRows = (lp.subscribers || [])
+      .filter(s => s.rowsWritten > 0).length;
+    const ago = this._relativeTime(lp.receivedAt);
+    const hasWarnings = Array.isArray(lp.warnings) && lp.warnings.length > 0;
+    return html`
+      <span>${rowsTotal} ${rowsTotal === 1 ? 'row' : 'rows'}
+             across ${subsWithRows} ${subsWithRows === 1 ? 'card' : 'cards'},
+             ${ago}</span>
+      ${hasWarnings ? html`<span class="warn-pill">${lp.warnings.length} warning${lp.warnings.length === 1 ? '' : 's'}</span>` : ''}
+    `;
+  }
+
+  _renderLastPushDetail(lp) {
+    return html`
+      <dl class="detail-list">
+        <dt>Received at</dt>
+        <dd>${lp.receivedAt}</dd>
+        <dt>Payload size</dt>
+        <dd>${this._formatBytes(lp.payloadBytes)}</dd>
+        <dt>Subscribers</dt>
+        <dd>
+          ${lp.subscribers && lp.subscribers.length
+            ? html`<ul class="sub-list">
+                ${lp.subscribers.map(s => html`
+                  <li>
+                    <code>${s.id}</code>
+                    <span class="muted"> ← ${s.metric}</span>:
+                    <strong>${s.rowsWritten} ${s.rowsWritten === 1 ? 'row' : 'rows'}</strong>
+                    ${s.note ? html`<span class="sub-note">(${s.note})</span>` : ''}
+                  </li>
+                `)}
+              </ul>`
+            : html`<span class="muted">none</span>`}
+        </dd>
+        <dt>Available but unsubscribed</dt>
+        <dd>
+          ${lp.availableUnsubscribed && lp.availableUnsubscribed.length
+            ? html`<code class="metric-tag-list">${lp.availableUnsubscribed.join(', ')}</code>`
+            : html`<span class="muted">none</span>`}
+        </dd>
+        ${lp.warnings && lp.warnings.length ? html`
+          <dt>Warnings</dt>
+          <dd>
+            <ul class="warn-list">
+              ${lp.warnings.map(w => html`<li>${w}</li>`)}
+            </ul>
+          </dd>
+        ` : ''}
+      </dl>
+    `;
+  }
+
+  _relativeTime(iso) {
+    try {
+      const then = new Date(iso).getTime();
+      if (!Number.isFinite(then)) return iso;
+      const diff = Date.now() - then;
+      const s = Math.round(diff / 1000);
+      if (s < 60) return 'just now';
+      const m = Math.round(s / 60);
+      if (m < 60) return `${m} minute${m === 1 ? '' : 's'} ago`;
+      const h = Math.round(m / 60);
+      if (h < 24) return `${h} hour${h === 1 ? '' : 's'} ago`;
+      const d = Math.round(h / 24);
+      return `${d} day${d === 1 ? '' : 's'} ago`;
+    } catch {
+      return iso;
+    }
+  }
+
+  _formatBytes(n) {
+    if (!Number.isFinite(n)) return '—';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(2)} MB`;
   }
 
   _renderCard(c) {
