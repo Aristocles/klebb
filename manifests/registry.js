@@ -395,7 +395,36 @@ function createManifest(manifestObj) {
   // so a user who later re-enables it in Settings won't have the system
   // fight them on their next Add Card.
   const autoHidden = maybeAutoHideWelcome(id);
-  return { id, source: targetPath, welcomeAutoHidden: autoHidden };
+
+  // Backfill HAE-backed manifests from the raw archive. The dispatcher
+  // only routes to subscribers present at push time, so a card created
+  // after a push would otherwise miss data already on disk. Lazy-require
+  // to avoid circular imports; idempotent (skips if data[] is non-empty).
+  let replayed = null;
+  const ing = parsed.meta?.ingest;
+  if (ing && ing.source === 'hae' && ing.metric) {
+    try {
+      const { replayFromArchive } = require('../health-auto-export/replay');
+      const summary = replayFromArchive(module.exports, id);
+      if (!summary.skipped && summary.rowsWritten > 0) {
+        replayed = summary;
+        // Graduate the metric out of discoveries, same as a live push would.
+        try {
+          const discoveries = require('../health-auto-export/discoveries');
+          discoveries.sync({
+            seen: [],
+            subscribed: [ing.metric],
+          });
+        } catch (e) {
+          console.warn('[hae] discovery sync after replay failed:', e.message);
+        }
+      }
+    } catch (e) {
+      console.warn('[hae] replay on createManifest failed:', e.message);
+    }
+  }
+
+  return { id, source: targetPath, welcomeAutoHidden: autoHidden, replayed };
 }
 
 function maybeAutoHideWelcome(createdId) {
