@@ -1,0 +1,37 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "hrv",
+      "title": "Heart rate variability (Apple Health)",
+      "summary": "SDNN in milliseconds, populated by the iPhone Health Auto Export webhook.",
+      "category": "imported",
+      "tags": ["recovery", "apple-health", "hae", "ingest-only"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "💓",
+    "order": 540,
+    "ingest": {
+      "source": "hae",
+      "metric": "heart_rate_variability"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{ms}",
+        "unit": "ms",
+        "trendArrow": { "field": "ms" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "ms"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Daily heart rate variability (SDNN) from Apple Watch. Populated by the iPhone Health Auto Export webhook; see docs/HEALTH-AUTO-EXPORT.md for setup. Ingest-only: no webapp writes.",
+  "data": []
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "body-mass-hae",
+      "title": "Weight (Apple Health)",
+      "summary": "Daily body weight in kg, populated by the iPhone Health Auto Export webhook.",
+      "category": "imported",
+      "tags": ["weight", "body-composition", "apple-health", "hae", "ingest-only"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "⚖️",
+    "order": 565,
+    "ingest": {
+      "source": "hae",
+      "metric": "body_mass"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{kg:round(1)}",
+        "unit": "kg",
+        "trendArrow": { "field": "kg" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "kg"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Body weight from Apple Health (typically pushed by a connected smart scale or manual entries in the Health app). Populated by the iPhone Health Auto Export webhook; see docs/HEALTH-AUTO-EXPORT.md for setup. Ingest-only: no webapp writes. If you'd rather log weight directly in klebb, use the 'Weight' manual-entry template.",
+  "data": []
+}
