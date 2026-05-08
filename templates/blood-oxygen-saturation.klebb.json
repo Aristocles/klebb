@@ -1,0 +1,37 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "blood-oxygen-saturation",
+      "title": "Blood oxygen (SpO₂) (Apple Health)",
+      "summary": "Daily SpO₂ percentage, populated by the iPhone Health Auto Export webhook.",
+      "category": "imported",
+      "tags": ["vitals", "respiratory", "apple-health", "hae", "ingest-only"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "🫁",
+    "order": 555,
+    "ingest": {
+      "source": "hae",
+      "metric": "blood_oxygen_saturation"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{pct:round(0)}",
+        "unit": "%",
+        "trendArrow": { "field": "pct" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "pct"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Blood oxygen saturation from Apple Watch. Populated by the iPhone Health Auto Export webhook; see docs/HEALTH-AUTO-EXPORT.md for setup. Ingest-only: no webapp writes.",
+  "data": []
+}

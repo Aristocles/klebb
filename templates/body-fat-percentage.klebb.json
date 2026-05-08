@@ -1,0 +1,37 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "body-fat-percentage",
+      "title": "Body fat (Apple Health)",
+      "summary": "Daily body fat percentage, populated by the iPhone Health Auto Export webhook.",
+      "category": "imported",
+      "tags": ["body-composition", "apple-health", "hae", "ingest-only"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "📉",
+    "order": 570,
+    "ingest": {
+      "source": "hae",
+      "metric": "body_fat_percentage"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{pct:round(1)}",
+        "unit": "%",
+        "trendArrow": { "field": "pct" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "pct"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Body fat percentage from Apple Health (typically pushed by a connected smart scale with impedance measurement). Populated by the iPhone Health Auto Export webhook; see docs/HEALTH-AUTO-EXPORT.md for setup. Ingest-only: no webapp writes.",
+  "data": []
+}
