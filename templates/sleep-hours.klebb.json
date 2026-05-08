@@ -22,6 +22,7 @@
       "display": {
         "template": "{hours:round(1)}",
         "unit": "hrs",
+        "secondary": "{deep:round(1)|}h deep · {rem:round(1)|}h REM",
         "trendArrow": { "field": "hours" }
       }
     },
