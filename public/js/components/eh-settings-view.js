@@ -18,6 +18,8 @@ export class EhSettingsView extends LitElement {
     _error: { state: true },
     _busyId: { state: true },
     _filter: { state: true },
+    _hiddenDiscoveries: { state: true },
+    _busyMetric: { state: true },
   };
 
   constructor() {
@@ -27,11 +29,39 @@ export class EhSettingsView extends LitElement {
     this._error = null;
     this._busyId = null;
     this._filter = '';
+    this._hiddenDiscoveries = [];
+    this._busyMetric = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this._load();
+    this._loadHiddenDiscoveries();
+  }
+
+  async _loadHiddenDiscoveries() {
+    try {
+      const r = await fetch('/api/health-auto-export/discoveries');
+      if (!r.ok) return;
+      const body = await r.json();
+      this._hiddenDiscoveries = Array.isArray(body.dismissed) ? body.dismissed : [];
+    } catch {
+      // Silent — settings still works without this section.
+    }
+  }
+
+  async _unhideDiscovery(metric) {
+    this._busyMetric = metric;
+    try {
+      const r = await fetch(
+        `/api/health-auto-export/discoveries/${encodeURIComponent(metric)}/unhide`,
+        { method: 'POST' });
+      if (r.ok) {
+        this._hiddenDiscoveries = this._hiddenDiscoveries.filter(d => d.metric !== metric);
+      }
+    } finally {
+      this._busyMetric = null;
+    }
   }
 
   async _load() {
@@ -227,6 +257,44 @@ export class EhSettingsView extends LitElement {
     @media (prefers-reduced-motion: reduce) {
       .toggle, .toggle::after { transition: none; }
     }
+
+    .discovery-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 20px;
+    }
+    .discovery-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-card);
+    }
+    .discovery-label {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+    .unhide-btn {
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+    .unhide-btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .unhide-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   `;
 
   _onFilterInput(e) {
@@ -250,6 +318,26 @@ export class EhSettingsView extends LitElement {
     const totalAll = this._cards.length;
 
     return html`
+      ${this._hiddenDiscoveries.length > 0 ? html`
+        <h2>Hidden Apple Health metrics</h2>
+        <div class="lede">
+          Metrics you've dismissed from the discovery prompt. Un-hide to see
+          them again the next time a push arrives.
+        </div>
+        <div class="discovery-list">
+          ${this._hiddenDiscoveries.map(d => html`
+            <div class="discovery-row">
+              <span class="discovery-label">${d.metric}</span>
+              <button
+                class="unhide-btn"
+                ?disabled=${this._busyMetric === d.metric}
+                @click=${() => this._unhideDiscovery(d.metric)}
+              >Un-hide</button>
+            </div>
+          `)}
+        </div>
+      ` : ''}
+
       <h2>Cards</h2>
       <div class="lede">
         Every card is a file in <code>$HEALTH_HOME/data/</code>. Toggle off to
