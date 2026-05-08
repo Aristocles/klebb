@@ -194,6 +194,28 @@ A successful push returns:
 
 ---
 
+## Discovering new metrics
+
+When a push contains metrics that no manifest subscribes to, klebb
+records them in `$HEALTH_HOME/data/auto-export/discovered.json`. A
+discovery card appears at the top of Today listing the metrics and
+offering two actions per row:
+
+- **Build a card** — seeds the chat widget with a prompt asking
+  klebbius to create a subscriber manifest for that metric. You
+  review, tweak if needed, and send. Once the subscriber exists, the
+  discovery is removed on the next push.
+- **Dismiss** — permanently hides the metric. Dismissed metrics are
+  listed in Settings under "Hidden Apple Health metrics" with an
+  un-hide button.
+
+Dismissals persist across pushes: once you dismiss HRV, a re-push
+won't resurface it unless you un-hide it first. If you delete a
+subscriber card and the metric re-appears in a future push, it
+becomes a fresh discovery.
+
+---
+
 ## Diagnostics: last-push snapshot
 
 Every push (success, parse failure, or overflow) overwrites

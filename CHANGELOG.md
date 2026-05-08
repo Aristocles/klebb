@@ -9,6 +9,23 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Apple Health discovery card.** When the HAE webhook receives
+  metrics nothing on your dashboard subscribes to yet, a pinned info
+  card appears at the top of the Today view listing each newly-seen
+  metric with two actions: "Build a card" (seeds a templated prompt
+  into the chat widget for klebbius to create the manifest) and
+  "Dismiss" (permanently hides that metric until you un-hide it from
+  Settings). Dismissed metrics are listed in a new "Hidden Apple
+  Health metrics" section of Settings with an un-hide button.
+  Discoveries are persisted in
+  `$HEALTH_HOME/data/auto-export/discovered.json`. The card
+  self-hides when no undismissed discoveries remain, and entries
+  are removed automatically when a subscriber card is added.
+  New endpoints: `GET /api/health-auto-export/discoveries`,
+  `POST /api/health-auto-export/discoveries/:metric/dismiss`,
+  `POST /api/health-auto-export/discoveries/:metric/unhide`.
+  (Fixes #151)
+
 - **HAE ingest diagnostics + status endpoint.** Every webhook push now
   writes a snapshot to `$HEALTH_HOME/data/auto-export/last-push.json`
   describing what happened: receive time, payload bytes, per-subscriber
