@@ -57,10 +57,26 @@ export class EhHaeDiscoveryCard extends LitElement {
     this._entries = [];
     this._loading = true;
     this._busyMetric = null;
+    this._onManifestChanged = this._onManifestChanged.bind(this);
   }
 
   connectedCallback() {
     super.connectedCallback();
+    this._load();
+    // Re-fetch discoveries when a manifest is created / changed — this
+    // covers the "build a card" flow where the server replays archive
+    // data and graduates the metric out of discovered.json.
+    window.addEventListener('manifest-data-changed', this._onManifestChanged);
+    window.addEventListener('klebb-cards-changed', this._onManifestChanged);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('manifest-data-changed', this._onManifestChanged);
+    window.removeEventListener('klebb-cards-changed', this._onManifestChanged);
+  }
+
+  _onManifestChanged() {
     this._load();
   }
 
