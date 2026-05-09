@@ -43,13 +43,17 @@ describe('helpers: numeric', () => {
 describe('catalogue: sleep_analysis', () => {
   const cat = catalogue.sleep_analysis;
 
-  test('prefers totalSleep, then asleep, then inBed, then qty', () => {
+  test('prefers totalSleep for hours, preserves other fields passed alongside', () => {
+    // asleep=7.3 is kept as a stage-breakdown field; hours comes from totalSleep.
     assert.deepEqual(cat.row({ date: '2026-05-04', totalSleep: 7.8, asleep: 7.3 }),
-      { date: '2026-05-04', hours: 7.8 });
+      { date: '2026-05-04', hours: 7.8, asleep: 7.3 });
+  });
+
+  test('falls back to asleep, then inBed, then qty when totalSleep absent', () => {
     assert.deepEqual(cat.row({ date: '2026-05-04', asleep: 7.3, inBed: 8.1 }),
-      { date: '2026-05-04', hours: 7.3 });
+      { date: '2026-05-04', hours: 7.3, asleep: 7.3, inBed: 8.1 });
     assert.deepEqual(cat.row({ date: '2026-05-04', inBed: 8.1 }),
-      { date: '2026-05-04', hours: 8.1 });
+      { date: '2026-05-04', hours: 8.1, inBed: 8.1 });
     assert.deepEqual(cat.row({ date: '2026-05-04', qty: 6.5 }),
       { date: '2026-05-04', hours: 6.5 });
   });
@@ -62,6 +66,37 @@ describe('catalogue: sleep_analysis', () => {
   test('drops entries with no date or no numeric hours', () => {
     assert.equal(cat.row({ totalSleep: 7 }), null);
     assert.equal(cat.row({ date: '2026-05-04', totalSleep: 'zzz' }), null);
+  });
+
+  test('preserves full stage breakdown when HAE provides it', () => {
+    assert.deepEqual(cat.row({
+      date: '2026-05-04 00:00:00 +1000',
+      totalSleep: 7.8, asleep: 7.6, inBed: 8.4,
+      deep: 1.2, rem: 1.8, core: 4.6, awake: 0.2,
+      source: 'Apple Watch',
+    }), {
+      date: '2026-05-04',
+      hours: 7.8, asleep: 7.6, inBed: 8.4,
+      deep: 1.2, rem: 1.8, core: 4.6, awake: 0.2,
+      source: 'Apple Watch',
+    });
+  });
+
+  test('stage fields with non-numeric values are omitted, not zeroed', () => {
+    const row = cat.row({
+      date: '2026-05-04', totalSleep: 7, deep: 'unknown', rem: null,
+    });
+    assert.equal(row.hours, 7);
+    assert.equal(row.deep, undefined);
+    assert.equal(row.rem, undefined);
+    assert.ok(!('deep' in row));
+    assert.ok(!('rem' in row));
+  });
+
+  test('partial stage breakdown: only present fields are copied', () => {
+    assert.deepEqual(cat.row({
+      date: '2026-05-04', totalSleep: 7, deep: 1.1, rem: 1.5,
+    }), { date: '2026-05-04', hours: 7, deep: 1.1, rem: 1.5 });
   });
 });
 

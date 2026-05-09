@@ -23,6 +23,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   listens for `manifest-data-changed` and `klebb-cards-changed` so
   it re-fetches without a page reload. (Fixes #160)
 
+### Changed
+
+- **`sleep_analysis` catalogue entry preserves stage breakdown.** Each
+  sleep row now carries whichever of `asleep`, `inBed`, `deep`, `rem`,
+  `core`, `awake` hours HAE provided for that night, alongside the
+  existing `hours` + `source`. Fields are omitted when absent rather
+  than zeroed, so display templates can distinguish "no REM data" from
+  "0 REM hours". The shipped `sleep-hours` template now shows deep +
+  REM as a secondary line under the total hours. Backward compatible:
+  any template reading just `{hours}` keeps working. (Fixes #162)
+
 ### Added
 
 - **Health Auto Export panel in Settings.** The Settings view now

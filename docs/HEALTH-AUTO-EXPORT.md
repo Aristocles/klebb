@@ -50,7 +50,7 @@ whether parsing succeeds. Safe to delete if disk space is tight.
 
 | Metric key (use in `meta.ingest.metric`) | Row shape | Aggregation |
 |---|---|---|
-| `sleep_analysis` | `{ date, hours, source? }` | last per date |
+| `sleep_analysis` | `{ date, hours, asleep?, inBed?, deep?, rem?, core?, awake?, source? }` | last per date |
 | `step_count` | `{ date, count }` | sum per date |
 | `apple_exercise_time` | `{ date, minutes }` | sum per date |
 | `workouts` (pseudo-metric, reads from `data.workouts[]`) | `{ date, trained, type? }` | any-true per date |

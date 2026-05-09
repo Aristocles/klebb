@@ -39,6 +39,15 @@ module.exports = {
       const hours = numeric(entry.totalSleep ?? entry.asleep ?? entry.inBed ?? entry.qty);
       if (!date || hours === null) return null;
       const row = { date, hours };
+      // Stage breakdown: preserve whichever fields HAE provides. Absent
+      // fields are omitted entirely rather than set to 0/null so display
+      // templates can distinguish "no REM data for this night" from
+      // "0 REM hours". Values are hours.
+      const stages = ['asleep', 'inBed', 'deep', 'rem', 'core', 'awake'];
+      for (const key of stages) {
+        const v = numeric(entry[key]);
+        if (v !== null) row[key] = v;
+      }
       if (entry.source) row.source = entry.source;
       return row;
     },
