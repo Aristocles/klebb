@@ -23,6 +23,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   listens for `manifest-data-changed` and `klebb-cards-changed` so
   it re-fetches without a page reload. (Fixes #160)
 
+- **Chat agent now writes HAE manifests using catalogue field names.**
+  Previously the agent would reach for field names it remembered from
+  HAE's raw payload schema (`asleep`, `deep`, `rmssd`) when building a
+  subscriber manifest, and klebb's catalogue would emit different
+  fields (`hours`, `ms`), leaving the card face rendering empty. The
+  chat system prompt now carries a runtime-generated summary of every
+  catalogue metric's row shape, reconstructed from `catalogue.js` via
+  a probe-based introspection so it stays correct as the catalogue
+  evolves. Carries an explicit rule: "only reference fields from the
+  catalogue row shape; do not invent fields." (Fixes #164)
+
 ### Changed
 
 - **`sleep_analysis` catalogue entry preserves stage breakdown.** Each
