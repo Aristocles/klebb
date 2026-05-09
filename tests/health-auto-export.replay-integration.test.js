@@ -84,10 +84,11 @@ describe('createManifest → replay from archive', () => {
     // step_count, which is still unsubscribed — assert it stays present
     // to confirm we only graduate the newly-subscribed one.
     const discRes = await req(server.baseUrl, '/api/health-auto-export/discoveries');
-    const undismissed = discRes.json.undismissed.map(e => e.metric);
-    assert.ok(!undismissed.includes('sleep_analysis'),
+    const supported = discRes.json.undismissed.supported || {};
+    const allSupported = Object.values(supported).flat().map(e => e.metric);
+    assert.ok(!allSupported.includes('sleep_analysis'),
       'sleep_analysis should have graduated');
-    assert.ok(undismissed.includes('step_count'),
+    assert.ok(allSupported.includes('step_count'),
       'step_count is still unsubscribed; should remain a discovery');
   });
 

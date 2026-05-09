@@ -37,6 +37,16 @@ describe('describeCatalogue', () => {
     assert.match(out, /workouts.*boolean-any-per-date/);
     assert.match(out, /data\.workouts\[\]/);
   });
+
+  test('each metric line prefixes its category in brackets', () => {
+    const out = describeCatalogue();
+    assert.match(out, /\[sleep\] sleep_analysis/);
+    assert.match(out, /\[activity\] step_count/);
+    assert.match(out, /\[recovery\] heart_rate_variability/);
+    assert.match(out, /\[vitals\] blood_oxygen_saturation/);
+    assert.match(out, /\[body\] body_mass/);
+    assert.match(out, /\[mindfulness\] mindful_minutes/);
+  });
 });
 
 describe('describeMetric', () => {

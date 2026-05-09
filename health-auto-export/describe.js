@@ -63,15 +63,12 @@ function describeMetric(key, entry) {
   const rest = keys.filter(k => k !== 'date').sort();
   const orderedKeys = ['date', ...rest];
 
-  // Drop-pattern detection: fields our probe always fills and that
-  // every entry copies through aren't particularly informative to the
-  // agent — but since the row shape is literally what ends up on disk,
-  // it's clearer to list them all.
   const fields = orderedKeys.join(', ');
   const source = from === 'workouts'
     ? 'data.workouts[]'
     : `data.metrics[name="${key}"].data[]`;
-  return `${key} (reads ${source}, ${entry.aggregate}): row = { ${fields} }`;
+  const catLabel = entry.category ? `[${entry.category}] ` : '';
+  return `${catLabel}${key} (reads ${source}, ${entry.aggregate}): row = { ${fields} }`;
 }
 
 // Produces the full catalogue summary block suitable for inclusion in

@@ -13,14 +13,14 @@
 //   "Dismiss"      — permanently hides this metric (can be un-hidden
 //                    from Settings).
 //
-// The card self-hides when no undismissed discoveries remain. It is
-// not a klebb.datafile.v1 manifest — it exists only as a UI surface,
-// pinned by the date view when mode === 'today'.
+// Supported metrics are grouped by catalogue category (sleep, recovery,
+// activity, vitals, body, mindfulness). Unsupported-but-received metrics
+// (those HAE sends but the catalogue doesn't know about) collapse into
+// a footer so the actionable surface stays focused on what klebb can
+// actually produce cards for.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 
-// Human-readable labels for the catalogue keys we know about. Unknown
-// keys fall back to the raw metric name.
 const METRIC_LABELS = {
   sleep_analysis: 'Sleep',
   step_count: 'Steps',
@@ -37,6 +37,15 @@ const METRIC_LABELS = {
   blood_pressure_diastolic: 'Diastolic blood pressure',
 };
 
+const CATEGORY_META = {
+  sleep:       { label: 'Sleep',        emoji: '😴', order: 10 },
+  recovery:    { label: 'Recovery',     emoji: '💓', order: 20 },
+  activity:    { label: 'Activity',     emoji: '🏃', order: 30 },
+  vitals:      { label: 'Vitals',       emoji: '🩺', order: 40 },
+  body:        { label: 'Body',         emoji: '⚖️', order: 50 },
+  mindfulness: { label: 'Mindfulness',  emoji: '🧘', order: 60 },
+};
+
 function labelFor(metric) {
   return METRIC_LABELS[metric] || metric;
 }
@@ -47,25 +56,24 @@ function buildPrompt(metric) {
 
 export class EhHaeDiscoveryCard extends LitElement {
   static properties = {
-    _entries: { state: true },
+    _data: { state: true },
     _loading: { state: true },
     _busyMetric: { state: true },
+    _unsupportedOpen: { state: true },
   };
 
   constructor() {
     super();
-    this._entries = [];
+    this._data = null;
     this._loading = true;
     this._busyMetric = null;
+    this._unsupportedOpen = false;
     this._onManifestChanged = this._onManifestChanged.bind(this);
   }
 
   connectedCallback() {
     super.connectedCallback();
     this._load();
-    // Re-fetch discoveries when a manifest is created / changed — this
-    // covers the "build a card" flow where the server replays archive
-    // data and graduates the metric out of discovered.json.
     window.addEventListener('manifest-data-changed', this._onManifestChanged);
     window.addEventListener('klebb-cards-changed', this._onManifestChanged);
   }
@@ -84,11 +92,10 @@ export class EhHaeDiscoveryCard extends LitElement {
     this._loading = true;
     try {
       const r = await fetch('/api/health-auto-export/discoveries');
-      if (!r.ok) { this._entries = []; return; }
-      const body = await r.json();
-      this._entries = Array.isArray(body.undismissed) ? body.undismissed : [];
+      if (!r.ok) { this._data = null; return; }
+      this._data = await r.json();
     } catch {
-      this._entries = [];
+      this._data = null;
     } finally {
       this._loading = false;
     }
@@ -106,22 +113,68 @@ export class EhHaeDiscoveryCard extends LitElement {
       const r = await fetch(
         `/api/health-auto-export/discoveries/${encodeURIComponent(metric)}/dismiss`,
         { method: 'POST' });
-      if (r.ok) {
-        this._entries = this._entries.filter(e => e.metric !== metric);
-      }
+      if (r.ok) this._removeLocally(metric);
     } finally {
       this._busyMetric = null;
     }
   }
 
-  render() {
-    if (this._loading) return html``;
-    if (!this._entries.length) return html``;
+  // Fan-out: dismiss every metric in a category in one click. No new
+  // endpoint needed — we just call the existing dismiss endpoint once
+  // per metric and update local state.
+  async _dismissCategory(category) {
+    const supported = this._data?.undismissed?.supported || {};
+    const metrics = (supported[category] || []).map(e => e.metric);
+    if (metrics.length === 0) return;
+    this._busyMetric = `::${category}`;
+    try {
+      await Promise.all(metrics.map(m =>
+        fetch(`/api/health-auto-export/discoveries/${encodeURIComponent(m)}/dismiss`,
+          { method: 'POST' })));
+      for (const m of metrics) this._removeLocally(m);
+    } finally {
+      this._busyMetric = null;
+    }
+  }
 
-    const n = this._entries.length;
-    const headline = n === 1
+  _removeLocally(metric) {
+    if (!this._data) return;
+    const d = this._data;
+    const supported = { ...(d.undismissed?.supported || {}) };
+    for (const cat of Object.keys(supported)) {
+      supported[cat] = supported[cat].filter(e => e.metric !== metric);
+      if (supported[cat].length === 0) delete supported[cat];
+    }
+    const unsupported = (d.undismissed?.unsupported || []).filter(e => e.metric !== metric);
+    this._data = {
+      ...d,
+      undismissed: { supported, unsupported },
+    };
+  }
+
+  _totalUndismissed() {
+    const supported = this._data?.undismissed?.supported || {};
+    const unsupported = this._data?.undismissed?.unsupported || [];
+    const supportedCount = Object.values(supported)
+      .reduce((acc, arr) => acc + arr.length, 0);
+    return { supportedCount, unsupportedCount: unsupported.length };
+  }
+
+  render() {
+    if (this._loading || !this._data) return html``;
+    const { supportedCount, unsupportedCount } = this._totalUndismissed();
+    if (supportedCount === 0 && unsupportedCount === 0) return html``;
+
+    const supported = this._data.undismissed.supported || {};
+    const unsupported = this._data.undismissed.unsupported || [];
+    const categories = Object.keys(supported)
+      .sort((a, b) => (CATEGORY_META[a]?.order ?? 999) - (CATEGORY_META[b]?.order ?? 999));
+
+    const headline = supportedCount === 1
       ? 'New Apple Health data spotted'
-      : `${n} new Apple Health metrics spotted`;
+      : supportedCount > 1
+        ? `${supportedCount} new Apple Health metrics spotted`
+        : 'Apple Health push received';
 
     return html`
       <div class="card">
@@ -129,13 +182,43 @@ export class EhHaeDiscoveryCard extends LitElement {
           <span class="emoji">✨</span>
           <span class="title">${headline}</span>
         </div>
-        <p class="intro">
-          Recent pushes from Health Auto Export include data nothing on your
-          dashboard subscribes to yet. Build a card for what you want; dismiss
-          what you don't.
-        </p>
+        ${supportedCount > 0 ? html`
+          <p class="intro">
+            Recent pushes from Health Auto Export include data your dashboard
+            isn't tracking yet. Build a card for what you want; dismiss what
+            you don't.
+          </p>
+          ${categories.map(cat => this._renderCategory(cat, supported[cat]))}
+        ` : html`
+          <p class="intro muted">
+            No catalogue-supported metrics in recent pushes.
+          </p>
+        `}
+        ${unsupported.length > 0 ? this._renderUnsupportedFooter(unsupported) : ''}
+      </div>
+    `;
+  }
+
+  _renderCategory(category, entries) {
+    const meta = CATEGORY_META[category] || { label: category, emoji: '•', order: 999 };
+    const busy = this._busyMetric === `::${category}`;
+    return html`
+      <div class="group">
+        <div class="group-header">
+          <span class="group-label">
+            <span class="group-emoji">${meta.emoji}</span>
+            ${meta.label}
+          </span>
+          ${entries.length > 1 ? html`
+            <button
+              class="group-dismiss"
+              ?disabled=${busy}
+              @click=${() => this._dismissCategory(category)}
+            >Dismiss all</button>
+          ` : ''}
+        </div>
         <ul class="rows">
-          ${this._entries.map(e => this._renderRow(e))}
+          ${entries.map(e => this._renderRow(e))}
         </ul>
       </div>
     `;
@@ -165,6 +248,46 @@ export class EhHaeDiscoveryCard extends LitElement {
     `;
   }
 
+  _renderUnsupportedFooter(entries) {
+    const open = this._unsupportedOpen;
+    const n = entries.length;
+    return html`
+      <div class="unsupported">
+        <button
+          class="unsupported-toggle"
+          @click=${() => { this._unsupportedOpen = !this._unsupportedOpen; }}
+          aria-expanded=${open}
+        >
+          ${n} more ${n === 1 ? 'metric' : 'metrics'} received but not supported yet
+          <span class="chev">${open ? '▴' : '▾'}</span>
+        </button>
+        ${open ? html`
+          <p class="unsupported-hint">
+            Klebb doesn't have a catalogue entry for these yet. They're archived
+            in the raw push data but not ingested into any card.
+            <a href="https://github.com/Aristocles/klebb/issues/new" target="_blank" rel="noopener">Request support →</a>
+          </p>
+          <ul class="rows compact">
+            ${entries.map(e => html`
+              <li class="row muted-row">
+                <span class="row-label">
+                  <span class="metric-key">${e.metric}</span>
+                </span>
+                <span class="row-actions">
+                  <button
+                    class="btn"
+                    ?disabled=${this._busyMetric === e.metric}
+                    @click=${() => this._dismiss(e.metric)}
+                  >Dismiss</button>
+                </span>
+              </li>
+            `)}
+          </ul>
+        ` : ''}
+      </div>
+    `;
+  }
+
   static styles = css`
     :host {
       display: block;
@@ -189,11 +312,51 @@ export class EhHaeDiscoveryCard extends LitElement {
     }
     .emoji { font-size: 16px; }
     .intro {
-      margin: 8px 0 10px;
+      margin: 8px 0 12px;
       font-size: 13px;
       line-height: 1.45;
       color: var(--text-primary);
     }
+    .intro.muted { color: var(--text-muted, var(--text-secondary)); font-style: italic; }
+
+    .group { margin-bottom: 12px; }
+    .group:last-child { margin-bottom: 0; }
+    .group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+      padding: 0 2px;
+    }
+    .group-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted, var(--text-secondary));
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .group-emoji { font-size: 13px; }
+    .group-dismiss {
+      font: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      background: transparent;
+      border: none;
+      color: var(--text-muted, var(--text-secondary));
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .group-dismiss:hover:not(:disabled) {
+      color: var(--text-primary);
+      background: var(--bg-hover, rgba(0, 0, 0, 0.03));
+    }
+    .group-dismiss:disabled { opacity: 0.4; cursor: not-allowed; }
+
     .rows {
       list-style: none;
       padding: 0;
@@ -265,15 +428,51 @@ export class EhHaeDiscoveryCard extends LitElement {
       outline: 2px solid var(--accent, #00d4aa);
       outline-offset: 2px;
     }
+
+    .unsupported {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .unsupported-toggle {
+      font: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted, var(--text-secondary));
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .unsupported-toggle:hover {
+      color: var(--text-primary);
+      background: var(--bg-hover, rgba(0, 0, 0, 0.03));
+    }
+    .chev { font-size: 10px; }
+    .unsupported-hint {
+      font-size: 12px;
+      color: var(--text-muted, var(--text-secondary));
+      margin: 6px 0 8px;
+    }
+    .unsupported-hint a {
+      color: var(--accent, #00d4aa);
+      text-decoration: underline;
+    }
+    .rows.compact { gap: 4px; }
+    .muted-row { opacity: 0.75; }
+    .muted-row .metric-key { font-size: 12px; }
+
     @media (max-width: 480px) {
       .row {
         flex-direction: column;
         align-items: stretch;
         gap: 8px;
       }
-      .row-actions {
-        justify-content: flex-end;
-      }
+      .row-actions { justify-content: flex-end; }
     }
   `;
 }
