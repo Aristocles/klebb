@@ -85,6 +85,15 @@ function describeCatalogue() {
   lines.push('end up in `data[]`; do not invent fields from HAE\'s raw');
   lines.push('payload. Optional fields may be absent on any given row.');
   lines.push('');
+  lines.push('Display template guidance for HAE-backed cards:');
+  lines.push('- Always use `{field:round(N)}` for numeric values. A bare');
+  lines.push('  `{hours}` renders as "7.283333333..."; `{hours:round(1)}`');
+  lines.push('  renders as "7.3".');
+  lines.push('- Set `view.dateContext: "latest"` unless the user explicitly');
+  lines.push('  wants per-day data. HAE pushes arrive on schedules, so');
+  lines.push('  today\'s date often has no row yet and a per-day card reads');
+  lines.push('  as "No data yet" when data from yesterday is fine to show.');
+  lines.push('');
 
   const keys = Object.keys(catalogue).sort();
   for (const key of keys) {
