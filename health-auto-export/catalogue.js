@@ -9,6 +9,7 @@
 //
 // Shape:
 //   <metricKey>: {
+//     category:   'sleep' | 'recovery' | 'activity' | 'vitals' | 'body' | 'mindfulness'
 //     from?:      'metrics' | 'workouts'          // default 'metrics'
 //     aggregate:  'last-per-date' | 'sum-per-date' | 'mean-per-date'
 //               | 'max-per-date'  | 'boolean-any-per-date'
@@ -33,6 +34,7 @@ module.exports = {
   // --- Sleep / recovery ---------------------------------------------------
 
   sleep_analysis: {
+    category: 'sleep',
     aggregate: 'last-per-date',
     row(entry) {
       const date = toDate(entry.date || entry.sleepStart);
@@ -54,6 +56,7 @@ module.exports = {
   },
 
   heart_rate_variability: {
+    category: 'recovery',
     aggregate: 'mean-per-date',
     row(entry) {
       const date = toDate(entry.date);
@@ -64,6 +67,7 @@ module.exports = {
   },
 
   resting_heart_rate: {
+    category: 'recovery',
     aggregate: 'last-per-date',
     row(entry) {
       const date = toDate(entry.date);
@@ -74,6 +78,7 @@ module.exports = {
   },
 
   walking_heart_rate_average: {
+    category: 'activity',
     aggregate: 'last-per-date',
     row(entry) {
       const date = toDate(entry.date);
@@ -84,6 +89,7 @@ module.exports = {
   },
 
   blood_oxygen_saturation: {
+    category: 'vitals',
     aggregate: 'mean-per-date',
     row(entry) {
       const date = toDate(entry.date);
@@ -99,6 +105,7 @@ module.exports = {
   // --- Activity / movement ------------------------------------------------
 
   step_count: {
+    category: 'activity',
     aggregate: 'sum-per-date',
     row(entry) {
       const date = toDate(entry.date);
@@ -109,6 +116,7 @@ module.exports = {
   },
 
   apple_exercise_time: {
+    category: 'activity',
     aggregate: 'sum-per-date',
     row(entry) {
       const date = toDate(entry.date);
@@ -121,6 +129,7 @@ module.exports = {
   // --- Mindfulness --------------------------------------------------------
 
   mindful_minutes: {
+    category: 'mindfulness',
     aggregate: 'sum-per-date',
     row(entry) {
       const date = toDate(entry.date);
@@ -133,6 +142,7 @@ module.exports = {
   // --- Body composition ---------------------------------------------------
 
   body_mass: {
+    category: 'body',
     aggregate: 'last-per-date',
     row(entry) {
       const date = toDate(entry.date);
@@ -143,6 +153,7 @@ module.exports = {
   },
 
   body_fat_percentage: {
+    category: 'body',
     aggregate: 'last-per-date',
     row(entry) {
       const date = toDate(entry.date);
@@ -158,6 +169,7 @@ module.exports = {
   // --- Blood pressure (two separate entries; compose via a CC if wanted) --
 
   blood_pressure_systolic: {
+    category: 'vitals',
     aggregate: 'last-per-date',
     row(entry) {
       const date = toDate(entry.date);
@@ -168,6 +180,7 @@ module.exports = {
   },
 
   blood_pressure_diastolic: {
+    category: 'vitals',
     aggregate: 'last-per-date',
     row(entry) {
       const date = toDate(entry.date);
@@ -180,6 +193,7 @@ module.exports = {
   // --- Workouts (from data.workouts[], not data.metrics[]) ----------------
 
   workouts: {
+    category: 'activity',
     from: 'workouts',
     aggregate: 'boolean-any-per-date',
     row(entry) {

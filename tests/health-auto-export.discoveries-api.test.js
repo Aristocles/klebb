@@ -9,6 +9,19 @@ const fs = require('fs');
 const path = require('path');
 const { createSandbox, cleanupSandbox, spawnServer, req } = require('./helpers/sandbox');
 
+// Flatten the grouped+partitioned undismissed shape into a single array
+// of metric names so tests can remain readable.
+function allUndismissed(body) {
+  const supportedGroups = body?.undismissed?.supported || {};
+  const unsupported = body?.undismissed?.unsupported || [];
+  const out = [];
+  for (const group of Object.values(supportedGroups)) {
+    for (const e of group) out.push(e.metric);
+  }
+  for (const e of unsupported) out.push(e.metric);
+  return out;
+}
+
 const TOKEN = 'disc-token-hex-0123456789abcdef';
 
 const STEPS_SUBSCRIBER = {
@@ -59,10 +72,10 @@ describe('GET /api/health-auto-export/discoveries', () => {
     });
     after(async () => { if (server) await server.kill(); cleanupSandbox(sandbox); });
 
-    test('returns empty arrays', async () => {
+    test('returns empty partitions', async () => {
       const res = await req(server.baseUrl, '/api/health-auto-export/discoveries');
       assert.equal(res.status, 200);
-      assert.deepEqual(res.json.undismissed, []);
+      assert.deepEqual(res.json.undismissed, { supported: {}, unsupported: [] });
       assert.deepEqual(res.json.dismissed, []);
     });
   });
@@ -75,7 +88,7 @@ describe('GET /api/health-auto-export/discoveries', () => {
     });
     after(async () => { if (server) await server.kill(); cleanupSandbox(sandbox); });
 
-    test('lists sleep_analysis + heart_rate_variability as undismissed', async () => {
+    test('lists sleep_analysis + heart_rate_variability as undismissed, grouped by category', async () => {
       await req(server.baseUrl, '/api/health-auto-export', {
         method: 'POST', body: CANNED_PAYLOAD,
         headers: { Authorization: `Bearer ${TOKEN}` },
@@ -83,8 +96,12 @@ describe('GET /api/health-auto-export/discoveries', () => {
 
       const res = await req(server.baseUrl, '/api/health-auto-export/discoveries');
       assert.equal(res.status, 200);
-      const metrics = res.json.undismissed.map(e => e.metric).sort();
-      assert.deepEqual(metrics, ['heart_rate_variability', 'sleep_analysis']);
+      assert.deepEqual(allUndismissed(res.json).sort(),
+        ['heart_rate_variability', 'sleep_analysis']);
+      // sleep_analysis lives under `sleep`, HRV under `recovery`.
+      const supported = res.json.undismissed.supported;
+      assert.deepEqual(supported.sleep.map(e => e.metric), ['sleep_analysis']);
+      assert.deepEqual(supported.recovery.map(e => e.metric), ['heart_rate_variability']);
       assert.deepEqual(res.json.dismissed, []);
 
       // File materialised on disk.
@@ -100,8 +117,7 @@ describe('GET /api/health-auto-export/discoveries', () => {
       assert.equal(d.json.ok, true);
 
       const res = await req(server.baseUrl, '/api/health-auto-export/discoveries');
-      assert.equal(res.json.undismissed.length, 1);
-      assert.equal(res.json.undismissed[0].metric, 'heart_rate_variability');
+      assert.deepEqual(allUndismissed(res.json), ['heart_rate_variability']);
       assert.equal(res.json.dismissed.length, 1);
       assert.equal(res.json.dismissed[0].metric, 'sleep_analysis');
       assert.ok(res.json.dismissed[0].dismissedAt);
@@ -115,8 +131,8 @@ describe('GET /api/health-auto-export/discoveries', () => {
       assert.equal(u.json.ok, true);
 
       const res = await req(server.baseUrl, '/api/health-auto-export/discoveries');
-      const metrics = res.json.undismissed.map(e => e.metric).sort();
-      assert.deepEqual(metrics, ['heart_rate_variability', 'sleep_analysis']);
+      assert.deepEqual(allUndismissed(res.json).sort(),
+        ['heart_rate_variability', 'sleep_analysis']);
       assert.deepEqual(res.json.dismissed, []);
     });
 
@@ -153,8 +169,7 @@ describe('GET /api/health-auto-export/discoveries', () => {
       const res = await req(server.baseUrl, '/api/health-auto-export/discoveries');
       const dismissedMetrics = res.json.dismissed.map(e => e.metric);
       assert.ok(dismissedMetrics.includes('heart_rate_variability'));
-      const undismissedMetrics = res.json.undismissed.map(e => e.metric);
-      assert.ok(!undismissedMetrics.includes('heart_rate_variability'));
+      assert.ok(!allUndismissed(res.json).includes('heart_rate_variability'));
     });
   });
 
@@ -173,7 +188,7 @@ describe('GET /api/health-auto-export/discoveries', () => {
         headers: { Authorization: `Bearer ${TOKEN}` },
       });
       let res = await req(server.baseUrl, '/api/health-auto-export/discoveries');
-      assert.ok(res.json.undismissed.some(e => e.metric === 'sleep_analysis'));
+      assert.ok(allUndismissed(res.json).includes('sleep_analysis'));
 
       // Drop a sleep subscriber on disk.
       fs.writeFileSync(
@@ -190,10 +205,44 @@ describe('GET /api/health-auto-export/discoveries', () => {
       });
 
       res = await req(server.baseUrl, '/api/health-auto-export/discoveries');
-      assert.ok(!res.json.undismissed.some(e => e.metric === 'sleep_analysis'),
+      assert.ok(!allUndismissed(res.json).includes('sleep_analysis'),
         'sleep_analysis should have graduated out of undismissed');
       assert.ok(!res.json.dismissed.some(e => e.metric === 'sleep_analysis'),
         'sleep_analysis should also not linger in dismissed');
+    });
+  });
+
+  describe('catalogue-unsupported metrics land in the unsupported bucket', () => {
+    let sandbox, server;
+    before(async () => {
+      sandbox = createSandbox();
+      server = await spawnServer(sandbox, { HEALTH_AUTO_EXPORT_TOKEN: TOKEN });
+    });
+    after(async () => { if (server) await server.kill(); cleanupSandbox(sandbox); });
+
+    test('vo2_max and respiratory_rate are unsupported; step_count is supported', async () => {
+      const payload = { data: { metrics: [
+        { name: 'step_count',       data: [{ date: '2026-05-09', qty: 4000 }] },
+        { name: 'vo2_max',          data: [{ date: '2026-05-09', qty: 42 }] },
+        { name: 'respiratory_rate', data: [{ date: '2026-05-09', qty: 16 }] },
+      ]}};
+      await req(server.baseUrl, '/api/health-auto-export', {
+        method: 'POST', body: payload,
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      });
+
+      const res = await req(server.baseUrl, '/api/health-auto-export/discoveries');
+      const supported = res.json.undismissed.supported;
+      const unsupported = res.json.undismissed.unsupported;
+
+      assert.ok(supported.activity, 'activity group should exist for step_count');
+      assert.deepEqual(
+        supported.activity.map(e => e.metric),
+        ['step_count']);
+
+      assert.deepEqual(
+        unsupported.map(e => e.metric).sort(),
+        ['respiratory_rate', 'vo2_max']);
     });
   });
 });

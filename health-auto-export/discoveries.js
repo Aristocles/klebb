@@ -96,21 +96,50 @@ function unhide(metric) {
 }
 
 // Consumed by GET /api/health-auto-export/discoveries and the UI.
+// Partitions undismissed entries into catalogue-supported (grouped by
+// category) vs unsupported (flat list). Dismissed entries remain flat.
+// Shape:
+//   {
+//     undismissed: {
+//       supported:   { [category]: [{metric, firstSeenAt}, ...] },
+//       unsupported: [{metric, firstSeenAt}, ...]
+//     },
+//     dismissed: [{metric, firstSeenAt, dismissedAt}, ...]
+//   }
 function list() {
+  // Lazy-require to avoid any circular import surprise.
+  const catalogue = require('./catalogue');
   const state = load();
-  const undismissed = [];
+  const supported = {};
+  const unsupported = [];
   const dismissed = [];
+
   for (const [metric, entry] of Object.entries(state)) {
     const row = { metric, firstSeenAt: entry.firstSeenAt };
     if (entry.dismissed) {
       dismissed.push({ ...row, dismissedAt: entry.dismissedAt });
+      continue;
+    }
+    const cat = catalogue[metric];
+    if (cat && cat.category) {
+      (supported[cat.category] ||= []).push(row);
     } else {
-      undismissed.push(row);
+      unsupported.push(row);
     }
   }
-  undismissed.sort((a, b) => a.firstSeenAt.localeCompare(b.firstSeenAt));
+
+  // Stable orderings: by firstSeenAt within each group, metric name in
+  // the unsupported + dismissed lists.
+  for (const group of Object.values(supported)) {
+    group.sort((a, b) => a.firstSeenAt.localeCompare(b.firstSeenAt));
+  }
+  unsupported.sort((a, b) => a.metric.localeCompare(b.metric));
   dismissed.sort((a, b) => a.metric.localeCompare(b.metric));
-  return { undismissed, dismissed };
+
+  return {
+    undismissed: { supported, unsupported },
+    dismissed,
+  };
 }
 
 module.exports = { load, sync, dismiss, unhide, list, FILE };
