@@ -21,6 +21,7 @@ const { buildDateContextBlock } = require('./chat/date-context');
 const hae = require('./health-auto-export/ingest');
 const haeDiagnostics = require('./health-auto-export/diagnostics');
 const haeDiscoveries = require('./health-auto-export/discoveries');
+const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-export/describe');
 
 // chat endpoint config (env-driven; see config/env.js)
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
@@ -1295,7 +1296,12 @@ const server = http.createServer(async (req, res) => {
           // answer rather than asking them to compute it.
           const todayBlock = buildDateContextBlock({ tz: ENV.TZ });
 
-          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock;
+          // Inject the HAE catalogue's row shapes so the chat agent writes
+          // display templates referencing fields the dispatcher actually
+          // emits, rather than guessing from HAE's raw payload schema.
+          const haeCatalogueBlock = '\n\n' + describeHaeCatalogue() + '\n';
+
+          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock;
           if (voiceMode) {
             systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Chat'}, a health assistant.
 Voice mode is active: the user is speaking to you and will hear your reply aloud.
@@ -1328,7 +1334,7 @@ Return STRICTLY the JSON object. No leading/trailing text. No markdown fences.
 
 Original system prompt follows:
 
-` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock;
+` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock;
           }
 
           // Prepend system prompt
