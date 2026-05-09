@@ -7,6 +7,25 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **HAE replay no longer double-counts overlapping pushes.** Surfaced
+  by live QA with 10+ scheduled HAE exports: each push re-sends
+  running-total samples for the current day, and the replay was
+  flattening entries across all pushes into a single list and
+  aggregating once — producing 5× step counts, wrong means for HRV,
+  and wrong "last wins" for sleep. Replay now processes each push
+  independently (aggregate → mergeByDate against running state),
+  matching the live dispatcher's semantics. A new `force: true` opt
+  on `replayFromArchive` bypasses the "skip if data non-empty" guard
+  for operator re-runs. `scripts/reingest-hae.js` walks every
+  HAE-backed manifest, backs it up, and force-replays to fix
+  historical over-summed data. Chat system prompt also gains explicit
+  guidance for the agent to use `{field:round(N)}` and
+  `view.dateContext: "latest"` on HAE cards so newly-built cards
+  don't render as "No data yet" or "7.28333..." out of the box.
+  (Fixes #168)
+
 ### Changed
 
 - **HAE discovery card filters to catalogue-supported metrics and groups

@@ -38,6 +38,12 @@ describe('describeCatalogue', () => {
     assert.match(out, /data\.workouts\[\]/);
   });
 
+  test('carries display-template guidance for HAE-backed cards', () => {
+    const out = describeCatalogue();
+    assert.match(out, /round\(N\)/);
+    assert.match(out, /dateContext.*latest/i);
+  });
+
   test('each metric line prefixes its category in brackets', () => {
     const out = describeCatalogue();
     assert.match(out, /\[sleep\] sleep_analysis/);
