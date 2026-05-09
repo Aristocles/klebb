@@ -99,15 +99,48 @@ describe('discoveries module', () => {
     assert.equal(discoveries.unhide('nope'), false);
   });
 
-  test('list() partitions by dismissed flag and sorts', () => {
-    discoveries.sync({ seen: ['a', 'b', 'c'], subscribed: [], now: 't1' });
-    discoveries.dismiss('b');
-    discoveries.dismiss('c');
+  test('list() groups supported by category, partitions unsupported, dismissed flat', () => {
+    // Mix of catalogue-supported and unsupported metrics.
+    discoveries.sync({
+      seen: ['step_count', 'sleep_analysis', 'heart_rate_variability',
+             'vo2_max', 'respiratory_rate', 'dismissed_supported', 'unknown_metric'],
+      subscribed: [],
+      now: 't1',
+    });
+    discoveries.dismiss('dismissed_supported');
+    discoveries.dismiss('unknown_metric');
+
     const out = discoveries.list();
-    assert.equal(out.undismissed.length, 1);
-    assert.equal(out.undismissed[0].metric, 'a');
-    assert.equal(out.dismissed.length, 2);
-    assert.deepEqual(out.dismissed.map(e => e.metric), ['b', 'c']);
+
+    // Supported grouped by category.
+    assert.ok(out.undismissed.supported);
+    assert.ok(out.undismissed.supported.activity);
+    assert.deepEqual(
+      out.undismissed.supported.activity.map(e => e.metric).sort(),
+      ['step_count']);
+    assert.deepEqual(
+      out.undismissed.supported.sleep.map(e => e.metric),
+      ['sleep_analysis']);
+    assert.deepEqual(
+      out.undismissed.supported.recovery.map(e => e.metric),
+      ['heart_rate_variability']);
+
+    // Unsupported flat.
+    assert.ok(Array.isArray(out.undismissed.unsupported));
+    assert.deepEqual(
+      out.undismissed.unsupported.map(e => e.metric).sort(),
+      ['respiratory_rate', 'vo2_max']);
+
+    // Dismissed stays flat, regardless of supported/unsupported.
+    assert.deepEqual(
+      out.dismissed.map(e => e.metric).sort(),
+      ['dismissed_supported', 'unknown_metric']);
+  });
+
+  test('list() with no entries returns empty partitions', () => {
+    const out = discoveries.list();
+    assert.deepEqual(out.undismissed, { supported: {}, unsupported: [] });
+    assert.deepEqual(out.dismissed, []);
   });
 
   test('sync() lazily creates the file (not present before first write)', () => {

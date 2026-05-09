@@ -7,6 +7,23 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **HAE discovery card filters to catalogue-supported metrics and groups
+  by category.** Previously the card listed every metric HAE pushed
+  that no manifest subscribed to — on a real iPhone export that was
+  ~20 rows, most of them (`vo2_max`, `heart_rate`, `respiratory_rate`,
+  `flights_climbed`, etc.) not in klebb's catalogue at all, so clicking
+  "Build a card" would produce a manifest the dispatcher silently
+  logged as "unknown metric" on every subsequent push. Now supported
+  metrics group into six categories (Sleep, Recovery, Activity,
+  Vitals, Body, Mindfulness) with a per-category "Dismiss all". A
+  collapsible footer shows the unsupported metrics with a link to
+  open an issue for catalogue additions. Each catalogue entry gains a
+  `category` string; `describeCatalogue()` surfaces it in the chat
+  system prompt; `GET /api/health-auto-export/discoveries` now returns
+  `{ undismissed: { supported: {[category]: [...]}, unsupported: [...] }, dismissed }`. (Fixes #166)
+
 ### Fixed
 
 - **New HAE-backed manifests backfill from the raw archive.** Before
