@@ -95,13 +95,15 @@ describe('replayFromArchive', () => {
     assert.equal(rows[0].count, 4200);
   });
 
-  test('multiple pushes merge by date; aggregation applied per metric', () => {
+  test('multiple pushes merge by date: later push replaces earlier for same date', () => {
+    // Push 1: today's running total is 4200.
     writeRawPayload(Date.parse('2026-05-06T00:00:00Z'), { data: { metrics: [
       { name: 'step_count', data: [{ date: '2026-05-06', qty: 4200 }] },
     ]}});
+    // Push 2: HAE re-sends today as 8000 (later running total) and adds 2026-05-07.
     writeRawPayload(Date.parse('2026-05-07T00:00:00Z'), { data: { metrics: [
       { name: 'step_count', data: [
-        { date: '2026-05-06', qty: 500 },   // extra steps for same date
+        { date: '2026-05-06', qty: 8000 },
         { date: '2026-05-07', qty: 7700 },
       ]},
     ]}});
@@ -112,12 +114,63 @@ describe('replayFromArchive', () => {
     replay.replayFromArchive(reg, 'steps');
     const rows = reg._snapshot('steps');
     const byDate = Object.fromEntries(rows.map(r => [r.date, r.count]));
-    // step_count aggregate is sum-per-date: 4200 + 500 = 4700 on 2026-05-06
-    assert.equal(byDate['2026-05-06'], 4700);
+    // Per-push semantics (matching the live dispatcher): push 2's 2026-05-06
+    // REPLACES push 1's, rather than being summed on top of it. Historical
+    // double-summing was the root cause of #168.
+    assert.equal(byDate['2026-05-06'], 8000);
     assert.equal(byDate['2026-05-07'], 7700);
   });
 
-  test('idempotent: skips when data is non-empty', () => {
+  test('overlapping pushes do not double-count sum-per-date metrics (#168)', () => {
+    // Simulates the real-world HAE scheduled-push pattern: each push
+    // contains a running-total view of today's samples. Push 1 says
+    // today=1000, push 2 says today=2000, push 3 says today=2000.
+    // Correct end state is 2000 (the last push wins, matching live
+    // dispatch). Before #168 the flattened aggregator would sum all
+    // samples across pushes and report 5000.
+    writeRawPayload(Date.parse('2026-05-09T00:00:00Z'), { data: { metrics: [
+      { name: 'step_count', data: [{ date: '2026-05-09', qty: 1000 }] },
+    ]}});
+    writeRawPayload(Date.parse('2026-05-09T06:00:00Z'), { data: { metrics: [
+      { name: 'step_count', data: [{ date: '2026-05-09', qty: 2000 }] },
+    ]}});
+    writeRawPayload(Date.parse('2026-05-09T12:00:00Z'), { data: { metrics: [
+      { name: 'step_count', data: [{ date: '2026-05-09', qty: 2000 }] },
+    ]}});
+
+    const reg = makeRegistry([
+      { id: 'steps', meta: { id: 'steps', ingest: { source: 'hae', metric: 'step_count' } } },
+    ]);
+    replay.replayFromArchive(reg, 'steps');
+    const rows = reg._snapshot('steps');
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].count, 2000);
+  });
+
+  test('overlapping pushes honour last-per-date correctly for sleep_analysis', () => {
+    // Push 1: initial sleep sample for the night.
+    writeRawPayload(Date.parse('2026-05-09T06:00:00Z'), { data: { metrics: [
+      { name: 'sleep_analysis', data: [
+        { date: '2026-05-09', totalSleep: 6.5, source: 'Apple Watch' },
+      ]},
+    ]}});
+    // Push 2: corrected/refined sample for the same night — "last wins".
+    writeRawPayload(Date.parse('2026-05-09T12:00:00Z'), { data: { metrics: [
+      { name: 'sleep_analysis', data: [
+        { date: '2026-05-09', totalSleep: 7.2, source: 'Apple Watch' },
+      ]},
+    ]}});
+
+    const reg = makeRegistry([
+      { id: 'sleep', meta: { id: 'sleep', ingest: { source: 'hae', metric: 'sleep_analysis' } } },
+    ]);
+    replay.replayFromArchive(reg, 'sleep');
+    const rows = reg._snapshot('sleep');
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].hours, 7.2);
+  });
+
+  test('idempotent: skips when data is non-empty (default)', () => {
     writeRawPayload(Date.parse('2026-05-06T00:00:00Z'), { data: { metrics: [
       { name: 'step_count', data: [{ date: '2026-05-06', qty: 4200 }] },
     ]}});
@@ -133,6 +186,24 @@ describe('replayFromArchive', () => {
     const rows = reg._snapshot('steps');
     assert.equal(rows.length, 1);
     assert.equal(rows[0].count, 99999);
+  });
+
+  test('force: true overrides the non-empty guard and rewrites data[]', () => {
+    writeRawPayload(Date.parse('2026-05-06T00:00:00Z'), { data: { metrics: [
+      { name: 'step_count', data: [{ date: '2026-05-06', qty: 4200 }] },
+    ]}});
+    const reg = makeRegistry([
+      { id: 'steps',
+        meta: { id: 'steps', ingest: { source: 'hae', metric: 'step_count' } },
+        data: [{ date: '2025-01-01', count: 99999 }] },
+    ]);
+    const r = replay.replayFromArchive(reg, 'steps', { force: true });
+    assert.equal(r.skipped, false);
+    assert.equal(r.rowsWritten, 1);
+    const rows = reg._snapshot('steps');
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].date, '2026-05-06');
+    assert.equal(rows[0].count, 4200);
   });
 
   test('not HAE-backed: skipped with no writes', () => {

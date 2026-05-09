@@ -41,10 +41,19 @@ function readJsonSafe(file) {
 
 // Replay archived HAE pushes into a single manifest.
 //
+// Pushes are processed one at a time — aggregate within a push, then
+// mergeByDate the running state against that push's result — so
+// overlapping pushes (scheduled HAE exports re-send the current day's
+// samples) don't double-count. This mirrors the live dispatcher's
+// per-push semantics: the end state matches what would have happened
+// if this manifest had existed at the time of each push.
+//
 // Returns { rowsWritten, pushesScanned, skipped }.
 //   skipped === true if the manifest is not HAE-backed, has non-empty
-//              data[], or its metric is not in the catalogue. No writes.
-function replayFromArchive(registry, manifestId) {
+//              data[] (unless opts.force), or its metric is not in the
+//              catalogue. No writes when skipped.
+function replayFromArchive(registry, manifestId, opts = {}) {
+  const { force = false } = opts;
   const entry = registry.get(manifestId);
   if (!entry) return { rowsWritten: 0, pushesScanned: 0, skipped: true };
 
@@ -56,12 +65,12 @@ function replayFromArchive(registry, manifestId) {
   if (!cat) return { rowsWritten: 0, pushesScanned: 0, skipped: true };
 
   const existing = Array.isArray(entry.data) ? entry.data : [];
-  if (existing.length > 0) {
+  if (existing.length > 0 && !force) {
     return { rowsWritten: 0, pushesScanned: 0, skipped: true };
   }
 
   const files = listRawFilesAscending();
-  let mapped = [];
+  let merged = [];
   let pushesScanned = 0;
 
   for (const file of files) {
@@ -70,20 +79,25 @@ function replayFromArchive(registry, manifestId) {
     pushesScanned += 1;
     const entries = extractEntries(payload, { ...cat, _metricName: ing.metric });
     if (!entries || entries.length === 0) continue;
+    const mapped = [];
     for (const raw of entries) {
       const row = cat.row(raw);
       if (row && row.date) mapped.push(row);
     }
+    if (mapped.length === 0) continue;
+    const aggregated = aggregate(mapped, cat.aggregate);
+    merged = mergeByDate(merged, aggregated);
   }
 
-  if (mapped.length === 0) {
+  // Always write when force is true (callers expect the manifest
+  // reflects the replay's result even if it produced zero rows, so
+  // stale data is cleared). Otherwise, skip when nothing was merged.
+  if (merged.length === 0 && !force) {
     return { rowsWritten: 0, pushesScanned, skipped: false };
   }
 
-  const aggregated = aggregate(mapped, cat.aggregate);
-  const merged = mergeByDate([], aggregated);
   registry.writeData(manifestId, merged);
-  return { rowsWritten: aggregated.length, pushesScanned, skipped: false };
+  return { rowsWritten: merged.length, pushesScanned, skipped: false };
 }
 
 module.exports = { replayFromArchive };
