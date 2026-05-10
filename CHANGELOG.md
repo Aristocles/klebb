@@ -7,6 +7,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Chat agent no longer hallucinates the combination-card manifest
+  schema.** Observed in live QA: asked to build a Sleep CC, the agent
+  wrote `view.sources[]` keyed on `id`; asked to build a Lifestyle
+  CC, it wrote `view.slots[]` keyed on `cardId`. Neither shape is
+  accepted by the CC renderer (which reads `view.combines[]` with
+  `sourceId`), so both cards rendered empty with "no source info".
+  Same failure mode as #164 (HAE field hallucination) — fixed by
+  injecting the CC schema contract into the chat system prompt,
+  including an explicit FORBIDDEN list naming the two observed
+  hallucinations (`view.slots`, `view.sources`) so the agent learns
+  what to avoid as well as what to use. (Fixes #179)
+
 ### Added
 
 - **CC-specific embellishment chips after create/edit.** When the chat

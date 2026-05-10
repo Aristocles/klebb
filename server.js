@@ -24,6 +24,7 @@ const haeDiscoveries = require('./health-auto-export/discoveries');
 const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-export/describe');
 const { CATEGORIES: MANIFEST_CATEGORIES } = require('./config/categories');
 const ccSuggestions = require('./meta/cc-suggestions');
+const { describeCcSchema } = require('./chat/describe-cc-schema');
 
 // chat endpoint config (env-driven; see config/env.js)
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
@@ -1336,6 +1337,11 @@ const server = http.createServer(async (req, res) => {
           // emits, rather than guessing from HAE's raw payload schema.
           const haeCatalogueBlock = '\n\n' + describeHaeCatalogue() + '\n';
 
+          // Inject the combination-card manifest contract so the agent
+          // writes `view.combines[]` with `sourceId` instead of
+          // hallucinating view.slots[]/view.sources[] shapes.
+          const ccSchemaBlock = '\n\n' + describeCcSchema() + '\n';
+
           // Constrain meta.category to the canonical enum. Klebb uses the
           // field for clustering heuristics (e.g. CC suggestions); unknown
           // values are silently dropped by the registry, so agent-invented
@@ -1365,7 +1371,7 @@ const server = http.createServer(async (req, res) => {
             '',
           ].join('\n');
 
-          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + categoryBlock;
+          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + categoryBlock;
           if (voiceMode) {
             systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Chat'}, a health assistant.
 Voice mode is active: the user is speaking to you and will hear your reply aloud.
@@ -1398,7 +1404,7 @@ Return STRICTLY the JSON object. No leading/trailing text. No markdown fences.
 
 Original system prompt follows:
 
-` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + categoryBlock;
+` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + categoryBlock;
           }
 
           // Prepend system prompt
