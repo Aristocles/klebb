@@ -8,6 +8,7 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import './eh-view-renderer.js';
 import './eh-hae-discovery-card.js';
+import './eh-cc-suggestion-card.js';
 import { isEditableTarget } from '../lib/event-target.js';
 
 function todayStr() {
@@ -234,9 +235,10 @@ export class EhDateView extends LitElement {
         .date=${this.date}
         .dateMode=${this._dateMode}
       ></eh-view-renderer>
-      ${this._dateMode === 'today'
-        ? html`<eh-hae-discovery-card></eh-hae-discovery-card>`
-        : ''}
+      ${this._dateMode === 'today' ? html`
+        <eh-cc-suggestion-card></eh-cc-suggestion-card>
+        <eh-hae-discovery-card></eh-hae-discovery-card>
+      ` : ''}
     `;
   }
 }
