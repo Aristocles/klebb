@@ -9,6 +9,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Combination-card suggestion surface.** Two new discovery paths for
+  CCs, both routing to the existing "describe it to klebbius" flow.
+  (a) A pinned suggestion card on Today fires whenever 3+ enabled
+  atomic cards share a `meta.category` value, naming the specific
+  cards and offering an "Ask klebbius" action that seeds a tailored
+  prompt. Cards already combined in an existing CC are excluded;
+  dismissal is cluster-scoped (adding a 4th card re-fires as a new
+  suggestion). (b) A distinctively-styled "Combine cards" starter
+  button in the blank-chat prompt row seeds a generic "help me build
+  a combination card" prompt, visible to every user regardless of
+  whether the cluster heuristic fires. New endpoints
+  `GET /api/cc-suggestions` and `POST /api/cc-suggestions/:category/dismiss`.
+  Dismissals persisted at `$HEALTH_HOME/data/_meta/cc-suggestions-dismissed.json`.
+  (Fixes #174)
+
 - **`meta.category` field on manifests.** Optional, constrained to a
   canonical enum (`sleep`, `recovery`, `activity`, `vitals`, `body`,
   `mindfulness`, `lifestyle`, `supplements`, `medication`). Unknown
