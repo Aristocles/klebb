@@ -56,6 +56,7 @@ COPY --chown=klebb:klebb auth ./auth
 COPY --chown=klebb:klebb chat ./chat
 COPY --chown=klebb:klebb config ./config
 COPY --chown=klebb:klebb manifests ./manifests
+COPY --chown=klebb:klebb meta ./meta
 COPY --chown=klebb:klebb public ./public
 COPY --chown=klebb:klebb scripts ./scripts
 COPY --chown=klebb:klebb voice ./voice
