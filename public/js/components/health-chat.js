@@ -498,6 +498,17 @@ class HealthChat extends LitElement {
       color: var(--text-secondary);
     }
     .suggestion:hover { border-color: var(--accent); color: var(--accent); }
+    .suggestion.combine {
+      background: var(--accent-amber-bg, rgba(255, 170, 51, 0.12));
+      border-color: var(--accent-amber, #ffaa33);
+      color: var(--accent-amber, #ffaa33);
+      font-weight: 600;
+    }
+    .suggestion.combine:hover {
+      background: var(--accent-amber, #ffaa33);
+      color: var(--bg-card);
+      border-color: var(--accent-amber, #ffaa33);
+    }
     .embellish { margin-top: 10px; }
     .embellish-intro {
       font-size: 12px;
@@ -1159,6 +1170,10 @@ class HealthChat extends LitElement {
             <span class="suggestion" @click=${() => this._useSuggestion("Add a card for tracking water intake")}>Add water card</span>
             <span class="suggestion" @click=${() => this._useSuggestion("Add a card for tracking my daily steps")}>Add steps card</span>
             <span class="suggestion" @click=${() => this._useSuggestion("Change the mood card to allow multiple entries per day")}>Tweak mood card</span>
+            <span
+              class="suggestion combine"
+              @click=${() => this._useSuggestion("I'd like to combine some of my cards into a single view. Which cards do I have that could work well together in a combination card, and what embellishments (rings, sparklines, progress bars) could we add?")}
+            >✨ Combine cards</span>
           </div>
         </div>
       `;
