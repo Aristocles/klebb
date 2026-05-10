@@ -23,6 +23,7 @@ const haeDiagnostics = require('./health-auto-export/diagnostics');
 const haeDiscoveries = require('./health-auto-export/discoveries');
 const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-export/describe');
 const { CATEGORIES: MANIFEST_CATEGORIES } = require('./config/categories');
+const ccSuggestions = require('./meta/cc-suggestions');
 
 // chat endpoint config (env-driven; see config/env.js)
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
@@ -999,6 +1000,39 @@ const server = http.createServer(async (req, res) => {
       else return sendJSON(res, { error: 'unknown action' }, 404);
       if (!ok) return sendJSON(res, { error: 'unknown metric' }, 404);
       return sendJSON(res, { ok: true });
+    }
+
+    // --- Combination-card suggestions ---------------------------------
+    // GET /api/cc-suggestions — returns { suggestions: [{category, cardIds}] }.
+    // Clusters 3+ enabled atomic cards sharing a meta.category value,
+    // excludes cards already used as donors in existing CCs, honours
+    // dismissals.
+    if (parts[0] === 'cc-suggestions' && parts.length === 1 && req.method === 'GET') {
+      return sendJSON(res, ccSuggestions.list(registry));
+    }
+
+    // POST /api/cc-suggestions/:category/dismiss
+    // Body: { cardIds: [...] } — the cluster's card IDs at the moment of
+    // dismissal. Stored as part of the dismissal key so adding a new
+    // card to the cluster later re-fires as a fresh suggestion.
+    if (parts[0] === 'cc-suggestions' && parts[2] === 'dismiss'
+        && parts.length === 3 && req.method === 'POST') {
+      const category = decodeURIComponent(parts[1]);
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        let parsed;
+        try { parsed = JSON.parse(body || '{}'); }
+        catch { return sendJSON(res, { error: 'invalid json' }, 400); }
+        const cardIds = Array.isArray(parsed.cardIds) ? parsed.cardIds : [];
+        if (cardIds.length === 0) {
+          return sendJSON(res, { error: 'cardIds required' }, 400);
+        }
+        const ok = ccSuggestions.dismiss(category, cardIds);
+        if (!ok) return sendJSON(res, { error: 'dismiss failed' }, 400);
+        return sendJSON(res, { ok: true });
+      });
+      return;
     }
 
     // Auto-export endpoints: sleep, workouts, vitals, activity
