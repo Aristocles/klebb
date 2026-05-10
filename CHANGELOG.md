@@ -9,6 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **CC-specific embellishment chips after create/edit.** When the chat
+  agent creates or edits a `component: "combination-card"` manifest,
+  the reply carries clickable chips offering the embellishments that
+  are the actual point of CCs: switch layout (stack ↔ rings), promote
+  a donor to primary, add daily goals to ring segments, colour-code
+  ring segments. Chip filtering is fully field-gated so users don't
+  see "Add a goal" when every ring segment has one. The CC-suggestion
+  card's "Ask klebbius" prompt and the blank-chat "Combine cards"
+  starter chip both nudge the agent to propose embellishments after
+  writing the manifest, so the chip flow has something to act on.
+  (Fixes #177)
+
 - **Combination-card suggestion surface.** Two new discovery paths for
   CCs, both routing to the existing "describe it to klebbius" flow.
   (a) A pinned suggestion card on Today fires whenever 3+ enabled
