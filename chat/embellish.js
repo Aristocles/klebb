@@ -9,10 +9,18 @@
 // offer something already set.
 
 const MAX_OFFERS = 3;
+// CCs have fewer meaningfully-different embellishments but they're the
+// whole point of the renderer, so give them a slightly higher cap.
+const MAX_CC_OFFERS = 4;
 
 const INTRO = {
   create: 'Want to flesh it out?',
   edit: 'Anything else while we are here?',
+};
+
+const INTRO_CC = {
+  create: 'CCs shine with embellishments. Try one:',
+  edit: 'Anything else to layer on?',
 };
 
 // Each entry is { id, label, buildPrompt(label), eligible(meta) }.
@@ -107,9 +115,98 @@ function renderer(meta) {
   return (meta && meta.view && meta.view.component) || null;
 }
 
+// CC-specific embellishment picks. Runs when the just-modified manifest
+// is a combination card. Order matters (priority, not random): we offer
+// layout switch first because it changes the shape of every other
+// embellishment, then per-donor promotions, then per-donor polish.
+//
+// Returns a { text, embellishments } tuple in the same shape pickEmbellishments
+// returns for atomic cards, or null when nothing applies.
+function pickCcEmbellishments(manifest, { flow = 'create' } = {}) {
+  const meta = manifest.meta;
+  const label = meta.label || meta.id || 'card';
+  const view = meta.view || {};
+  const combines = Array.isArray(view.combines) ? view.combines : [];
+  if (combines.length === 0) return null;
+
+  const chips = [];
+
+  // 1. Layout switch — the shape-level choice.
+  const layout = view.layout || 'stack';
+  if (layout === 'stack') {
+    chips.push({
+      id: 'cc-switch-to-rings',
+      label: 'Switch to rings layout',
+      prompt: `Change the ${label} card's layout to rings. For each ring segment, ask me for a sensible daily goal and pick a colour.`,
+    });
+  } else if (layout === 'rings') {
+    chips.push({
+      id: 'cc-switch-to-stack',
+      label: 'Switch to stack layout',
+      prompt: `Change the ${label} card back to the stack layout.`,
+    });
+  }
+
+  // 2. Promote a donor to primary when nothing is primary yet. Pick the
+  // first donor as the suggestion target; klebbius can ask the user to
+  // pick a different one.
+  const hasPrimary = combines.some(c => c && c.role === 'primary');
+  if (!hasPrimary && combines[0]) {
+    const donor = combines[0];
+    const donorLabel = donor.label || donor.sourceId;
+    chips.push({
+      id: 'cc-set-primary',
+      label: `Make ${donorLabel} primary`,
+      prompt: `On the ${label} card, make "${donor.sourceId}" the primary donor so it renders larger than the others. If another donor would be a better primary, propose it instead.`,
+    });
+  }
+
+  // 3. For any ring-segment donor missing goalDaily, offer goals.
+  const ringSegmentsNoGoal = combines.filter(c =>
+    c && c.role === 'ring-segment' && c.goalDaily === undefined);
+  if (ringSegmentsNoGoal.length > 0) {
+    // One chip covering all ungoaled ring segments at once — less noisy
+    // than one chip per donor when users just switched to rings.
+    const names = ringSegmentsNoGoal.map(c => c.label || c.sourceId);
+    chips.push({
+      id: 'cc-add-goals',
+      label: ringSegmentsNoGoal.length === 1
+        ? `Add a goal for ${names[0]}`
+        : 'Add daily goals to the rings',
+      prompt: `On the ${label} card, set a sensible daily goal (goalDaily) for each ring segment: ${names.join(', ')}. Ask me what I'm aiming for if unclear.`,
+    });
+  }
+
+  // 4. Colour-code ring segments that don't have a colour yet.
+  const ringSegmentsNoColour = combines.filter(c =>
+    c && c.role === 'ring-segment' && !c.colour);
+  if (ringSegmentsNoColour.length > 0) {
+    chips.push({
+      id: 'cc-set-colours',
+      label: 'Colour-code the rings',
+      prompt: `On the ${label} card, pick a distinct colour for each ring segment so they're easy to tell apart at a glance.`,
+    });
+  }
+
+  if (chips.length === 0) return null;
+
+  return {
+    text: (INTRO_CC[flow] || INTRO_CC.create),
+    embellishments: chips.slice(0, MAX_CC_OFFERS),
+  };
+}
+
 function pickEmbellishments(manifest, { rng = Math.random, flow = 'create' } = {}) {
   if (!manifest || !manifest.meta) return null;
   const meta = manifest.meta;
+
+  // CCs have their own branch — the atomic-card catalogue doesn't have
+  // meaningful options for them (e.g. "add a trend arrow" doesn't apply
+  // to a combination-card renderer).
+  if (renderer(meta) === 'combination-card') {
+    return pickCcEmbellishments(manifest, { flow });
+  }
+
   const label = meta.label || meta.id || 'card';
 
   const eligible = CATALOG.filter(e => {
@@ -137,4 +234,12 @@ function shuffle(arr, rng) {
   return out;
 }
 
-module.exports = { pickEmbellishments, CATALOG, MAX_OFFERS, INTRO };
+module.exports = {
+  pickEmbellishments,
+  pickCcEmbellishments,
+  CATALOG,
+  MAX_OFFERS,
+  MAX_CC_OFFERS,
+  INTRO,
+  INTRO_CC,
+};

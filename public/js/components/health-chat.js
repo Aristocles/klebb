@@ -1172,7 +1172,7 @@ class HealthChat extends LitElement {
             <span class="suggestion" @click=${() => this._useSuggestion("Change the mood card to allow multiple entries per day")}>Tweak mood card</span>
             <span
               class="suggestion combine"
-              @click=${() => this._useSuggestion("I'd like to combine some of my cards into a single view. Which cards do I have that could work well together in a combination card, and what embellishments (rings, sparklines, progress bars) could we add?")}
+              @click=${() => this._useSuggestion("I'd like to combine some of my cards into a single view. Which cards do I have that could work well together in a combination card, and what combination-card layout (rings, stack) would fit best? After writing the card, also suggest 2-3 specific embellishments I could layer on — like switching layout, setting a primary donor, adding daily goals, or colour coding segments.")}
             >✨ Combine cards</span>
           </div>
         </div>

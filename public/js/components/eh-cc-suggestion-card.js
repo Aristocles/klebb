@@ -29,7 +29,7 @@ const CATEGORY_META = {
 function buildPrompt(category, cards) {
   const label = CATEGORY_META[category]?.label || category;
   const names = cards.map(c => `"${c.label || c.id}"`).join(', ');
-  return `I'd like to combine my ${label.toLowerCase()} cards into a single combination card. I have ${cards.length} relevant cards: ${names}. Which combination-card layout would work best (rings, stack, etc.), which card should be the primary, and what embellishments could we add? Please propose a plan before writing the manifest.`;
+  return `I'd like to combine my ${label.toLowerCase()} cards into a single combination card. I have ${cards.length} relevant cards: ${names}. Which combination-card layout would work best (rings, stack, etc.), which card should be the primary, and what embellishments could we add? Please propose a plan before writing the manifest. After writing the card, also suggest 2-3 specific embellishments I could layer on — like switching to a rings layout with goals, setting a primary donor, or colour coding segments.`;
 }
 
 export class EhCcSuggestionCard extends LitElement {
