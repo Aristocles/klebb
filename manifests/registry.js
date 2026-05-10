@@ -17,6 +17,8 @@ const path = require('path');
 const PATHS = require('../config/paths');
 const { mergePatch, isPlainObject } = require('./merge-patch');
 
+const { isValidCategory } = require('../config/categories');
+
 const SUPPORTED_SCHEMAS = ['klebb.datafile.v1'];
 const RESERVED_DIR_PREFIX = '_';
 
@@ -92,6 +94,12 @@ function validateManifestShape(parsed, opts = {}) {
   }
   if (!parsed.meta.label || typeof parsed.meta.label !== 'string') {
     throw new Error('missing meta.label');
+  }
+  // meta.category is optional but constrained to a known enum. Unknown
+  // values are silently dropped so the chat agent can't fragment the
+  // clustering signal by inventing values like 'wellness'.
+  if (parsed.meta.category !== undefined && !isValidCategory(parsed.meta.category)) {
+    delete parsed.meta.category;
   }
   return parsed;
 }
@@ -365,6 +373,19 @@ function createManifest(manifestObj) {
   const id = parsed.meta.id;
   if (_entries.has(id)) {
     throw new Error(`duplicate id: ${id}`);
+  }
+
+  // Auto-populate meta.category for HAE-backed manifests when the author
+  // didn't set one. The catalogue entry knows the category already; no
+  // point asking the chat agent to repeat it. Explicit user-set values
+  // win (after validation by validateManifestShape).
+  const ingForCat = parsed.meta?.ingest;
+  if (!parsed.meta.category && ingForCat?.source === 'hae' && ingForCat.metric) {
+    try {
+      const haeCatalogue = require('../health-auto-export/catalogue');
+      const catEntry = haeCatalogue[ingForCat.metric];
+      if (catEntry?.category) parsed.meta.category = catEntry.category;
+    } catch {}
   }
   const targetPath = path.join(PATHS.DATA_DIR, id + '.json');
   // Defence-in-depth: ID_PATTERN already blocks path separators, but

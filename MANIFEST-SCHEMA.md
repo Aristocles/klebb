@@ -41,10 +41,12 @@ Klebb dashboard. For the human-friendly tour, see
                                       //   so inserts can use gaps (150, 250…)
   "enabled":  true,                   // optional bool, default true;
                                       //   false hides card from EVERY view
-  "category": "vitals",               // optional free-form grouping label;
-                                      //   pass-through (not used in core
-                                      //   layout today; surfaces as data
-                                      //   for agents and future filters)
+  "category": "vitals",               // optional; must be one of the
+                                      //   canonical enum. Used for
+                                      //   category-based heuristics (e.g.
+                                      //   CC suggestion clustering).
+                                      //   Unknown values are silently
+                                      //   dropped at load time.
   "view":     { ... },                // optional view config
   "trends":   { ... },                // optional trends config
   "calendar": { ... },                // optional calendar config
@@ -53,6 +55,30 @@ Klebb dashboard. For the human-friendly tour, see
   "ingest":   { ... }                 // optional ingest subscription
 }
 ```
+
+### Manifest category (`meta.category`)
+
+Optional. Groups a manifest for category-based heuristics such as the
+upcoming combination-card suggestion card. The value must be one of
+the canonical enum:
+
+| Value | Typical cards |
+|---|---|
+| `sleep` | total hours, stages, sleep quality |
+| `recovery` | HRV, resting HR, readiness |
+| `activity` | steps, exercise minutes, workouts, movement |
+| `vitals` | blood pressure, SpO₂, temperature, blood glucose |
+| `body` | weight, body fat, composition |
+| `mindfulness` | meditation, breath work |
+| `lifestyle` | mood, daily notes, qualitative journals |
+| `supplements` | vitamins, peptides, stacks |
+| `medication` | prescribed drugs, dosing schedules |
+
+Unknown values are silently dropped at load time (the manifest still
+loads; it just won't participate in category-based features). For
+HAE-backed cards created via `createManifest`, the category is
+auto-populated from the HAE catalogue entry when the author doesn't
+set one explicitly.
 
 ### Master `meta.enabled`
 
