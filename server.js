@@ -22,6 +22,7 @@ const hae = require('./health-auto-export/ingest');
 const haeDiagnostics = require('./health-auto-export/diagnostics');
 const haeDiscoveries = require('./health-auto-export/discoveries');
 const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-export/describe');
+const { CATEGORIES: MANIFEST_CATEGORIES } = require('./config/categories');
 
 // chat endpoint config (env-driven; see config/env.js)
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
@@ -1301,7 +1302,36 @@ const server = http.createServer(async (req, res) => {
           // emits, rather than guessing from HAE's raw payload schema.
           const haeCatalogueBlock = '\n\n' + describeHaeCatalogue() + '\n';
 
-          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock;
+          // Constrain meta.category to the canonical enum. Klebb uses the
+          // field for clustering heuristics (e.g. CC suggestions); unknown
+          // values are silently dropped by the registry, so agent-invented
+          // values would simply be lost.
+          const categoryBlock = [
+            '',
+            '## Manifest categories',
+            '',
+            'Every manifest you create SHOULD set `meta.category` to exactly',
+            'one of the following values. Choose the best fit; invented',
+            'values are silently dropped by the registry and the card will',
+            'then be invisible to category-based features like combination-',
+            'card suggestions.',
+            '',
+            MANIFEST_CATEGORIES.map(c => `- ${c}`).join('\n'),
+            '',
+            'Rules of thumb:',
+            '- sleep: total hours, stages, sleep quality',
+            '- recovery: HRV, resting HR, readiness-style metrics',
+            '- activity: steps, exercise minutes, workouts, movement',
+            '- vitals: blood pressure, SpO₂, temperature, blood glucose',
+            '- body: weight, body fat, composition',
+            '- mindfulness: meditation, breath work, reflection',
+            '- lifestyle: mood, daily notes, qualitative journals',
+            '- supplements: vitamins, peptides, stacks',
+            '- medication: prescribed drugs, dosing schedules',
+            '',
+          ].join('\n');
+
+          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + categoryBlock;
           if (voiceMode) {
             systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Chat'}, a health assistant.
 Voice mode is active: the user is speaking to you and will hear your reply aloud.
@@ -1334,7 +1364,7 @@ Return STRICTLY the JSON object. No leading/trailing text. No markdown fences.
 
 Original system prompt follows:
 
-` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock;
+` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + categoryBlock;
           }
 
           // Prepend system prompt

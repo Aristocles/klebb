@@ -7,6 +7,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **`meta.category` field on manifests.** Optional, constrained to a
+  canonical enum (`sleep`, `recovery`, `activity`, `vitals`, `body`,
+  `mindfulness`, `lifestyle`, `supplements`, `medication`). Unknown
+  values are silently dropped at load time so the chat agent can't
+  fragment the clustering signal by inventing values. HAE-backed
+  cards auto-populate the category from their catalogue entry if the
+  author didn't set one. Chat system prompt constrains the agent to
+  the enum when writing new manifests. Foundational work for the
+  upcoming combination-card suggestion surface; no UI change in this
+  release. (Fixes #172)
+
 ### Fixed
 
 - **Discovery card now sits below the main card grid and suppresses
