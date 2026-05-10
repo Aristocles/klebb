@@ -109,7 +109,6 @@ review. We prefer a clean history.
 
 - Australian/British English in docs and comments (colour, organise,
   apologise)
-- No emdashes (—); use colons, semicolons, or parentheses
 - 2-space indent in JS; 4-space in Bash
 - No build step: this is hand-written ES modules loaded from `esm.sh`
 - Keep dependencies minimal. A new `npm install` needs justification

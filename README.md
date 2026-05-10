@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/Aristocles/klebb/actions/workflows/test.yml/badge.svg)](https://github.com/Aristocles/klebb/actions/workflows/test.yml)
 [![license](https://img.shields.io/github/license/Aristocles/klebb.svg)](./LICENSE)
-[![node](https://img.shields.io/node/v/klebb.svg)](https://nodejs.org/)
+[![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org/)
 
 A **file-driven**, **manifest-based** personal health dashboard. You
 drop JSON files into a folder; cards appear. Delete a file; the card is
