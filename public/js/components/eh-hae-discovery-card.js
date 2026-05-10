@@ -162,8 +162,14 @@ export class EhHaeDiscoveryCard extends LitElement {
 
   render() {
     if (this._loading || !this._data) return html``;
-    const { supportedCount, unsupportedCount } = this._totalUndismissed();
-    if (supportedCount === 0 && unsupportedCount === 0) return html``;
+    const { supportedCount } = this._totalUndismissed();
+    // Suppress the card entirely when there are no catalogue-supported
+    // metrics to surface. The unsupported-metrics footer is informational
+    // only; rendering an accent-bordered card around nothing but that
+    // footer creates visual noise on every Today view. Users who want
+    // to inspect the full received-metric list can reach it via the
+    // Settings panel.
+    if (supportedCount === 0) return html``;
 
     const supported = this._data.undismissed.supported || {};
     const unsupported = this._data.undismissed.unsupported || [];
@@ -172,9 +178,7 @@ export class EhHaeDiscoveryCard extends LitElement {
 
     const headline = supportedCount === 1
       ? 'New Apple Health data spotted'
-      : supportedCount > 1
-        ? `${supportedCount} new Apple Health metrics spotted`
-        : 'Apple Health push received';
+      : `${supportedCount} new Apple Health metrics spotted`;
 
     return html`
       <div class="card">
@@ -182,18 +186,12 @@ export class EhHaeDiscoveryCard extends LitElement {
           <span class="emoji">✨</span>
           <span class="title">${headline}</span>
         </div>
-        ${supportedCount > 0 ? html`
-          <p class="intro">
-            Recent pushes from Health Auto Export include data your dashboard
-            isn't tracking yet. Build a card for what you want; dismiss what
-            you don't.
-          </p>
-          ${categories.map(cat => this._renderCategory(cat, supported[cat]))}
-        ` : html`
-          <p class="intro muted">
-            No catalogue-supported metrics in recent pushes.
-          </p>
-        `}
+        <p class="intro">
+          Recent pushes from Health Auto Export include data your dashboard
+          isn't tracking yet. Build a card for what you want; dismiss what
+          you don't.
+        </p>
+        ${categories.map(cat => this._renderCategory(cat, supported[cat]))}
         ${unsupported.length > 0 ? this._renderUnsupportedFooter(unsupported) : ''}
       </div>
     `;

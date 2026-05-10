@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Discovery card now sits below the main card grid and suppresses
+  itself when there are no catalogue-supported metrics to surface.**
+  Previously it pinned above the welcome card on fresh installs
+  (wrong priority for new users) and rendered an empty accent-
+  bordered card whenever every supported metric already had a
+  subscriber (with only the unsupported-metrics footer as content).
+  Welcome card now renders above; discovery stays inline at the end
+  of Today when there's something actionable in it. (Fixes #170)
+
 - **HAE replay no longer double-counts overlapping pushes.** Surfaced
   by live QA with 10+ scheduled HAE exports: each push re-sends
   running-total samples for the current day, and the replay was

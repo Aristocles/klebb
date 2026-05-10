@@ -229,14 +229,14 @@ export class EhDateView extends LitElement {
           <button class="today-btn" @click=${() => this._navigate(this._today)}>Today</button>
         ` : ''}
       </div>
-      ${this._dateMode === 'today'
-        ? html`<eh-hae-discovery-card></eh-hae-discovery-card>`
-        : ''}
       <eh-view-renderer
         view="view"
         .date=${this.date}
         .dateMode=${this._dateMode}
       ></eh-view-renderer>
+      ${this._dateMode === 'today'
+        ? html`<eh-hae-discovery-card></eh-hae-discovery-card>`
+        : ''}
     `;
   }
 }
