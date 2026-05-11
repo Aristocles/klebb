@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Cards with `dateContext: "latest"` now honour past-date navigation.**
+  The `latest` resolver in `eh-generic-card._currentEntry()` used to
+  return the most recent row regardless of which date the user had
+  navigated to, so every past date on cards like Blood Pressure,
+  Mood, Weight, HRV, Resting HR, Walking HR, Exercise Time, Steps,
+  Daily Notes, and Sleep Analysis/Quality displayed (and, via the
+  pencil, edited) today's numbers. `"latest"` is now treated as a
+  Today-mode fallback: past/future navigation does exact-date
+  lookup. Verified: editing a past-date mood now writes to that
+  row, not today's. (Fixes #182; closes #181 as a duplicate)
+
 - **Chat agent no longer hallucinates the combination-card manifest
   schema.** Observed in live QA: asked to build a Sleep CC, the agent
   wrote `view.sources[]` keyed on `id`; asked to build a Lifestyle
