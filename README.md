@@ -191,17 +191,23 @@ in `.env`. The compose file already maps that hostname to the host via
 ## Running tests
 
 ```bash
-npm test
+npm test                  # unit + API integration tests
+npm run test:e2e          # Playwright end-to-end (headless)
+npm run test:e2e:headed   # same, with a visible browser
 ```
 
-Tests spin up ephemeral `HEALTH_HOME` directories and the full HTTP
-server on random ports, exercising the registry, Settings API,
-display-template engine, bearer-auth path, migration scripts, and
-repo-hygiene scanners.
+Unit + API integration tests spin up ephemeral `HEALTH_HOME`
+directories and the full HTTP server on random ports, exercising the
+registry, Settings API, display-template engine, bearer-auth path,
+migration scripts, and repo-hygiene scanners. ~800 tests, runs in
+~15 seconds.
 
-~180 tests, runs in ~3 seconds, zero flakiness.
+End-to-end tests drive Chromium against the same sandbox harness and
+cover user-visible interaction (rendering, navigation, forms). See
+[`docs/TESTING.md`](docs/TESTING.md) for the rubric on which layer a
+new test belongs in.
 
-CI runs the suite on Node 20 + 22 for every push and pull request.
+CI runs all three layers on every push and pull request.
 
 ## Configuration
 
