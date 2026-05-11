@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Input forms and modals no longer overflow horizontally.** Form
+  inputs (`<input>`, `<textarea>`, `<select>`) were `width: 100%`
+  without `box-sizing: border-box`, so any padding pushed the
+  computed width past the parent. That caused the inline edit form
+  and the prompt-modal panel to overflow their container by a few
+  pixels and render a rogue horizontal scrollbar at the bottom.
+  Inputs now use `box-sizing: border-box` and the modal panel has
+  an explicit `overflow-x: hidden` as a belt-and-braces guard
+  against oversized platform-native controls (date/time pickers,
+  number spinners). (Fixes #188)
+
 - **Chat embellishment chips persist across page reload and chat
   reopen.** The CC-embellishment chip row attached to a chat reply
   (switch layout, colour-code rings, add goals, etc.) used to vanish
