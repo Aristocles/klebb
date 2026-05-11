@@ -20,10 +20,11 @@ npm start
 # → http://localhost:8080
 ```
 
-Run the test suite before every commit:
+Run the test suites before every commit:
 
 ```bash
-npm test
+npm test           # unit + API integration (~15s)
+npm run test:e2e   # end-to-end (Playwright, headless, ~10s)
 ```
 
 All tests should pass on Node 20 and Node 22. CI enforces both.
@@ -39,7 +40,8 @@ Short version:
 - `auth/` — WebAuthn + invites
 - `voice/` — Fish Audio TTS/ASR (optional)
 - `public/` — frontend (Lit web components)
-- `tests/` — Node built-in `node --test` suite
+- `tests/` — Node built-in `node --test` suite (unit + API integration)
+- `tests-e2e/` — Playwright end-to-end suite
 - `scripts/` — CLI tools (migrate, invite, deploy, verify-install)
 - `docs/` — user + contributor docs
 
@@ -86,22 +88,43 @@ review. We prefer a clean history.
 
 ## Tests
 
-- New features ship with tests. Integration tests use
-  `tests/helpers/sandbox.js` for ephemeral `$HEALTH_HOME` + server.
-- Pure-function libraries get unit tests. See `tests/display-template.test.js`
-  for the shape.
-- Lit web components are not unit-tested in CI (DOM required). Manual QA
-  + integration via the HTTP API covers them in practice.
-- Don't add test dependencies — the stdlib `node --test` + assert is
-  enough.
+Klebb has three test layers. Pick the right one for your change. Full
+rubric in [`docs/TESTING.md`](docs/TESTING.md); short version here.
+
+| Layer | Location | Runs | Use when |
+|-------|----------|------|----------|
+| Unit / lib | `tests/*.test.js` | `npm test` | Pure logic — manifest parsing, date maths, template evaluation, merge-patch |
+| API integration | `tests/*.test.js` + `tests/api/*.test.js` | `npm test` | HTTP API contract, manifest write / patch, HAE ingest, auth |
+| End-to-end | `tests-e2e/*.spec.js` | `npm run test:e2e` | Rendering, navigation, form interaction, chat widget state |
+
+**Every non-trivial PR ships a test.** The right one for the right
+change:
+
+- Bug fix → regression test at the matching layer, shown failing
+  against `main` before your fix, passing after.
+- New feature → happy-path coverage plus one edge case.
+- Doc-only change or pure rename → no test needed; say so in the PR
+  body.
+
+Per-bug regression seeds live in `tests/api/` (one file per issue,
+named after the bug). If you open a bug fix PR and there's already a
+`describe.skip`-d seed for it in `tests/api/`, un-skip and extend it
+rather than writing a parallel file.
+
+No new test dependencies without a PR justification — stdlib
+`node --test` + Playwright are enough.
 
 ## Pull requests
 
 1. Fork, create a branch off `main`
 2. Keep commits focused (one logical change per commit)
 3. Update `CHANGELOG.md` under `## Unreleased`
-4. Run `npm test` locally before pushing
-5. Open a PR; CI runs automatically
+4. Run both test suites locally before pushing:
+   ```bash
+   npm test           # unit + API integration
+   npm run test:e2e   # end-to-end (Playwright, headless)
+   ```
+5. Open a PR; CI runs both suites automatically
 6. Address review comments with additional commits (don't force-push
    during review — we can squash at merge time)
 
