@@ -70,14 +70,21 @@ export function resolveMarker(spec, ctx) {
 
   switch (spec.type) {
     case 'field-emoji': {
-      if (!spec.field || !spec.emojiMap || !row) {
+      // Resolve emojiMap from the spec first, then fall back to
+      // ctx.display.emojiMap so manifests can keep a single source of
+      // truth on meta.view.display.emojiMap and reuse it on the
+      // calendar without duplication. See #183.
+      const emojiMap = spec.emojiMap
+        || (ctx && ctx.display && ctx.display.emojiMap)
+        || null;
+      if (!spec.field || !emojiMap || !row) {
         return spec.fallback || fallback;
       }
       const v = getValue(row, spec.field);
       if (v === null || v === undefined || v === '') {
         return spec.fallback || fallback;
       }
-      const hit = spec.emojiMap[String(v)] ?? spec.emojiMap[v];
+      const hit = emojiMap[String(v)] ?? emojiMap[v];
       if (hit) return hit;
       return spec.fallback || fallback;
     }

@@ -136,12 +136,48 @@ describe('resolveMarker', () => {
       assert.equal(r, '🙂');
     });
 
-    test('no emojiMap returns fallback', () => {
+    test('no emojiMap on spec, no display fallback, returns spec.fallback', () => {
       const r = resolveMarker(
         { type: 'field-emoji', field: 'mood', fallback: 'X' },
         { row: { mood: 4 } }
       );
       assert.equal(r, 'X');
+    });
+
+    // #183: when the marker spec omits emojiMap, the resolver should
+    // consult `ctx.display.emojiMap` so manifests can keep a single
+    // source of truth (meta.view.display.emojiMap) and reuse it on the
+    // calendar. Without this, calendars show ctx.fallback (the card's
+    // meta.emoji) on every day, which looks like "same emoji for every
+    // date" — the original bug report.
+    test('no emojiMap on spec — inherits ctx.display.emojiMap', () => {
+      const r = resolveMarker(
+        { type: 'field-emoji', field: 'mood' },
+        {
+          row: { mood: 4 },
+          display: { emojiMap: { '1': '😩', '2': '😔', '3': '😐', '4': '🙂', '5': '😄' } },
+        }
+      );
+      assert.equal(r, '🙂');
+    });
+
+    test('no emojiMap on spec — display emojiMap resolves different values per row', () => {
+      const display = { emojiMap: { '1': '😩', '2': '😔', '3': '😐', '4': '🙂', '5': '😄' } };
+      const barespec = { type: 'field-emoji', field: 'mood' };
+      assert.equal(resolveMarker(barespec, { row: { mood: 1 }, display }), '😩');
+      assert.equal(resolveMarker(barespec, { row: { mood: 3 }, display }), '😐');
+      assert.equal(resolveMarker(barespec, { row: { mood: 5 }, display }), '😄');
+    });
+
+    test('spec.emojiMap wins over ctx.display.emojiMap when both present', () => {
+      const r = resolveMarker(
+        { type: 'field-emoji', field: 'mood', emojiMap: { '4': 'SPEC' } },
+        {
+          row: { mood: 4 },
+          display: { emojiMap: { '4': 'DISPLAY' } },
+        }
+      );
+      assert.equal(r, 'SPEC');
     });
 
     test('dotted-path field', () => {
