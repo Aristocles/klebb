@@ -14,10 +14,17 @@ weren't obvious.
 
 # Testing
 
-- [ ] `npm test` passes locally
-- [ ] New tests added where applicable
-- [ ] Manual QA against a local dev instance (describe what you
-      clicked/tried)
+- [ ] `npm test` passes locally (Node 20 and 22)
+- [ ] `npm run test:e2e` passes locally (headless Playwright)
+- [ ] New regression test added at the right layer:
+  - Backend / manifest / schema change → `tests/api/*.test.js`
+  - User-visible interaction / navigation → `tests-e2e/*.spec.js`
+  - Pure logic → `tests/*.test.js`
+  - No test? Explain why (doc-only change, pure rename, etc.)
+- [ ] Test fails against `main` before the fix and passes with it
+      (for bug-fix PRs)
+- [ ] Manual QA against a local dev instance or the klebbtest
+      container (describe what you clicked/tried)
 
 # Checklist
 

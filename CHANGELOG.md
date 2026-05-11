@@ -21,6 +21,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   hallucinations (`view.slots`, `view.sources`) so the agent learns
   what to avoid as well as what to use. (Fixes #179)
 
+### Changed
+
+- **Testing discipline documented across the contributor surface.**
+  `docs/TESTING.md` gains a "PR expectations" section with the
+  bug-fix workflow (fail-on-main first, then fix, then show pass)
+  and a clear list of "no test needed" vs "nice try" justifications.
+  `CONTRIBUTING.md` points at the three-layer rubric and repeats
+  the commands every contributor needs. The PR template adds a
+  layer-picker checklist so reviewers can confirm coverage at a
+  glance. (Fixes #200)
+
 ### Added
 
 - **`tests/api/` regression layer.** New directory under `tests/` for
