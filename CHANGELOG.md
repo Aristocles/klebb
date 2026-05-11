@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Schedule cards render when the manifest uses the agent-authored
+  nested-cycle shape.** Klebbius-written peptide manifests put the
+  cycles array at `item.cycle.cycles[]` (nested under a top-level
+  `cycle` metadata object) rather than at the flat `item.cycles[]`
+  the renderer canonically reads. Previously `effectiveCycles()`
+  ignored the nested shape and returned `null`, so every item was
+  filtered out of the schedule card and the card body rendered
+  empty. The resolver now surfaces both shapes; explicit top-level
+  `item.cycles[]` still wins. (Fixes #186)
+
 - **Manifest loader now skips timestamped backup files.** Migration and
   re-ingest scripts drop backup files beside the canonical manifest
   (`foo.json.pre-reingest-*.json`, `.pre-hae-*`, etc.). Previously the
