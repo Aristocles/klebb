@@ -162,14 +162,95 @@ function discoveredMetrics() {
   };
 }
 
+// Minimal HRV + Resting HR atomic pair for the recovery-overview
+// combination card to compose. Plain numeric rows anchored to today.
+function hrv(today) {
+  return {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'hrv',
+      label: 'HRV',
+      emoji: '💓',
+      order: 540,
+      category: 'recovery',
+      view: {
+        enabled: true,
+        component: 'generic-card',
+        dateContext: 'latest',
+        display: { template: '{ms:round(0)} ms' },
+      },
+      writeable: { fromWebapp: false },
+    },
+    description: 'HRV atomic card for E2E recovery-overview fixture.',
+    data: [
+      { date: shiftDays(today, -2), ms: 48 },
+      { date: shiftDays(today, -1), ms: 52 },
+      { date: today,                ms: 55 },
+    ],
+  };
+}
+
+function restingHr(today) {
+  return {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'resting-heart-rate',
+      label: 'Resting HR',
+      emoji: '❤️',
+      order: 545,
+      category: 'recovery',
+      view: {
+        enabled: true,
+        component: 'generic-card',
+        dateContext: 'latest',
+        display: { template: '{bpm} bpm' },
+      },
+      writeable: { fromWebapp: false },
+    },
+    description: 'Resting HR atomic card for E2E recovery-overview fixture.',
+    data: [
+      { date: shiftDays(today, -2), bpm: 68 },
+      { date: shiftDays(today, -1), bpm: 66 },
+      { date: today,                bpm: 65 },
+    ],
+  };
+}
+
+function recoveryOverview(layout) {
+  return {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'recovery-overview',
+      label: 'Recovery Overview',
+      emoji: '🔋',
+      order: 530,
+      category: 'recovery',
+      view: {
+        enabled: true,
+        component: 'combination-card',
+        layout,
+        combines: [
+          { sourceId: 'hrv',                role: 'primary',   label: 'HRV',        unit: 'ms' },
+          { sourceId: 'resting-heart-rate', role: 'secondary', label: 'Resting HR', unit: 'bpm' },
+        ],
+      },
+    },
+    description: 'Recovery Overview combination card for E2E layout-switch coverage.',
+    data: [],
+  };
+}
+
 function seedManifests() {
   const today = todayISO();
   return {
     'weight.json': weight(today),
     'mood.json': mood(today),
     'peptides.json': peptides(today),
+    'hrv.json': hrv(today),
+    'resting-heart-rate.json': restingHr(today),
+    'recovery-overview.json': recoveryOverview('stack'),
     'auto-export/discovered.json': discoveredMetrics(),
   };
 }
 
-module.exports = { seedManifests, todayISO, shiftDays };
+module.exports = { seedManifests, todayISO, shiftDays, recoveryOverview };
