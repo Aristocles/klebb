@@ -17,7 +17,7 @@ resolution, schedule expansion, merge-patch behaviour.
 - Target: code under `config/`, `manifests/`, `server/`, `chat/`, `auth/`,
   `health-auto-export/`.
 
-### 2. API integration tests — `tests/*.test.js` (sandbox variant)
+### 2. API integration tests — `tests/*.test.js` + `tests/api/*.test.js`
 
 Same runner, but spin up a real klebb server against an ephemeral
 `HEALTH_HOME` and exercise the HTTP API. These catch data-layer
@@ -29,9 +29,16 @@ regressions without needing a browser.
 - Target: any API route; manifest write / patch behaviour; HAE ingest;
   auth-gated flows.
 
+Put broad API-surface tests in `tests/`. Put **per-bug regression
+tests** in `tests/api/` — one file per issue, named after the bug
+(`mood-edit-single-date.test.js`, `hae-ingest-fp-rounding.test.js`,
+etc.). When a fix lands, un-skip the test; when a new bug is
+reported, add a failing-then-passing seed here so the fix is
+locked in by CI.
+
 Write an API test when the bug's symptom is observable without a
-browser. Example: "editing a past mood entry overwrites all rows" —
-the proof is in the manifest file after the PATCH. Don't need a UI.
+browser. Example: "HAE ingest leaks IEEE754 tails" — the proof is
+in the manifest file after the push. Don't need a UI.
 
 ### 3. End-to-end tests — `tests-e2e/*.spec.js`
 
