@@ -21,8 +21,9 @@
 //     ctx = { date, row, sortedRows, fallback, display, renderTemplate }
 //     sortedRows: dated rows ascending by date (for trend-arrow).
 //     fallback: glyph used if the spec yields nothing.
-//     display: the card's meta.view.display block (for template type to
-//       reuse its emojiMap).
+//     display: the card's meta.view.display block. field-emoji
+//       markers inherit display.emojiMap when the marker spec itself
+//       omits one; template markers can reference it for {key:emoji}.
 //     renderTemplate: an injected string-template render function
 //       (same signature as display-template.renderTemplate). Injected
 //       rather than imported to keep this lib dependency-free and
@@ -103,14 +104,21 @@
 
     switch (spec.type) {
       case 'field-emoji': {
-        if (!spec.field || !spec.emojiMap || !row) {
+        // Resolve emojiMap from the spec first, then fall back to
+        // ctx.display.emojiMap so manifests can keep a single source of
+        // truth on meta.view.display.emojiMap and reuse it on the
+        // calendar without duplication. See #183.
+        const emojiMap = spec.emojiMap
+          || (ctx && ctx.display && ctx.display.emojiMap)
+          || null;
+        if (!spec.field || !emojiMap || !row) {
           return spec.fallback || fallback;
         }
         const v = getValue(row, spec.field);
         if (v === null || v === undefined || v === '') {
           return spec.fallback || fallback;
         }
-        const hit = spec.emojiMap[String(v)] ?? spec.emojiMap[v];
+        const hit = emojiMap[String(v)] ?? emojiMap[v];
         if (hit) return hit;
         return spec.fallback || fallback;
       }
