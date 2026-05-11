@@ -7,6 +7,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **E2E regression coverage for combination-card layout switching.**
+  A recovery-overview combination card in the default sandbox seed
+  (with HRV + Resting HR donors and per-day data anchored to today),
+  plus a spec that PATCHes its `layout` through rings and back to
+  stack and asserts the stack still renders donor values on reload.
+  Locks in the #190 behaviour; if a future change ever regresses the
+  render-after-switch path, CI will catch it. (Refs #190)
+
 ### Fixed
 
 - **Input forms and modals no longer overflow horizontally.** Form

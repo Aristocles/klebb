@@ -16,9 +16,9 @@ test.describe('smoke', () => {
 
     await expect(page.locator('eh-date-view')).toBeVisible({ timeout: 10_000 });
 
-    const genericCards = page.locator('eh-generic-card');
-    await expect(genericCards).toHaveCount(2, { timeout: 10_000 });
-
+    // Core seed includes at least Weight + Mood + HRV + Resting HR as
+    // generic-cards; additional fixtures can be layered in by other
+    // specs without this assertion getting brittle.
     await expect(page.locator('eh-generic-card', { hasText: 'Weight' })).toBeVisible();
     await expect(page.locator('eh-generic-card', { hasText: 'Mood' })).toBeVisible();
   });
