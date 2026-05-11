@@ -26,6 +26,7 @@ test.describe('#194: Settings card list is alphabetical and toggles in place', (
     //   Recovery Overview   (id: recovery-overview)
     //   Resting HR          (id: resting-heart-rate)
     //   Schedule            (id: peptides)
+    //   Water               (id: water-intake)
     //   Weight              (id: weight)
     expect(ids).toEqual([
       'hrv',
@@ -33,6 +34,7 @@ test.describe('#194: Settings card list is alphabetical and toggles in place', (
       'recovery-overview',
       'resting-heart-rate',
       'peptides',
+      'water-intake',
       'weight',
     ]);
   });

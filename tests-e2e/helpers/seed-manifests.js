@@ -240,6 +240,47 @@ function recoveryOverview(layout) {
   };
 }
 
+function water(today) {
+  return {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'water-intake',
+      label: 'Water',
+      emoji: '💧',
+      order: 250,
+      category: 'lifestyle',
+      view: {
+        enabled: true,
+        component: 'generic-card',
+        dateContext: 'latest',
+        display: { template: '{glasses} glasses' },
+      },
+      writeable: {
+        fromWebapp: true,
+        todayAllowed: true,
+        pastAllowed: true,
+        futureAllowed: false,
+        maxReadingsPerDay: 1,
+        inputs: [
+          {
+            key: 'glasses',
+            type: 'stepper',
+            min: 0,
+            max: 20,
+            step: 1,
+            default: 0,
+            label: 'Glasses of water today',
+            required: true,
+          },
+        ],
+      },
+    },
+    description: 'Daily water intake in glasses. Stepper input — tap +/- to count up.',
+    // No historic data so specs that exercise the add flow start clean.
+    data: [],
+  };
+}
+
 function seedManifests() {
   const today = todayISO();
   return {
@@ -249,6 +290,7 @@ function seedManifests() {
     'hrv.json': hrv(today),
     'resting-heart-rate.json': restingHr(today),
     'recovery-overview.json': recoveryOverview('stack'),
+    'water-intake.json': water(today),
     'auto-export/discovered.json': discoveredMetrics(),
   };
 }

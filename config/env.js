@@ -272,6 +272,8 @@ Unknown renderer names render as placeholders but the manifest still saves. This
 
 Each input carries \`key\`, \`label\`, \`required\`, \`default\`, \`help\`, plus per-type options (\`min\`/\`max\`/\`step\`/\`placeholder\`/\`options\`/\`emojis\` etc.).
 
+**Picking between \`number\` and \`stepper\`.** Use \`stepper\` (−/+ buttons around a live value) for quick-log counters the user bumps a few at a time: glasses of water, cups of coffee, pushups, supplements taken. Always set a sensible \`step\` (e.g. \`1\` for discrete counts, \`250\` for millilitres, \`0.5\` for half-hours) and a \`min\`/\`max\`. Use \`number\` (free-text numeric entry) for one-shot exact values the user reads off a scale or device: body weight, systolic BP, temperature, sleep hours. The rule of thumb: if the user is COUNTING, use \`stepper\`; if they're MEASURING, use \`number\`. When in doubt, default to \`stepper\` — spinner-arrow number inputs are finicky on mobile.
+
 ### Schedule shapes (meta.schedule or per-item schedule)
 
 - \`{ "type":"daily", "times_per_day":N }\`
