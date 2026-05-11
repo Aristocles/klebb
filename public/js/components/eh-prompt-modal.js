@@ -86,6 +86,12 @@ export class EhPromptModal extends LitElement {
       max-width: 520px;
       max-height: 92vh;
       overflow-y: auto;
+      /* Some platform-native controls (date/time pickers, number
+         spinners) render oversized at default padding and push the
+         panel wider than 100%, producing a rogue horizontal scrollbar.
+         Clip horizontally — inner form fields take the available
+         width via box-sizing:border-box and width:100% below. */
+      overflow-x: hidden;
       background: var(--bg-card, #1a1a1a);
       color: var(--text-primary);
       border-radius: 16px 16px 0 0;
@@ -94,6 +100,12 @@ export class EhPromptModal extends LitElement {
       display: flex;
       flex-direction: column;
       gap: 14px;
+    }
+    .panel * { box-sizing: border-box; }
+    .panel input,
+    .panel textarea,
+    .panel select {
+      max-width: 100%;
     }
     @media (min-width: 640px) {
       .panel {
