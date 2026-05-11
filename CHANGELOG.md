@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Chat embellishment chips persist across page reload and chat
+  reopen.** The CC-embellishment chip row attached to a chat reply
+  (switch layout, colour-code rings, add goals, etc.) used to vanish
+  after a reload. Server-side the `PUT /api/chat/history` filter kept
+  only `{id, role, content}`; client-side `_flushHistory()` sent only
+  those fields anyway. Both ends now round-trip the `embellishments`
+  array and `followupText` string when an assistant message carries
+  them. Shape is shallow-validated server-side: label + prompt must
+  be strings, or the entry is dropped. (Fixes #191)
+
 - **Discovery card renders a footer-only surface when only unsupported
   metrics remain.** Once every catalogue-supported HAE metric has a
   subscriber (the steady state on a configured instance), the
