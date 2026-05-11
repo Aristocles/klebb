@@ -9,6 +9,7 @@
 // To add a card, drop a valid manifest file into $HEALTH_HOME/data/ — see CARDS.md.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { repeat } from 'https://esm.sh/lit@3/directives/repeat.js';
 import { errorFromResponse } from '../lib/save-error.js';
 
 export class EhSettingsView extends LitElement {
@@ -104,8 +105,12 @@ export class EhSettingsView extends LitElement {
     }
   }
 
-  async _load() {
-    this._loading = true;
+  // Set `silent` when refreshing after a toggle: swapping the card
+  // list into "Loading…" for a moment collapses the page height and
+  // jerks the scroll position (see #194). On a refresh we have card
+  // state already — keep it on screen until the new data lands.
+  async _load({ silent = false } = {}) {
+    if (!silent) this._loading = true;
     this._error = null;
     try {
       const r = await fetch('/api/settings/cards');
@@ -115,7 +120,7 @@ export class EhSettingsView extends LitElement {
     } catch (e) {
       this._error = e.message;
     } finally {
-      this._loading = false;
+      if (!silent) this._loading = false;
     }
   }
 
@@ -126,7 +131,7 @@ export class EhSettingsView extends LitElement {
       const action = card.enabled ? 'disable' : 'enable';
       const r = await fetch(`/api/settings/cards/${encodeURIComponent(card.id)}/${action}`, { method: 'POST' });
       if (!r.ok) throw await errorFromResponse(r);
-      await this._load();
+      await this._load({ silent: true });
     } catch (e) {
       this._error = e.message;
     } finally {
@@ -143,11 +148,18 @@ export class EhSettingsView extends LitElement {
     });
   }
 
-  _groupedCards() {
-    const cards = this._filteredCards();
-    const enabled = cards.filter(c => c.enabled !== false);
-    const disabled = cards.filter(c => c.enabled === false);
-    return { enabled, disabled };
+  // Returns the filtered card list sorted alphabetically by label
+  // (case-insensitive, fallback to id). Enabled/disabled grouping
+  // was removed in #194 — toggling a card used to reshuffle the list
+  // and scroll the page to the top, which was disorienting when
+  // flipping several cards in sequence. One flat list, sorted once,
+  // keyed Lit render below so toggles don't tear down DOM.
+  _sortedCards() {
+    return [...this._filteredCards()].sort((a, b) => {
+      const la = (a.label || a.id || '').toLowerCase();
+      const lb = (b.label || b.id || '').toLowerCase();
+      return la.localeCompare(lb);
+    });
   }
 
   static styles = css`
@@ -520,8 +532,8 @@ export class EhSettingsView extends LitElement {
   render() {
     if (this._loading) return html`<div class="lede">Loading…</div>`;
 
-    const { enabled, disabled } = this._groupedCards();
-    const totalShown = enabled.length + disabled.length;
+    const sorted = this._sortedCards();
+    const totalShown = sorted.length;
     const totalAll = this._cards.length;
 
     return html`
@@ -581,14 +593,7 @@ export class EhSettingsView extends LitElement {
           No cards match "${this._filter}".
         </div>
       ` : html`
-        ${enabled.length > 0 ? html`
-          <div class="group-header">Enabled · ${enabled.length}</div>
-          ${enabled.map(c => this._renderCard(c))}
-        ` : ''}
-        ${disabled.length > 0 ? html`
-          <div class="group-header">Disabled · ${disabled.length}</div>
-          ${disabled.map(c => this._renderCard(c))}
-        ` : ''}
+        ${repeat(sorted, c => c.id, c => this._renderCard(c))}
       `}
 
       ${this._error ? html`<div class="error">${this._error}</div>` : ''}
