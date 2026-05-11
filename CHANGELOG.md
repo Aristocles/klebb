@@ -9,6 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Manifest loader now skips timestamped backup files.** Migration and
+  re-ingest scripts drop backup files beside the canonical manifest
+  (`foo.json.pre-reingest-*.json`, `.pre-hae-*`, etc.). Previously the
+  loader globbed every `*.json` in the data dir, parsed the backups
+  as manifests, and either (a) emitted duplicate-id warnings when the
+  canonical sibling loaded too, or (b) — worse — silently created a
+  card from the backup if no canonical existed, serving stale data
+  to the operator. The scan now recognises the shared backup shape
+  (two `.json` segments in the filename) and skips it outright.
+  Makes the reingest workflow introduced with #184 safe to repeat.
+  (Fixes #197)
+
 - **Calendar `field-emoji` markers now inherit the card's
   `display.emojiMap`.** Previously the resolver required `emojiMap`
   on the marker spec itself, so manifests following the existing
