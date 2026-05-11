@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Discovery card renders a footer-only surface when only unsupported
+  metrics remain.** Once every catalogue-supported HAE metric has a
+  subscriber (the steady state on a configured instance), the
+  discovery card previously suppressed itself whole and took the
+  "received but not supported" footer with it — stranding any
+  pending dismiss actions. The card now renders a compact
+  footer-only layout in that case (no headline, no intro, no
+  category list), keeping the dismiss UI reachable from Today.
+  (Fixes #192)
+
 - **Schedule cards render when the manifest uses the agent-authored
   nested-cycle shape.** Klebbius-written peptide manifests put the
   cycles array at `item.cycle.cycles[]` (nested under a top-level
