@@ -28,7 +28,7 @@
 //   - Aggregation is applied by the dispatcher after mapping. Catalogue
 //     entries do not pre-aggregate.
 
-const { toDate, numeric } = require('./helpers');
+const { toDate, numeric, round } = require('./helpers');
 
 module.exports = {
   // --- Sleep / recovery ---------------------------------------------------
@@ -40,7 +40,7 @@ module.exports = {
       const date = toDate(entry.date || entry.sleepStart);
       const hours = numeric(entry.totalSleep ?? entry.asleep ?? entry.inBed ?? entry.qty);
       if (!date || hours === null) return null;
-      const row = { date, hours };
+      const row = { date, hours: round(hours, 3) };
       // Stage breakdown: preserve whichever fields HAE provides. Absent
       // fields are omitted entirely rather than set to 0/null so display
       // templates can distinguish "no REM data for this night" from
@@ -48,7 +48,7 @@ module.exports = {
       const stages = ['asleep', 'inBed', 'deep', 'rem', 'core', 'awake'];
       for (const key of stages) {
         const v = numeric(entry[key]);
-        if (v !== null) row[key] = v;
+        if (v !== null) row[key] = round(v, 3);
       }
       if (entry.source) row.source = entry.source;
       return row;
@@ -62,7 +62,7 @@ module.exports = {
       const date = toDate(entry.date);
       const ms = numeric(entry.qty);
       if (!date || ms === null) return null;
-      return { date, ms };
+      return { date, ms: round(ms, 1) };
     },
   },
 
@@ -73,7 +73,7 @@ module.exports = {
       const date = toDate(entry.date);
       const bpm = numeric(entry.qty);
       if (!date || bpm === null) return null;
-      return { date, bpm };
+      return { date, bpm: round(bpm, 0) };
     },
   },
 
@@ -84,7 +84,7 @@ module.exports = {
       const date = toDate(entry.date);
       const bpm = numeric(entry.qty);
       if (!date || bpm === null) return null;
-      return { date, bpm };
+      return { date, bpm: round(bpm, 1) };
     },
   },
 
@@ -98,7 +98,7 @@ module.exports = {
       let pct = numeric(entry.qty);
       if (pct === null || !date) return null;
       if (pct <= 1) pct = pct * 100;
-      return { date, pct };
+      return { date, pct: round(pct, 1) };
     },
   },
 
@@ -122,7 +122,7 @@ module.exports = {
       const date = toDate(entry.date);
       const minutes = numeric(entry.qty);
       if (!date || minutes === null) return null;
-      return { date, minutes };
+      return { date, minutes: round(minutes, 0) };
     },
   },
 
@@ -135,7 +135,7 @@ module.exports = {
       const date = toDate(entry.date);
       const minutes = numeric(entry.qty);
       if (!date || minutes === null) return null;
-      return { date, minutes };
+      return { date, minutes: round(minutes, 0) };
     },
   },
 
@@ -148,7 +148,7 @@ module.exports = {
       const date = toDate(entry.date);
       const kg = numeric(entry.qty);
       if (!date || kg === null) return null;
-      return { date, kg };
+      return { date, kg: round(kg, 1) };
     },
   },
 
@@ -162,7 +162,7 @@ module.exports = {
       let pct = numeric(entry.qty);
       if (pct === null || !date) return null;
       if (pct <= 1) pct = pct * 100;
-      return { date, pct };
+      return { date, pct: round(pct, 1) };
     },
   },
 
@@ -175,7 +175,7 @@ module.exports = {
       const date = toDate(entry.date);
       const systolic = numeric(entry.qty);
       if (!date || systolic === null) return null;
-      return { date, systolic };
+      return { date, systolic: round(systolic, 0) };
     },
   },
 
@@ -186,7 +186,7 @@ module.exports = {
       const date = toDate(entry.date);
       const diastolic = numeric(entry.qty);
       if (!date || diastolic === null) return null;
-      return { date, diastolic };
+      return { date, diastolic: round(diastolic, 0) };
     },
   },
 

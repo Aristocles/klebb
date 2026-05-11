@@ -20,4 +20,14 @@ function numeric(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-module.exports = { toDate, numeric };
+// Round a number to `decimals` places, tolerant of null (returns null).
+// HAE payloads routinely carry IEEE754 precision tails like 62.00000000000001
+// because Apple Health averages under the hood. The catalogue rounds values
+// at ingest time so manifest rows stay clean.
+function round(v, decimals = 0) {
+  if (v === null || v === undefined) return v;
+  const f = Math.pow(10, decimals);
+  return Math.round(v * f) / f;
+}
+
+module.exports = { toDate, numeric, round };
