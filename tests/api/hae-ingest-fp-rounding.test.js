@@ -87,7 +87,7 @@ function haePayloadWithFpTails() {
   };
 }
 
-describe.skip('M1/#184: HAE ingest rounds numeric values (SKIP until fix lands)', () => {
+describe('M1/#184: HAE ingest rounds numeric values', () => {
   let sandbox, server, auth;
   const token = 'test-hae-token';
 
