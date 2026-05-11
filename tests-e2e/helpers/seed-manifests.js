@@ -102,11 +102,55 @@ function mood(today) {
   };
 }
 
+function peptides(today) {
+  return {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'peptides',
+      label: 'Schedule',
+      emoji: '💉',
+      order: 200,
+      category: 'supplements',
+      view: { enabled: true, component: 'schedule-card', dateContext: 'exact-date' },
+    },
+    description: 'Peptide schedule for E2E coverage (nested-cycle shape).',
+    data: {
+      items: [
+        {
+          id: 'semax',
+          name: 'Semax',
+          short_name: 'Semax',
+          dose_mg: 1,
+          dose_units: 'mcg',
+          route: 'subQ',
+          schedule: {
+            type: 'daily_straight',
+            days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            duration_days: 20,
+          },
+          cycle: {
+            on_days: 20,
+            off_days: 10,
+            cycles: [
+              {
+                cycle_number: 1,
+                start_date: shiftDays(today, -2),
+                end_date: shiftDays(today, 17),
+              },
+            ],
+          },
+        },
+      ],
+    },
+  };
+}
+
 function seedManifests() {
   const today = todayISO();
   return {
     'weight.json': weight(today),
     'mood.json': mood(today),
+    'peptides.json': peptides(today),
   };
 }
 

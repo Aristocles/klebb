@@ -15,13 +15,36 @@ function iso(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+// Normalise one agent-nested cycle entry (as produced by klebbius under
+// item.cycle.cycles[]) to the flat {type, start, end} shape the rest of
+// this module expects.
+function normaliseNestedCycle(c) {
+  if (!c || typeof c !== 'object') return null;
+  const start = c.start || c.start_date;
+  if (!start) return null;
+  const end = c.end || c.end_date || null;
+  return end
+    ? { type: c.type || 'on', start, end }
+    : { type: c.type || 'on', start };
+}
+
 // Resolve the cycles to evaluate for a schedule-card item.
-// Explicit item.cycles[] always wins. When absent, synthesise a single
-// cycle from schedule.start_date (+ schedule.cycle_weeks or cycle_days)
-// so agent-authored manifests render without needing a separate cycles
-// array. Returns null when nothing usable is declared.
+//
+// Resolution order:
+//   1. Explicit item.cycles[] (the canonical flat shape).
+//   2. item.cycle.cycles[] — agent-authored peptide manifests nest
+//      cycle metadata under a `cycle` object and put the array inside.
+//      See #186.
+//   3. Synthesise a single cycle from schedule.start_date (+ cycle_weeks
+//      or cycle_days) so minimal manifests render without a separate
+//      cycles array at all.
+// Returns null when nothing usable is declared.
 export function effectiveCycles(item) {
   if (Array.isArray(item.cycles) && item.cycles.length > 0) return item.cycles;
+  if (item.cycle && Array.isArray(item.cycle.cycles) && item.cycle.cycles.length > 0) {
+    const out = item.cycle.cycles.map(normaliseNestedCycle).filter(Boolean);
+    if (out.length > 0) return out;
+  }
   const s = item.schedule;
   const start = s && (s.start_date || s.startDate);
   if (!start) return null;
