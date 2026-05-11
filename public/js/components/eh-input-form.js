@@ -312,6 +312,11 @@ export class EhInputForm extends LitElement {
     select,
     textarea {
       width: 100%;
+      /* width:100% + padding pushes the computed width past the parent
+         unless we opt into border-box. Without this, inputs overflow
+         the enclosing modal/panel and produce a rogue horizontal
+         scrollbar at the bottom — see #188. */
+      box-sizing: border-box;
       padding: 8px 10px;
       border: 1px solid var(--border);
       border-radius: 6px;
