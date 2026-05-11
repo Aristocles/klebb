@@ -145,12 +145,30 @@ function peptides(today) {
   };
 }
 
+// Seed the HAE "discovered metrics" ledger with one unknown metric and
+// no supported ones. This reproduces the operator's steady-state on
+// klebbtest after every catalogue-supported HAE metric has a subscriber
+// — the exact condition that used to suppress the discovery card
+// entirely (#192). Specs can use this to assert the footer-only
+// rendering path.
+function discoveredMetrics() {
+  return {
+    // Not in the HAE catalogue → classified as "unsupported", surfaces
+    // in the discovery card's footer rather than the main list.
+    e2e_unsupported_metric: {
+      firstSeenAt: '2026-05-01T00:00:00.000Z',
+      dismissed: false,
+    },
+  };
+}
+
 function seedManifests() {
   const today = todayISO();
   return {
     'weight.json': weight(today),
     'mood.json': mood(today),
     'peptides.json': peptides(today),
+    'auto-export/discovered.json': discoveredMetrics(),
   };
 }
 
