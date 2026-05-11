@@ -253,6 +253,54 @@ test('effectiveCycles: legacy schedule.startDate also feeds the synthesiser', ()
   assert.deepEqual(effectiveCycles(item), [{ type: 'on', start: '2026-05-06' }]);
 });
 
+// #186: agent-authored peptide manifests nest the cycles array under a
+// top-level `cycle` object as `cycle.cycles[]`, with per-entry fields
+// start_date / end_date / off_start / off_end rather than start/end.
+// This is the shape seen on klebbtest; the renderer (via
+// effectiveCycles) used to ignore it entirely, leaving the schedule
+// card body empty. The resolver now surfaces this shape too, plus the
+// single-cycle metadata at the top of the `cycle` object.
+test('effectiveCycles: nested cycle.cycles[] shape is surfaced', () => {
+  const item = {
+    schedule: { type: 'daily_straight', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] },
+    cycle: {
+      on_days: 20,
+      off_days: 10,
+      cycles: [
+        {
+          cycle_number: 1,
+          start_date: '2026-05-09',
+          end_date: '2026-05-28',
+          off_start: '2026-05-29',
+          off_end: '2026-06-07',
+        },
+      ],
+    },
+  };
+  const cycles = effectiveCycles(item);
+  assert.ok(Array.isArray(cycles), 'returns an array');
+  assert.equal(cycles.length, 1);
+  assert.equal(cycles[0].type, 'on');
+  assert.equal(cycles[0].start, '2026-05-09');
+  assert.equal(cycles[0].end, '2026-05-28');
+});
+
+test('effectiveCycles: nested cycle.cycles[] — multiple entries preserve order', () => {
+  const item = {
+    schedule: { type: 'daily', days: ['Mon'] },
+    cycle: {
+      cycles: [
+        { start_date: '2026-01-01', end_date: '2026-01-20' },
+        { start_date: '2026-02-10', end_date: '2026-03-01' },
+      ],
+    },
+  };
+  const cycles = effectiveCycles(item);
+  assert.equal(cycles.length, 2);
+  assert.equal(cycles[0].start, '2026-01-01');
+  assert.equal(cycles[1].start, '2026-02-10');
+});
+
 // --- isScheduledOnDate with synthesised cycles ---
 //
 // Regression for #138: agent-authored peptide cards land with only
