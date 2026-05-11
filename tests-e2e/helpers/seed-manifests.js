@@ -4,8 +4,30 @@
 // Seed manifest content for the E2E sandbox. Minimal on purpose — just
 // enough for the smoke test. Specs that need richer fixtures can seed
 // extra cards via API calls in their own setup.
+//
+// Dates are anchored to "today" (local-date at setup time) so past-date
+// navigation tests behave consistently regardless of which day the
+// suite runs. `todayISO` + `shiftDays` are also exported for specs.
 
-function weight() {
+function todayISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function shiftDays(isoDate, delta) {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function weight(today) {
   return {
     $schema: 'klebb.datafile.v1',
     meta: {
@@ -33,14 +55,14 @@ function weight() {
     },
     description: 'Body weight log for E2E sandbox.',
     data: [
-      { date: '2026-05-08', kg: 81.2 },
-      { date: '2026-05-09', kg: 81.0 },
-      { date: '2026-05-10', kg: 80.9 },
+      { date: shiftDays(today, -2), kg: 81.2 },
+      { date: shiftDays(today, -1), kg: 81.0 },
+      { date: today,                kg: 80.9 },
     ],
   };
 }
 
-function mood() {
+function mood(today) {
   return {
     $schema: 'klebb.datafile.v1',
     meta: {
@@ -72,18 +94,20 @@ function mood() {
     },
     description: 'Subjective daily mood log for E2E sandbox.',
     data: [
-      { date: '2026-05-08', mood: 3 },
-      { date: '2026-05-09', mood: 4 },
-      { date: '2026-05-10', mood: 5 },
+      { date: shiftDays(today, -3), mood: 2 },
+      { date: shiftDays(today, -2), mood: 3 },
+      { date: shiftDays(today, -1), mood: 4 },
+      { date: today,                mood: 5 },
     ],
   };
 }
 
 function seedManifests() {
+  const today = todayISO();
   return {
-    'weight.json': weight(),
-    'mood.json': mood(),
+    'weight.json': weight(today),
+    'mood.json': mood(today),
   };
 }
 
-module.exports = { seedManifests };
+module.exports = { seedManifests, todayISO, shiftDays };

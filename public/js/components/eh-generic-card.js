@@ -68,7 +68,11 @@ export class EhGenericCard extends EhBaseCard {
   _currentEntry() {
     const entries = this._entries();
     if (entries.length === 0) return null;
-    if (this._dateContext() === 'latest') {
+    // dateContext:"latest" is a Today-mode fallback — on any past/future
+    // date the card resolves by exact date match so navigation actually
+    // means what it says. See issue #182.
+    const isToday = this.dateMode === 'today' || !this.dateMode;
+    if (isToday && this._dateContext() === 'latest') {
       return [...entries].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
     }
     return entries.find(e => e.date === this.date) || null;

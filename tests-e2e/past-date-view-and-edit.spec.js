@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
+// tests-e2e/past-date-view-and-edit.spec.js
+// Regression coverage for #182 (supersedes #181): cards with
+// `view.dateContext: "latest"` must honour past-date navigation.
+// On a past date the card should show THAT date's row (or empty
+// state if none), and the pencil-edit should write only to that
+// date's row.
+//
+// Before the fix, both mood and weight cards always render today's
+// latest row and the pencil-edit writes to today's row regardless
+// of the date the user is viewing.
+
+const { test, expect } = require('./helpers/auth-fixture');
+const { todayISO, shiftDays } = require('./helpers/seed-manifests');
+
+const today = todayISO();
+const yesterday = shiftDays(today, -1);
+const twoDaysAgo = shiftDays(today, -2);
+
+test.describe('#182: cards with dateContext:latest honour past-date navigation', () => {
+  test('mood card on yesterday shows yesterday\'s value, not today\'s', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('eh-date-view')).toBeVisible();
+
+    const moodCard = page.locator('eh-generic-card', { hasText: 'Mood' }).first();
+    // Wait for TODAY's value to appear before clicking — avoids a race
+    // where the click fires before the app hydrates this.date.
+    await expect(moodCard).toContainText('5');
+
+    await page.locator('.arrow-btn[aria-label="previous day"]').click();
+    await expect(moodCard).toContainText('4');
+  });
+
+  test('weight card on two days ago shows that date\'s value', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('eh-date-view')).toBeVisible();
+
+    const weightCard = page.locator('eh-generic-card', { hasText: 'Weight' }).first();
+    await expect(weightCard).toContainText('80.9');
+
+    await page.locator('.arrow-btn[aria-label="previous day"]').click();
+    await page.locator('.arrow-btn[aria-label="previous day"]').click();
+
+    await expect(weightCard).toContainText('81.2');
+  });
+
+  test('pencil edit on yesterday writes only to that date', async ({ page, sandboxState }) => {
+    await page.goto('/');
+    await expect(page.locator('eh-date-view')).toBeVisible();
+
+    const moodCard = page.locator('eh-generic-card', { hasText: 'Mood' }).first();
+    // Wait for the mood card to render TODAY's value before navigating.
+    // Without this, on slower runners the click fires before _today is
+    // hydrated and the date shift lands on an unexpected day.
+    await expect(moodCard).toContainText('5');
+
+    // Go to yesterday.
+    await page.locator('.arrow-btn[aria-label="previous day"]').click();
+    await expect(moodCard).toContainText('4');
+
+    // Capture the POST the card sends so we can assert what it asked
+    // the server to write, independently of what lands on disk.
+    const writeRequest = page.waitForRequest(req =>
+      req.url().includes('/api/manifests/mood/data') && req.method() === 'POST',
+    );
+
+    // Open the edit pencil inside the mood card.
+    await moodCard.locator('.edit-btn').click();
+
+    // The form is an eh-input-form with a rating input of type "rating".
+    // The rating renderer emits buttons 1..5; click the "1" to change
+    // mood to 1. Scope to the mood card to avoid catching a weight input.
+    await moodCard.locator('eh-input-form').getByRole('button', { name: '1', exact: true }).click();
+
+    // Submit.
+    await moodCard.locator('eh-input-form').getByRole('button', { name: /save|update/i }).click();
+
+    const sentRequest = await writeRequest;
+    const sentBody = JSON.parse(sentRequest.postData());
+    const sentByDate = Object.fromEntries(sentBody.data.map(r => [r.date, r.mood]));
+    expect(sentByDate[yesterday]).toBe(1);
+    expect(sentByDate[today]).toBe(5);
+
+    // Wait for the card to reflect the new value.
+    await expect(moodCard).toContainText('1', { timeout: 5000 });
+
+    // Verify the manifest via the server (authoritative read — avoids
+    // any filesystem-buffering surprises with the direct file read).
+    const readRes = await page.request.get(`${sandboxState.baseUrl}/api/manifests/mood/data`);
+    expect(readRes.status()).toBe(200);
+    const onServer = await readRes.json();
+    const byDate = Object.fromEntries(onServer.data.map(r => [r.date, r.mood]));
+
+    expect(byDate[yesterday]).toBe(1);
+    expect(byDate[today]).toBe(5);
+    expect(byDate[twoDaysAgo]).toBe(3);
+    expect(byDate[shiftDays(today, -3)]).toBe(2);
+  });
+});
