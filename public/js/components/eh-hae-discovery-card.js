@@ -162,19 +162,28 @@ export class EhHaeDiscoveryCard extends LitElement {
 
   render() {
     if (this._loading || !this._data) return html``;
-    const { supportedCount } = this._totalUndismissed();
-    // Suppress the card entirely when there are no catalogue-supported
-    // metrics to surface. The unsupported-metrics footer is informational
-    // only; rendering an accent-bordered card around nothing but that
-    // footer creates visual noise on every Today view. Users who want
-    // to inspect the full received-metric list can reach it via the
-    // Settings panel.
-    if (supportedCount === 0) return html``;
+    const { supportedCount, unsupportedCount } = this._totalUndismissed();
+    // Hide the card entirely only when there's nothing at all to
+    // show. When the operator has subscribers for every supported
+    // metric (steady state after setup) but still has undismissed
+    // unsupported metrics, render a compact footer-only surface so
+    // they retain a path to dismiss those metrics from Today. See
+    // #192 (formerly #170's overcorrection).
+    if (supportedCount === 0 && unsupportedCount === 0) return html``;
 
     const supported = this._data.undismissed.supported || {};
     const unsupported = this._data.undismissed.unsupported || [];
     const categories = Object.keys(supported)
       .sort((a, b) => (CATEGORY_META[a]?.order ?? 999) - (CATEGORY_META[b]?.order ?? 999));
+
+    if (supportedCount === 0) {
+      // Footer-only mode — no headline, no intro, no category list.
+      return html`
+        <div class="card footer-only">
+          ${this._renderUnsupportedFooter(unsupported)}
+        </div>
+      `;
+    }
 
     const headline = supportedCount === 1
       ? 'New Apple Health data spotted'
