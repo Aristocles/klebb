@@ -628,6 +628,19 @@ class HealthChat extends LitElement {
     } catch {}
   }
 
+  // Optional fields that ride alongside {id, role, content} when the
+  // message carries a CC-embellishment chip row (see #191).
+  _persistExtras(m) {
+    const out = {};
+    if (typeof m.followupText === 'string' && m.followupText) {
+      out.followupText = m.followupText;
+    }
+    if (Array.isArray(m.embellishments) && m.embellishments.length) {
+      out.embellishments = m.embellishments;
+    }
+    return out;
+  }
+
   _saveHistory() {
     if (this._saveTimer) clearTimeout(this._saveTimer);
     this._saveTimer = setTimeout(() => this._flushHistory(), 500);
@@ -637,7 +650,7 @@ class HealthChat extends LitElement {
     this._saveTimer = null;
     const keep = this._messages
       .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.voiceUnconfiguredNotice)
-      .map(m => ({ id: m.id, role: m.role, content: m.content }))
+      .map(m => ({ id: m.id, role: m.role, content: m.content, ...this._persistExtras(m) }))
       .slice(-200);
     try {
       await fetch('/api/chat/history', {
