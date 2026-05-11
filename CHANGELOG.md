@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Calendar `field-emoji` markers now inherit the card's
+  `display.emojiMap`.** Previously the resolver required `emojiMap`
+  on the marker spec itself, so manifests following the existing
+  pattern of declaring the map once under `meta.view.display.emojiMap`
+  saw no per-day emoji on the calendar — every date fell back to the
+  card's `meta.emoji` (the same face on every day). The resolver now
+  consults `ctx.display.emojiMap` when the spec omits one. Spec-level
+  overrides still win when both are present. (Fixes #183)
+
 - **HAE ingest no longer persists IEEE754 floating-point tails.** Apple
   Health passes numeric values through averaging pipelines that can
   produce round-trip values like `62.00000000000001` or
