@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **HAE ingest no longer persists IEEE754 floating-point tails.** Apple
+  Health passes numeric values through averaging pipelines that can
+  produce round-trip values like `62.00000000000001` or
+  `84.99999999999999`. The ingest catalogue now rounds every numeric
+  field at the `row()` level to a sensible per-metric precision
+  (integer for heart rates, step counts, exercise minutes, systolic/
+  diastolic BP; 1dp for HRV, walking HR, SpO2, body mass, body fat
+  percent; 3dp for sleep-stage hours). Existing on-disk values can be
+  cleaned with `node scripts/reingest-hae.js` from the raw archive.
+  (Fixes #184)
+
 - **Cards with `dateContext: "latest"` now honour past-date navigation.**
   The `latest` resolver in `eh-generic-card._currentEntry()` used to
   return the most recent row regardless of which date the user had
