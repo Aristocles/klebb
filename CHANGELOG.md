@@ -23,6 +23,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **`tests/api/` regression layer.** New directory under `tests/` for
+  per-bug API-level regression tests, using the existing sandbox
+  harness. Seeds three tests against the M1/M3 QA findings: one
+  passing today (documents the mood-write server contract for
+  #181), two `describe.skip`-d until their respective fixes land
+  (HAE FP rounding #184, loader backup-file guard #197). The skip
+  markers are the signal for which fix PR un-skips which test.
+  `npm test` now globs `tests/api/*.test.js` alongside the existing
+  `tests/*.test.js`. (Fixes #199)
+
 - **Playwright end-to-end test harness.** New `tests-e2e/` directory
   and `npm run test:e2e` script drive a headless Chromium against an
   ephemeral sandbox (same harness `tests/helpers/sandbox.js` uses),
