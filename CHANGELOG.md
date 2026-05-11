@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Chat agent system prompt nudges toward `stepper` for count-like
+  quick-log inputs.** The existing input-types catalogue lists both
+  `number` and `stepper`, but offered no guidance on when to prefer
+  which. The agent would default to `number` for count-like values
+  like glasses of water, producing a bare spinner-arrow input that
+  the operator had to focus and increment with hover-activated
+  arrows. System-prompt guidance now splits the decision by intent:
+  counting → `stepper`, measuring → `number`, with concrete
+  examples. `MANIFEST-SCHEMA.md` gets a matching one-liner.
+  (Fixes #189)
+
 - **Settings card list is alphabetical and toggles in place.** The
   previous Enabled/Disabled split meant toggling a card reshuffled
   the list between groups and scrolled the viewport to the top —
