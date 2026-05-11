@@ -7,6 +7,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **Settings card list is alphabetical and toggles in place.** The
+  previous Enabled/Disabled split meant toggling a card reshuffled
+  the list between groups and scrolled the viewport to the top —
+  disorienting when flipping several cards in a row. Cards now sort
+  alphabetically by label in one flat list, the toggle flips state
+  in place via a keyed Lit `repeat`, and the toggle's post-refresh
+  reload runs silently (no "Loading…" flash) so scroll position
+  survives. (Fixes #194)
+
 ### Added
 
 - **E2E regression coverage for combination-card layout switching.**
