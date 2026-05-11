@@ -1,17 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/api/loader-ignores-backup-files.test.js
-// Regression test for #197 (QA-BUGS.md B10): the manifest loader must
-// not treat timestamped backup files (e.g. foo.json.pre-reingest-*.json)
-// as canonical manifests. Today, the loader globs `*.json` in the
-// manifests dir, which includes such backups and produces duplicate-id
-// errors that drop the canonical card.
-//
-// Currently `describe.skip` pending the #197 fix. Un-skip on that
-// PR to prove the fix; the test then locks in the behaviour.
+// Regression tests for #197: the manifest loader must skip timestamped
+// backup files (e.g. foo.json.pre-reingest-*.json) outright rather
+// than parsing them and hitting duplicate-id errors. The previous
+// behaviour produced noisy startup logs and was fragile — if the
+// canonical file ever failed to load first, the backup would "win"
+// and the user would silently be served stale data.
 
-const fs = require('fs');
-const path = require('path');
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 const {
@@ -22,7 +18,7 @@ const {
   fakeAuthState,
 } = require('../helpers/sandbox');
 
-function moodManifest() {
+function moodManifest(mood) {
   return {
     $schema: 'klebb.datafile.v1',
     meta: {
@@ -39,43 +35,81 @@ function moodManifest() {
       },
     },
     description: 'Daily mood rating.',
-    data: [{ date: '2026-05-09', mood: 4 }],
+    data: [{ date: '2026-05-09', mood }],
   };
 }
 
-describe.skip('M3/#197: loader ignores timestamped backup files (SKIP until fix)', () => {
-  let sandbox, server, auth;
+describe('M3/#197: loader skips timestamped backup files', () => {
+  describe('canonical present + backup present', () => {
+    let sandbox, server, auth;
 
-  before(async () => {
-    auth = fakeAuthState('e2e-user');
-    sandbox = createSandbox({
-      seed: {
-        'mood.json': moodManifest(),
-        // Drop a backup file next to the canonical one. Same $schema,
-        // same meta.id — would currently trigger duplicate-id error
-        // and drop the canonical card too.
-        'mood.json.pre-reingest-2026-05-10T000000000Z.json': moodManifest(),
-      },
-      credentials: auth.credentials,
-      sessions: auth.sessions,
+    before(async () => {
+      auth = fakeAuthState('e2e-user');
+      sandbox = createSandbox({
+        seed: {
+          'mood.json': moodManifest(4),
+          // Distinct data value so we can prove which file was loaded.
+          'mood.json.pre-reingest-2026-05-10T000000000Z.json': moodManifest(1),
+        },
+        credentials: auth.credentials,
+        sessions: auth.sessions,
+      });
+      server = await spawnServer(sandbox);
     });
-    server = await spawnServer(sandbox);
+
+    after(async () => {
+      if (server) await server.kill();
+      cleanupSandbox(sandbox);
+    });
+
+    test('mood loads exactly once with canonical data', async () => {
+      const res = await req(server.baseUrl, '/api/manifests', { cookie: auth.cookie });
+      assert.equal(res.status, 200);
+      const ids = res.json.entries.map(e => e.id);
+      const moodEntries = res.json.entries.filter(e => e.id === 'mood');
+      assert.equal(moodEntries.length, 1, 'mood loaded exactly once');
+      assert.ok(ids.includes('mood'));
+
+      // Authoritatively read the canonical data via the API.
+      const dataRes = await req(server.baseUrl, '/api/manifests/mood/data', {
+        cookie: auth.cookie,
+      });
+      assert.equal(dataRes.status, 200);
+      // Canonical has mood=4; backup has mood=1. If the backup won,
+      // this assertion flips.
+      assert.equal(dataRes.json.data[0].mood, 4, 'canonical file won, not backup');
+    });
   });
 
-  after(async () => {
-    if (server) await server.kill();
-    cleanupSandbox(sandbox);
-  });
+  describe('backup only (canonical missing)', () => {
+    let sandbox, server, auth;
 
-  test('canonical mood card loads; backup file ignored', async () => {
-    const res = await req(server.baseUrl, '/api/manifests', { cookie: auth.cookie });
-    assert.equal(res.status, 200);
-    const ids = res.json.entries.map(e => e.id);
-    assert.ok(ids.includes('mood'), 'mood card was loaded');
-    assert.equal(
-      res.json.entries.filter(e => e.id === 'mood').length,
-      1,
-      'mood loaded exactly once',
-    );
+    before(async () => {
+      auth = fakeAuthState('e2e-user');
+      sandbox = createSandbox({
+        // No canonical mood.json; only the backup. The loader should
+        // NOT resurrect the card from the backup — backups are not
+        // manifests and must be ignored regardless of what sits beside
+        // them.
+        seed: {
+          'mood.json.pre-reingest-2026-05-10T000000000Z.json': moodManifest(1),
+        },
+        credentials: auth.credentials,
+        sessions: auth.sessions,
+      });
+      server = await spawnServer(sandbox);
+    });
+
+    after(async () => {
+      if (server) await server.kill();
+      cleanupSandbox(sandbox);
+    });
+
+    test('mood is absent — backup files never populate the registry', async () => {
+      const res = await req(server.baseUrl, '/api/manifests', { cookie: auth.cookie });
+      assert.equal(res.status, 200);
+      const ids = res.json.entries.map(e => e.id);
+      assert.ok(!ids.includes('mood'), 'backup file must not create a card');
+    });
   });
 });

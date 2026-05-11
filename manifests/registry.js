@@ -34,6 +34,13 @@ let _entries = new Map();   // id -> { meta, description, schema, data, source, 
 let _errors = [];           // [{file, error}]
 let _watcher = null;
 
+// Backup files created by scripts/migrate-* and scripts/reingest-hae
+// land beside the canonical manifest with a timestamped suffix before
+// the final `.json` — e.g. `mood.json.pre-reingest-2026-05-10T...json`.
+// The shared shape is "two .json segments in the filename", which this
+// regex captures without hard-coding every known suffix. See #197.
+const BACKUP_NAME_RE = /\.json\.[^/\\]+\.json$/i;
+
 function _scanDir(dir) {
   const found = [];
   let entries;
@@ -51,6 +58,7 @@ function _scanDir(dir) {
       continue;
     }
     if (!ent.name.endsWith('.json')) continue;
+    if (BACKUP_NAME_RE.test(ent.name)) continue;
     found.push(path.join(dir, ent.name));
   }
   return found;
