@@ -23,6 +23,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Playwright end-to-end test harness.** New `tests-e2e/` directory
+  and `npm run test:e2e` script drive a headless Chromium against an
+  ephemeral sandbox (same harness `tests/helpers/sandbox.js` uses),
+  injecting a valid session via the existing `fakeAuthState` helper
+  so specs land directly on the authenticated app. Separate
+  `e2e.yml` GitHub Actions workflow runs the suite on every PR and
+  archives traces, screenshots, and the HTML report on failure. New
+  `docs/TESTING.md` documents the three-layer rubric: unit → API
+  integration → E2E. Headed runs (`npm run test:e2e:headed`) get a
+  400ms slow-mo and an in-page banner showing the current test
+  title for comfortable watch-along debugging. (Fixes #198)
+
 - **CC-specific embellishment chips after create/edit.** When the chat
   agent creates or edits a `component: "combination-card"` manifest,
   the reply carries clickable chips offering the embellishments that

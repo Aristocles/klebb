@@ -48,3 +48,10 @@ System Volume Information
 # Scratch
 /tmp/
 /scratch/
+QA-BUGS.md
+
+# Playwright (E2E harness)
+/tests-e2e/.state/
+/test-results/
+/playwright-report/
+/playwright/.cache/
