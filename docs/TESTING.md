@@ -142,11 +142,47 @@ GitHub Actions runs all three layers on every PR:
 
 ## PR expectations
 
-Every non-trivial PR should include regression coverage at the right
-layer. If you're fixing a bug, write the test that proves the fix
-first (fails on current `main`, passes with the fix). If you're
-adding a feature, cover the happy path + one edge case.
+Every non-trivial PR ships with regression coverage at the right
+layer. The PR template encodes this as a checklist; CI runs both
+suites on every PR regardless.
 
-If a change legitimately doesn't need a new test, say so in the PR
-body. "No new tests because this is a pure doc change" is fine. "No
-new tests because I ran it locally" is not.
+### Bug-fix PRs
+
+1. Check `tests/api/` for an existing `describe.skip`-d seed matching
+   your issue. If one exists, you un-skip that file. If not, write a
+   new one named after the bug.
+2. Show the test **fails against current `main`**. This is the proof
+   that the test is actually wired up to the bug, not just adjacent
+   to it.
+3. Make the fix.
+4. Show the test now passes.
+5. Run the full suite (`npm test` + `npm run test:e2e`) to confirm
+   no regressions elsewhere.
+6. Push. CI re-runs everything.
+
+A test that skips on main and still skips on your branch is not
+coverage; it's decoration.
+
+### Feature PRs
+
+Happy path + at least one edge case. Choose the layer that matches
+what the feature actually does:
+- New API route → `tests/api/`.
+- New renderer / UX flow → `tests-e2e/`.
+- New pure-logic helper → `tests/`.
+
+If the feature touches multiple layers (new API + new renderer),
+cover each.
+
+### When a test genuinely isn't needed
+
+Say so in the PR body, with the reason. Accepted forms:
+- "Doc-only change."
+- "Pure rename, no behaviour change."
+- "Comment tweak."
+- "Dependency bump, covered by existing suite."
+
+Not accepted:
+- "I ran it locally."
+- "Too hard to test."
+- "Will add later."
