@@ -1274,11 +1274,29 @@ const server = http.createServer(async (req, res) => {
             .filter(m => m && typeof m === 'object'
               && (m.role === 'user' || m.role === 'assistant')
               && typeof m.content === 'string')
-            .map(m => ({
-              id: typeof m.id === 'string' ? m.id : `m${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-              role: m.role,
-              content: m.content,
-            }))
+            .map(m => {
+              const out = {
+                id: typeof m.id === 'string' ? m.id : `m${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                role: m.role,
+                content: m.content,
+              };
+              // Preserve the embellishment chip payload that CC-create/edit
+              // replies carry, so it survives a page reload or chat reopen
+              // (see #191). Only shallow-validate shape; labels/prompts are
+              // strings the client will show and send back.
+              if (typeof m.followupText === 'string' && m.followupText) {
+                out.followupText = m.followupText;
+              }
+              if (Array.isArray(m.embellishments) && m.embellishments.length) {
+                out.embellishments = m.embellishments
+                  .filter(e => e && typeof e === 'object'
+                    && typeof e.label === 'string'
+                    && typeof e.prompt === 'string')
+                  .map(e => ({ label: e.label, prompt: e.prompt }));
+                if (out.embellishments.length === 0) delete out.embellishments;
+              }
+              return out;
+            })
             .slice(-200);
           try {
             fs.mkdirSync(PATHS.CHAT_DIR, { recursive: true });
