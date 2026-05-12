@@ -7,6 +7,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **"Dismiss all" on the HAE discovery card's unsupported-metrics
+  footer.** A single button dismisses every undismissed unsupported
+  metric in one click, avoiding the per-row tedium on instances
+  with 15+ pending metrics. Button sits next to the expand chevron,
+  visible without expanding the list. Per-row dismiss buttons
+  removed to simplify — operators can un-hide from Settings if they
+  want a specific metric back. Fan-out calls the existing
+  per-metric dismiss endpoint in parallel, so no new server
+  surface. (Fixes #218)
+
 ### Added
 
 - **Mood card's daily prompt enabled by default.** The canonical

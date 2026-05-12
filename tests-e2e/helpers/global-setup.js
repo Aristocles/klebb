@@ -31,7 +31,14 @@ module.exports = async () => {
     sessions: auth.sessions,
   });
 
-  const server = await spawnServer(sandbox);
+  // Pin the sandbox server's TZ to match the host. Node's default
+  // when TZ is unset is UTC for Intl/Date.toLocaleDateString, which
+  // drifts from the browser's local TZ and trips writeable-card
+  // date-allowance checks when the UTC date is a day behind local.
+  // Intl.DateTimeFormat().resolvedOptions() gives us the host zone
+  // in a portable way (Windows doesn't expose IANA names via TZ).
+  const hostTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const server = await spawnServer(sandbox, { TZ: hostTz });
 
   const state = {
     sandbox,

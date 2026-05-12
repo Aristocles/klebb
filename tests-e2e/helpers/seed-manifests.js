@@ -160,9 +160,18 @@ function peptides(today) {
 // rendering path.
 function discoveredMetrics() {
   return {
-    // Not in the HAE catalogue → classified as "unsupported", surfaces
-    // in the discovery card's footer rather than the main list.
+    // Three unsupported metrics. None are in the HAE catalogue, so
+    // they surface in the discovery card's footer. Multiple entries
+    // make the "Dismiss all" spec (see #218) meaningful.
     e2e_unsupported_metric: {
+      firstSeenAt: '2026-05-01T00:00:00.000Z',
+      dismissed: false,
+    },
+    e2e_unsupported_beta: {
+      firstSeenAt: '2026-05-01T00:00:00.000Z',
+      dismissed: false,
+    },
+    e2e_unsupported_gamma: {
       firstSeenAt: '2026-05-01T00:00:00.000Z',
       dismissed: false,
     },
