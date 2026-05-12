@@ -137,6 +137,23 @@ export class EhHaeDiscoveryCard extends LitElement {
     }
   }
 
+  // Fan-out for unsupported metrics. See #218 — on a configured
+  // instance there can be 18+ of these sitting in the footer, and
+  // dismissing them one-by-one is painful.
+  async _dismissAllUnsupported() {
+    const metrics = (this._data?.undismissed?.unsupported || []).map(e => e.metric);
+    if (metrics.length === 0) return;
+    this._busyMetric = '::unsupported';
+    try {
+      await Promise.all(metrics.map(m =>
+        fetch(`/api/health-auto-export/discoveries/${encodeURIComponent(m)}/dismiss`,
+          { method: 'POST' })));
+      for (const m of metrics) this._removeLocally(m);
+    } finally {
+      this._busyMetric = null;
+    }
+  }
+
   _removeLocally(metric) {
     if (!this._data) return;
     const d = this._data;
@@ -258,16 +275,25 @@ export class EhHaeDiscoveryCard extends LitElement {
   _renderUnsupportedFooter(entries) {
     const open = this._unsupportedOpen;
     const n = entries.length;
+    const busy = this._busyMetric === '::unsupported';
     return html`
       <div class="unsupported">
-        <button
-          class="unsupported-toggle"
-          @click=${() => { this._unsupportedOpen = !this._unsupportedOpen; }}
-          aria-expanded=${open}
-        >
-          ${n} more ${n === 1 ? 'metric' : 'metrics'} received but not supported yet
-          <span class="chev">${open ? '▴' : '▾'}</span>
-        </button>
+        <div class="unsupported-header">
+          <button
+            class="unsupported-toggle"
+            @click=${() => { this._unsupportedOpen = !this._unsupportedOpen; }}
+            aria-expanded=${open}
+          >
+            ${n} more ${n === 1 ? 'metric' : 'metrics'} received but not supported yet
+            <span class="chev">${open ? '▴' : '▾'}</span>
+          </button>
+          <button
+            class="btn unsupported-dismiss-all"
+            ?disabled=${busy}
+            @click=${() => this._dismissAllUnsupported()}
+            aria-label="Dismiss all unsupported metrics"
+          >Dismiss all</button>
+        </div>
         ${open ? html`
           <p class="unsupported-hint">
             Klebb doesn't have a catalogue entry for these yet. They're archived
@@ -279,13 +305,6 @@ export class EhHaeDiscoveryCard extends LitElement {
               <li class="row muted-row">
                 <span class="row-label">
                   <span class="metric-key">${e.metric}</span>
-                </span>
-                <span class="row-actions">
-                  <button
-                    class="btn"
-                    ?disabled=${this._busyMetric === e.metric}
-                    @click=${() => this._dismiss(e.metric)}
-                  >Dismiss</button>
                 </span>
               </li>
             `)}
@@ -440,6 +459,23 @@ export class EhHaeDiscoveryCard extends LitElement {
       margin-top: 12px;
       padding-top: 10px;
       border-top: 1px solid var(--border);
+    }
+    /* Toggle + dismiss-all sit on one row so the operator can wipe
+       the whole unsupported list in one click without having to
+       expand it first. See #218. */
+    .unsupported-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .unsupported-header .unsupported-toggle {
+      flex: 1;
+      text-align: left;
+      justify-content: flex-start;
+    }
+    .unsupported-dismiss-all {
+      flex: 0 0 auto;
     }
     .unsupported-toggle {
       font: inherit;
