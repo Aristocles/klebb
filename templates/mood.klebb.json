@@ -38,12 +38,18 @@
         "fallback": "🙂"
       }
     },
+    "prompt": {
+      "enabled": true,
+      "mode": "modal",
+      "whenMissing": true
+    },
     "writeable": {
       "fromWebapp": true,
       "maxReadingsPerDay": 1,
+      "requireAny": ["mood", "notes"],
       "inputs": [
-        { "key": "mood", "type": "rating", "min": 1, "max": 5, "required": true },
-        { "key": "notes", "type": "textarea", "required": false }
+        { "key": "mood", "type": "rating", "min": 1, "max": 5 },
+        { "key": "notes", "type": "textarea" }
       ]
     }
   },
