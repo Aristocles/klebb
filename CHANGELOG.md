@@ -7,6 +7,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **Rating input consults `display.emojiMap` to render emoji buttons.**
+  When a manifest's `view.display.emojiMap` is present, a
+  `type: "rating"` input now labels its buttons with the mapped
+  emojis (😩 😔 😐 🙂 😄) instead of raw numbers. The underlying
+  saved value stays numeric — the emojis are label-only. Works
+  with both the flat emojiMap shape (`{"1": "😩", ...}`, used by
+  mood) and the keyed shape (`{mood: {"1": "😩", ...}}`, used by
+  multi-field cards). Threads `display` through all four
+  `eh-input-form` callers: generic-card, combination-card,
+  list-card, prompt-modal. (Refs #193 Part A)
+
 ### Added
 
 - **`{key:check}` display-template modifier for boolean fields.**
