@@ -217,6 +217,8 @@ Everything else is optional pass-through. The endpoint is lenient: if the render
 
 **Gotcha — \`meta.view.display\` is an object, never a string.** Use \`"display": {"template": "{bpm} bpm"}\`, NOT \`"display": "{bpm} bpm"\`. The object can carry \`template\`, \`secondary\`, \`emptyHeadline\`, \`emojiMap\`, \`thresholds\`, \`trendArrow\`, \`unit\`, and \`subtitle\`. A bare string won't render anything.
 
+**Either-or required — \`writeable.requireAny\`.** Some cards accept more than one input where at least one must be filled (e.g. mood lets you log a number, a journal line, or both). Set \`requireAny: [\"mood\", \"note\"]\` instead of flagging each input with \`required: true\` — the form enables Save when ANY listed key has a value. Individual \`required: true\` flags still apply in addition, for fields that must ALWAYS be present.
+
 **Gotcha — booleans in a display template.** A bare \`{trained}\` in a template stringifies the value literally, so a row like \`{trained: true, type: "Functional Strength Training"}\` renders \"true · Functional Strength Training\" on the card. That's never what you want. For boolean fields, prefer:
 - \`{trained:check}\` → renders \`✅\` when true, empty string when false/missing. Best default for \"did this thing happen today\" cards (workouts, meditation, journal).
 - \`{trained?Trained:Rest}\` ternary → when you need both branches labelled.
@@ -247,6 +249,7 @@ For a workouts card specifically: use \`"template": "{type}"\` + drop \`dateCont
       "pastAllowed":  false,
       "futureAllowed":false,
       "maxReadingsPerDay": 1,
+      "requireAny": ["mood", "note"],          // optional either-or gate
       "inputs": [ { "key":"...", "label":"...", "type":"...", ... } ]
     },
     "prompt":   { "enabled": false, "mode": "modal", "whenMissing": true }
