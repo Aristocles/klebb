@@ -111,6 +111,47 @@ describe('display-template', () => {
     test('literal braces with unresolvable key render empty', () => {
       assert.equal(renderTemplate('{xxx}', { yyy: 1 }), '');
     });
+
+    // #215: booleans used to stringify to "true" / "false" which looked
+    // silly on cards like workouts ("{trained} · {type}" → "true · ...").
+    // The :check modifier renders a tick when truthy, empty string
+    // otherwise, and the ternary shorthand continues to be the flexible
+    // escape hatch.
+    describe('boolean handling (#215)', () => {
+      test(':check modifier — true renders ✅', () => {
+        assert.equal(renderTemplate('{trained:check}', { trained: true }), '✅');
+      });
+
+      test(':check modifier — false renders empty', () => {
+        assert.equal(renderTemplate('{trained:check}', { trained: false }), '');
+      });
+
+      test(':check modifier — missing renders empty', () => {
+        assert.equal(renderTemplate('{trained:check}', {}), '');
+      });
+
+      test(':check modifier — truthy non-bool (string) also renders ✅', () => {
+        // Any truthy value is treated as "yes, this happened". Keeps the
+        // modifier useful when a manifest upgrades from bool to a richer
+        // field without breaking the display.
+        assert.equal(renderTemplate('{type:check}', { type: 'Strength' }), '✅');
+      });
+
+      test(':check modifier — 0 renders empty (falsy)', () => {
+        assert.equal(renderTemplate('{count:check}', { count: 0 }), '');
+      });
+
+      test('ternary still works as the flexible bool shorthand', () => {
+        assert.equal(
+          renderTemplate('{trained?Trained:Rest}', { trained: true }),
+          'Trained'
+        );
+        assert.equal(
+          renderTemplate('{trained?Trained:Rest}', { trained: false }),
+          'Rest'
+        );
+      });
+    });
   });
 
   describe('getValue', () => {

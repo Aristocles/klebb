@@ -217,6 +217,12 @@ Everything else is optional pass-through. The endpoint is lenient: if the render
 
 **Gotcha — \`meta.view.display\` is an object, never a string.** Use \`"display": {"template": "{bpm} bpm"}\`, NOT \`"display": "{bpm} bpm"\`. The object can carry \`template\`, \`secondary\`, \`emptyHeadline\`, \`emojiMap\`, \`thresholds\`, \`trendArrow\`, \`unit\`, and \`subtitle\`. A bare string won't render anything.
 
+**Gotcha — booleans in a display template.** A bare \`{trained}\` in a template stringifies the value literally, so a row like \`{trained: true, type: "Functional Strength Training"}\` renders \"true · Functional Strength Training\" on the card. That's never what you want. For boolean fields, prefer:
+- \`{trained:check}\` → renders \`✅\` when true, empty string when false/missing. Best default for \"did this thing happen today\" cards (workouts, meditation, journal).
+- \`{trained?Trained:Rest}\` ternary → when you need both branches labelled.
+
+For a workouts card specifically: use \`"template": "{type}"\` + drop \`dateContext: \"latest\"\` (otherwise every non-workout day shows the most recent workout, which misleads the user). On days without a workout the card uses \`emptyHeadline\` instead — \"No workout today\" or similar.
+
 **Gotcha — writeable cards MUST declare \`meta.writeable.inputs\`.** If \`meta.writeable.fromWebapp: true\` is set, the manifest MUST carry a non-empty \`meta.writeable.inputs\` array that covers every field the card's \`description\` mentions. Without inputs, the edit-form is a primary-field-only stub and the per-row three-dot button (which opens secondary-field editing on list-card) never appears. Concretely: if the description says "Array of {date, type, location, status, followUp, note}", the manifest must declare inputs for all of those keys. For \`list-card\` also set \`meta.view.display.primaryField\` to the key whose value is the row title (e.g. \`"name"\`) so the renderer knows which input is primary vs secondary.
 
 ### Full manifest shape
