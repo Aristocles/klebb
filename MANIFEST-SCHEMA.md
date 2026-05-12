@@ -187,10 +187,19 @@ Template syntax:
 - `{key}` → `row[key]`
 - `{key:round(N)}` → round to N decimals
 - `{key:emoji}` → look up in `emojiMap[key]`
+- `{key:check}` → render `✅` when truthy, empty string when falsy/missing
+- `{key:truncate(N)}` → cap a string at N chars, append `…` when cut
 - `{key|default}` → fallback when empty
 - `{key?yes:no}` → ternary on truthiness
 - `{nested.path}` → dotted access
 - Missing keys render as empty string
+
+Use `{bool:check}` (not `{bool}`) for boolean fields like a workouts
+card's `trained`. A bare `{trained}` stringifies to the literal
+`"true"` / `"false"`, which looks wrong. `{trained:check}` gives you
+a tick when it happened and nothing when it didn't, which is almost
+always what you want on a card headline. If you need both branches
+(e.g. "Trained" vs "Rest day"), use the ternary: `{trained?Trained:Rest}`.
 
 `unit` prints a small secondary string next to the headline.
 

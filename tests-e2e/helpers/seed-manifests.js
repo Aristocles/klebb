@@ -281,6 +281,36 @@ function water(today) {
   };
 }
 
+function workouts(today) {
+  return {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'workouts',
+      label: 'Workouts',
+      emoji: '🏋️',
+      order: 420,
+      category: 'activity',
+      ingest: { source: 'hae', metric: 'workouts' },
+      view: {
+        enabled: true,
+        component: 'generic-card',
+        // No dateContext:latest — we want the card to honour viewed
+        // date so non-workout days show the empty state, not the last
+        // trained day's leftovers. See #215.
+        display: {
+          template: '{trained:check} {type}',
+          emptyHeadline: 'No workout today',
+        },
+      },
+      writeable: { fromWebapp: false },
+    },
+    description: 'Workout data ingested from Health Auto Export. One row per date. Fields: date, trained (boolean), type (workout type string).',
+    data: [
+      { date: today, trained: true, type: 'Functional Strength Training' },
+    ],
+  };
+}
+
 function seedManifests() {
   const today = todayISO();
   return {
@@ -291,6 +321,7 @@ function seedManifests() {
     'resting-heart-rate.json': restingHr(today),
     'recovery-overview.json': recoveryOverview('stack'),
     'water-intake.json': water(today),
+    'workouts.json': workouts(today),
     'auto-export/discovered.json': discoveredMetrics(),
   };
 }

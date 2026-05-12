@@ -28,6 +28,7 @@ test.describe('#194: Settings card list is alphabetical and toggles in place', (
     //   Schedule            (id: peptides)
     //   Water               (id: water-intake)
     //   Weight              (id: weight)
+    //   Workouts            (id: workouts)
     expect(ids).toEqual([
       'hrv',
       'mood',
@@ -36,6 +37,7 @@ test.describe('#194: Settings card list is alphabetical and toggles in place', (
       'peptides',
       'water-intake',
       'weight',
+      'workouts',
     ]);
   });
 
