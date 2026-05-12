@@ -561,6 +561,7 @@ export class EhListCard extends EhBaseCard {
                   <eh-input-form
                     .inputs=${secondaryInputs}
                     .values=${row}
+                    .display=${display}
                     submit-label="Apply"
                     cancel-label="Cancel"
                     @eh-submit=${(e) => this._onExpandedFormSubmit(idx, e)}

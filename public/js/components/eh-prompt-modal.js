@@ -262,6 +262,7 @@ export class EhPromptModal extends LitElement {
     if (!this.card) return html``;
     const meta = this.card.meta || {};
     const inputs = meta.writeable?.inputs || [];
+    const display = meta.view?.display || null;
     const today = this.date || localToday();
     return html`
       <dialog aria-modal="true" aria-label="${meta.label || 'Log entry'}">
@@ -288,6 +289,7 @@ export class EhPromptModal extends LitElement {
               .inputs=${inputs}
               .values=${{}}
               .date=${today}
+              .display=${display}
               .busy=${this._busy}
               submit-label="Save"
               cancel-label="Not now"

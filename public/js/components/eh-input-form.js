@@ -34,6 +34,12 @@ export class EhInputForm extends LitElement {
     inputs: { type: Array },
     values: { type: Object },
     date: { type: String },
+    // Optional `meta.view.display` from the host card. When present,
+    // certain input types (currently `rating`) consult its
+    // `emojiMap[input.key]` so the buttons render as emojis instead
+    // of plain numbers — matching what the card headline already
+    // shows. See #193.
+    display: { type: Object },
     submitLabel: { type: String, attribute: 'submit-label' },
     cancelLabel: { type: String, attribute: 'cancel-label' },
     busy: { type: Boolean },
@@ -46,6 +52,7 @@ export class EhInputForm extends LitElement {
     this.inputs = [];
     this.values = {};
     this.date = null;
+    this.display = null;
     this.submitLabel = 'Save';
     this.cancelLabel = 'Cancel';
     this.busy = false;
@@ -274,15 +281,37 @@ export class EhInputForm extends LitElement {
         const max = input.max ?? 5;
         const range = [];
         for (let i = min; i <= max; i++) range.push(i);
+        // When the host card's display block carries an emojiMap,
+        // render emojis as the button label instead of the raw number.
+        // Two emojiMap shapes are supported, matching what the rest
+        // of the app already handles:
+        //   flat:  { "1": "😩", "2": "😔", ... }        — used by mood, most atomic rating cards
+        //   keyed: { mood: {"1": "😩", ...}, ... }      — used by multi-field cards / {key:emoji} template
+        // Value persisted on save stays the numeric index — the
+        // emoji is label-only. See #193.
+        const rawMap = this.display && this.display.emojiMap;
+        let emojiMap = null;
+        if (rawMap && typeof rawMap === 'object') {
+          if (rawMap[input.key] && typeof rawMap[input.key] === 'object') {
+            emojiMap = rawMap[input.key];
+          } else if (rawMap[String(min)] !== undefined || rawMap[min] !== undefined) {
+            // Flat shape — keys look like the rating values themselves.
+            emojiMap = rawMap;
+          }
+        }
         return html`
           <div class="rating-row">
-            ${range.map(i => html`
-              <button
-                type="button"
-                class="rating ${Number(v) === i ? 'selected' : ''}"
-                @click=${() => this._update(input.key, i)}
-              >${i}</button>
-            `)}
+            ${range.map(i => {
+              const label = (emojiMap && (emojiMap[String(i)] ?? emojiMap[i])) || String(i);
+              return html`
+                <button
+                  type="button"
+                  class="rating ${emojiMap ? 'rating-emoji' : ''} ${Number(v) === i ? 'selected' : ''}"
+                  @click=${() => this._update(input.key, i)}
+                  aria-label="${input.label || input.key} ${i}"
+                >${label}</button>
+              `;
+            })}
           </div>`;
       }
       default:
@@ -354,6 +383,10 @@ export class EhInputForm extends LitElement {
       min-width: 40px;
     }
     .rating { font-size: 14px; font-weight: 600; }
+    /* When the rating renders emoji labels (driven by display.emojiMap
+       on the host manifest — see #193), bump the font size so the
+       emoji read at a touch-friendly size. */
+    .rating.rating-emoji { font-size: 22px; font-weight: normal; padding: 6px 8px; }
     .emoji.selected, .rating.selected {
       border-color: var(--accent);
       background: var(--accent);

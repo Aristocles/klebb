@@ -69,9 +69,11 @@ test.describe('#182: cards with dateContext:latest honour past-date navigation',
     await moodCard.locator('.edit-btn').click();
 
     // The form is an eh-input-form with a rating input of type "rating".
-    // The rating renderer emits buttons 1..5; click the "1" to change
-    // mood to 1. Scope to the mood card to avoid catching a weight input.
-    await moodCard.locator('eh-input-form').getByRole('button', { name: '1', exact: true }).click();
+    // When display.emojiMap is present the buttons show emoji labels
+    // with aria-label "mood 1" / "mood 2" etc. (see #193). Click by
+    // aria-label so the spec is stable whether numbers or emojis
+    // render.
+    await moodCard.locator('eh-input-form').getByRole('button', { name: 'mood 1' }).click();
 
     // Submit.
     await moodCard.locator('eh-input-form').getByRole('button', { name: /save|update/i }).click();
