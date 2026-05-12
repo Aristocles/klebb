@@ -254,6 +254,7 @@ export class EhCombinationCard extends LitElement {
     const src = this._sources?.[sourceId];
     if (!src?.meta?.writeable?.inputs) return '';
     const inputs = src.meta.writeable.inputs;
+    const donorDisplay = src.meta?.view?.display || null;
     // Prefill with the donor's current row for this date, if any.
     const rows = Array.isArray(src.data) ? src.data : [];
     const current = rows.find(r => r && r.date === this.date) || {};
@@ -268,6 +269,7 @@ export class EhCombinationCard extends LitElement {
           .inputs=${inputs}
           .values=${current}
           .date=${this.date}
+          .display=${donorDisplay}
           submit-label=${hasEntry ? 'Update' : 'Add'}
           ?busy=${this._saving}
           @eh-submit=${(e) => this._onDonorSubmit(sourceId, e)}
