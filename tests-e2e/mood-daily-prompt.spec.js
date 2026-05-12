@@ -18,9 +18,16 @@ test.describe('#193 Part C: mood daily prompt fires when today has no entry', ()
     // one for today by default — writeable APIs let us drop it).
     const read = await page.request.get(`${sandboxState.baseUrl}/api/manifests/mood/data`);
     const body = await read.json();
+    // Both the browser and the sandbox server use the host timezone
+    // (global-setup passes TZ: Intl.DateTimeFormat().resolvedOptions()
+    // .timeZone into spawnServer), so host-local Date is the common
+    // source of truth.
     const todayIso = (() => {
       const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
     })();
     const withoutToday = body.data.filter(r => r.date !== todayIso);
     const put = await page.request.post(
