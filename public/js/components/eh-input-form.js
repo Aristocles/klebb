@@ -38,8 +38,14 @@ export class EhInputForm extends LitElement {
     // certain input types (currently `rating`) consult its
     // `emojiMap[input.key]` so the buttons render as emojis instead
     // of plain numbers — matching what the card headline already
-    // shows. See #193.
+    // shows. See #193 Part A.
     display: { type: Object },
+    // Optional cross-field "either-or" required list. When set (e.g.
+    // ["mood", "note"]) the form validates as "at least one of these
+    // keys has a value". Individual inputs' `required: true` flags
+    // still apply in addition — use requireAny for the listed keys
+    // instead of per-input required. See #193 Part B.
+    requireAny: { type: Array, attribute: 'require-any' },
     submitLabel: { type: String, attribute: 'submit-label' },
     cancelLabel: { type: String, attribute: 'cancel-label' },
     busy: { type: Boolean },
@@ -53,6 +59,7 @@ export class EhInputForm extends LitElement {
     this.values = {};
     this.date = null;
     this.display = null;
+    this.requireAny = null;
     this.submitLabel = 'Save';
     this.cancelLabel = 'Cancel';
     this.busy = false;
@@ -87,6 +94,16 @@ export class EhInputForm extends LitElement {
         const v = this._state[input.key];
         if (v === null || v === undefined || v === '') return false;
       }
+    }
+    // requireAny: at least one of the listed keys must have a value.
+    // Use this for either-or fields like mood's [mood, note] where the
+    // user might log just a feeling, just a journal line, or both.
+    if (Array.isArray(this.requireAny) && this.requireAny.length > 0) {
+      const hasAny = this.requireAny.some(k => {
+        const v = this._state[k];
+        return v !== null && v !== undefined && v !== '';
+      });
+      if (!hasAny) return false;
     }
     return true;
   }
