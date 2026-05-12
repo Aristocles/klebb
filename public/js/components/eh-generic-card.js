@@ -269,6 +269,7 @@ export class EhGenericCard extends EhBaseCard {
             .values=${entry || {}}
             .date=${this.date}
             .display=${display}
+            .requireAny=${meta.writeable.requireAny || null}
             submit-label=${hasEntry ? 'Update' : 'Add'}
             ?busy=${this._saving}
             @eh-submit=${this._onSubmit}
