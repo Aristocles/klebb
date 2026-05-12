@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Mood card's daily prompt enabled by default.** The canonical
+  mood template (`templates/mood.klebb.json`) now carries
+  `prompt: { enabled: true, mode: "modal", whenMissing: true }` so
+  the daily modal fires on first load when today has no entry. The
+  modal's input form picks up `display.emojiMap` + `requireAny`
+  from the card, so the combined experience from parts A/B/C is:
+  five emoji buttons, an optional note textarea, Save enabled when
+  either or both are filled. (Fixes #193 Part C; closes #193)
+
 - **`writeable.requireAny` for either-or inputs.** A new optional
   array on `meta.writeable` lists input keys at least one of which
   must be filled for the Save button to enable. Mood uses it for

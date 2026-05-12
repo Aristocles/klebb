@@ -80,6 +80,9 @@ function mood(today) {
           emojiMap: { 1: '😩', 2: '😔', 3: '😐', 4: '🙂', 5: '😄' },
         },
       },
+      // Daily mood prompt: fires once a day on first load if today has
+      // no entry. See #193 Part C.
+      prompt: { enabled: true, mode: 'modal', whenMissing: true },
       writeable: {
         fromWebapp: true,
         todayAllowed: true,
