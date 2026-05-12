@@ -270,6 +270,7 @@ export class EhCombinationCard extends LitElement {
           .values=${current}
           .date=${this.date}
           .display=${donorDisplay}
+          .requireAny=${src.meta?.writeable?.requireAny || null}
           submit-label=${hasEntry ? 'Update' : 'Add'}
           ?busy=${this._saving}
           @eh-submit=${(e) => this._onDonorSubmit(sourceId, e)}

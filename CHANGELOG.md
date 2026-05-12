@@ -7,6 +7,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **`writeable.requireAny` for either-or inputs.** A new optional
+  array on `meta.writeable` lists input keys at least one of which
+  must be filled for the Save button to enable. Mood uses it for
+  `["mood", "note"]` so the user can log a feeling, a journal
+  line, or both — without being blocked by a per-input
+  `required: true`. Individual `required` flags still apply for
+  fields that must always be present.
+  (Fixes #193 Part B)
+
 ### Changed
 
 - **Rating input consults `display.emojiMap` to render emoji buttons.**

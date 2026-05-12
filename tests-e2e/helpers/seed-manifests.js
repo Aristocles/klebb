@@ -86,9 +86,13 @@ function mood(today) {
         pastAllowed: true,
         futureAllowed: false,
         maxReadingsPerDay: 1,
+        // Either mood OR note is required (see #193 Part B). Neither
+        // input carries required: true; the requireAny list gates the
+        // Save button at the form level.
+        requireAny: ['mood', 'note'],
         inputs: [
-          { key: 'mood', type: 'rating', min: 1, max: 5, required: true },
-          { key: 'note', type: 'textarea', required: false },
+          { key: 'mood', type: 'rating', min: 1, max: 5 },
+          { key: 'note', type: 'textarea' },
         ],
       },
     },

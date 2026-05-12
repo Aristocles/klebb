@@ -290,6 +290,7 @@ export class EhPromptModal extends LitElement {
               .values=${{}}
               .date=${today}
               .display=${display}
+              .requireAny=${meta.writeable?.requireAny || null}
               .busy=${this._busy}
               submit-label="Save"
               cancel-label="Not now"

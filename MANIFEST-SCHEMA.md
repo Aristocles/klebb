@@ -360,6 +360,7 @@ the calendar.
   "pastAllowed":       true,
   "futureAllowed":     false,
   "maxReadingsPerDay": 1,
+  "requireAny":        ["mood", "note"],
   "inputs": [
     {
       "key":         "kg",
@@ -378,6 +379,13 @@ the calendar.
 `maxReadingsPerDay` defaults to `1` (upsert: the new entry replaces the
 existing entry for that date). Values `>1` append and keep the N most
 recent same-day entries.
+
+`requireAny` is an optional "either-or" list. When present, the edit
+form's Save button stays disabled until at least one of the listed
+keys has a value. Individual inputs' `required: true` flags still
+apply in addition — use `requireAny` instead of per-input `required`
+for the listed keys. Example: mood's `["mood", "note"]` means the
+user can log just a number, just a journal line, or both.
 
 ### Input types
 
