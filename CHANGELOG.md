@@ -7,6 +7,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **`{key:check}` display-template modifier for boolean fields.**
+  Renders `✅` when the value is truthy, empty string when
+  falsy/missing. Cleans up workouts-style cards whose data carries
+  a boolean `trained` field that used to stringify to the literal
+  `"true"` / `"false"` on the card headline. System prompt +
+  `MANIFEST-SCHEMA.md` document the new modifier and nudge
+  klebbius to drop `dateContext: "latest"` on "did it happen
+  today" cards so non-workout days show the empty state instead of
+  a stale trained day. (Fixes #215)
+
 ### Changed
 
 - **Chat agent system prompt nudges toward `stepper` for count-like

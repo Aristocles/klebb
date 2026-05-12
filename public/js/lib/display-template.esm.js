@@ -75,6 +75,12 @@ function resolveField(row, display, expr) {
       const s = String(value);
       return s.length > n ? s.slice(0, n) + '…' : s;
     }
+    // :check — render ✅ when truthy, empty string when falsy/missing.
+    // Use for boolean fields (e.g. workouts `trained`) that shouldn't
+    // stringify to "true"/"false" on the card. See #215.
+    if (modifier === 'check') {
+      return value ? '✅' : (fallback ?? '');
+    }
   }
   if (isEmpty(value)) return fallback ?? '';
   return String(value);
