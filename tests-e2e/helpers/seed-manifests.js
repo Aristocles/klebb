@@ -48,13 +48,22 @@ function weight(today) {
         pastAllowed: true,
         futureAllowed: false,
         maxReadingsPerDay: 1,
+        // Weight varies slowly; pre-fill the add form with the most
+        // recent prior entry so the operator usually needs just a
+        // small tweak. See #217.
+        prefillFromLatest: true,
         inputs: [
           { key: 'kg', type: 'number', required: true, min: 20, max: 500, step: 0.1 },
         ],
       },
     },
     description: 'Body weight log for E2E sandbox.',
+    // Rows at today-4 and today-2 intentionally leave a gap at today-3
+    // so specs that assert "no entry for this date" have a concrete
+    // past date to navigate to where the prefillFromLatest resolver
+    // still has a prior row to work with (today-4).
     data: [
+      { date: shiftDays(today, -4), kg: 81.3 },
       { date: shiftDays(today, -2), kg: 81.2 },
       { date: shiftDays(today, -1), kg: 81.0 },
       { date: today,                kg: 80.9 },
