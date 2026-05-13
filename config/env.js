@@ -219,6 +219,8 @@ Everything else is optional pass-through. The endpoint is lenient: if the render
 
 **Either-or required — \`writeable.requireAny\`.** Some cards accept more than one input where at least one must be filled (e.g. mood lets you log a number, a journal line, or both). Set \`requireAny: [\"mood\", \"note\"]\` instead of flagging each input with \`required: true\` — the form enables Save when ANY listed key has a value. Individual \`required: true\` flags still apply in addition, for fields that must ALWAYS be present.
 
+**Pre-fill with the last entry — \`writeable.prefillFromLatest\`.** Optional boolean (default false). When true, opening the \`➕\` add form on a date with no existing row seeds the inputs from the most recent prior entry — great for weight, BP, body-fat %, and other \"today is almost always close to yesterday\" measurements. The date is dropped so the form still stamps the currently-viewed date. Don't set it on cards where yesterday's value isn't a sensible starting point (daily notes, mood, water-intake counters).
+
 **Gotcha — booleans in a display template.** A bare \`{trained}\` in a template stringifies the value literally, so a row like \`{trained: true, type: "Functional Strength Training"}\` renders \"true · Functional Strength Training\" on the card. That's never what you want. For boolean fields, prefer:
 - \`{trained:check}\` → renders \`✅\` when true, empty string when false/missing. Best default for \"did this thing happen today\" cards (workouts, meditation, journal).
 - \`{trained?Trained:Rest}\` ternary → when you need both branches labelled.
