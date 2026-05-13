@@ -7,6 +7,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **`writeable.prefillFromLatest` pre-fills the add form with the
+  most recent prior entry.** Optional boolean on `meta.writeable`,
+  default off. When true, opening the `➕` add form on a date with
+  no existing row seeds the inputs from the most recent row dated
+  strictly before that date. The `date` field is dropped from the
+  pre-fill so the form still stamps the viewed date on submit. Weight
+  gets the flag by default in the sandbox seed; operators can add it
+  to any canonically slow-changing measurement (BP, body fat). Cards
+  where yesterday's value isn't a sensible start (daily notes, mood,
+  water counters) should leave it absent. (Fixes #217)
+
 ### Changed
 
 - **"Dismiss all" on the HAE discovery card's unsupported-metrics
