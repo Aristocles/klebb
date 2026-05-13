@@ -387,6 +387,14 @@ apply in addition — use `requireAny` instead of per-input `required`
 for the listed keys. Example: mood's `["mood", "note"]` means the
 user can log just a number, just a journal line, or both.
 
+`prefillFromLatest` (optional boolean, default `false`) seeds the add
+form on a date with no row from the most recent prior entry. Useful
+for slowly-changing measurements like weight and BP, where today's
+value is almost always close to yesterday's. Only fires when opening
+the `➕` add form — `✏️` edit of an existing row always pre-fills
+from that row. The `date` field is dropped from the pre-fill so the
+form still stamps the currently-viewed date on submit.
+
 ### Input types
 
 | type | extra fields |

@@ -221,11 +221,37 @@ export class EhGenericCard extends EhBaseCard {
     `,
   ];
 
+  // Resolve the most recent prior entry — the last row dated strictly
+  // before `this.date`. Returns null if none exists. Used by the
+  // prefillFromLatest feature (#217).
+  _latestPriorEntry() {
+    const rows = this._entries();
+    if (rows.length === 0) return null;
+    const target = this.date;
+    const candidates = rows.filter(r => r && r.date && (!target || r.date < target));
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    return candidates[0];
+  }
+
   renderCard() {
     const meta = this._m();
     const display = this._display();
     const entry = this._currentEntry();
     const hasEntry = entry !== null;
+    // prefillFromLatest: when opening the add form on a date with no
+    // existing row, seed the inputs from the most recent prior row so
+    // slowly-changing measurements (weight, BP) land close to the
+    // previous value. Date field is dropped so the form still stamps
+    // the current viewed date. See #217.
+    let prefillValues = null;
+    if (!hasEntry && meta?.writeable?.prefillFromLatest === true) {
+      const prior = this._latestPriorEntry();
+      if (prior) {
+        const { date: _dateIgnored, ...rest } = prior;
+        prefillValues = rest;
+      }
+    }
 
     const canWrite = this._canWrite
       && Array.isArray(meta?.writeable?.inputs)
@@ -266,7 +292,7 @@ export class EhGenericCard extends EhBaseCard {
         ${this._editing ? html`
           <eh-input-form
             .inputs=${meta.writeable.inputs}
-            .values=${entry || {}}
+            .values=${entry || prefillValues || {}}
             .date=${this.date}
             .display=${display}
             .requireAny=${meta.writeable.requireAny || null}
