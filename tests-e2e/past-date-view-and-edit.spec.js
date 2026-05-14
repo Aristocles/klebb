@@ -99,5 +99,17 @@ test.describe('#182: cards with dateContext:latest honour past-date navigation',
     expect(byDate[today]).toBe(5);
     expect(byDate[twoDaysAgo]).toBe(3);
     expect(byDate[shiftDays(today, -3)]).toBe(2);
+
+    // Restore yesterday's seeded value so specs that run later in
+    // the same sandbox run (today-edit-with-no-today-row, etc.) see
+    // the original data instead of our mutation.
+    const restored = onServer.data.map(r =>
+      r.date === yesterday ? { ...r, mood: 4 } : r,
+    );
+    const restoreRes = await page.request.post(
+      `${sandboxState.baseUrl}/api/manifests/mood/data`,
+      { data: { data: restored } },
+    );
+    expect(restoreRes.status()).toBe(200);
   });
 });
