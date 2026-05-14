@@ -9,6 +9,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Edit button on Today with no today-row now targets today, not
+  the fallback day.** Cards with `dateContext: "latest"` correctly
+  fall back to the most recent prior row for display when today has
+  no entry. But clicking the edit button used to open the form
+  pre-filled from that prior row — including its date — so saving
+  rewrote the prior day's row instead of creating a new row for
+  today. Operators hit this on mood after logging yesterday: editing
+  "today" silently clobbered yesterday, and both views kept showing
+  the same row. The edit path now looks up the row for the viewed
+  date specifically; when no such row exists, the form opens in
+  add-mode and the save stamps the viewed date. Display behaviour
+  unchanged.
+
 - **`{key:emoji}` template modifier accepts the flat `emojiMap`
   shape.** The calendar marker (#183) and rating input (#193 Part A)
   both honour both `emojiMap` shapes — flat (`{"1": "😩", ...}`) and
