@@ -21,6 +21,7 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { unsafeHTML } from 'https://esm.sh/lit@3/directives/unsafe-html.js';
 import { marked } from 'https://esm.sh/marked@15.0.7';
 import DOMPurify from 'https://esm.sh/dompurify@3.2.4';
+import { pickStarterPrompts } from '../lib/starter-prompts.esm.js';
 
 // Same parser + flags as the server (server.js uses marked w/ gfm + breaks).
 // GFM gets us tables, task lists, strikethrough, autolinks.
@@ -113,6 +114,9 @@ class HealthChat extends LitElement {
     _agentName: { state: true },
     _agentEmoji: { state: true },
     _expanded: { state: true },
+    // Starter chips, populated from /api/manifests on mount then
+    // sampled via pickStarterPrompts. See #195.
+    _starterChips: { state: true },
   };
 
   static styles = css`
@@ -592,11 +596,48 @@ class HealthChat extends LitElement {
     this._agentEmoji = '\u{1F4AC}'; // 💬 speech balloon
     this._expanded = localStorage.getItem('klebb-chat-expanded') === '1';
     this._saveTimer = null;
+    this._starterChips = null;
     this._checkVoiceAvailability();
     this._checkChatConfigured();
     this._loadInstance();
     this._loadHistory();
+    this._loadStarterChips();
     this._stallWatcher();
+  }
+
+  // Produce a short display label for a starter chip. Chip width is
+  // constrained by the suggestions row layout; full prompt text
+  // stays in the click handler via _useSuggestion().
+  _shortenChipLabel(chip) {
+    const max = 32;
+    const text = chip && chip.text ? chip.text : '';
+    if (text.length <= max) return text;
+    return text.slice(0, max - 1).trimEnd() + '…';
+  }
+
+  // Fetch enabled cards and pick the starter chips once per widget
+  // mount. Stable across opens/closes of the widget; re-rolls on page
+  // reload. See #195.
+  async _loadStarterChips() {
+    try {
+      const r = await fetch('/api/manifests', { cache: 'no-store' });
+      if (!r.ok) return;
+      const body = await r.json();
+      const entries = Array.isArray(body?.entries) ? body.entries : [];
+      const cards = entries
+        .filter(e => e && e.meta && e.meta.enabled !== false)
+        .map(e => ({
+          id: e.id || e.meta?.id,
+          label: e.meta?.label,
+          chat: e.meta?.chat,
+        }));
+      this._starterChips = pickStarterPrompts(cards, { count: 7 });
+    } catch {
+      // Network errors / non-JSON → silently fall through. The render
+      // path handles a null _starterChips by showing nothing
+      // above the fixed Combine-cards chip, which is still useful.
+      this._starterChips = [];
+    }
   }
 
   // ---------- History persistence ----------
@@ -1171,18 +1212,23 @@ class HealthChat extends LitElement {
         `;
       }
       const agent = this._agentName || 'the assistant';
+      // Chips are picked from the enabled cards' meta.chat.starterPrompts
+      // arrays (with generated defaults when absent). The "✨ Combine
+      // cards" chip stays hardcoded — it's meta, not per-card. See #195.
+      const chips = Array.isArray(this._starterChips) ? this._starterChips : [];
       return html`
         <div class="empty-state">
           <div class="icon">💊</div>
           <div>Ask ${agent} about your data — or ask to add, change, or hide cards.</div>
           <div class="suggestions">
-            <span class="suggestion" @click=${() => this._useSuggestion("What supplements am I taking?")}>Supplements</span>
-            <span class="suggestion" @click=${() => this._useSuggestion("What's my injection schedule this week?")}>Injections</span>
-            <span class="suggestion" @click=${() => this._useSuggestion("How did I sleep last night?")}>Sleep</span>
-            <span class="suggestion" @click=${() => this._useSuggestion("Show my latest blood results")}>Bloods</span>
-            <span class="suggestion" @click=${() => this._useSuggestion("Add a card for tracking water intake")}>Add water card</span>
-            <span class="suggestion" @click=${() => this._useSuggestion("Add a card for tracking my daily steps")}>Add steps card</span>
-            <span class="suggestion" @click=${() => this._useSuggestion("Change the mood card to allow multiple entries per day")}>Tweak mood card</span>
+            ${chips.map(chip => html`
+              <span
+                class="suggestion"
+                data-card-id=${chip.cardId || ''}
+                data-kind=${chip.kind || 'data'}
+                @click=${() => this._useSuggestion(chip.text)}
+              >${this._shortenChipLabel(chip)}</span>
+            `)}
             <span
               class="suggestion combine"
               @click=${() => this._useSuggestion("I'd like to combine some of my cards into a single view. Which cards do I have that could work well together in a combination card, and what combination-card layout (rings, stack) would fit best? After writing the card, also suggest 2-3 specific embellishments I could layer on — like switching layout, setting a primary donor, adding daily goals, or colour coding segments.")}
