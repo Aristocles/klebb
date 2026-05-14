@@ -57,5 +57,10 @@ test.describe('#191: chat embellishment chips persist across reload', () => {
       .toBeVisible({ timeout: 10_000 });
     await expect(page.getByText('Switch to stack', { exact: true }))
       .toBeVisible();
+
+    // Clear chat history so later specs (chat-starter-prompts-*) see
+    // an empty chat and exercise the starter-chip path.
+    const cleanup = await page.request.delete(`${sandboxState.baseUrl}/api/chat/history`);
+    expect(cleanup.status()).toBe(200);
   });
 });

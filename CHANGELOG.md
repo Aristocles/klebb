@@ -7,6 +7,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **Chat starter chips are manifest-driven.** The previously-hardcoded
+  chip list ("Supplements", "Injections", "Sleep", ...) often didn't
+  match the user's actual cards. The empty chat widget now samples
+  one prompt per enabled card from its `meta.chat.starterPrompts`
+  array, falling back to a generated `Show me my <label> data` when
+  the field is absent. Entries carry a `kind` (`"data"` or
+  `"tweak"`) and the picker interleaves them so the chip set
+  balances. The hardcoded "✨ Combine cards" meta-chip stays.
+  (Fixes #195)
+
 ### Added
 
 - **`writeable.prefillFromLatest` pre-fills the add form with the
