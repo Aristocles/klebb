@@ -91,7 +91,11 @@ function mood(today) {
         component: 'generic-card',
         dateContext: 'latest',
         display: {
-          template: '{mood}',
+          // {mood:emoji} resolves via display.emojiMap (flat shape).
+          // The optional {note} appears as a sub-line when a note
+          // is logged alongside the mood.
+          template: '{mood:emoji}',
+          secondary: '{note}',
           emojiMap: { 1: '😩', 2: '😔', 3: '😐', 4: '🙂', 5: '😄' },
         },
       },

@@ -7,6 +7,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`{key:emoji}` template modifier accepts the flat `emojiMap`
+  shape.** The calendar marker (#183) and rating input (#193 Part A)
+  both honour both `emojiMap` shapes — flat (`{"1": "😩", ...}`) and
+  keyed (`{field: {"1": "😩", ...}}`). The `:emoji` template
+  modifier only accepted the keyed shape, so a mood card template
+  like `{mood:emoji}` against a flat emojiMap fell through to the
+  raw number. The modifier now tries the keyed lookup first, then
+  the flat lookup — one source of truth across all three consumers
+  of `display.emojiMap`.
+
 ### Changed
 
 - **Chat starter chips are manifest-driven.** The previously-hardcoded
