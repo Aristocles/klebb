@@ -395,6 +395,28 @@ the `➕` add form — `✏️` edit of an existing row always pre-fills
 from that row. The `date` field is dropped from the pre-fill so the
 form still stamps the currently-viewed date on submit.
 
+### `meta.chat.starterPrompts` — chat-widget starter chips
+
+Each enabled card can contribute starter chips to the chat widget's
+empty-state suggestions row. When absent, a generic fallback chip is
+generated (`Show me my <label> data`).
+
+```json
+"chat": {
+  "starterPrompts": [
+    { "text": "What is my HRV trend this month?", "kind": "data" },
+    { "text": "Switch HRV units to milliseconds",  "kind": "tweak" }
+  ]
+}
+```
+
+Each entry has `text` (the full prompt sent to the chat when clicked)
+and `kind` (one of `"data"` or `"tweak"`, defaulting to `"data"`).
+The widget samples one prompt per enabled card at widget mount and
+interleaves kinds so the chip set doesn't end up all one or the
+other. Up to ~20 entries per card are reasonable. The hardcoded
+"✨ Combine cards" meta-chip is always shown regardless.
+
 ### Input types
 
 | type | extra fields |
