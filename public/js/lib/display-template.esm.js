@@ -22,9 +22,20 @@ export function getValue(row, keyPath) {
 
 export function lookupEmoji(display, key, value) {
   if (!display || !display.emojiMap) return null;
-  const map = display.emojiMap[key];
-  if (!map) return null;
-  return map[String(value)] ?? map[value] ?? null;
+  // Keyed shape: emojiMap[field][value] — used by multi-field cards
+  // and the canonical mood template.
+  const keyed = display.emojiMap[key];
+  if (keyed && typeof keyed === 'object' && !Array.isArray(keyed)) {
+    const hit = keyed[String(value)] ?? keyed[value];
+    if (hit) return hit;
+  }
+  // Flat shape: emojiMap[value] — used by mood on klebbtest and any
+  // manifest where a single emoji map drives the card headline, the
+  // calendar marker (#183), and the rating input (#193 Part A). One
+  // source of truth across all three consumers.
+  const flat = display.emojiMap[String(value)] ?? display.emojiMap[value];
+  if (flat && typeof flat === 'string') return flat;
+  return null;
 }
 
 export function applyRound(value, digits) {

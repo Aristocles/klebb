@@ -68,6 +68,38 @@ describe('display-template', () => {
       assert.equal(renderTemplate('{mood:emoji}', { mood: 4 }), '4');
     });
 
+    // Mood-style manifests declare a flat emojiMap
+    // ({"1": "😩", ...}) rather than a field-keyed one. The calendar
+    // marker and rating input already honour both shapes; the
+    // template :emoji modifier should too, so a single source of
+    // truth (display.emojiMap) drives the card headline, the
+    // calendar markers, and the rating input buttons.
+    test('emoji modifier — flat emojiMap shape is also supported', () => {
+      const display = {
+        emojiMap: { '1': '😩', '2': '😔', '3': '😐', '4': '🙂', '5': '😄' },
+      };
+      assert.equal(renderTemplate('{mood:emoji}', { mood: 4 }, display), '🙂');
+      assert.equal(renderTemplate('{mood:emoji}', { mood: 1 }, display), '😩');
+      assert.equal(renderTemplate('{mood:emoji}', { mood: 5 }, display), '😄');
+    });
+
+    test('emoji modifier — keyed shape still wins over flat when both resolve', () => {
+      // If a card has BOTH a keyed entry for its field AND flat
+      // top-level entries, the keyed one takes precedence.
+      const display = {
+        emojiMap: {
+          '1': 'WRONG-FLAT',
+          mood: { '1': '😩' },
+        },
+      };
+      assert.equal(renderTemplate('{mood:emoji}', { mood: 1 }, display), '😩');
+    });
+
+    test('emoji modifier — flat shape falls back to raw value on miss', () => {
+      const display = { emojiMap: { '1': '😩' } };
+      assert.equal(renderTemplate('{mood:emoji}', { mood: 99 }, display), '99');
+    });
+
     test('dotted-path access', () => {
       assert.equal(
         renderTemplate('{sleep.deepMinutes}', { sleep: { deepMinutes: 85 } }),
