@@ -234,29 +234,58 @@ export class EhGenericCard extends EhBaseCard {
     return candidates[0];
   }
 
+  // Exact-date entry lookup regardless of dateContext. Used by the
+  // edit flow: a card on Today with dateContext:"latest" can show
+  // yesterday's row as a display fallback, but the EDIT button must
+  // always target today, not the fallback day. Otherwise saving
+  // rewrites the wrong row. See the 2026-05-14 klebbtest report.
+  _entryForExactDate() {
+    const rows = this._entries();
+    if (rows.length === 0) return null;
+    return rows.find(e => e && e.date === this.date) || null;
+  }
+
   renderCard() {
     const meta = this._m();
     const display = this._display();
-    const entry = this._currentEntry();
-    const hasEntry = entry !== null;
+    // Two different resolutions:
+    //   - displayEntry:  what the card headline shows. Honours
+    //     dateContext:"latest" on Today, so a card with no row today
+    //     can still show yesterday's value.
+    //   - editEntry:     what the edit form targets. ALWAYS exact-
+    //     date, so saving writes to the viewed date. When there's
+    //     no exact-date row, we fall through to the add-form path
+    //     (optionally seeded by prefillFromLatest, #217).
+    const displayEntry = this._currentEntry();
+    const editEntry = this._entryForExactDate();
+    const hasEntry = displayEntry !== null;
+    const hasEditEntry = editEntry !== null;
     // prefillFromLatest: when opening the add form on a date with no
     // existing row, seed the inputs from the most recent prior row so
     // slowly-changing measurements (weight, BP) land close to the
     // previous value. Date field is dropped so the form still stamps
     // the current viewed date. See #217.
     let prefillValues = null;
-    if (!hasEntry && meta?.writeable?.prefillFromLatest === true) {
+    if (!hasEditEntry && meta?.writeable?.prefillFromLatest === true) {
       const prior = this._latestPriorEntry();
       if (prior) {
         const { date: _dateIgnored, ...rest } = prior;
         prefillValues = rest;
       }
     }
+    // Back-compat for the variables used further down the render —
+    // `entry` remains the display fallback (drives the headline,
+    // thresholds, trend arrow); the form consumes editEntry.
+    const entry = displayEntry;
 
     const canWrite = this._canWrite
       && Array.isArray(meta?.writeable?.inputs)
       && meta.writeable.inputs.length > 0;
-    const editIcon = hasEntry ? '✏️' : '➕';
+    // Icon + label reflect whether the VIEWED date has an entry,
+    // not the display fallback. Clicking should be "add" on a day
+    // with no row, even when the headline happens to show a
+    // fallback value from a different day.
+    const editIcon = hasEditEntry ? '✏️' : '➕';
 
     const headline = hasEntry
       ? renderTemplate(display.template || '', entry, display)
@@ -285,18 +314,18 @@ export class EhGenericCard extends EhBaseCard {
         ${canWrite ? html`
           <button class="edit-btn"
             @click=${this._openEdit}
-            aria-label="${hasEntry ? 'Edit' : 'Add'} entry"
-            title="${hasEntry ? 'Edit' : 'Add'} entry">${editIcon}</button>
+            aria-label="${hasEditEntry ? 'Edit' : 'Add'} entry"
+            title="${hasEditEntry ? 'Edit' : 'Add'} entry">${editIcon}</button>
         ` : ''}
 
         ${this._editing ? html`
           <eh-input-form
             .inputs=${meta.writeable.inputs}
-            .values=${entry || prefillValues || {}}
+            .values=${editEntry || prefillValues || {}}
             .date=${this.date}
             .display=${display}
             .requireAny=${meta.writeable.requireAny || null}
-            submit-label=${hasEntry ? 'Update' : 'Add'}
+            submit-label=${hasEditEntry ? 'Update' : 'Add'}
             ?busy=${this._saving}
             @eh-submit=${this._onSubmit}
             @eh-cancel=${this._closeEdit}
