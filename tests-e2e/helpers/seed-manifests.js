@@ -56,6 +56,12 @@ function weight(today) {
           { key: 'kg', type: 'number', required: true, min: 20, max: 500, step: 0.1 },
         ],
       },
+      chat: {
+        starterPrompts: [
+          { text: 'What is my weight trend over the last month?', kind: 'data' },
+          { text: 'Switch the weight card to kilograms display', kind: 'tweak' },
+        ],
+      },
     },
     description: 'Body weight log for E2E sandbox.',
     // Rows at today-4 and today-2 intentionally leave a gap at today-3
