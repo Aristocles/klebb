@@ -24,12 +24,14 @@ test.describe('#182: cards with dateContext:latest honour past-date navigation',
     await expect(page.locator('eh-date-view')).toBeVisible();
 
     const moodCard = page.locator('eh-generic-card', { hasText: 'Mood' }).first();
-    // Wait for TODAY's value to appear before clicking — avoids a race
-    // where the click fires before the app hydrates this.date.
-    await expect(moodCard).toContainText('5');
+    // Mood card headline uses {mood:emoji} with the flat emojiMap,
+    // so today (seeded mood=5) shows 😄 and yesterday (mood=4) shows
+    // 🙂. Wait for the current (today's) value to paint before
+    // navigating to avoid racing the app's _today hydration.
+    await expect(moodCard).toContainText('😄');
 
     await page.locator('.arrow-btn[aria-label="previous day"]').click();
-    await expect(moodCard).toContainText('4');
+    await expect(moodCard).toContainText('🙂');
   });
 
   test('weight card on two days ago shows that date\'s value', async ({ page }) => {
@@ -50,14 +52,13 @@ test.describe('#182: cards with dateContext:latest honour past-date navigation',
     await expect(page.locator('eh-date-view')).toBeVisible();
 
     const moodCard = page.locator('eh-generic-card', { hasText: 'Mood' }).first();
-    // Wait for the mood card to render TODAY's value before navigating.
-    // Without this, on slower runners the click fires before _today is
-    // hydrated and the date shift lands on an unexpected day.
-    await expect(moodCard).toContainText('5');
+    // Mood headline is {mood:emoji}; today's seeded row (mood=5)
+    // renders 😄. Wait for it to paint before navigating.
+    await expect(moodCard).toContainText('😄');
 
-    // Go to yesterday.
+    // Go to yesterday (mood=4 → 🙂).
     await page.locator('.arrow-btn[aria-label="previous day"]').click();
-    await expect(moodCard).toContainText('4');
+    await expect(moodCard).toContainText('🙂');
 
     // Capture the POST the card sends so we can assert what it asked
     // the server to write, independently of what lands on disk.
@@ -84,8 +85,8 @@ test.describe('#182: cards with dateContext:latest honour past-date navigation',
     expect(sentByDate[yesterday]).toBe(1);
     expect(sentByDate[today]).toBe(5);
 
-    // Wait for the card to reflect the new value.
-    await expect(moodCard).toContainText('1', { timeout: 5000 });
+    // Wait for the card to reflect the new value — mood=1 → 😩.
+    await expect(moodCard).toContainText('😩', { timeout: 5000 });
 
     // Verify the manifest via the server (authoritative read — avoids
     // any filesystem-buffering surprises with the direct file read).

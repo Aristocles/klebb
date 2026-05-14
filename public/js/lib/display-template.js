@@ -34,9 +34,21 @@
 
   function lookupEmoji(display, key, value) {
     if (!display || !display.emojiMap) return null;
-    const map = display.emojiMap[key];
-    if (!map) return null;
-    return map[String(value)] ?? map[value] ?? null;
+    // Keyed shape: emojiMap[field][value] — used by multi-field cards
+    // and the canonical mood template.
+    const keyed = display.emojiMap[key];
+    if (keyed && typeof keyed === 'object' && !Array.isArray(keyed)) {
+      const hit = keyed[String(value)] ?? keyed[value];
+      if (hit) return hit;
+    }
+    // Flat shape: emojiMap[value] — used by mood on klebbtest and any
+    // manifest where a single emoji map drives both the card
+    // headline and the calendar marker (#183). The calendar marker
+    // and rating input already accept both shapes; this lets the
+    // template modifier do the same so there's one source of truth.
+    const flat = display.emojiMap[String(value)] ?? display.emojiMap[value];
+    if (flat && typeof flat === 'string') return flat;
+    return null;
   }
 
   function applyRound(value, digits) {
