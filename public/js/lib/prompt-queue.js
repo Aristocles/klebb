@@ -19,6 +19,7 @@
 //     eh-prompt-modal.
 
 import { localToday } from './date-util.js';
+import { isScheduledOnDate } from './schedule.js';
 
 const STORAGE_PREFIX = 'klebb-prompt-shown-';
 
@@ -57,6 +58,9 @@ export function markShownToday(cardId, date = todayStr(), storage = globalThis.l
 //   at least one item has a taken mark for today. (Some cards have
 //   multiple items; the modal is opt-in so this behaviour is documented
 //   as "shows until ANY item is ticked off".)
+//
+// For checklist-mode prompts the gate is per-item, not any/all-or-nothing
+// — see allScheduledTakenForDate below.
 export function entryExistsForDate(data, date) {
   if (!data) return false;
   if (Array.isArray(data)) {
@@ -80,6 +84,28 @@ export function entryExistsForDate(data, date) {
   return false;
 }
 
+// Eligibility helper for checklist-mode prompts. Returns true when every
+// item scheduled for the given date already has a takenAt dose, i.e. the
+// checklist would render with nothing to tick. The default
+// entryExistsForDate is too eager here — it would suppress the prompt as
+// soon as one of three items was logged.
+export function allScheduledTakenForDate(data, date) {
+  const items = Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data?.current) ? data.current
+    : [];
+  let scheduledCount = 0;
+  for (const item of items) {
+    if (isScheduledOnDate(item, date) !== 'scheduled') continue;
+    scheduledCount++;
+    const dosed = Array.isArray(item.doses)
+      && item.doses.some(d => d.scheduledDate === date && d.takenAt);
+    const flagged = Array.isArray(item.takenDates) && item.takenDates.includes(date);
+    if (!dosed && !flagged) return false;
+  }
+  return scheduledCount > 0;
+}
+
 // Build the queue. Pure function separated so tests can run it against
 // a synthetic manifest list without hitting the network.
 export function buildPromptQueue(manifests, {
@@ -97,7 +123,12 @@ export function buildPromptQueue(manifests, {
     if (meta.enabled === false) continue;
     if (wasShownToday(meta.id, date, storage)) continue;
     const whenMissing = prompt.whenMissing !== false; // default true
-    if (whenMissing && entryExistsForDate(card.data, date)) continue;
+    if (whenMissing) {
+      const eligible = prompt.mode === 'checklist'
+        ? !allScheduledTakenForDate(card.data, date)
+        : !entryExistsForDate(card.data, date);
+      if (!eligible) continue;
+    }
     out.push(card);
   }
   // meta.order ascending, stable on id for determinism

@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import {
   buildPromptQueue,
   entryExistsForDate,
+  allScheduledTakenForDate,
   wasShownToday,
   markShownToday,
   shownTodayKey,
@@ -166,6 +167,120 @@ test('buildPromptQueue: handles empty and null manifests', () => {
   assert.deepEqual(buildPromptQueue([], { storage }), []);
   assert.deepEqual(buildPromptQueue(null, { storage }), []);
   assert.deepEqual(buildPromptQueue(undefined, { storage }), []);
+});
+
+// --- checklist-mode (#185) ---
+
+const SCHEDULE_DATA = (taken) => ({
+  items: [
+    {
+      id: 'a',
+      name: 'A',
+      schedule: { type: 'daily' },
+      doses: taken.a ? [{ scheduledDate: '2026-04-23', takenAt: '2026-04-23T08:00' }] : [],
+    },
+    {
+      id: 'b',
+      name: 'B',
+      schedule: { type: 'daily' },
+      doses: taken.b ? [{ scheduledDate: '2026-04-23', takenAt: '2026-04-23T08:01' }] : [],
+    },
+    {
+      id: 'c',
+      name: 'C',
+      schedule: { type: 'daily' },
+      doses: taken.c ? [{ scheduledDate: '2026-04-23', takenAt: '2026-04-23T08:02' }] : [],
+    },
+  ],
+});
+
+test('allScheduledTakenForDate: NONE taken → false', () => {
+  assert.equal(allScheduledTakenForDate(SCHEDULE_DATA({}), '2026-04-23'), false);
+});
+
+test('allScheduledTakenForDate: SOME taken → false', () => {
+  assert.equal(allScheduledTakenForDate(SCHEDULE_DATA({ a: true }), '2026-04-23'), false);
+  assert.equal(allScheduledTakenForDate(SCHEDULE_DATA({ a: true, b: true }), '2026-04-23'), false);
+});
+
+test('allScheduledTakenForDate: ALL taken → true', () => {
+  assert.equal(
+    allScheduledTakenForDate(SCHEDULE_DATA({ a: true, b: true, c: true }), '2026-04-23'),
+    true,
+  );
+});
+
+test('allScheduledTakenForDate: nothing scheduled today → false (no prompt to suppress)', () => {
+  // schedule.type omitted is the same as no schedule → not 'scheduled'
+  // for items with explicit schedule blocks, so use a weekly Mon-only
+  // schedule and a Tuesday date.
+  const data = {
+    items: [
+      { id: 'a', name: 'A', schedule: { type: 'weekly', on_days: ['Mon'] } },
+    ],
+  };
+  // 2026-04-23 is a Thursday — item A is not scheduled, so the
+  // checklist would render empty. Treat that as "no prompt warranted"
+  // (false), matching the same falsy answer entryExistsForDate returns
+  // when the data is empty.
+  assert.equal(allScheduledTakenForDate(data, '2026-04-23'), false);
+});
+
+test('allScheduledTakenForDate: takenDates shape (supplement-stack) ALL taken', () => {
+  const data = {
+    items: [
+      { id: 'a', name: 'B12', takenDates: ['2026-04-23'] },
+      { id: 'b', name: 'D3',  takenDates: ['2026-04-23'] },
+    ],
+  };
+  assert.equal(allScheduledTakenForDate(data, '2026-04-23'), true);
+});
+
+test('allScheduledTakenForDate: takenDates shape SOME taken → false', () => {
+  const data = {
+    items: [
+      { id: 'a', name: 'B12', takenDates: ['2026-04-23'] },
+      { id: 'b', name: 'D3',  takenDates: [] },
+    ],
+  };
+  assert.equal(allScheduledTakenForDate(data, '2026-04-23'), false);
+});
+
+test('buildPromptQueue: checklist mode skips when ALL items taken', () => {
+  const storage = makeStorage();
+  const manifests = [
+    {
+      meta: { id: 'peptides', prompt: { enabled: true, mode: 'checklist' } },
+      data: SCHEDULE_DATA({ a: true, b: true, c: true }),
+    },
+  ];
+  const q = buildPromptQueue(manifests, { date: '2026-04-23', storage });
+  assert.deepEqual(q, []);
+});
+
+test('buildPromptQueue: checklist mode includes card when SOME items unmarked', () => {
+  const storage = makeStorage();
+  const manifests = [
+    {
+      meta: { id: 'peptides', prompt: { enabled: true, mode: 'checklist' } },
+      data: SCHEDULE_DATA({ a: true }),
+    },
+  ];
+  const q = buildPromptQueue(manifests, { date: '2026-04-23', storage });
+  assert.equal(q.length, 1);
+  assert.equal(q[0].meta.id, 'peptides');
+});
+
+test('buildPromptQueue: checklist mode includes card when NONE taken', () => {
+  const storage = makeStorage();
+  const manifests = [
+    {
+      meta: { id: 'peptides', prompt: { enabled: true, mode: 'checklist' } },
+      data: SCHEDULE_DATA({}),
+    },
+  ];
+  const q = buildPromptQueue(manifests, { date: '2026-04-23', storage });
+  assert.equal(q.length, 1);
 });
 
 test('buildPromptQueue: defends against malformed manifest entries', () => {

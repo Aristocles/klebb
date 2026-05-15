@@ -33,6 +33,11 @@
       "component": "day-marker",
       "marker": "💊"
     },
+    "prompt": {
+      "enabled": true,
+      "mode": "checklist",
+      "whenMissing": true
+    },
     "writeable": {
       "fromWebapp": true,
       "pastAllowed": true,

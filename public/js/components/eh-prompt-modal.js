@@ -3,10 +3,18 @@
 // eh-prompt-modal.js — Full-screen "log this now" modal.
 //
 // A card with meta.prompt.enabled = true triggers this modal on app load
-// (once per day per card). The modal wraps the card's normal input form
-// (meta.writeable.inputs) inside a native <dialog>, forcing the user to
-// acknowledge. Closing via ✕ or Save marks the card "prompted today"
-// in localStorage; the modal won't appear again until the next day.
+// (once per day per card). The modal renders one of two shapes based on
+// meta.prompt.mode:
+//   - "modal" (default): wraps the card's meta.writeable.inputs in
+//     eh-input-form for a single Save submission.
+//   - "checklist": for schedule-card data where each item has its own
+//     scheduled-today status. Renders one row per item scheduled today
+//     with a single "Taken" button that stamps that item's doses[]
+//     with { scheduledDate, takenAt } and updates in place. Auto-closes
+//     when every scheduled item is marked.
+// Closing via ✕ or Save (or marking the last checklist row) marks the
+// card "prompted today" in localStorage; the modal won't appear again
+// until the next day.
 //
 // See docs/CARDS.md → Modal prompts for user-facing documentation.
 //
@@ -30,6 +38,7 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { localToday } from '../lib/date-util.js';
 import { errorFromResponse } from '../lib/save-error.js';
+import { isScheduledOnDate } from '../lib/schedule.js';
 import './eh-input-form.js';
 
 export class EhPromptModal extends LitElement {
@@ -38,6 +47,8 @@ export class EhPromptModal extends LitElement {
     date: { type: String },
     _error: { state: true },
     _busy: { state: true },
+    _checklistData: { state: true },
+    _pendingItem: { state: true },
   };
 
   constructor() {
@@ -46,6 +57,8 @@ export class EhPromptModal extends LitElement {
     this.date = null;
     this._error = null;
     this._busy = false;
+    this._checklistData = null;
+    this._pendingItem = null;
   }
 
   static styles = css`
@@ -176,6 +189,73 @@ export class EhPromptModal extends LitElement {
       padding: 8px 12px;
       font-size: 13px;
     }
+
+    .checklist {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--bg-hover, rgba(255, 255, 255, 0.03));
+      border: 1px solid var(--border);
+    }
+    .row.taken { opacity: 0.55; }
+    .row-info { min-width: 0; }
+    .row-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .row-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    button.taken-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    button.taken-btn:hover { filter: brightness(1.08); }
+    button.taken-btn:disabled { cursor: default; opacity: 0.7; }
+    button.taken-btn.done {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+    .footer {
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 4px;
+    }
+    button.dismiss-btn {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    button.dismiss-btn:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+    .empty-checklist {
+      color: var(--text-muted, var(--text-secondary));
+      font-size: 13px;
+      text-align: center;
+      padding: 12px 0;
+    }
   `;
 
   firstUpdated() {
@@ -208,6 +288,97 @@ export class EhPromptModal extends LitElement {
       bubbles: true,
       composed: true,
     }));
+  }
+
+  // Checklist mode: derive today's working item list from the card's data
+  // (or from the most recent in-modal write). Items with a schedule/cycle
+  // are filtered through isScheduledOnDate; plain items (supplement-stack
+  // style without a schedule block) are always due.
+  _checklistItems() {
+    const data = this._checklistData || this.card?.data || {};
+    const items = Array.isArray(data.items)
+      ? data.items
+      : Array.isArray(data.current) ? data.current
+      : [];
+    const date = this.date || localToday();
+    return items.filter(item => {
+      if (item.schedule || item.cycle || Array.isArray(item.cycles)) {
+        return isScheduledOnDate(item, date) === 'scheduled';
+      }
+      return true;
+    });
+  }
+
+  _itemUsesDoses(item) {
+    return Array.isArray(item.doses) || !!item.schedule || !!item.cycle || Array.isArray(item.cycles);
+  }
+
+  _isItemTaken(item) {
+    const date = this.date || localToday();
+    if (Array.isArray(item.doses)
+      && item.doses.some(d => d.scheduledDate === date && d.takenAt)) return true;
+    if (Array.isArray(item.takenDates) && item.takenDates.includes(date)) return true;
+    return false;
+  }
+
+  _doseLabel(item) {
+    const parts = [];
+    if (item.dose_label) parts.push(item.dose_label);
+    else if (item.dose_mg != null) parts.push(`${item.dose_mg}mg`);
+    else if (item.dose) parts.push(item.dose);
+    if (item.dose_units) parts.push(`${item.dose_units}u`);
+    if (item.route) parts.push(item.route);
+    return parts.join(' · ');
+  }
+
+  async _markItemTaken(item) {
+    if (this._busy || this._pendingItem) return;
+    if (this._isItemTaken(item)) return;
+    const meta = this.card?.meta || {};
+    const date = this.date || localToday();
+    this._pendingItem = item.id || item.name;
+    this._error = null;
+    try {
+      const current = await fetch(`/api/manifests/${encodeURIComponent(meta.id)}/data`, {
+        credentials: 'same-origin',
+      }).then(r => r.json());
+      const data = current?.data ?? current ?? {};
+      const items = Array.isArray(data.items) ? data.items : [];
+      const matchKey = item.id ? 'id' : 'name';
+      const matchVal = item[matchKey];
+      const useTakenDates = !this._itemUsesDoses(item);
+      const updatedItems = items.map(it => {
+        if (it[matchKey] !== matchVal) return it;
+        if (useTakenDates) {
+          const taken = Array.isArray(it.takenDates) ? [...it.takenDates] : [];
+          if (!taken.includes(date)) taken.push(date);
+          return { ...it, takenDates: taken };
+        }
+        const doses = Array.isArray(it.doses) ? [...it.doses] : [];
+        const idx = doses.findIndex(d => d.scheduledDate === date);
+        const stamped = { scheduledDate: date, takenAt: new Date().toISOString() };
+        if (idx >= 0) doses[idx] = { ...doses[idx], ...stamped };
+        else doses.push(stamped);
+        return { ...it, doses };
+      });
+      const updated = { ...data, items: updatedItems };
+      const r = await fetch(`/api/manifests/${encodeURIComponent(meta.id)}/data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ data: updated }),
+      });
+      if (!r.ok) throw await errorFromResponse(r);
+      this._checklistData = updated;
+      // Auto-close once every scheduled item is taken.
+      const remaining = this._checklistItems().some(it => !this._isItemTaken(it));
+      if (!remaining) this._finish('saved', { mode: 'checklist' });
+    } catch (err) {
+      console.warn('[prompt-modal] checklist save failed', err);
+      this._error = err.message || 'Could not save. Try again or dismiss.';
+    } finally {
+      this._pendingItem = null;
+    }
   }
 
   async _onSubmit(e) {
@@ -261,9 +432,8 @@ export class EhPromptModal extends LitElement {
   render() {
     if (!this.card) return html``;
     const meta = this.card.meta || {};
-    const inputs = meta.writeable?.inputs || [];
-    const display = meta.view?.display || null;
     const today = this.date || localToday();
+    const mode = meta.prompt?.mode === 'checklist' ? 'checklist' : 'modal';
     return html`
       <dialog aria-modal="true" aria-label="${meta.label || 'Log entry'}">
         <div class="wrap">
@@ -285,21 +455,71 @@ export class EhPromptModal extends LitElement {
 
             ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : ''}
 
-            <eh-input-form
-              .inputs=${inputs}
-              .values=${{}}
-              .date=${today}
-              .display=${display}
-              .requireAny=${meta.writeable?.requireAny || null}
-              .busy=${this._busy}
-              submit-label="Save"
-              cancel-label="Not now"
-              @eh-submit=${this._onSubmit}
-              @eh-cancel=${this._dismiss}
-            ></eh-input-form>
+            ${mode === 'checklist'
+              ? this._renderChecklist(today)
+              : this._renderModalForm(meta, today)}
           </div>
         </div>
       </dialog>
+    `;
+  }
+
+  _renderModalForm(meta, today) {
+    const inputs = meta.writeable?.inputs || [];
+    const display = meta.view?.display || null;
+    return html`
+      <eh-input-form
+        .inputs=${inputs}
+        .values=${{}}
+        .date=${today}
+        .display=${display}
+        .requireAny=${meta.writeable?.requireAny || null}
+        .busy=${this._busy}
+        submit-label="Save"
+        cancel-label="Not now"
+        @eh-submit=${this._onSubmit}
+        @eh-cancel=${this._dismiss}
+      ></eh-input-form>
+    `;
+  }
+
+  _renderChecklist(today) {
+    const items = this._checklistItems();
+    if (items.length === 0) {
+      return html`
+        <div class="empty-checklist">Nothing scheduled for today.</div>
+        <div class="footer">
+          <button class="dismiss-btn" type="button" @click=${this._dismiss}>Close</button>
+        </div>
+      `;
+    }
+    return html`
+      <div class="checklist" role="list">
+        ${items.map(item => {
+          const taken = this._isItemTaken(item);
+          const pendingKey = item.id || item.name;
+          const pending = this._pendingItem === pendingKey;
+          const meta = this._doseLabel(item);
+          return html`
+            <div class="row ${taken ? 'taken' : ''}" role="listitem">
+              <div class="row-info">
+                <div class="row-name">${item.short_name || item.name}</div>
+                ${meta ? html`<div class="row-meta">${meta}</div>` : ''}
+              </div>
+              <button
+                class="taken-btn ${taken ? 'done' : ''}"
+                type="button"
+                ?disabled=${taken || pending}
+                aria-label="mark ${item.name} taken"
+                @click=${() => this._markItemTaken(item)}
+              >${taken ? '✓ Taken' : pending ? '...' : 'Taken'}</button>
+            </div>
+          `;
+        })}
+      </div>
+      <div class="footer">
+        <button class="dismiss-btn" type="button" @click=${this._dismiss}>Not now</button>
+      </div>
     `;
   }
 }
