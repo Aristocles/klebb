@@ -89,18 +89,30 @@ or `true` means the card participates according to its per-view config.
 ### Modal prompt (`meta.prompt`)
 
 Opt-in. Makes the card fire a full-screen modal on app load, once per
-day, until the user saves or dismisses. Applies to any card that has
-`meta.writeable.inputs`.
+day, until the user saves or dismisses.
 
 ```json
 "meta": {
   "prompt": {
     "enabled": true,         // required — default false
-    "mode": "modal",         // only mode supported today
+    "mode": "modal",         // "modal" (default) or "checklist"
     "whenMissing": true      // default true; skip if today already logged
   }
 }
 ```
+
+`mode` selects the modal's shape:
+
+| `mode`        | Shape                                                                 | Best for                            | `whenMissing: true` skip rule                                                            |
+|---------------|-----------------------------------------------------------------------|-------------------------------------|------------------------------------------------------------------------------------------|
+| `"modal"`     | Wraps `meta.writeable.inputs` in a single Save form. Default.         | Atomic per-day cards (mood, weight) | Skip if today already has a row in `data` (or any item logged for cards with `items[]`). |
+| `"checklist"` | One row per item scheduled today, each with a single "Taken" button.  | `schedule-card` (peptides, meds)    | Skip only when EVERY item scheduled today already has a `doses[]` entry with `takenAt`.  |
+
+Checklist rows write `{ scheduledDate: today, takenAt: ISO-now }` into
+the matching `item.doses[]` and update in place. The modal auto-closes
+once every scheduled item is marked taken. There is no free-text item
+name input, no editable date, and no time picker — the prompt IS the
+"did you take it just now?" reminder.
 
 Queue semantics: if multiple cards qualify, they render sequentially
 in `meta.order` ascending. Shown-today state is tracked in

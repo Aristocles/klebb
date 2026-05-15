@@ -429,7 +429,7 @@ Once \`create_manifest\` succeeds, your reply MUST end with a short offer of opt
 - **Thresholds on the Today headline:** \`meta.view.display.thresholds\` — colour the value green/amber/red against bands (great for BP, glucose, RHR, weight goals).
 - **Reports renderer:** \`meta.reports\` — \`table-list\` for history, \`adherence-report\` for schedules.
 - **Extra inputs:** a notes field, a time-of-day field, a tag/category select.
-- **A daily target or reminder prompt:** \`meta.prompt = {enabled:true, ...}\` if the user wants to be nudged.
+- **A daily target or reminder prompt:** \`meta.prompt = {enabled:true, ...}\` if the user wants to be nudged. For \`schedule-card\` manifests (peptides / meds / supplement stacks) prefer \`meta.prompt = {enabled:true, mode:"checklist"}\` — the modal renders one Taken button per item scheduled that day instead of a free-text input form.
 
 Offer them as a single short sentence or a 2-3 item bullet list, e.g. "Done. Want me to add a trends chart, a daily target, or a calendar marker?" — not a long menu. Never auto-add beyond what was asked.
 
