@@ -7,6 +7,23 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **`meta.prompt.mode: "checklist"` for schedule-card prompts.** Schedule
+  cards (peptides, medications, supplement stacks) that opt into
+  `meta.prompt.enabled: true` previously rendered the daily reminder as
+  a free-text add-entry form (Item name / Scheduled date / Taken at):
+  the wrong shape for "did you take it?" because the card already knows
+  what's scheduled today. The new `mode: "checklist"` renders one row
+  per item scheduled today, each with a single "Taken" button that
+  stamps `{scheduledDate, takenAt}` into that item's `doses[]` (or
+  `takenDates[]` for plain supplement-stack items). The modal updates
+  in place and auto-closes once every scheduled item is marked.
+  Eligibility is per-item: the prompt fires when at least one item is
+  unmarked. The `medication-schedule`, `injection-protocol`, and
+  `supplement-stack` templates default to checklist mode. Existing
+  `mode: "modal"` (or absent) cards are unaffected.
+
 ### Fixed
 
 - **Edit button on Today with no today-row now targets today, not
