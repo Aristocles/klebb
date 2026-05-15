@@ -138,6 +138,11 @@ function peptides(today) {
       order: 200,
       category: 'supplements',
       view: { enabled: true, component: 'schedule-card', dateContext: 'exact-date' },
+      // Schedule cards in production opt into the checklist-mode prompt
+      // (see #185); this seed leaves it off so unrelated specs aren't
+      // impacted. The schedule-checklist-prompt spec patches it on at
+      // runtime.
+      writeable: { fromWebapp: true, todayAllowed: true, pastAllowed: true, futureAllowed: false },
     },
     description: 'Peptide schedule for E2E coverage (nested-cycle shape).',
     data: {

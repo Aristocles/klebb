@@ -108,7 +108,7 @@ BP, weight, hydration.
 "meta": {
   "prompt": {
     "enabled": true,         // required to opt in; default false
-    "mode": "modal",         // only "modal" is supported today
+    "mode": "modal",         // "modal" (default) or "checklist"
     "whenMissing": true      // default true — skip if today's entry exists
   }
 }
@@ -128,7 +128,7 @@ BP, weight, hydration.
 - Multiple qualifying cards are queued in `meta.order` ascending; the
   user fills or dismisses one at a time until the queue empties.
 
-**Modal UX:**
+**Modal UX (`mode: "modal"`):**
 
 - Full viewport on mobile (bottom-sheet style), centered card on
   desktop (≥ 640px).
@@ -138,8 +138,25 @@ BP, weight, hydration.
 - ✕ in the header dismisses without saving.
 - Escape key also dismisses.
 
-Defaults: `enabled: false`. Opt-in only — no card gets a modal unless
-you explicitly set this.
+**Checklist UX (`mode: "checklist"`):**
+
+For `schedule-card` manifests (peptides, medications, supplement stacks)
+where the daily "did you take it?" question maps to multiple per-item
+ticks, use `mode: "checklist"`. The modal renders one row per item
+scheduled today, each with a single "Taken" button that writes
+`{ scheduledDate, takenAt }` into that item's `doses[]`. Rows update
+in place; the modal auto-closes once every scheduled item is marked.
+
+The eligibility rule is per-item: the prompt fires when at least one
+scheduled item lacks today's dose, and stays out of the queue once
+they're all logged. There is no editable date or time — tapping
+"Taken" stamps `now`. Out-of-band manual entry (logging a dose
+yesterday, or off-schedule) still goes through the schedule-card's
+own renderer; the prompt path only handles the "I just took it"
+reminder.
+
+Defaults: `enabled: false`, `mode: "modal"`. Opt-in only — no card
+gets a modal unless you explicitly set this.
 
 ### `meta.view` — the Today view config
 
