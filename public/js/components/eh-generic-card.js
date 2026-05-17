@@ -41,6 +41,7 @@ import { renderTemplate, evaluateThresholds, computeTrend } from '../lib/display
 import { registerRenderer } from '../renderer-registry.js';
 import { EhBaseCard, invalidateManifestCache } from './eh-base-card.js';
 import { errorFromResponse } from '../lib/save-error.js';
+import { daysBetweenISO } from '../lib/date-util.js';
 import './eh-input-form.js';
 
 export class EhGenericCard extends EhBaseCard {
@@ -163,6 +164,30 @@ export class EhGenericCard extends EhBaseCard {
         font-weight: 700;
         color: var(--text-primary);
         line-height: 1.2;
+      }
+      /* Carry-over: today has no row but the card opted into
+         fallbackToLatest, so the headline is yesterday's value (or
+         older). Dim the value + dotted-underline it so the user knows
+         the number isn't fresh. Paired with the .gen-carry-chip below.
+         See #231. */
+      .gen-headline.carry-over {
+        opacity: 0.7;
+        text-decoration: underline dotted;
+        text-underline-offset: 4px;
+        text-decoration-color: var(--text-muted, var(--text-secondary));
+      }
+      .gen-carry-chip {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+        color: var(--text-muted, var(--text-secondary));
+        white-space: nowrap;
+      }
+      .gen-carry-line {
+        margin-top: 6px;
       }
       .gen-unit {
         font-size: 0.9rem;
@@ -299,6 +324,25 @@ export class EhGenericCard extends EhBaseCard {
     // thresholds, trend arrow); the form consumes editEntry.
     const entry = displayEntry;
 
+    // Carry-over: on Today with no exact-date row, but the
+    // fallbackToLatest path resolved a prior row. Surface this so the
+    // user can tell stale-from-prior-day apart from fresh-today. See
+    // #231. The display fallback only triggers on Today, so this
+    // condition is a sufficient detector — past-date navigation never
+    // hits the fallback path in _currentEntry().
+    const isToday = this.dateMode === 'today' || !this.dateMode;
+    const isCarryOver = isToday
+      && hasEntry
+      && !hasEditEntry
+      && entry?.date
+      && entry.date !== this.date;
+    const carryOverDays = isCarryOver
+      ? daysBetweenISO(entry.date, this.date)
+      : null;
+    const carryOverLabel = (carryOverDays != null && carryOverDays > 0)
+      ? `${carryOverDays}d ago`
+      : null;
+
     const canWrite = this._canWrite
       && Array.isArray(meta?.writeable?.inputs)
       && meta.writeable.inputs.length > 0;
@@ -353,7 +397,7 @@ export class EhGenericCard extends EhBaseCard {
           ></eh-input-form>
         ` : hasEntry ? html`
           <div class="gen-row">
-            <span class="gen-headline">${headline}</span>
+            <span class="gen-headline ${isCarryOver ? 'carry-over' : ''}">${headline}</span>
             ${display.unit ? html`<span class="gen-unit">${display.unit}</span>` : ''}
             ${trend ? html`
               <span class="gen-trend ${trend.dir}" title="vs ${trend.prev.date}">
@@ -365,6 +409,10 @@ export class EhGenericCard extends EhBaseCard {
               </span>` : ''}
           </div>
           ${secondary ? html`<div class="gen-secondary">${secondary}</div>` : ''}
+          ${carryOverLabel ? html`
+            <div class="gen-carry-line">
+              <span class="gen-carry-chip" title="Last logged ${entry.date}">${carryOverLabel}</span>
+            </div>` : ''}
         ` : html`
           <div class="gen-empty">${headline}</div>
         `}

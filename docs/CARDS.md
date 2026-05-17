@@ -191,6 +191,10 @@ Fields:
   targets the viewed date regardless of this flag (see #227). The
   legacy `dateContext: "latest"` string is read as
   `fallbackToLatest: true` during the deprecation window — see #228.
+  When the fallback is active, the headline renders dimmed with a
+  dotted underline and a small `Nd ago` chip below the secondary
+  line so the value is visibly marked as a carry-over rather than a
+  fresh entry — built-in, not opt-out. See #231.
 - `slot` (`"top"` | `null`): if `"top"`, the card spans the full row
 - `order` (int): view-specific ordering override; falls back to `meta.order`
 - `display` (object): see the **generic-card** section below
