@@ -2,14 +2,18 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests-e2e/past-date-view-and-edit.spec.js
 // Regression coverage for #182 (supersedes #181): cards with
-// `view.dateContext: "latest"` must honour past-date navigation.
-// On a past date the card should show THAT date's row (or empty
-// state if none), and the pencil-edit should write only to that
-// date's row.
+// `view.fallbackToLatest: true` (or its legacy alias
+// `dateContext: "latest"`) must honour past-date navigation. On a
+// past date the card should show THAT date's row (or empty state if
+// none), and the pencil-edit should write only to that date's row.
 //
-// Before the fix, both mood and weight cards always render today's
-// latest row and the pencil-edit writes to today's row regardless
-// of the date the user is viewing.
+// Before the fix, both mood and weight cards always rendered today's
+// latest row and the pencil-edit wrote to today's row regardless
+// of the date the user was viewing.
+//
+// The mood seed uses the legacy `dateContext: "latest"` so this spec
+// also covers the dual-read alias path added by #228; weight uses the
+// canonical `fallbackToLatest: true`.
 
 const { test, expect } = require('./helpers/auth-fixture');
 const { todayISO, shiftDays } = require('./helpers/seed-manifests');
@@ -18,7 +22,7 @@ const today = todayISO();
 const yesterday = shiftDays(today, -1);
 const twoDaysAgo = shiftDays(today, -2);
 
-test.describe('#182: cards with dateContext:latest honour past-date navigation', () => {
+test.describe('#182: cards with fallbackToLatest honour past-date navigation', () => {
   test('mood card on yesterday shows yesterday\'s value, not today\'s', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('eh-date-view')).toBeVisible();

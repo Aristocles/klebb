@@ -163,16 +163,28 @@ All view configs share the same shape:
 
 ```json
 {
-  "enabled":     true,                // required — opts card into this view
-  "component":   "generic-card",      // required — renderer name
-  "order":       5,                   // view-specific sort override
-  "slot":        "top",               // "top" spans the full row
-  "dateContext": "viewedDate",        // "viewedDate" | "latest"
-  "expanded":    false,               // allow click-to-expand
-  "display":     { ... },             // template config (generic-card)
-  "source":      "other-card-id"      // virtual/computed cards only
+  "enabled":          true,           // required — opts card into this view
+  "component":        "generic-card", // required — renderer name
+  "order":            5,              // view-specific sort override
+  "slot":             "top",          // "top" spans the full row
+  "fallbackToLatest": false,          // generic-card only; default false.
+                                      //   true → on Today with no row for
+                                      //   today, headline shows the most
+                                      //   recent prior row instead of an
+                                      //   empty state. The edit button
+                                      //   still always targets today.
+                                      //   See #228.
+  "expanded":         false,          // allow click-to-expand
+  "display":          { ... },        // template config (generic-card)
+  "source":           "other-card-id" // virtual/computed cards only
 }
 ```
+
+> **Deprecated:** `meta.view.dateContext` (string `"viewedDate" | "latest"`)
+> is the legacy form of `fallbackToLatest`. The renderer reads
+> `dateContext: "latest"` as `fallbackToLatest: true` for one release
+> cycle. Run `scripts/migrate-dateContext-to-fallbackToLatest.js` against
+> your `$HEALTH_HOME/data/` to migrate live manifests.
 
 ### `display` (generic-card)
 

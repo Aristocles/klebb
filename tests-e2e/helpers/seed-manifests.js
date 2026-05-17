@@ -39,7 +39,7 @@ function weight(today) {
       view: {
         enabled: true,
         component: 'generic-card',
-        dateContext: 'latest',
+        fallbackToLatest: true,
         display: { template: '{kg:round(1)}', unit: 'kg' },
       },
       writeable: {
@@ -89,6 +89,9 @@ function mood(today) {
       view: {
         enabled: true,
         component: 'generic-card',
+        // Intentionally uses the LEGACY dateContext alias to exercise the
+        // dual-read path that lets pre-#228 manifests keep working until
+        // they're migrated. See public/js/components/eh-generic-card.js.
         dateContext: 'latest',
         display: {
           // {mood:emoji} resolves via display.emojiMap (flat shape).
@@ -137,7 +140,7 @@ function peptides(today) {
       emoji: '💉',
       order: 200,
       category: 'supplements',
-      view: { enabled: true, component: 'schedule-card', dateContext: 'exact-date' },
+      view: { enabled: true, component: 'schedule-card' },
       // Schedule cards in production opt into the checklist-mode prompt
       // (see #185); this seed leaves it off so unrelated specs aren't
       // impacted. The schedule-checklist-prompt spec patches it on at
@@ -216,7 +219,7 @@ function hrv(today) {
       view: {
         enabled: true,
         component: 'generic-card',
-        dateContext: 'latest',
+        fallbackToLatest: true,
         display: { template: '{ms:round(0)} ms' },
       },
       writeable: { fromWebapp: false },
@@ -242,7 +245,7 @@ function restingHr(today) {
       view: {
         enabled: true,
         component: 'generic-card',
-        dateContext: 'latest',
+        fallbackToLatest: true,
         display: { template: '{bpm} bpm' },
       },
       writeable: { fromWebapp: false },
@@ -292,7 +295,7 @@ function water(today) {
       view: {
         enabled: true,
         component: 'generic-card',
-        dateContext: 'latest',
+        fallbackToLatest: true,
         display: { template: '{glasses} glasses' },
       },
       writeable: {
@@ -334,7 +337,7 @@ function workouts(today) {
       view: {
         enabled: true,
         component: 'generic-card',
-        // No dateContext:latest — we want the card to honour viewed
+        // No fallbackToLatest — we want the card to honour viewed
         // date so non-workout days show the empty state, not the last
         // trained day's leftovers. See #215.
         display: {

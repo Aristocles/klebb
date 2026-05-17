@@ -227,7 +227,7 @@ Everything else is optional pass-through. The endpoint is lenient: if the render
 - \`{trained:check}\` → renders \`✅\` when true, empty string when false/missing. Best default for \"did this thing happen today\" cards (workouts, meditation, journal).
 - \`{trained?Trained:Rest}\` ternary → when you need both branches labelled.
 
-For a workouts card specifically: use \`"template": "{type}"\` + drop \`dateContext: \"latest\"\` (otherwise every non-workout day shows the most recent workout, which misleads the user). On days without a workout the card uses \`emptyHeadline\` instead — \"No workout today\" or similar.
+For a workouts card specifically: use \`"template": "{type}"\` and do NOT set \`fallbackToLatest: true\` (otherwise every non-workout day shows the most recent workout, which misleads the user). On days without a workout the card uses \`emptyHeadline\` instead — \"No workout today\" or similar.
 
 **Gotcha — writeable cards MUST declare \`meta.writeable.inputs\`.** If \`meta.writeable.fromWebapp: true\` is set, the manifest MUST carry a non-empty \`meta.writeable.inputs\` array that covers every field the card's \`description\` mentions. Without inputs, the edit-form is a primary-field-only stub and the per-row three-dot button (which opens secondary-field editing on list-card) never appears. Concretely: if the description says "Array of {date, type, location, status, followUp, note}", the manifest must declare inputs for all of those keys. For \`list-card\` also set \`meta.view.display.primaryField\` to the key whose value is the row title (e.g. \`"name"\`) so the renderer knows which input is primary vs secondary.
 
@@ -341,7 +341,7 @@ Call \`create_manifest\` with this \`manifest\` argument. Note: every field name
   "$schema":"klebb.datafile.v1",
   "meta":{
     "id":"appointments","label":"Appointments","emoji":"🗓️","order":700,
-    "view":{"enabled":true,"component":"list-card","dateContext":"exact-date",
+    "view":{"enabled":true,"component":"list-card",
       "display":{"primaryField":"name","secondaryTemplate":"{date} — {location}","emptyMessage":"No appointments."}},
     "calendar":{"enabled":true,"component":"day-marker","marker":"🗓️"},
     "writeable":{"fromWebapp":true,"pastAllowed":true,"todayAllowed":true,"futureAllowed":true,
@@ -370,7 +370,7 @@ Call \`create_manifest\` with this \`manifest\` argument. **Note:** items live i
   "$schema":"klebb.datafile.v1",
   "meta":{
     "id":"peptide-cycle","label":"Peptide Cycle","emoji":"💉","order":320,
-    "view":{"enabled":true,"component":"schedule-card","dateContext":"exact-date"},
+    "view":{"enabled":true,"component":"schedule-card"},
     "writeable":{"fromWebapp":true,"pastAllowed":true,"todayAllowed":true,"futureAllowed":false}
   },
   "description":"Injectable peptide cycle. Each item has name, dose_mg, dose_units, route, and a schedule. Doses are appended as check-offs.",

@@ -7,6 +7,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **`meta.view.dateContext` renamed to `meta.view.fallbackToLatest`
+  (boolean).** The string-enum `dateContext: "latest" | "viewedDate" |
+  "exact-date"` was a binary in disguise: only `"latest"` ever had
+  observable behaviour (display fallback to the most recent prior row
+  on Today with no row for today). The other values were no-ops left
+  behind by an earlier migration. The canonical key is now a clear
+  boolean `fallbackToLatest`, default `false`. The renderer reads
+  `dateContext: "latest"` as `fallbackToLatest: true` for one release
+  cycle so live manifests upgrade lazily. Run
+  `node scripts/migrate-dateContext-to-fallbackToLatest.js` against
+  your `$HEALTH_HOME/data/` to migrate live manifests; the script is
+  idempotent and timestamped-backs-up each touched file. See #228.
+
 ### Added
 
 - **`meta.prompt.mode: "checklist"` for schedule-card prompts.** Schedule
