@@ -41,7 +41,7 @@ describe('describeCatalogue', () => {
   test('carries display-template guidance for HAE-backed cards', () => {
     const out = describeCatalogue();
     assert.match(out, /round\(N\)/);
-    assert.match(out, /dateContext.*latest/i);
+    assert.match(out, /fallbackToLatest.*true/i);
   });
 
   test('each metric line prefixes its category in brackets', () => {

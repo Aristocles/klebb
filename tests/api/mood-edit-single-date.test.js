@@ -35,7 +35,7 @@ function moodManifest(data) {
       view: {
         enabled: true,
         component: 'generic-card',
-        dateContext: 'latest',
+        fallbackToLatest: true,
         display: {
           template: '{mood}',
           emojiMap: { 1: '😩', 2: '😔', 3: '😐', 4: '🙂', 5: '😄' },

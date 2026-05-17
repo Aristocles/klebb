@@ -164,7 +164,7 @@ gets a modal unless you explicitly set this.
 "view": {
   "enabled": true,
   "component": "generic-card",
-  "dateContext": "viewedDate",
+  "fallbackToLatest": false,
   "display": { ... },
   "slot": "top",
   "order": 5
@@ -183,9 +183,14 @@ Fields:
   - `markdown-doc` — static markdown content
   - `line-chart`, `schedule-timeline`, `table-list`, `adherence-report`,
     `greeting-banner`
-- `dateContext` (`"viewedDate"` | `"latest"`, default `"viewedDate"`):
-  - `viewedDate` — show the entry matching the date currently on screen
-  - `latest` — show the most recent entry regardless of date
+- `fallbackToLatest` (boolean, default `false`): `generic-card` only.
+  When `true`, on Today with no row for today, the card's headline
+  falls back to the most recent prior row (so a slow-changing metric
+  like weight still shows yesterday's value). On any past or future
+  date the card resolves by exact date. The edit button always
+  targets the viewed date regardless of this flag (see #227). The
+  legacy `dateContext: "latest"` string is read as
+  `fallbackToLatest: true` during the deprecation window — see #228.
 - `slot` (`"top"` | `null`): if `"top"`, the card spans the full row
 - `order` (int): view-specific ordering override; falls back to `meta.order`
 - `display` (object): see the **generic-card** section below
@@ -643,7 +648,7 @@ is set automatically per row on create and isn't shown in the form.
 | Dimension | generic-card | list-card |
 |------|-------------|-----------|
 | Scope | one entry (today's or latest) | all entries (full roster) |
-| `dateContext` | used — filters by date | ignored |
+| `fallbackToLatest` | used — fallback display on Today | ignored |
 | `maxReadingsPerDay` | enforces upsert / append cap | N/A |
 | Row add pattern | one `meta.writeable.inputs` form per entry | same form, repeatable |
 | Row delete | manual in chat / file edit | inline ➖ in edit mode |
@@ -780,7 +785,6 @@ A Sleep composite that wraps `sleep-hours` + `mood`:
       "enabled": true,
       "component": "combination-card",
       "layout": "stack",
-      "dateContext": "viewedDate",
       "combines": [
         {
           "sourceId": "sleep-hours",
