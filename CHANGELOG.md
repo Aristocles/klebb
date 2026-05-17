@@ -7,6 +7,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Carry-over visual cue on `fallbackToLatest` cards.** When a
+  `generic-card` with `meta.view.fallbackToLatest: true` displays a
+  prior-day row on Today (because today has no entry yet), the
+  headline now renders dimmed with a dotted underline, and a small
+  `Nd ago` chip appears below any existing secondary line. Built-in
+  and not opt-out: the whole point is to remove uncertainty about
+  whether a value was logged today or carried over from a previous
+  day. The chip clears as soon as a row for today is logged. Past-
+  date navigation is unaffected (the fallback path is Today-only).
+  See #231.
+
 ### Changed
 
 - **`meta.view.dateContext` renamed to `meta.view.fallbackToLatest`

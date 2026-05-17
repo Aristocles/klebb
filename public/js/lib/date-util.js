@@ -15,3 +15,17 @@ export function localDateStr(date) {
 export function localToday() {
   return localDateStr(new Date());
 }
+
+// Whole-day difference between two YYYY-MM-DD ISO date strings (later
+// minus earlier). Anchors at UTC midnight so DST shifts can't add or
+// drop an hour and flip the count. Negative when `later` precedes
+// `earlier`. Returns null if either argument is malformed. See #231.
+export function daysBetweenISO(earlier, later) {
+  if (typeof earlier !== 'string' || typeof later !== 'string') return null;
+  const re = /^(\d{4})-(\d{2})-(\d{2})$/;
+  const a = re.exec(earlier);
+  const b = re.exec(later);
+  if (!a || !b) return null;
+  const ms = Date.UTC(+b[1], +b[2] - 1, +b[3]) - Date.UTC(+a[1], +a[2] - 1, +a[3]);
+  return Math.round(ms / 86_400_000);
+}

@@ -173,7 +173,12 @@ All view configs share the same shape:
                                       //   recent prior row instead of an
                                       //   empty state. The edit button
                                       //   still always targets today.
-                                      //   See #228.
+                                      //   When the fallback is active the
+                                      //   headline renders dimmed + dotted-
+                                      //   underlined with an "Nd ago" chip
+                                      //   so the value is visibly marked
+                                      //   as carry-over (built-in, not
+                                      //   opt-out). See #228, #231.
   "expanded":         false,          // allow click-to-expand
   "display":          { ... },        // template config (generic-card)
   "source":           "other-card-id" // virtual/computed cards only
