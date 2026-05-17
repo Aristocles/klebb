@@ -9,7 +9,17 @@
 // Meta fields consumed:
 //   meta.label                            — card title
 //   meta.emoji                            — optional title emoji
-//   meta.view.dateContext = "latest" | "viewedDate"   (default "viewedDate")
+//   meta.view.fallbackToLatest = boolean  — when true, on Today with no
+//                                          row for today, display falls
+//                                          back to the most recent prior
+//                                          row. Default false. See #228.
+//   meta.view.dateContext (DEPRECATED)    — legacy string-enum field;
+//                                          dateContext:"latest" is read
+//                                          as fallbackToLatest:true for
+//                                          one release cycle. Run
+//                                          scripts/migrate-dateContext-
+//                                          to-fallbackToLatest.js to
+//                                          migrate live manifests.
 //   meta.view.display.template            — template string for the headline
 //   meta.view.display.secondary           — optional template for the sub-line
 //   meta.view.display.unit                — small unit suffix after the headline
@@ -56,7 +66,18 @@ export class EhGenericCard extends EhBaseCard {
     if (typeof d === 'string') return { template: d };
     return d || {};
   }
-  _dateContext() { return this._vc().dateContext || this._m().view?.dateContext || 'viewedDate'; }
+  // Returns true when the card should fall back to the latest row on
+  // Today if there is no row for today. Reads the canonical
+  // meta.view.fallbackToLatest (boolean) first, then the legacy
+  // dateContext:"latest" string for backwards-compat during the
+  // deprecation window.  See #228.
+  _fallbackToLatest() {
+    const vc = this._vc();
+    const view = this._m().view;
+    if (typeof vc.fallbackToLatest === 'boolean') return vc.fallbackToLatest;
+    if (typeof view?.fallbackToLatest === 'boolean') return view.fallbackToLatest;
+    return vc.dateContext === 'latest' || view?.dateContext === 'latest';
+  }
 
   _entries() {
     const d = this.data;
@@ -68,11 +89,11 @@ export class EhGenericCard extends EhBaseCard {
   _currentEntry() {
     const entries = this._entries();
     if (entries.length === 0) return null;
-    // dateContext:"latest" is a Today-mode fallback — on any past/future
-    // date the card resolves by exact date match so navigation actually
-    // means what it says. See issue #182.
+    // fallbackToLatest is a Today-mode display fallback — on any
+    // past/future date the card resolves by exact date match so
+    // navigation actually means what it says. See #182.
     const isToday = this.dateMode === 'today' || !this.dateMode;
-    if (isToday && this._dateContext() === 'latest') {
+    if (isToday && this._fallbackToLatest()) {
       return [...entries].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
     }
     return entries.find(e => e.date === this.date) || null;
@@ -234,10 +255,10 @@ export class EhGenericCard extends EhBaseCard {
     return candidates[0];
   }
 
-  // Exact-date entry lookup regardless of dateContext. Used by the
-  // edit flow: a card on Today with dateContext:"latest" can show
-  // yesterday's row as a display fallback, but the EDIT button must
-  // always target today, not the fallback day. Otherwise saving
+  // Exact-date entry lookup regardless of fallbackToLatest. Used by
+  // the edit flow: a card on Today with fallbackToLatest:true can
+  // show yesterday's row as a display fallback, but the EDIT button
+  // must always target today, not the fallback day. Otherwise saving
   // rewrites the wrong row. See the 2026-05-14 klebbtest report.
   _entryForExactDate() {
     const rows = this._entries();
@@ -250,7 +271,7 @@ export class EhGenericCard extends EhBaseCard {
     const display = this._display();
     // Two different resolutions:
     //   - displayEntry:  what the card headline shows. Honours
-    //     dateContext:"latest" on Today, so a card with no row today
+    //     fallbackToLatest on Today, so a card with no row today
     //     can still show yesterday's value.
     //   - editEntry:     what the edit form targets. ALWAYS exact-
     //     date, so saving writes to the viewed date. When there's

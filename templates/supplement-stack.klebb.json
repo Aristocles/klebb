@@ -14,8 +14,7 @@
     "order": 310,
     "view": {
       "enabled": true,
-      "component": "checklist-card",
-      "dateContext": "exact-date"
+      "component": "checklist-card"
     },
     "reports": {
       "enabled": true,

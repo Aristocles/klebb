@@ -26,9 +26,9 @@ test.describe('#217: writeable.prefillFromLatest pre-fills the add form', () => 
     // Weight seed has rows at today-4 (81.3), today-2 (81.2), today-1
     // (81.0), today (80.9). Navigate back 3 days to today-3 — the gap
     // between today-4 and today-2 — where no row exists.
-    // dateContext:"latest" still applies, but #182's fix means past-
-    // date navigation uses exact-date lookup, so hasEntry will be
-    // false and prefillFromLatest fires.
+    // fallbackToLatest still applies, but #182's fix means past-date
+    // navigation uses exact-date lookup, so hasEntry will be false and
+    // prefillFromLatest fires.
     await page.locator('.arrow-btn[aria-label="previous day"]').click();
     await page.locator('.arrow-btn[aria-label="previous day"]').click();
     await page.locator('.arrow-btn[aria-label="previous day"]').click();

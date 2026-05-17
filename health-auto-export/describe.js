@@ -89,7 +89,7 @@ function describeCatalogue() {
   lines.push('- Always use `{field:round(N)}` for numeric values. A bare');
   lines.push('  `{hours}` renders as "7.283333333..."; `{hours:round(1)}`');
   lines.push('  renders as "7.3".');
-  lines.push('- Set `view.dateContext: "latest"` unless the user explicitly');
+  lines.push('- Set `view.fallbackToLatest: true` unless the user explicitly');
   lines.push('  wants per-day data. HAE pushes arrive on schedules, so');
   lines.push('  today\'s date often has no row yet and a per-day card reads');
   lines.push('  as "No data yet" when data from yesterday is fine to show.');

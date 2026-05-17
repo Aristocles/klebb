@@ -28,7 +28,6 @@ const RULES = {
   weight: {
     view: {
       component: 'generic-card',
-      dateContext: 'viewedDate',
       display: {
         template: '{kg:round(1)}',
         unit: 'kg',
@@ -52,7 +51,6 @@ const RULES = {
   bp: {
     view: {
       component: 'generic-card',
-      dateContext: 'viewedDate',
       display: {
         template: '{systolic}/{diastolic}',
         unit: 'mmHg',
@@ -88,7 +86,6 @@ const RULES = {
     },
     view: {
       component: 'generic-card',
-      dateContext: 'viewedDate',
       display: {
         template: '{mood:emoji}',
         secondary: '{wakeUps|0} wake-ups · {notes|}',
@@ -122,7 +119,6 @@ const RULES = {
   notes: {
     view: {
       component: 'generic-card',
-      dateContext: 'viewedDate',
       display: {
         template: '{note:truncate(80)|(no note today)}',
         emptyHeadline: 'No note today',
