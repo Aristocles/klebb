@@ -3,8 +3,9 @@
 // tests-e2e/today-edit-with-no-today-row.spec.js
 // Regression for a latent bug surfaced on klebbtest 2026-05-14:
 //
-// When a card uses dateContext:"latest" and there's no row for
-// today, the card's display correctly falls back to the latest
+// When a card opts into fallbackToLatest (or the legacy
+// dateContext:"latest" alias) and there's no row for today, the
+// card's display correctly falls back to the latest
 // prior row (per #182's fix). But clicking the edit button on
 // that card used to open the form pre-filled from the prior
 // row — INCLUDING that row's date field — so saving rewrote the
@@ -21,7 +22,7 @@
 
 const { test, expect } = require('./helpers/auth-fixture');
 
-test.describe('edit on Today with dateContext:latest + no today-row targets today, not the fallback day', () => {
+test.describe('edit on Today with fallbackToLatest + no today-row targets today, not the fallback day', () => {
   test('clearing today, editing, saving — writes a NEW row for today', async ({ page, sandboxState }) => {
     const todayIso = (() => {
       const d = new Date();

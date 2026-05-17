@@ -690,7 +690,6 @@ far. Read-only; edits happen on the underlying cards.
       "enabled": true,
       "component": "combination-card",
       "layout": "stack",
-      "dateContext": "viewedDate",
       "combines": [
         { "sourceId": "sleep-hours", "role": "primary",   "label": "Asleep", "accessor": "hours", "unit": "h" },
         { "sourceId": "mood",        "role": "secondary", "label": "Mood",   "accessor": "mood",
