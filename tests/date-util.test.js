@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { localDateStr, localToday } from '../public/js/lib/date-util.js';
+import { localDateStr, localToday, daysBetweenISO } from '../public/js/lib/date-util.js';
 
 test('localDateStr: formats a local Date as YYYY-MM-DD', () => {
   const d = new Date(2026, 3, 25, 7, 0, 0); // 25 April 2026, local
@@ -44,4 +44,54 @@ test('localToday: returns today in local timezone, YYYY-MM-DD format', () => {
   assert.match(result, /^\d{4}-\d{2}-\d{2}$/);
   const now = new Date();
   assert.equal(result, localDateStr(now));
+});
+
+// --- daysBetweenISO (#231) ---
+
+test('daysBetweenISO: same day → 0', () => {
+  assert.equal(daysBetweenISO('2026-05-17', '2026-05-17'), 0);
+});
+
+test('daysBetweenISO: 1d ago / 2d ago / 7d ago', () => {
+  assert.equal(daysBetweenISO('2026-05-16', '2026-05-17'), 1);
+  assert.equal(daysBetweenISO('2026-05-15', '2026-05-17'), 2);
+  assert.equal(daysBetweenISO('2026-05-10', '2026-05-17'), 7);
+});
+
+test('daysBetweenISO: month boundary', () => {
+  assert.equal(daysBetweenISO('2026-04-30', '2026-05-01'), 1);
+  assert.equal(daysBetweenISO('2026-04-25', '2026-05-02'), 7);
+});
+
+test('daysBetweenISO: year boundary', () => {
+  assert.equal(daysBetweenISO('2026-12-31', '2027-01-01'), 1);
+  assert.equal(daysBetweenISO('2026-12-29', '2027-01-03'), 5);
+});
+
+test('daysBetweenISO: leap-year-spanning still rounds clean', () => {
+  // 2024 is a leap year; 2025 is not. The helper should not be fazed
+  // by Feb 29 sitting between two ISO dates a week apart.
+  assert.equal(daysBetweenISO('2024-02-26', '2024-03-04'), 7);
+});
+
+test('daysBetweenISO: DST shoulder dates do not slip an hour and round wrong', () => {
+  // AEST→AEDT in Sydney happens on 2026-10-04 02:00 → 03:00. UTC-anchor
+  // means the helper is unaffected regardless of runner timezone.
+  assert.equal(daysBetweenISO('2026-10-03', '2026-10-04'), 1);
+  assert.equal(daysBetweenISO('2026-10-04', '2026-10-05'), 1);
+  // EDT→EST in New York on 2026-11-01 (the other direction).
+  assert.equal(daysBetweenISO('2026-10-31', '2026-11-01'), 1);
+  assert.equal(daysBetweenISO('2026-11-01', '2026-11-02'), 1);
+});
+
+test('daysBetweenISO: negative when later precedes earlier', () => {
+  assert.equal(daysBetweenISO('2026-05-17', '2026-05-15'), -2);
+});
+
+test('daysBetweenISO: malformed input returns null', () => {
+  assert.equal(daysBetweenISO(null, '2026-05-17'), null);
+  assert.equal(daysBetweenISO('2026-05-17', undefined), null);
+  assert.equal(daysBetweenISO('2026/05/17', '2026-05-17'), null);
+  assert.equal(daysBetweenISO('not a date', '2026-05-17'), null);
+  assert.equal(daysBetweenISO('', ''), null);
 });
