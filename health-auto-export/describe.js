@@ -89,10 +89,17 @@ function describeCatalogue() {
   lines.push('- Always use `{field:round(N)}` for numeric values. A bare');
   lines.push('  `{hours}` renders as "7.283333333..."; `{hours:round(1)}`');
   lines.push('  renders as "7.3".');
-  lines.push('- Set `view.fallbackToLatest: true` unless the user explicitly');
-  lines.push('  wants per-day data. HAE pushes arrive on schedules, so');
-  lines.push('  today\'s date often has no row yet and a per-day card reads');
-  lines.push('  as "No data yet" when data from yesterday is fine to show.');
+  lines.push('- Set `view.fallbackToLatest: true` for cards that track a');
+  lines.push('  slow-changing daily metric (sleep hours, HRV, RHR, weight,');
+  lines.push('  body fat). HAE pushes arrive on schedules, so today\'s row');
+  lines.push('  often has not landed yet and a per-day card reads as "No');
+  lines.push('  data yet" when yesterday\'s value is fine to show.');
+  lines.push('- DO NOT set `fallbackToLatest: true` on workout-style cards');
+  lines.push('  (workouts, meditation, exercise minutes) where a non-trained');
+  lines.push('  day should clearly read as "No workout today", not show the');
+  lines.push('  most recent prior session as if it were today\'s. For boolean-');
+  lines.push('  shaped cards prefer `{trained:check} {type}` over `{trained}`');
+  lines.push('  so a workout day renders ✅ instead of the literal "true".');
   lines.push('');
 
   const keys = Object.keys(catalogue).sort();
