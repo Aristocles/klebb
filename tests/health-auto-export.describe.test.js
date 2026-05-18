@@ -44,6 +44,17 @@ describe('describeCatalogue', () => {
     assert.match(out, /fallbackToLatest.*true/i);
   });
 
+  test('flags workouts as the fallbackToLatest exception (per #234)', () => {
+    // Boolean-shaped cards like workouts/meditation must render the
+    // empty state on rest days, not carry the most recent prior row
+    // forward as if it were today. Make sure the agent guidance says
+    // so explicitly + suggests the {trained:check} modifier.
+    const out = describeCatalogue();
+    assert.match(out, /DO NOT set `fallbackToLatest/i);
+    assert.match(out, /workout/i);
+    assert.match(out, /\{trained:check\}/);
+  });
+
   test('each metric line prefixes its category in brackets', () => {
     const out = describeCatalogue();
     assert.match(out, /\[sleep\] sleep_analysis/);

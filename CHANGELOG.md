@@ -7,6 +7,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Agent guidance no longer suggests `fallbackToLatest: true` on
+  workout-style cards.** Boolean-shaped HAE cards (workouts,
+  meditation, exercise minutes) need to read as "No workout today"
+  on a rest day — not show the most recent prior session as if it
+  were today's. The HAE describe block + system prompt now flag
+  workouts as the explicit exception and steer the agent toward
+  `{trained:check} {type}` instead of bare `{trained}` so a workout
+  day renders ✅ rather than the literal `true`. Live workouts
+  manifests created against earlier guidance can be patched (or
+  re-created) to drop `fallbackToLatest` and adopt the `:check`
+  modifier. See #234.
+
 ### Added
 
 - **Carry-over visual cue on `fallbackToLatest` cards.** When a
