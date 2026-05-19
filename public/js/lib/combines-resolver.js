@@ -19,14 +19,19 @@
 //     state: 'ok' | 'no-source' | 'no-entry' | 'no-accessor-match' | 'no-goal',
 //     value: any | null,
 //     displayValue: string | null,  // value rendered to a display string
-//     row: object | null,            // the full source row, or null
+//     row: object | null,            // the full source row, or null (weekly: null)
 //     // Present only when role === 'ring-segment' and state === 'ok':
-//     goalDaily?: number,
-//     ratio?: number,        // value / goalDaily (unclamped; > 1 means overshoot)
+//     period?: 'daily' | 'week',
+//     goalDaily?: number,    // when period === 'daily'
+//     goalWeekly?: number,   // when period === 'week'
+//     ratio?: number,        // value / goal (unclamped; > 1 means overshoot)
 //     complete?: boolean,    // ratio >= 1
 //   }
-// The 'no-goal' state is emitted when a ring-segment entry is missing
-// a positive finite goalDaily — renderer treats it as a placeholder.
+// Period is 'week' when the ring-segment entry sets goalWeekly; the
+// resolver sums the accessor across all rows in the Mon-Sun week
+// containing the viewed date. If both goalDaily and goalWeekly are
+// set, goalWeekly wins. The 'no-goal' state is emitted when a
+// ring-segment has neither — renderer treats it as a placeholder.
 
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -78,6 +83,37 @@
     return String(value);
   }
 
+  // Monday (ISO week start) of the week containing `isoDate`. Anchors at
+  // UTC midnight so DST never adds or drops an hour and flips the count.
+  // Returns YYYY-MM-DD or null if the input is malformed.
+  function mondayOfWeekISO(isoDate) {
+    if (typeof isoDate !== 'string') return null;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+    if (!m) return null;
+    const ms = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+    const dow = new Date(ms).getUTCDay(); // 0=Sun..6=Sat
+    const back = dow === 0 ? 6 : dow - 1;  // days to subtract to reach Mon
+    const monMs = ms - back * 86_400_000;
+    const d = new Date(monMs);
+    const y = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${mm}-${dd}`;
+  }
+
+  // Sunday of the week containing `isoDate` (Mon + 6).
+  function sundayOfWeekISO(isoDate) {
+    const mon = mondayOfWeekISO(isoDate);
+    if (!mon) return null;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(mon);
+    const sunMs = Date.UTC(+m[1], +m[2] - 1, +m[3]) + 6 * 86_400_000;
+    const d = new Date(sunMs);
+    const y = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${mm}-${dd}`;
+  }
+
   function resolveEntry(entry, sources, date) {
     const sourceId = entry?.sourceId;
     const role = entry?.role || 'annotation';
@@ -90,17 +126,17 @@
       emojiMap: entry?.emojiMap || null,
     };
 
-    // Ring-segment entries MUST carry a positive finite goalDaily; without
-    // one there's nothing to compute a ratio against. Renderer shows a
-    // muted placeholder for this state, same as no-entry.
+    // Ring-segment entries need a positive finite target. goalWeekly wins
+    // over goalDaily when both are set; absence of both → no-goal placeholder.
     const isRingSegment = role === 'ring-segment';
-    const goalDaily = isRingSegment ? Number(entry?.goalDaily) : null;
-    const hasValidGoal = isRingSegment
-      && Number.isFinite(goalDaily)
-      && goalDaily > 0;
-    if (isRingSegment && !hasValidGoal) {
+    const goalWeeklyN = isRingSegment ? Number(entry?.goalWeekly) : null;
+    const goalDailyN = isRingSegment ? Number(entry?.goalDaily) : null;
+    const hasWeekly = isRingSegment && Number.isFinite(goalWeeklyN) && goalWeeklyN > 0;
+    const hasDaily  = isRingSegment && Number.isFinite(goalDailyN)  && goalDailyN  > 0;
+    if (isRingSegment && !hasWeekly && !hasDaily) {
       return { ...base, state: 'no-goal', value: null, displayValue: null, row: null };
     }
+    const period = hasWeekly ? 'week' : (isRingSegment ? 'daily' : null);
 
     if (!sourceId) {
       return { ...base, state: 'no-source', value: null, displayValue: null, row: null };
@@ -115,6 +151,48 @@
     if (!base.label && source.meta?.label) base.label = source.meta.label;
 
     const rows = Array.isArray(source.data) ? source.data : [];
+
+    // Weekly ring-segment: sum accessor across Mon-Sun rows containing
+    // the viewed date. Single missing day is fine (sum stays 0); only a
+    // completely empty week resolves to no-entry.
+    if (isRingSegment && period === 'week') {
+      const mon = mondayOfWeekISO(date);
+      const sun = sundayOfWeekISO(date);
+      if (!mon || !sun) {
+        return { ...base, state: 'no-entry', value: null, displayValue: null, row: null };
+      }
+      const weekRows = rows.filter(r => r && typeof r.date === 'string'
+        && r.date >= mon && r.date <= sun);
+      if (weekRows.length === 0) {
+        return { ...base, state: 'no-entry', value: null, displayValue: null, row: null };
+      }
+      const accessor = entry?.accessor || firstScalarKey(weekRows[0]);
+      if (!accessor) {
+        return { ...base, state: 'no-accessor-match', value: null, displayValue: null, row: null };
+      }
+      let sum = 0;
+      let any = false;
+      for (const r of weekRows) {
+        const v = getByPath(r, accessor);
+        const n = Number(v);
+        if (Number.isFinite(n)) { sum += n; any = true; }
+      }
+      if (!any) {
+        return { ...base, state: 'no-accessor-match', value: null, displayValue: null, row: null };
+      }
+      return {
+        ...base,
+        state: 'ok',
+        value: sum,
+        displayValue: stringifyValue(sum, base.emojiMap),
+        row: null,
+        period: 'week',
+        goalWeekly: goalWeeklyN,
+        ratio: sum / goalWeeklyN,
+        complete: (sum / goalWeeklyN) >= 1,
+      };
+    }
+
     const row = rows.find(r => r && r.date === date) || null;
     if (!row) {
       return { ...base, state: 'no-entry', value: null, displayValue: null, row: null };
@@ -143,8 +221,9 @@
       if (!Number.isFinite(numeric)) {
         return { ...base, state: 'no-accessor-match', value: null, displayValue: null, row };
       }
-      result.goalDaily = goalDaily;
-      result.ratio = numeric / goalDaily;
+      result.period = 'daily';
+      result.goalDaily = goalDailyN;
+      result.ratio = numeric / goalDailyN;
       result.complete = result.ratio >= 1;
     }
 
@@ -196,5 +275,7 @@
     stringifyValue,
     canEditDonor,
     donorIdsInOrder,
+    mondayOfWeekISO,
+    sundayOfWeekISO,
   };
 }));

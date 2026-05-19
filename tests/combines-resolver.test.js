@@ -14,6 +14,8 @@ const {
   stringifyValue,
   canEditDonor,
   donorIdsInOrder,
+  mondayOfWeekISO,
+  sundayOfWeekISO,
 } = require('../public/js/lib/combines-resolver.js');
 
 describe('getByPath', () => {
@@ -473,5 +475,196 @@ describe('resolveEntry: ring-segment role', () => {
       sources, '2026-05-05',
     );
     assert.equal(r.colour, '#0ea5e9');
+  });
+
+  test('daily ring-segment carries period: daily', () => {
+    const r = resolveEntry(
+      { sourceId: 'steps', role: 'ring-segment', accessor: 'count', goalDaily: 10000 },
+      sources, '2026-05-05',
+    );
+    assert.equal(r.period, 'daily');
+  });
+});
+
+describe('mondayOfWeekISO / sundayOfWeekISO', () => {
+  // 2026-05-04 is a Monday; the week is Mon 2026-05-04 to Sun 2026-05-10.
+  test('Monday returns itself', () => {
+    assert.equal(mondayOfWeekISO('2026-05-04'), '2026-05-04');
+    assert.equal(sundayOfWeekISO('2026-05-04'), '2026-05-10');
+  });
+  test('mid-week resolves back to that Monday', () => {
+    assert.equal(mondayOfWeekISO('2026-05-06'), '2026-05-04');
+    assert.equal(sundayOfWeekISO('2026-05-06'), '2026-05-10');
+  });
+  test('Sunday belongs to the week starting the previous Monday', () => {
+    assert.equal(mondayOfWeekISO('2026-05-10'), '2026-05-04');
+    assert.equal(sundayOfWeekISO('2026-05-10'), '2026-05-10');
+  });
+  test('crosses year boundary correctly', () => {
+    // 2026-01-01 is a Thursday; ISO Monday is 2025-12-29.
+    assert.equal(mondayOfWeekISO('2026-01-01'), '2025-12-29');
+    assert.equal(sundayOfWeekISO('2026-01-01'), '2026-01-04');
+  });
+  test('invalid input returns null', () => {
+    assert.equal(mondayOfWeekISO(null), null);
+    assert.equal(mondayOfWeekISO('not a date'), null);
+    assert.equal(sundayOfWeekISO('not a date'), null);
+  });
+});
+
+describe('resolveEntry: ring-segment with goalWeekly', () => {
+  // Mon-Sun: 2026-05-04 to 2026-05-10. One workout row per training day.
+  const sources = {
+    'workouts': {
+      loaded: true, meta: { label: 'Workouts' },
+      data: [
+        { date: '2026-04-29', count: 1 },  // previous week
+        { date: '2026-05-04', count: 1 },  // Mon of target week
+        { date: '2026-05-06', count: 1 },  // Wed
+        { date: '2026-05-08', count: 1 },  // Fri
+        { date: '2026-05-12', count: 1 },  // next week
+      ],
+    },
+    'workouts-empty': {
+      loaded: true, meta: { label: 'Workouts' },
+      data: [
+        { date: '2026-04-29', count: 1 },  // only previous-week rows
+      ],
+    },
+    'steps': {
+      loaded: true, meta: { label: 'Steps' },
+      data: [
+        { date: '2026-05-04', count: 6000 },
+        { date: '2026-05-05', count: 4000 },
+      ],
+    },
+  };
+
+  test('sums rows across Mon-Sun when viewed mid-week', () => {
+    const r = resolveEntry(
+      { sourceId: 'workouts', role: 'ring-segment', accessor: 'count', goalWeekly: 5 },
+      sources, '2026-05-06',
+    );
+    assert.equal(r.state, 'ok');
+    assert.equal(r.value, 3);
+    assert.equal(r.period, 'week');
+    assert.equal(r.goalWeekly, 5);
+    assert.equal(r.ratio, 0.6);
+    assert.equal(r.complete, false);
+  });
+
+  test('Monday boundary: counts that Monday in', () => {
+    const r = resolveEntry(
+      { sourceId: 'workouts', role: 'ring-segment', accessor: 'count', goalWeekly: 5 },
+      sources, '2026-05-04',
+    );
+    assert.equal(r.value, 3);
+  });
+
+  test('Sunday boundary: counts the same week, not the next', () => {
+    const r = resolveEntry(
+      { sourceId: 'workouts', role: 'ring-segment', accessor: 'count', goalWeekly: 5 },
+      sources, '2026-05-10',
+    );
+    assert.equal(r.value, 3);
+  });
+
+  test('past-week scrub shows that week, not the current one', () => {
+    const r = resolveEntry(
+      { sourceId: 'workouts', role: 'ring-segment', accessor: 'count', goalWeekly: 5 },
+      sources, '2026-04-29',
+    );
+    assert.equal(r.state, 'ok');
+    assert.equal(r.value, 1);
+  });
+
+  test('completes at goal (sum >= goalWeekly)', () => {
+    const src = {
+      'w': { loaded: true, meta: {}, data: [
+        { date: '2026-05-04', count: 2 },
+        { date: '2026-05-06', count: 3 },
+      ]},
+    };
+    const r = resolveEntry(
+      { sourceId: 'w', role: 'ring-segment', accessor: 'count', goalWeekly: 5 },
+      src, '2026-05-06',
+    );
+    assert.equal(r.value, 5);
+    assert.equal(r.complete, true);
+  });
+
+  test('overshoot: sum > goal, ratio > 1, complete = true', () => {
+    const r = resolveEntry(
+      { sourceId: 'steps', role: 'ring-segment', accessor: 'count', goalWeekly: 7000 },
+      sources, '2026-05-05',
+    );
+    assert.equal(r.value, 10000);
+    assert.ok(r.ratio > 1);
+    assert.equal(r.complete, true);
+  });
+
+  test('empty week → no-entry', () => {
+    const r = resolveEntry(
+      { sourceId: 'workouts-empty', role: 'ring-segment', accessor: 'count', goalWeekly: 5 },
+      sources, '2026-05-06',
+    );
+    assert.equal(r.state, 'no-entry');
+  });
+
+  test('both goalDaily and goalWeekly: weekly wins', () => {
+    const r = resolveEntry(
+      { sourceId: 'workouts', role: 'ring-segment', accessor: 'count', goalDaily: 1, goalWeekly: 5 },
+      sources, '2026-05-06',
+    );
+    assert.equal(r.period, 'week');
+    assert.equal(r.goalWeekly, 5);
+    assert.equal('goalDaily' in r, false);
+    assert.equal(r.value, 3);
+  });
+
+  test('neither goal → no-goal (unchanged)', () => {
+    const r = resolveEntry(
+      { sourceId: 'workouts', role: 'ring-segment', accessor: 'count' },
+      sources, '2026-05-06',
+    );
+    assert.equal(r.state, 'no-goal');
+  });
+
+  test('zero goalWeekly falls back to goalDaily if present', () => {
+    const r = resolveEntry(
+      { sourceId: 'workouts', role: 'ring-segment', accessor: 'count', goalWeekly: 0, goalDaily: 1 },
+      sources, '2026-05-06',
+    );
+    assert.equal(r.period, 'daily');
+    assert.equal(r.goalDaily, 1);
+  });
+
+  test('non-numeric accessor across the week → no-accessor-match', () => {
+    const text = {
+      't': { loaded: true, meta: {}, data: [
+        { date: '2026-05-04', note: 'hi' },
+        { date: '2026-05-06', note: 'there' },
+      ]},
+    };
+    const r = resolveEntry(
+      { sourceId: 't', role: 'ring-segment', accessor: 'note', goalWeekly: 5 },
+      text, '2026-05-06',
+    );
+    assert.equal(r.state, 'no-accessor-match');
+  });
+
+  test('mixed daily + weekly rings on the same card resolve independently', () => {
+    const combines = [
+      // Daily ring: viewed date is Mon 2026-05-04 so the steps row at that date drives it.
+      { sourceId: 'steps', role: 'ring-segment', accessor: 'count', goalDaily: 10000 },
+      { sourceId: 'workouts', role: 'ring-segment', accessor: 'count', goalWeekly: 5 },
+    ];
+    const out = resolveCombines(combines, sources, '2026-05-04');
+    assert.equal(out[0].state, 'ok');
+    assert.equal(out[0].period, 'daily');
+    assert.equal(out[0].value, 6000);
+    assert.equal(out[1].state, 'ok');
+    assert.equal(out[1].period, 'week');
+    assert.equal(out[1].value, 3);
   });
 });
