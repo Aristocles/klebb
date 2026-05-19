@@ -7,6 +7,28 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **HAE workouts ingest captures duration, distance, calories, HR,
+  elevation, and start time.** The `workouts` catalogue entry used to
+  emit only `{date, trained, type}`, throwing away every per-session
+  number HAE provides. It now reads `duration`, `distance`,
+  `activeEnergyBurned`, `avgHeartRate`/`maxHeartRate` (and the nested
+  `heartRate.{avg,max}` alt shape), `elevationUp`, and `start`,
+  normalising HAE's user-pref units (`kJ`→`kcal`, `mi`→`km`, `ft`→`m`)
+  and dropping fields HAE didn't supply rather than emitting nulls.
+  When several sessions land on the same date, a new
+  `workouts-merge-per-date` aggregator rolls them up into one daily
+  summary, matching Apple Health's own per-day view: additive fields
+  (durationMin/distanceKm/calories/elevationM) sum, `type` becomes a
+  comma-separated chronological dedup list, `avgHr` is duration-
+  weighted, `maxHr` is the max, `startTime` is the earliest. Existing
+  minimal `{date, trained, type}` rows continue to validate; an HAE
+  re-push backfills enriched fields. The HAE describe block + agent
+  system prompt now advertise the new fields and recommend a richer
+  secondary template like `{durationMin} min · {distanceKm|} km ·
+  {calories} cal`. See #235.
+
 ### Fixed
 
 - **Agent guidance no longer suggests `fallbackToLatest: true` on

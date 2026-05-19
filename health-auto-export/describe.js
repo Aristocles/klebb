@@ -24,7 +24,8 @@ function makeProbe() {
     // Date fields (different catalogue entries pick different ones).
     date:       '2026-01-01 00:00:00 +0000',
     sleepStart: '2026-01-01 00:00:00 +0000',
-    start:      '2026-01-01 00:00:00 +0000',
+    start:      '2026-01-01 09:30:00 +0000',
+    end:        '2026-01-01 10:00:00 +0000',
 
     // Numeric generics.
     qty: 1,
@@ -37,6 +38,14 @@ function makeProbe() {
     rem:        1.5,
     core:       4.3,
     awake:      0.3,
+
+    // Workout-specific fields (HAE v2 wraps numerics as {qty, units}).
+    duration:           1800,
+    distance:           { qty: 2.5, units: 'km' },
+    activeEnergyBurned: { qty: 320, units: 'kcal' },
+    avgHeartRate:       { qty: 120, units: 'bpm' },
+    maxHeartRate:       { qty: 145, units: 'bpm' },
+    elevationUp:        { qty: 30,  units: 'm' },
 
     // Attribution + labels.
     source: 'probe',
@@ -100,6 +109,14 @@ function describeCatalogue() {
   lines.push('  most recent prior session as if it were today\'s. For boolean-');
   lines.push('  shaped cards prefer `{trained:check} {type}` over `{trained}`');
   lines.push('  so a workout day renders ✅ instead of the literal "true".');
+  lines.push('- The `workouts` row is a per-day rollup: when several sessions');
+  lines.push('  land on the same date, additive fields (durationMin, distanceKm,');
+  lines.push('  calories, elevationM) are summed; `type` becomes a comma-');
+  lines.push('  separated chronological dedup list; `avgHr` is duration-');
+  lines.push('  weighted; `maxHr` is the max; `startTime` is the earliest. So');
+  lines.push('  a richer template like `{trained:check} {type}` headline +');
+  lines.push('  `{durationMin} min · {distanceKm|} km · {calories} cal`');
+  lines.push('  secondary will show daily totals on multi-session days.');
   lines.push('');
 
   const keys = Object.keys(catalogue).sort();
