@@ -9,6 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **`workouts` rows expose `sessionCount`.** The
+  `workouts-merge-per-date` aggregator now emits a `sessionCount`
+  field (positive integer) on every merged daily row, equal to the
+  number of distinct HAE workout entries for that date. This makes a
+  `goalWeekly` ring with `accessor: "sessionCount"` actually count
+  distinct sessions across the week (e.g. 2 walks + 1 run + 1 cycle =
+  4) regardless of how long each session ran. Existing minimal
+  `{date, trained, type}` rows continue to validate; an HAE re-push
+  backfills `sessionCount`. Catalogue describe block tells the chat
+  assistant about the field and recommends it for per-session weekly
+  rings. See #240.
+
 - **Weekly accumulation rings on `combination-card`.** Ring-segment
   entries now accept `goalWeekly` as an alternative to `goalDaily`. A
   weekly ring fills against the sum of the accessor across all rows in

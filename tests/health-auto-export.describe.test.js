@@ -46,6 +46,12 @@ describe('describeCatalogue', () => {
     assert.match(out, /per-day rollup/i);
   });
 
+  test('describes sessionCount + goalWeekly accessor pattern (#240)', () => {
+    const out = describeCatalogue();
+    assert.match(out, /sessionCount/);
+    assert.match(out, /goalWeekly/);
+  });
+
   test('carries display-template guidance for HAE-backed cards', () => {
     const out = describeCatalogue();
     assert.match(out, /round\(N\)/);

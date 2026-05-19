@@ -152,7 +152,7 @@ describe('aggregate(workouts-merge-per-date)', () => {
     }], 'workouts-merge-per-date');
     assert.equal(out.length, 1);
     assert.deepEqual(out[0], {
-      date: '2026-05-04', trained: true, type: 'Outdoor Walk',
+      date: '2026-05-04', sessionCount: 1, trained: true, type: 'Outdoor Walk',
       durationMin: 30, distanceKm: 2.5, calories: 200,
       avgHr: 110, maxHr: 130, elevationM: 25, startTime: '09:30',
     });
@@ -252,5 +252,34 @@ describe('aggregate(workouts-merge-per-date)', () => {
     ], 'workouts-merge-per-date');
     assert.equal(out.length, 1);
     assert.equal(out[0].type, 'Outdoor Walk, Functional Strength Training');
+  });
+
+  test('emits sessionCount = 1 for a single-session day', () => {
+    const out = aggregate([
+      { date: '2026-05-04', trained: true, type: 'Outdoor Walk', durationMin: 30 },
+    ], 'workouts-merge-per-date');
+    assert.equal(out[0].sessionCount, 1);
+  });
+
+  test('emits sessionCount equal to the number of merged sessions', () => {
+    const out = aggregate([
+      { date: '2026-05-04', trained: true, type: 'Outdoor Walk', startTime: '07:30' },
+      { date: '2026-05-04', trained: true, type: 'Functional Strength Training', startTime: '11:00' },
+      { date: '2026-05-04', trained: true, type: 'Cycling', startTime: '18:00' },
+    ], 'workouts-merge-per-date');
+    assert.equal(out.length, 1);
+    assert.equal(out[0].sessionCount, 3);
+  });
+
+  test('sessionCount is per-date: separate days get their own count', () => {
+    const out = aggregate([
+      { date: '2026-05-04', trained: true, type: 'Walk', startTime: '08:00' },
+      { date: '2026-05-04', trained: true, type: 'Lift', startTime: '18:00' },
+      { date: '2026-05-05', trained: true, type: 'Walk', startTime: '08:00' },
+    ], 'workouts-merge-per-date');
+    assert.equal(out.length, 2);
+    const byDate = Object.fromEntries(out.map(r => [r.date, r.sessionCount]));
+    assert.equal(byDate['2026-05-04'], 2);
+    assert.equal(byDate['2026-05-05'], 1);
   });
 });
