@@ -32,6 +32,20 @@ test.describe('#215: workouts card renders boolean trained as a tick', () => {
   });
 });
 
+test.describe('#235: enriched secondary template renders duration/calories', () => {
+  test('seed row carries durationMin + calories; secondary line shows them', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('eh-date-view')).toBeVisible();
+
+    const card = page.locator('eh-generic-card', { hasText: 'Workouts' }).first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    // Seed has durationMin: 42, calories: 312, no distanceKm — the
+    // {distanceKm|} pipe-default keeps the secondary clean.
+    await expect(card).toContainText('42 min');
+    await expect(card).toContainText('312 cal');
+  });
+});
+
 test.describe('#234: workouts on a rest day shows empty state, never carry-over', () => {
   test('no row for today + no fallbackToLatest → empty headline, no chip, no dim', async ({ page, sandboxState }) => {
     const baseUrl = sandboxState.baseUrl;

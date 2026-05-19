@@ -126,8 +126,11 @@ describe('catalogue: workouts pseudo-metric', () => {
     assert.equal(cat.from, 'workouts');
   });
   test('derives trained: true from a workout record', () => {
+    // The minimum-shape row carries date/trained/type plus startTime
+    // (always derivable from `start`). Other enriched fields are
+    // covered in detail in tests/health-auto-export.workouts.test.js.
     assert.deepEqual(cat.row({ name: 'Running', start: '2026-05-04 11:00:00 +1000' }),
-      { date: '2026-05-04', trained: true, type: 'Running' });
+      { date: '2026-05-04', trained: true, type: 'Running', startTime: '11:00' });
   });
   test('drops records with no date', () => {
     assert.equal(cat.row({ name: 'Running' }), null);
