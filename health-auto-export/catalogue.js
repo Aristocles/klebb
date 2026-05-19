@@ -13,6 +13,7 @@
 //     from?:      'metrics' | 'workouts'          // default 'metrics'
 //     aggregate:  'last-per-date' | 'sum-per-date' | 'mean-per-date'
 //               | 'max-per-date'  | 'boolean-any-per-date'
+//               | 'workouts-merge-per-date'
 //     row(entry): object | null   // null = drop this entry
 //   }
 //
@@ -28,7 +29,11 @@
 //   - Aggregation is applied by the dispatcher after mapping. Catalogue
 //     entries do not pre-aggregate.
 
-const { toDate, numeric, round } = require('./helpers');
+const {
+  toDate, numeric, round,
+  readQty, toKcal, toKm, toM, passQty,
+  extractHHMM,
+} = require('./helpers');
 
 module.exports = {
   // --- Sleep / recovery ---------------------------------------------------
@@ -195,12 +200,61 @@ module.exports = {
   workouts: {
     category: 'activity',
     from: 'workouts',
-    aggregate: 'boolean-any-per-date',
+    aggregate: 'workouts-merge-per-date',
     row(entry) {
       const date = toDate(entry.start || entry.date);
       if (!date) return null;
       const row = { date, trained: true };
       if (entry.name) row.type = entry.name;
+
+      // Duration: HAE always emits this as bare seconds (per the v2 wiki
+      // schema). Convert to whole minutes; drop if missing or non-finite.
+      const durationSec = numeric(entry.duration);
+      if (durationSec !== null && durationSec > 0) {
+        row.durationMin = round(durationSec / 60, 0);
+      }
+
+      // Distance: `{qty, units: "mi"|"km"}`. Only emit when truthy — a
+      // strength session reports distance:null and we don't want a 0 km
+      // chip on the card.
+      const distanceKm = readQty(entry.distance, toKm);
+      if (distanceKm !== null && distanceKm > 0) {
+        row.distanceKm = round(distanceKm, 2);
+      }
+
+      // Calories: prefer activeEnergyBurned (excludes BMR). Units may be
+      // "kcal" or "kJ" depending on the iPhone's unit preference.
+      const kcal = readQty(entry.activeEnergyBurned, toKcal);
+      if (kcal !== null && kcal > 0) {
+        row.calories = round(kcal, 0);
+      }
+
+      // Heart rate: prefer the flat avgHeartRate/maxHeartRate fields, fall
+      // back to the nested heartRate.{avg,max} shape some payloads use.
+      const avgHr = readQty(entry.avgHeartRate, passQty)
+        ?? readQty(entry.heartRate?.avg, passQty);
+      if (avgHr !== null && avgHr > 0) {
+        row.avgHr = round(avgHr, 0);
+      }
+      const maxHr = readQty(entry.maxHeartRate, passQty)
+        ?? readQty(entry.heartRate?.max, passQty);
+      if (maxHr !== null && maxHr > 0) {
+        row.maxHr = round(maxHr, 0);
+      }
+
+      // Elevation: v2 uses `elevationUp` (m or ft); v1 used a wrapped
+      // `elevation.ascent`. Only `up` is interesting for a daily summary.
+      const elevationM = readQty(entry.elevationUp, toM)
+        ?? readQty(entry.elevation?.ascent !== undefined
+          ? { qty: entry.elevation.ascent, units: entry.elevation.units }
+          : null, toM);
+      if (elevationM !== null && elevationM > 0) {
+        row.elevationM = round(elevationM, 0);
+      }
+
+      const startTime = extractHHMM(entry.start);
+      if (startTime) row.startTime = startTime;
+
       return row;
     },
   },

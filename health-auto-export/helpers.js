@@ -30,4 +30,43 @@ function round(v, decimals = 0) {
   return Math.round(v * f) / f;
 }
 
-module.exports = { toDate, numeric, round };
+// HAE wraps most numeric workout fields as `{qty, units}` objects, with
+// `units` chosen by the user's iPhone unit preferences (e.g. "kJ" vs "kcal",
+// "mi" vs "km", "ft" vs "m"). Read the qty, normalise to the canonical unit
+// via the supplied converter, and return null if the field is absent or
+// not finite. The legacy v1 shape is sometimes a bare number; tolerate both.
+function readQty(field, convert) {
+  if (field === null || field === undefined) return null;
+  if (typeof field === 'number') {
+    return Number.isFinite(field) ? convert(field, null) : null;
+  }
+  if (typeof field !== 'object') return null;
+  const qty = numeric(field.qty);
+  if (qty === null) return null;
+  return convert(qty, field.units || null);
+}
+
+const KJ_PER_KCAL = 4.184;
+const KM_PER_MI = 1.609344;
+const M_PER_FT = 0.3048;
+
+const toKcal = (q, u) => (u === 'kJ' ? q / KJ_PER_KCAL : q);
+const toKm   = (q, u) => (u === 'mi' ? q * KM_PER_MI : q);
+const toM    = (q, u) => (u === 'ft' ? q * M_PER_FT : q);
+const passQty = (q) => q;
+
+// Pull the local HH:MM out of an HAE timestamp like
+// "2026-05-04 14:23:00 +1000". Regex-only — we want the wall-clock time as
+// HAE wrote it, not a reinterpretation through the host's TZ. Returns null
+// if the stamp can't be parsed.
+function extractHHMM(stamp) {
+  if (!stamp || typeof stamp !== 'string') return null;
+  const m = stamp.match(/\b(\d{2}:\d{2})(?::\d{2})?\b/);
+  return m ? m[1] : null;
+}
+
+module.exports = {
+  toDate, numeric, round,
+  readQty, toKcal, toKm, toM, passQty,
+  extractHHMM,
+};

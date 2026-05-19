@@ -139,24 +139,42 @@ describe('dispatch: multiple subscribers to same metric', () => {
 });
 
 describe('dispatch: workouts pseudo-metric', () => {
-  test('reads from data.workouts[]', () => {
+  test('reads from data.workouts[] and merges same-date sessions', () => {
     const reg = makeRegistry([
       { id: 'workouts', meta: { id: 'workouts',
           ingest: { source: 'hae', metric: 'workouts' } } },
     ]);
     const payload = { data: { workouts: [
-      { name: 'Running', start: '2026-05-04 07:00:00 +1000' },
-      { name: 'Walking', start: '2026-05-04 18:00:00 +1000' },
-      { name: 'Functional Strength Training', start: '2026-05-05 11:00:00 +1000' },
+      { name: 'Running', start: '2026-05-04 07:00:00 +1000', duration: 1800,
+        distance: { qty: 5, units: 'km' },
+        activeEnergyBurned: { qty: 320, units: 'kcal' } },
+      { name: 'Walking', start: '2026-05-04 18:00:00 +1000', duration: 900,
+        distance: { qty: 1.2, units: 'km' },
+        activeEnergyBurned: { qty: 80, units: 'kcal' } },
+      { name: 'Functional Strength Training',
+        start: '2026-05-05 11:00:00 +1000', duration: 2700,
+        activeEnergyBurned: { qty: 1104.576, units: 'kJ' } },
     ]}};
 
     dispatch(reg, payload);
     const rows = reg._snapshot('workouts');
     assert.equal(rows.length, 2);
     const byDate = Object.fromEntries(rows.map(r => [r.date, r]));
+
+    // Two sessions on 2026-05-04 — daily summary sums duration/calories,
+    // type list is chronological, startTime is the earliest.
     assert.equal(byDate['2026-05-04'].trained, true);
-    assert.equal(byDate['2026-05-04'].type, 'Running');
+    assert.equal(byDate['2026-05-04'].type, 'Running, Walking');
+    assert.equal(byDate['2026-05-04'].durationMin, 45);    // 30 + 15
+    assert.equal(byDate['2026-05-04'].distanceKm, 6.20);   // 5.0 + 1.2
+    assert.equal(byDate['2026-05-04'].calories, 400);      // 320 + 80
+    assert.equal(byDate['2026-05-04'].startTime, '07:00');
+
+    // Single session on 2026-05-05; kJ → kcal conversion exercised.
     assert.equal(byDate['2026-05-05'].trained, true);
+    assert.equal(byDate['2026-05-05'].type, 'Functional Strength Training');
+    assert.equal(byDate['2026-05-05'].durationMin, 45);
+    assert.equal(byDate['2026-05-05'].calories, 264);      // 1104.576 / 4.184
   });
 });
 

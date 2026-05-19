@@ -20,8 +20,9 @@
       "enabled": true,
       "component": "generic-card",
       "display": {
-        "template": "{trained?✅ Trained:❌ Rest}",
-        "secondary": "{type|}"
+        "template": "{trained:check} {type}",
+        "secondary": "{durationMin} min · {distanceKm|} km · {calories} cal",
+        "emptyHeadline": "No workout today"
       }
     },
     "writeable": { "fromWebapp": false }
