@@ -77,6 +77,15 @@ describe('pickCcEmbellishments: combination-card branch', () => {
     assert.ok(!ids.includes('cc-add-goals'));
   });
 
+  test('goal chip NOT offered when ring segments use goalWeekly', () => {
+    const out = pickCcEmbellishments(cc({}, [
+      { sourceId: 'workouts', role: 'ring-segment', goalWeekly: 5 },
+      { sourceId: 'exercise', role: 'ring-segment', goalWeekly: 4 },
+    ], 'rings'));
+    const ids = out ? out.embellishments.map(e => e.id) : [];
+    assert.ok(!ids.includes('cc-add-goals'));
+  });
+
   test('colour chip NOT offered when every ring segment has a colour', () => {
     const out = pickCcEmbellishments(cc({}, [
       { sourceId: 'a', role: 'ring-segment', goalDaily: 10, colour: '#f00' },
