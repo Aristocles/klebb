@@ -34,8 +34,16 @@ describe('describeCatalogue', () => {
     const out = describeCatalogue();
     assert.match(out, /step_count.*sum-per-date/);
     assert.match(out, /heart_rate_variability.*mean-per-date/);
-    assert.match(out, /workouts.*boolean-any-per-date/);
+    assert.match(out, /workouts.*workouts-merge-per-date/);
     assert.match(out, /data\.workouts\[\]/);
+  });
+
+  test('describes the workouts per-day merge so agents pick richer templates (#235)', () => {
+    const out = describeCatalogue();
+    assert.match(out, /durationMin/);
+    assert.match(out, /distanceKm/);
+    assert.match(out, /calories/);
+    assert.match(out, /per-day rollup/i);
   });
 
   test('carries display-template guidance for HAE-backed cards', () => {

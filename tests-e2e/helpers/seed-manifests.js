@@ -342,14 +342,16 @@ function workouts(today) {
         // trained day's leftovers. See #215.
         display: {
           template: '{trained:check} {type}',
+          secondary: '{durationMin} min · {distanceKm|} km · {calories} cal',
           emptyHeadline: 'No workout today',
         },
       },
       writeable: { fromWebapp: false },
     },
-    description: 'Workout data ingested from Health Auto Export. One row per date. Fields: date, trained (boolean), type (workout type string).',
+    description: 'Workout data ingested from Health Auto Export. One row per date — multiple same-date sessions are merged into a daily summary: durationMin/distanceKm/calories/elevationM summed, type is a chronological dedup list, avgHr is the duration-mean, maxHr is the max, startTime is the earliest. Fields: date, trained, type, durationMin, distanceKm, calories, avgHr, maxHr, elevationM, startTime (optional fields are absent when HAE did not supply them).',
     data: [
-      { date: today, trained: true, type: 'Functional Strength Training' },
+      { date: today, trained: true, type: 'Functional Strength Training',
+        durationMin: 42, calories: 312, avgHr: 118, maxHr: 142, startTime: '11:30' },
     ],
   };
 }

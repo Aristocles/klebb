@@ -148,6 +148,80 @@ function aggregate(rows, strategy) {
         break;
       }
 
+      case 'workouts-merge-per-date': {
+        // Multiple workouts on the same date merge to one daily summary,
+        // matching Apple Health's own workouts-by-day rollup. Sum the
+        // additive measures; keep `type`/`source`/etc as a chronological
+        // dedup list; pick max for `maxHr`; weighted mean for `avgHr`;
+        // earliest local start time. See #235 for the full rule table.
+        const sorted = [...list].sort((a, b) =>
+          String(a.startTime || '').localeCompare(String(b.startTime || '')));
+        const acc = { date };
+        const trained = sorted.some(r => r.trained === true);
+        if (trained) acc.trained = true;
+
+        // Chronological dedup list, joined by ", ". For 1-entry days the
+        // value is just the single string with no comma.
+        const types = [];
+        for (const r of sorted) {
+          if (r.type && !types.includes(r.type)) types.push(r.type);
+        }
+        if (types.length) acc.type = types.join(', ');
+
+        const sumIfAny = (key, decimals = 0) => {
+          let total = 0;
+          let any = false;
+          for (const r of sorted) {
+            const n = numeric(r[key]);
+            if (n === null) continue;
+            total += n;
+            any = true;
+          }
+          if (any) acc[key] = decimals === 0
+            ? Math.round(total)
+            : Math.round(total * Math.pow(10, decimals)) / Math.pow(10, decimals);
+        };
+        sumIfAny('durationMin', 0);
+        sumIfAny('distanceKm', 2);
+        sumIfAny('calories', 0);
+        sumIfAny('elevationM', 0);
+
+        // Weighted mean HR by duration. If no entry carries duration but
+        // some carry HR, fall back to a flat mean so a single watch-tracked
+        // walk doesn't silently drop the field.
+        let hrNum = 0;
+        let hrDen = 0;
+        let hrFlatSum = 0;
+        let hrFlatCount = 0;
+        for (const r of sorted) {
+          const hr = numeric(r.avgHr);
+          if (hr === null) continue;
+          hrFlatSum += hr;
+          hrFlatCount += 1;
+          const w = numeric(r.durationMin);
+          if (w === null || w <= 0) continue;
+          hrNum += hr * w;
+          hrDen += w;
+        }
+        if (hrDen > 0) acc.avgHr = Math.round(hrNum / hrDen);
+        else if (hrFlatCount > 0) acc.avgHr = Math.round(hrFlatSum / hrFlatCount);
+
+        let maxHrSeen = null;
+        for (const r of sorted) {
+          const hr = numeric(r.maxHr);
+          if (hr === null) continue;
+          maxHrSeen = maxHrSeen === null ? hr : Math.max(maxHrSeen, hr);
+        }
+        if (maxHrSeen !== null) acc.maxHr = Math.round(maxHrSeen);
+
+        // Earliest local start.
+        const starts = sorted.map(r => r.startTime).filter(Boolean).sort();
+        if (starts.length) acc.startTime = starts[0];
+
+        out.push(acc);
+        break;
+      }
+
       default:
         // Unknown strategy: behave like last-per-date so catalogue authors
         // get something vaguely sensible while debugging.
