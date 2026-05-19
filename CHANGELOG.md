@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Weekly accumulation rings on `combination-card`.** Ring-segment
+  entries now accept `goalWeekly` as an alternative to `goalDaily`. A
+  weekly ring fills against the sum of the accessor across all rows in
+  the Mon-Sun week containing the viewed date, so a "5 workouts/week"
+  ring resets every Monday and shows historical totals when the
+  scrubber is moved back. Daily and weekly rings can mix on the same
+  card; the legend marks weekly entries with a `/wk` suffix. If both
+  goals are set on one entry, `goalWeekly` wins. The chat assistant
+  CC schema description and the embellish "missing goal" chip both
+  recognise the new field. See #238.
+
 - **HAE workouts ingest captures duration, distance, calories, HR,
   elevation, and start time.** The `workouts` catalogue entry used to
   emit only `{date, trained, type}`, throwing away every per-session

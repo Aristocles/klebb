@@ -161,9 +161,12 @@ function pickCcEmbellishments(manifest, { flow = 'create' } = {}) {
     });
   }
 
-  // 3. For any ring-segment donor missing goalDaily, offer goals.
+  // 3. For any ring-segment donor missing both goalDaily and goalWeekly,
+  // offer goals.
   const ringSegmentsNoGoal = combines.filter(c =>
-    c && c.role === 'ring-segment' && c.goalDaily === undefined);
+    c && c.role === 'ring-segment'
+    && c.goalDaily === undefined
+    && c.goalWeekly === undefined);
   if (ringSegmentsNoGoal.length > 0) {
     // One chip covering all ungoaled ring segments at once — less noisy
     // than one chip per donor when users just switched to rings.
@@ -172,8 +175,8 @@ function pickCcEmbellishments(manifest, { flow = 'create' } = {}) {
       id: 'cc-add-goals',
       label: ringSegmentsNoGoal.length === 1
         ? `Add a goal for ${names[0]}`
-        : 'Add daily goals to the rings',
-      prompt: `On the ${label} card, set a sensible daily goal (goalDaily) for each ring segment: ${names.join(', ')}. Ask me what I'm aiming for if unclear.`,
+        : 'Add goals to the rings',
+      prompt: `On the ${label} card, set a sensible goal for each ring segment: ${names.join(', ')}. For per-day targets use goalDaily; for weekly accumulation (Mon-Sun) use goalWeekly. Ask me what I'm aiming for if unclear.`,
     });
   }
 

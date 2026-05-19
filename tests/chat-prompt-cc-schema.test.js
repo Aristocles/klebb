@@ -40,6 +40,12 @@ describe('describeCcSchema (unit)', () => {
     assert.match(out, /colour/);
   });
 
+  test('mentions goalWeekly for weekly-accumulation rings', () => {
+    const out = describeCcSchema();
+    assert.match(out, /goalWeekly/);
+    assert.match(out, /Mon-Sun|weekly|week containing/i);
+  });
+
   test('tells the agent that data[] on a CC must stay empty', () => {
     const out = describeCcSchema();
     assert.match(out, /empty array|MUST be an empty/i);

@@ -347,3 +347,82 @@ describe('combination-card layout:"rings" round-trip', () => {
     assert.equal(activeRes.json.data[0].minutes, 45);
   });
 });
+
+// --- layout: rings with goalWeekly (issue #238) ---
+// Verify weekly rings round-trip through the view API alongside daily
+// rings so the client resolver sees both targets intact.
+describe('combination-card layout:"rings" with goalWeekly', () => {
+  let sandbox, server;
+
+  const workouts = {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'workouts',
+      label: 'Workouts',
+      view: { enabled: true, component: 'generic-card', display: { template: '{count}' } },
+      writeable: { fromWebapp: false },
+    },
+    data: [
+      { date: '2026-05-04', count: 1 },
+      { date: '2026-05-06', count: 1 },
+      { date: '2026-05-08', count: 1 },
+    ],
+  };
+
+  const exercise = {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'exercise',
+      label: 'Exercise',
+      view: { enabled: true, component: 'generic-card', display: { template: '{count}' } },
+      writeable: { fromWebapp: false },
+    },
+    data: [
+      { date: '2026-05-04', count: 2 },
+      { date: '2026-05-06', count: 2 },
+    ],
+  };
+
+  const activityOverview = {
+    $schema: 'klebb.datafile.v1',
+    meta: {
+      id: 'activity-overview',
+      label: 'Activity Overview',
+      view: {
+        enabled: true,
+        component: 'combination-card',
+        layout: 'rings',
+        combines: [
+          { sourceId: 'workouts', role: 'ring-segment', label: 'Workouts', accessor: 'count', goalWeekly: 5, colour: '#f59e0b' },
+          { sourceId: 'exercise', role: 'ring-segment', label: 'Exercise', accessor: 'count', goalWeekly: 4, colour: '#3b82f6' },
+        ],
+      },
+    },
+    data: [],
+  };
+
+  before(async () => {
+    sandbox = createSandbox({
+      seed: {
+        'workouts.json': workouts,
+        'exercise.json': exercise,
+        'activity-overview.json': activityOverview,
+      },
+    });
+    server = await spawnServer(sandbox);
+  });
+
+  after(async () => {
+    if (server) await server.kill();
+    if (sandbox) cleanupSandbox(sandbox);
+  });
+
+  test('goalWeekly is preserved through the view API', async () => {
+    const res = await req(server.baseUrl, '/api/views/view');
+    const combo = res.json.cards.find(c => c.id === 'activity-overview');
+    const rings = combo.viewConfig.combines.filter(c => c.role === 'ring-segment');
+    assert.equal(rings[0].goalWeekly, 5);
+    assert.equal(rings[1].goalWeekly, 4);
+    assert.equal(rings[0].goalDaily, undefined);
+  });
+});

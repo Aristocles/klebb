@@ -42,6 +42,33 @@ export function stringifyValue(value, emojiMap) {
   return String(value);
 }
 
+export function mondayOfWeekISO(isoDate) {
+  if (typeof isoDate !== 'string') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+  if (!m) return null;
+  const ms = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  const dow = new Date(ms).getUTCDay();
+  const back = dow === 0 ? 6 : dow - 1;
+  const monMs = ms - back * 86_400_000;
+  const d = new Date(monMs);
+  const y = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${mm}-${dd}`;
+}
+
+export function sundayOfWeekISO(isoDate) {
+  const mon = mondayOfWeekISO(isoDate);
+  if (!mon) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(mon);
+  const sunMs = Date.UTC(+m[1], +m[2] - 1, +m[3]) + 6 * 86_400_000;
+  const d = new Date(sunMs);
+  const y = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${mm}-${dd}`;
+}
+
 export function resolveEntry(entry, sources, date) {
   const sourceId = entry?.sourceId;
   const role = entry?.role || 'annotation';
@@ -55,13 +82,14 @@ export function resolveEntry(entry, sources, date) {
   };
 
   const isRingSegment = role === 'ring-segment';
-  const goalDaily = isRingSegment ? Number(entry?.goalDaily) : null;
-  const hasValidGoal = isRingSegment
-    && Number.isFinite(goalDaily)
-    && goalDaily > 0;
-  if (isRingSegment && !hasValidGoal) {
+  const goalWeeklyN = isRingSegment ? Number(entry?.goalWeekly) : null;
+  const goalDailyN = isRingSegment ? Number(entry?.goalDaily) : null;
+  const hasWeekly = isRingSegment && Number.isFinite(goalWeeklyN) && goalWeeklyN > 0;
+  const hasDaily  = isRingSegment && Number.isFinite(goalDailyN)  && goalDailyN  > 0;
+  if (isRingSegment && !hasWeekly && !hasDaily) {
     return { ...base, state: 'no-goal', value: null, displayValue: null, row: null };
   }
+  const period = hasWeekly ? 'week' : (isRingSegment ? 'daily' : null);
 
   if (!sourceId) {
     return { ...base, state: 'no-source', value: null, displayValue: null, row: null };
@@ -75,6 +103,45 @@ export function resolveEntry(entry, sources, date) {
   if (!base.label && source.meta?.label) base.label = source.meta.label;
 
   const rows = Array.isArray(source.data) ? source.data : [];
+
+  if (isRingSegment && period === 'week') {
+    const mon = mondayOfWeekISO(date);
+    const sun = sundayOfWeekISO(date);
+    if (!mon || !sun) {
+      return { ...base, state: 'no-entry', value: null, displayValue: null, row: null };
+    }
+    const weekRows = rows.filter(r => r && typeof r.date === 'string'
+      && r.date >= mon && r.date <= sun);
+    if (weekRows.length === 0) {
+      return { ...base, state: 'no-entry', value: null, displayValue: null, row: null };
+    }
+    const accessor = entry?.accessor || firstScalarKey(weekRows[0]);
+    if (!accessor) {
+      return { ...base, state: 'no-accessor-match', value: null, displayValue: null, row: null };
+    }
+    let sum = 0;
+    let any = false;
+    for (const r of weekRows) {
+      const v = getByPath(r, accessor);
+      const n = Number(v);
+      if (Number.isFinite(n)) { sum += n; any = true; }
+    }
+    if (!any) {
+      return { ...base, state: 'no-accessor-match', value: null, displayValue: null, row: null };
+    }
+    return {
+      ...base,
+      state: 'ok',
+      value: sum,
+      displayValue: stringifyValue(sum, base.emojiMap),
+      row: null,
+      period: 'week',
+      goalWeekly: goalWeeklyN,
+      ratio: sum / goalWeeklyN,
+      complete: (sum / goalWeeklyN) >= 1,
+    };
+  }
+
   const row = rows.find(r => r && r.date === date) || null;
   if (!row) {
     return { ...base, state: 'no-entry', value: null, displayValue: null, row: null };
@@ -103,8 +170,9 @@ export function resolveEntry(entry, sources, date) {
     if (!Number.isFinite(numeric)) {
       return { ...base, state: 'no-accessor-match', value: null, displayValue: null, row };
     }
-    result.goalDaily = goalDaily;
-    result.ratio = numeric / goalDaily;
+    result.period = 'daily';
+    result.goalDaily = goalDailyN;
+    result.ratio = numeric / goalDailyN;
     result.complete = result.ratio >= 1;
   }
 
