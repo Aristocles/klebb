@@ -341,7 +341,7 @@ export class EhCombinationCard extends LitElement {
     const otherEntries = resolved.filter(r => r.role !== 'ring-segment');
 
     if (ringEntries.length === 0) {
-      return html`<div class="empty">No ring segments configured. Add role: "ring-segment" entries with goalDaily.</div>`;
+      return html`<div class="empty">No ring segments configured. Add role: "ring-segment" entries with goalDaily or goalWeekly.</div>`;
     }
 
     return html`
@@ -388,7 +388,9 @@ export class EhCombinationCard extends LitElement {
 
     const pct = Math.round(resolved.ratio * 100);
     const valueStr = resolved.displayValue;
-    const goalStr = String(resolved.goalDaily);
+    const isWeekly = resolved.period === 'week';
+    const goalStr = String(isWeekly ? resolved.goalWeekly : resolved.goalDaily);
+    const periodSuffix = isWeekly ? ' /wk' : '';
     return html`
       <div class="ring-legend-row ${resolved.complete ? 'complete' : ''}">
         <span class="ring-swatch" style="background:${colour};"></span>
@@ -396,7 +398,7 @@ export class EhCombinationCard extends LitElement {
         <span class="ring-values">
           <span class="ring-value">${valueStr}</span>
           <span class="ring-sep">/</span>
-          <span class="ring-goal">${goalStr}${resolved.unit ? ` ${resolved.unit}` : ''}</span>
+          <span class="ring-goal">${goalStr}${resolved.unit ? ` ${resolved.unit}` : ''}${periodSuffix}</span>
           <span class="ring-pct">${pct}%${resolved.complete ? ' ✨' : ''}</span>
         </span>
       </div>

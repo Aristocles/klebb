@@ -604,7 +604,8 @@ An ordered array of source entries. Each entry:
 | `accessor` | no | Path into the day's row. Dotted paths (`stats.avg`) supported. Default: first non-`date` scalar on the row. |
 | `unit` | no | Short string rendered next to the value (e.g. `h`, `kcal`). |
 | `emojiMap` | no | Stringified-value → emoji, for enum sources (mood, etc). |
-| `goalDaily` | yes for `ring-segment` | Positive finite number. Ring fills `min(value / goalDaily, 1)`; overshoot paints a "complete" glow. |
+| `goalDaily` | one of `goalDaily`/`goalWeekly` required for `ring-segment` | Positive finite number. Ring fills `min(value / goalDaily, 1)` against the viewed date's row; overshoot paints a "complete" glow. |
+| `goalWeekly` | one of `goalDaily`/`goalWeekly` required for `ring-segment` | Positive finite number. Ring fills `min(weeklySum / goalWeekly, 1)` summing the accessor across all rows in the Mon-Sun week containing the viewed date. If both goals are set, `goalWeekly` wins. |
 | `colour` | no | CSS colour for a `ring-segment`. Falls back to the renderer's theme palette by ring index. |
 
 ### Row resolution
@@ -617,12 +618,14 @@ For a viewed date, the renderer resolves each source to one of:
 | `no-source` | `sourceId` is not a loaded manifest. |
 | `no-entry` | Source loaded but has no row for the viewed date. |
 | `no-accessor-match` | Row exists but the accessor yields `undefined`/`null`. |
-| `no-goal` | Ring-segment entry missing a positive finite `goalDaily`. |
+| `no-goal` | Ring-segment entry missing both `goalDaily` and `goalWeekly`. |
 
 States other than `ok` render as a muted placeholder so partial data
 doesn't break the layout. Ring-segment entries with `state: "ok"`
-additionally carry `goalDaily`, `ratio` (unclamped; `>1` means
-overshoot), and `complete` (boolean; `ratio >= 1`).
+additionally carry `period` (`"daily"` or `"week"`), the active goal
+(`goalDaily` or `goalWeekly`), `ratio` (unclamped; `>1` means
+overshoot), and `complete` (boolean; `ratio >= 1`). Weekly entries
+also expose the summed value in `value`.
 
 ### Editing
 
@@ -635,9 +638,17 @@ whenever any manifest's data block changes).
 
 `layout: "rings"` renders one concentric progress arc per entry with
 `role: "ring-segment"`. Each such entry needs a numeric accessor and
-a `goalDaily` target. Overshoots (`value > goalDaily`) fill the full
-ring and paint a complete indicator on the legend row; missing or
-malformed goals render a muted placeholder.
+either a `goalDaily` target (fill against the viewed date's row) or
+a `goalWeekly` target (fill against the sum of accessor values across
+all rows in the Mon-Sun week containing the viewed date — sum
+aggregation only). Overshoots fill the full ring and paint a complete
+indicator on the legend row; missing or malformed goals render a
+muted placeholder.
+
+Weekly rings follow the date scrubber: viewing a date in a past week
+shows that historical week's totals, not the current week's. Daily
+and weekly rings can mix freely on the same card. Weekly rings show
+the goal with a `/wk` suffix in the legend.
 
 Non-ring-segment roles in the same `combines[]` array (primary /
 secondary / annotation) render as stack-style rows beneath the ring
