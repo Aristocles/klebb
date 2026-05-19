@@ -113,10 +113,15 @@ function describeCatalogue() {
   lines.push('  land on the same date, additive fields (durationMin, distanceKm,');
   lines.push('  calories, elevationM) are summed; `type` becomes a comma-');
   lines.push('  separated chronological dedup list; `avgHr` is duration-');
-  lines.push('  weighted; `maxHr` is the max; `startTime` is the earliest. So');
-  lines.push('  a richer template like `{trained:check} {type}` headline +');
-  lines.push('  `{durationMin} min · {distanceKm|} km · {calories} cal`');
-  lines.push('  secondary will show daily totals on multi-session days.');
+  lines.push('  weighted; `maxHr` is the max; `startTime` is the earliest;');
+  lines.push('  `sessionCount` is how many distinct sessions HAE delivered for');
+  lines.push('  that day (always >= 1 on a workout day). A richer template like');
+  lines.push('  `{trained:check} {type}` headline + `{durationMin} min ·');
+  lines.push('  {distanceKm|} km · {calories} cal` secondary will show daily');
+  lines.push('  totals on multi-session days. To track distinct activity');
+  lines.push('  sessions per week (e.g. a goalWeekly ring counting walks + runs');
+  lines.push('  + cycles regardless of duration), use `accessor: "sessionCount"`');
+  lines.push('  on a ring-segment that points at the workouts donor.');
   lines.push('');
 
   const keys = Object.keys(catalogue).sort();

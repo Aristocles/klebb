@@ -156,7 +156,7 @@ function aggregate(rows, strategy) {
         // earliest local start time. See #235 for the full rule table.
         const sorted = [...list].sort((a, b) =>
           String(a.startTime || '').localeCompare(String(b.startTime || '')));
-        const acc = { date };
+        const acc = { date, sessionCount: sorted.length };
         const trained = sorted.some(r => r.trained === true);
         if (trained) acc.trained = true;
 
