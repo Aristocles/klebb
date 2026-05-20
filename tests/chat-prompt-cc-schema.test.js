@@ -50,6 +50,18 @@ describe('describeCcSchema (unit)', () => {
     const out = describeCcSchema();
     assert.match(out, /empty array|MUST be an empty/i);
   });
+
+  test('documents accessor as an optional combines key with dotted-path support', () => {
+    const out = describeCcSchema();
+    assert.match(out, /accessor/);
+    assert.match(out, /dotted/i);
+  });
+
+  test('warns about the shared-row-shape footgun (accessor required when donors share a shape)', () => {
+    const out = describeCcSchema();
+    assert.match(out, /shared|share the same row shape/i);
+    assert.match(out, /sleep_analysis|sleep-analysis/);
+  });
 });
 
 describe('chat proxy injects CC schema into system prompt', () => {
