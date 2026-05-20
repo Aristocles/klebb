@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **`read_doc` chat tool returned ENOENT in the Docker image.** The
+  Dockerfile only copied runtime source dirs; the doc files the
+  allowlist enumerates (`README.md`, `MANIFEST-SCHEMA.md`,
+  `CHANGELOG.md`, `CONTRIBUTING*.md`, `SECURITY.md`, `docs/*.md`)
+  were not present at `/app`, so every `read_doc` call from the
+  agent in containerised deployments failed with "no such file or
+  directory". Added explicit COPY directives plus a regression
+  test that diff-checks the allowlist against the Dockerfile.
+  Fixes #248.
 - **Documentation accuracy sweep ahead of public flip.** Three
   doc-only inaccuracies caught by an audit:
   - `docs/CHAT-AGENT.md` referred to the bearer token as
