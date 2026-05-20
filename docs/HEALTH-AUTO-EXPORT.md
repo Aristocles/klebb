@@ -53,7 +53,7 @@ whether parsing succeeds. Safe to delete if disk space is tight.
 | `sleep_analysis` | `{ date, hours, asleep?, inBed?, deep?, rem?, core?, awake?, source? }` | last per date |
 | `step_count` | `{ date, count }` | sum per date |
 | `apple_exercise_time` | `{ date, minutes }` | sum per date |
-| `workouts` (pseudo-metric, reads from `data.workouts[]`) | `{ date, trained, type? }` | any-true per date |
+| `workouts` (pseudo-metric, reads from `data.workouts[]`) | `{ date, trained, type?, durationMin?, distanceKm?, calories?, avgHr?, maxHr?, elevationM?, startTime?, sessionCount }` | merge per date |
 | `heart_rate_variability` | `{ date, ms }` | mean per date |
 | `resting_heart_rate` | `{ date, bpm }` | last per date |
 | `walking_heart_rate_average` | `{ date, bpm }` | last per date |
