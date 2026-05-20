@@ -7,6 +7,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Chat agent now learns about `accessor` on combination-card donors.**
+  The CC schema block injected into the chat system prompt
+  (`chat/describe-cc-schema.js`) listed `sourceId`, `role`, `label`,
+  `unit`, `goalDaily`, `goalWeekly`, `colour` but never mentioned the
+  `accessor` field. The renderer + resolver have always honoured
+  `accessor` (and `MANIFEST-SCHEMA.md` documents it), but the agent
+  couldn't see that, so when asked to author a CC where multiple donors
+  share a row shape (e.g. four sleep rings backed by the same
+  `sleep_analysis` shape) it omitted `accessor` and every ring resolved
+  the same first-scalar field. The schema block now documents `accessor`
+  with dotted-path support, calls out the shared-row-shape footgun
+  explicitly, and includes `accessor` in the canonical example. See
+  #242.
+
 ### Added
 
 - **`workouts` rows expose `sessionCount`.** The
