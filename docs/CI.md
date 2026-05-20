@@ -4,7 +4,7 @@ Klebb uses GitHub Actions for continuous integration.
 
 ## What runs
 
-Every push to `main` / `master` / `v2-redesign` and every pull request
+Every push to `main` and every pull request
 triggers `.github/workflows/test.yml`, which:
 
 1. Checks out the code
