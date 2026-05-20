@@ -9,19 +9,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
-- **Chat agent now learns about `accessor` on combination-card donors.**
-  The CC schema block injected into the chat system prompt
-  (`chat/describe-cc-schema.js`) listed `sourceId`, `role`, `label`,
-  `unit`, `goalDaily`, `goalWeekly`, `colour` but never mentioned the
-  `accessor` field. The renderer + resolver have always honoured
-  `accessor` (and `MANIFEST-SCHEMA.md` documents it), but the agent
-  couldn't see that, so when asked to author a CC where multiple donors
-  share a row shape (e.g. four sleep rings backed by the same
-  `sleep_analysis` shape) it omitted `accessor` and every ring resolved
-  the same first-scalar field. The schema block now documents `accessor`
-  with dotted-path support, calls out the shared-row-shape footgun
-  explicitly, and includes `accessor` in the canonical example. See
-  #242.
+- **Documentation accuracy sweep ahead of public flip.** Three
+  doc-only inaccuracies caught by an audit:
+  - `docs/CHAT-AGENT.md` referred to the bearer token as
+    `$KLEBB_AGENT_TOKEN` in three example payloads; the env var is
+    and has always been `AGENT_API_TOKEN`. An agent following the
+    examples verbatim would have built unauthenticated requests.
+  - `docs/HEALTH-AUTO-EXPORT.md` listed the workouts row shape as
+    `{ date, trained, type? }`. Since #235 / #240 the merged row
+    shape is `{ date, trained, type?, durationMin?, distanceKm?,
+    calories?, avgHr?, maxHr?, elevationM?, startTime?,
+    sessionCount }` with merge-per-date aggregation. The table
+    entry now matches the catalogue.
+  - `docs/CI.md` and `.github/workflows/test.yml` triggered on
+    a long-dead `v2-redesign` branch. Removed.
 
 ### Added
 

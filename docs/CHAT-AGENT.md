@@ -86,7 +86,7 @@ authenticates with a bearer token instead of a WebAuthn session cookie.
 
 ```http
 POST /api/manifests/reorder
-Authorization: Bearer $KLEBB_AGENT_TOKEN
+Authorization: Bearer $AGENT_API_TOKEN
 Content-Type: application/json
 
 { "order": ["mood", "weight", "bp", "peptides"] }
@@ -134,7 +134,7 @@ Agents can author brand new cards without filesystem access. `POST
 
 ```http
 POST /api/manifests
-Authorization: Bearer $KLEBB_AGENT_TOKEN
+Authorization: Bearer $AGENT_API_TOKEN
 Content-Type: application/json
 
 {
@@ -177,7 +177,7 @@ Deletion mirrors the create path:
 
 ```http
 DELETE /api/manifests/blood-pressure
-Authorization: Bearer $KLEBB_AGENT_TOKEN
+Authorization: Bearer $AGENT_API_TOKEN
 ```
 
 Returns `{ok, id}` on success, 404 if the id is unknown. The file is
