@@ -125,4 +125,18 @@ describe('chat proxy injects CC schema into system prompt', () => {
     assert.match(prompt, /view\.slots/);
     assert.match(prompt, /view\.sources/);
   });
+
+  test('system prompt advertises read_doc + the docs catalogue', async () => {
+    const res = await req(server.baseUrl, '/api/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'hello' }] },
+    });
+    assert.equal(res.status, 200);
+    const prompt = gateway.getLastPrompt();
+    assert.ok(prompt);
+    assert.match(prompt, /## Available docs/);
+    assert.match(prompt, /read_doc/);
+    assert.match(prompt, /MANIFEST-SCHEMA\.md/);
+    assert.match(prompt, /docs\/CARDS\.md/);
+  });
 });
