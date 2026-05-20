@@ -26,6 +26,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Chat agent can read its own docs at inference time.** New
+  `read_doc(path)` function-call tool surfaces every shipped doc
+  (README, MANIFEST-SCHEMA, CHANGELOG, CONTRIBUTING\*, SECURITY,
+  docs/CARDS, docs/RECIPES, docs/CHAT-AGENT, docs/HEALTH-AUTO-EXPORT,
+  docs/DEPLOY, docs/TESTING, docs/VOICE, docs/CI) to the chat agent.
+  Local disk only; the agent always sees the same version of the docs
+  as the running app, so a deployed instance on an older release
+  isn't misled by newer guidance on main. The system prompt now
+  carries an `## Available docs` catalogue listing every callable
+  path with a one-line summary; the agent picks one and calls
+  `read_doc`. Allowlist-gated (no traversal, no symlink escape, no
+  reading of gitignored operator files like CLAUDE.md or
+  BRIEF-FOR-CC.md). See #246.
+
 - **`workouts` rows expose `sessionCount`.** The
   `workouts-merge-per-date` aggregator now emits a `sessionCount`
   field (positive integer) on every merged daily row, equal to the

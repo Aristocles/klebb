@@ -25,6 +25,7 @@ const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-expor
 const { CATEGORIES: MANIFEST_CATEGORIES } = require('./config/categories');
 const ccSuggestions = require('./meta/cc-suggestions');
 const { describeCcSchema } = require('./chat/describe-cc-schema');
+const { describeDocsCatalogue } = require('./chat/docs');
 
 // chat endpoint config (env-driven; see config/env.js)
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
@@ -1360,6 +1361,12 @@ const server = http.createServer(async (req, res) => {
           // hallucinating view.slots[]/view.sources[] shapes.
           const ccSchemaBlock = '\n\n' + describeCcSchema() + '\n';
 
+          // Catalogue of doc paths the read_doc tool can fetch. Lets
+          // the agent pull MANIFEST-SCHEMA.md / docs/CARDS.md / etc.
+          // on demand instead of relying on whatever the prompt
+          // happens to inline today.
+          const docsCatalogueBlock = '\n\n' + describeDocsCatalogue() + '\n';
+
           // Constrain meta.category to the canonical enum. Klebb uses the
           // field for clustering heuristics (e.g. CC suggestions); unknown
           // values are silently dropped by the registry, so agent-invented
@@ -1389,7 +1396,7 @@ const server = http.createServer(async (req, res) => {
             '',
           ].join('\n');
 
-          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + categoryBlock;
+          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + categoryBlock;
           if (voiceMode) {
             systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Chat'}, a health assistant.
 Voice mode is active: the user is speaking to you and will hear your reply aloud.
@@ -1422,7 +1429,7 @@ Return STRICTLY the JSON object. No leading/trailing text. No markdown fences.
 
 Original system prompt follows:
 
-` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + categoryBlock;
+` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + categoryBlock;
           }
 
           // Prepend system prompt

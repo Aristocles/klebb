@@ -7,6 +7,7 @@
 // safe to do inline inside a chat request.
 
 const registry = require('../manifests/registry');
+const { readDoc } = require('./docs');
 
 const TOOL_DEFS = [
   {
@@ -130,6 +131,26 @@ const TOOL_DEFS = [
   {
     type: 'function',
     function: {
+      name: 'read_doc',
+      description:
+        "Fetch the full text of one of Klebb's shipped documentation files (README, MANIFEST-SCHEMA, docs/*, etc.). The system prompt lists every available path under '## Available docs' with a one-line summary; pass one of those paths verbatim. Use this when the user asks about schema fields, renderer contracts, deploy steps, or any other topic where the docs are authoritative — you'll get the same version the running app shipped with, so you won't be misled by training-data drift or by what's on main. Unknown or non-allowlisted paths return {error}; do not retry with traversal sequences or absolute paths.",
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description:
+              "Repo-relative POSIX path of the doc to read, exactly as it appears in the system prompt's catalogue (e.g. 'MANIFEST-SCHEMA.md' or 'docs/CARDS.md').",
+          },
+        },
+        required: ['path'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'patch_manifest',
       description:
         "Edit a card's meta or description in place without touching its data. Uses RFC 7396 JSON Merge Patch: nested objects deep-merge, arrays replace wholesale, null removes a key. Use this for any meta-only change — thresholds, labels, emoji maps, input types, writeable flags. The data block is preserved byte-for-byte. You CANNOT change $schema or meta.id via this tool; for those, delete_manifest + create_manifest is the path (and data will be lost). ALWAYS call read_manifest first so you're patching over the real current meta. Destructive-feeling patches (removing inputs from a writeable card, flipping writeable.fromWebapp from true to false on a card that has data) must be confirmed with the user exactly once before calling this.",
@@ -225,6 +246,9 @@ function dispatchToolCall(tc, ctx) {
         const result = registry.patchManifest(args.id, args.patch);
         recordTouch(ctx, { id: args.id, flow: 'edit' });
         return JSON.stringify({ ok: true, ...result });
+      }
+      case 'read_doc': {
+        return JSON.stringify(readDoc(args.path));
       }
       default:
         return JSON.stringify({ error: 'unknown tool: ' + name });
