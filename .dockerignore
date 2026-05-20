@@ -21,9 +21,9 @@ reports
 tests
 fixtures
 
-# Docs + editor cruft
-docs
-*.md
+# Editor cruft. Docs + root .md files are kept in the image so the
+# read_doc chat tool (chat/docs.js allowlist) can serve them at
+# inference time without a network round-trip to GitHub.
 !package.json
 !package-lock.json
 .idea

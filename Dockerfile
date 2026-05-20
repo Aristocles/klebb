@@ -65,6 +65,14 @@ COPY --chown=klebb:klebb server ./server
 COPY --chown=klebb:klebb templates ./templates
 COPY --chown=klebb:klebb prompts ./prompts
 
+# Doc files served by the read_doc chat tool. The allowlist in
+# chat/docs.js enumerates exactly these paths; an absent file would
+# surface to the agent as ENOENT.
+COPY --chown=klebb:klebb docs ./docs
+COPY --chown=klebb:klebb README.md MANIFEST-SCHEMA.md CHANGELOG.md \
+                        CONTRIBUTING.md CONTRIBUTING-PROMPTS.md CONTRIBUTING-TEMPLATES.md \
+                        SECURITY.md ./
+
 # Data dir — mount a volume here in production. The entrypoint chowns
 # this to the runtime user at container start so bind-mounts owned by
 # the host user Just Work on first boot.
