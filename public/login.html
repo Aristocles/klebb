@@ -115,9 +115,43 @@
       }
     };
 
-    // Auto-trigger on load
-    // Small delay so the page renders first
-    setTimeout(() => window.login(), 500);
+    window.demoLogin = async function() {
+      const btn = document.getElementById('login-btn');
+      const error = document.getElementById('error');
+      error.classList.remove('show');
+      btn.disabled = true;
+      btn.textContent = 'Loading demo...';
+      try {
+        const r = await fetch('/auth/demo-login', { method: 'POST' });
+        const result = await r.json();
+        if (!r.ok || !result.ok) throw new Error(result.error || 'Demo login failed');
+        window.location.href = '/';
+      } catch (e) {
+        error.textContent = e.message || 'Demo login failed';
+        error.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = 'Enter the demo';
+      }
+    };
+
+    // Branch on demo mode: if the server is in demo mode, swap the
+    // passkey CTA for an "Enter the demo" button and skip auto-trigger.
+    (async () => {
+      try {
+        const r = await fetch('/auth/status');
+        const s = await r.json();
+        if (s.demo) {
+          document.getElementById('subtitle').textContent = 'Public demo. No account needed.';
+          document.getElementById('face-id-icon').textContent = '👋';
+          const btn = document.getElementById('login-btn');
+          btn.textContent = 'Enter the demo';
+          btn.setAttribute('onclick', 'demoLogin()');
+          return;
+        }
+      } catch {}
+      // Default: passkey flow, auto-trigger so Face ID prompts immediately.
+      setTimeout(() => window.login(), 500);
+    })();
   </script>
 </body>
 </html>

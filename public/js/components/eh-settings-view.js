@@ -24,6 +24,7 @@ export class EhSettingsView extends LitElement {
     _haeStatus: { state: true },
     _haeLastPushExpanded: { state: true },
     _haeCopied: { state: true },
+    _demo: { state: true },
   };
 
   constructor() {
@@ -38,6 +39,7 @@ export class EhSettingsView extends LitElement {
     this._haeStatus = null;
     this._haeLastPushExpanded = false;
     this._haeCopied = false;
+    this._demo = false;
   }
 
   connectedCallback() {
@@ -45,6 +47,16 @@ export class EhSettingsView extends LitElement {
     this._load();
     this._loadHiddenDiscoveries();
     this._loadHaeStatus();
+    this._loadDemoFlag();
+  }
+
+  async _loadDemoFlag() {
+    try {
+      const r = await fetch('/api/instance');
+      if (!r.ok) return;
+      const j = await r.json();
+      this._demo = !!j.demo;
+    } catch {}
   }
 
   async _loadHaeStatus() {
@@ -561,9 +573,14 @@ export class EhSettingsView extends LitElement {
 
       <h2>Cards</h2>
       <div class="lede">
-        Every card is a file in <code>$HEALTH_HOME/data/</code>. Toggle off to
-        hide a card (keeps the data); delete the file to remove it entirely.
-        <a href="https://github.com/Aristocles/klebb/blob/main/docs/CARDS.md" target="_blank" rel="noopener">How to add a card →</a>
+        ${this._demo ? html`
+          Card visibility is locked in the public demo. Run your own instance to
+          toggle, add, or delete cards.
+        ` : html`
+          Every card is a file in <code>$HEALTH_HOME/data/</code>. Toggle off to
+          hide a card (keeps the data); delete the file to remove it entirely.
+          <a href="https://github.com/Aristocles/klebb/blob/main/docs/CARDS.md" target="_blank" rel="noopener">How to add a card →</a>
+        `}
       </div>
 
       ${totalAll > 0 ? html`
@@ -751,9 +768,10 @@ export class EhSettingsView extends LitElement {
           aria-checked="${c.enabled}"
           aria-pressed="${c.enabled}"
           aria-label="${c.enabled ? 'Disable' : 'Enable'} ${c.label || c.id}"
-          ?disabled=${this._busyId === c.id}
-          @click=${() => this._toggle(c)}
-          @keydown=${(e) => this._onToggleKeydown(e, c)}
+          ?disabled=${this._demo || this._busyId === c.id}
+          title="${this._demo ? 'Locked in demo mode' : ''}"
+          @click=${() => { if (!this._demo) this._toggle(c); }}
+          @keydown=${(e) => { if (!this._demo) this._onToggleKeydown(e, c); }}
         ></button>
       </div>
     `;

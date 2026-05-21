@@ -7,6 +7,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **`KLEBB_DEMO=1` runs the server as a public no-credentials demo.**
+  Login swaps the passkey prompt for an "Enter the demo" button that
+  mints a session for a shared `demo` user; all passkey/invite/setup
+  routes return `410`; chat short-circuits with a canned reply (no
+  outbound HTTP); voice endpoints return `503`; card hiding is locked
+  in both the manifest PATCH and settings UI endpoints; the app shell
+  shows a banner pointing visitors at `klebb.app` for self-hosting.
+  Fixes #270.
+
 ### Changed
 
 - **App header now uses the Klebb dog mark instead of the placeholder
