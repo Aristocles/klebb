@@ -2,7 +2,7 @@
   "$schema": "klebb.datafile.v1",
   "meta": {
     "id": "peptide-cycle",
-    "label": "BPC-157 cycle",
+    "label": "Injections",
     "emoji": "💉",
     "order": 300,
     "view": {
@@ -31,12 +31,12 @@
       "futureAllowed": false
     }
   },
-  "description": "BPC-157 healing protocol on a six-week cycle.",
+  "description": "Injectables tracked together: BPC-157 (peptide healing protocol), semaglutide (weekly GLP-1), and basal insulin (daily). Each item carries its own schedule and cycle, so the schedule-card and adherence-report both render multi-protocol histories cleanly.",
   "data": {
     "items": [
       {
         "name": "BPC-157",
-        "short_name": "BPC",
+        "short_name": "BPC-157",
         "dose_mg": 0.25,
         "dose_units": "mg",
         "route": "subcutaneous",
@@ -65,6 +65,87 @@
           { "scheduledDate": "__OFFSET_DAYS:-7__", "takenAt": "__OFFSET_DAYS:-7__T08:08:00" },
           { "scheduledDate": "__OFFSET_DAYS:-5__", "takenAt": "__OFFSET_DAYS:-5__T08:33:00" },
           { "scheduledDate": "__OFFSET_DAYS:-3__", "takenAt": "__OFFSET_DAYS:-3__T07:48:00" }
+        ]
+      },
+      {
+        "name": "Ozempic (semaglutide)",
+        "short_name": "Ozempic",
+        "dose_mg": 0.5,
+        "dose_units": "mg",
+        "route": "subcutaneous",
+        "schedule": {
+          "type": "weekly",
+          "on_days": ["Sun"]
+        },
+        "cycles": [
+          {
+            "type": "on",
+            "status": "active",
+            "cycle_number": 1,
+            "start": "__OFFSET_DAYS:-56__",
+            "end": "__OFFSET_DAYS:28__",
+            "start_date": "__OFFSET_DAYS:-56__",
+            "end_date": "__OFFSET_DAYS:28__"
+          }
+        ],
+        "doses": [
+          { "scheduledDate": "__OFFSET_DAYS:-56__", "takenAt": "__OFFSET_DAYS:-56__T19:42:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-49__", "takenAt": "__OFFSET_DAYS:-49__T20:05:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-42__", "takenAt": "__OFFSET_DAYS:-42__T19:11:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-35__", "takenAt": "__OFFSET_DAYS:-35__T19:48:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-28__", "takenAt": "__OFFSET_DAYS:-28__T20:21:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T19:34:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-14__", "takenAt": "__OFFSET_DAYS:-14__T19:50:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-7__", "takenAt": "__OFFSET_DAYS:-7__T20:08:00" }
+        ]
+      },
+      {
+        "name": "Insulin glargine (basal)",
+        "short_name": "Insulin",
+        "dose_label": "18 units",
+        "route": "subcutaneous",
+        "schedule": {
+          "type": "daily"
+        },
+        "cycles": [
+          {
+            "type": "on",
+            "status": "active",
+            "cycle_number": 1,
+            "start": "__OFFSET_DAYS:-30__",
+            "start_date": "__OFFSET_DAYS:-30__"
+          }
+        ],
+        "doses": [
+          { "scheduledDate": "__OFFSET_DAYS:-30__", "takenAt": "__OFFSET_DAYS:-30__T22:08:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-29__", "takenAt": "__OFFSET_DAYS:-29__T22:14:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-28__", "takenAt": "__OFFSET_DAYS:-28__T22:02:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-27__", "takenAt": "__OFFSET_DAYS:-27__T22:21:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-26__", "takenAt": "__OFFSET_DAYS:-26__T22:11:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-25__", "takenAt": "__OFFSET_DAYS:-25__T22:18:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-24__", "takenAt": "__OFFSET_DAYS:-24__T22:25:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-23__", "takenAt": "__OFFSET_DAYS:-23__T22:09:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-22__", "takenAt": "__OFFSET_DAYS:-22__T22:16:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T22:31:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-20__", "takenAt": "__OFFSET_DAYS:-20__T22:14:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-19__", "takenAt": "__OFFSET_DAYS:-19__T22:22:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-18__", "takenAt": "__OFFSET_DAYS:-18__T22:08:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-17__", "takenAt": "__OFFSET_DAYS:-17__T22:35:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-16__", "takenAt": "__OFFSET_DAYS:-16__T22:11:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-15__", "takenAt": "__OFFSET_DAYS:-15__T22:19:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-14__", "takenAt": "__OFFSET_DAYS:-14__T22:24:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-13__", "takenAt": "__OFFSET_DAYS:-13__T22:07:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-12__", "takenAt": "__OFFSET_DAYS:-12__T22:13:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-11__", "takenAt": "__OFFSET_DAYS:-11__T22:29:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-10__", "takenAt": "__OFFSET_DAYS:-10__T22:17:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-9__", "takenAt": "__OFFSET_DAYS:-9__T22:22:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-8__", "takenAt": "__OFFSET_DAYS:-8__T22:08:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-6__", "takenAt": "__OFFSET_DAYS:-6__T22:42:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-5__", "takenAt": "__OFFSET_DAYS:-5__T22:11:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-4__", "takenAt": "__OFFSET_DAYS:-4__T22:18:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-3__", "takenAt": "__OFFSET_DAYS:-3__T22:25:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-2__", "takenAt": "__OFFSET_DAYS:-2__T22:14:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-1__", "takenAt": "__OFFSET_DAYS:-1__T22:21:00" }
         ]
       }
     ]
