@@ -7,7 +7,8 @@
 //   - Name + short_name
 //   - Dose label + units
 //   - "Cycle N — Day X of Y" subtitle
-//   - M T W T F S S week dots (filled on scheduled days, ring on today)
+//   - M T W T F S S week dots (filled on scheduled days, ring on the
+//     day currently being viewed)
 //   - Injection checkbox (appends to item.doses[])
 //   - Status chip (Inject / Rest Day / Off Cycle / Loading / Maint)
 //
@@ -25,8 +26,6 @@ const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 function iso(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-
-function todayStr() { return iso(new Date()); }
 
 // Hash a string to a stable hex colour (used when itemColours isn't in meta).
 function autoColour(str) {
@@ -174,10 +173,10 @@ export class EhScheduleCard extends EhBaseCard {
         color: var(--dot-colour, var(--accent));
         background: transparent;
       }
-      .dot.today-ring {
+      .dot.selected-ring {
         box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 3px var(--accent);
       }
-      .dot.active.today-ring {
+      .dot.active.selected-ring {
         background: var(--dot-colour, var(--accent));
         color: white;
       }
@@ -358,16 +357,15 @@ export class EhScheduleCard extends EhBaseCard {
 
   _renderWeekDots(item, colour) {
     const week = weekDatesFor(this.date);
-    const today = todayStr();
     return html`
       <div class="week">
         ${week.map((wd, i) => {
           const status = isScheduledOnDate(item, wd);
           const active = status === 'scheduled';
-          const isToday = wd === today;
+          const isSelected = wd === this.date;
           const classes = ['dot'];
           classes.push(active ? 'active' : 'inactive');
-          if (isToday) classes.push('today-ring');
+          if (isSelected) classes.push('selected-ring');
           return html`<span class="${classes.join(' ')}" style="--dot-colour: ${colour}">${DAY_LETTERS[i]}</span>`;
         })}
       </div>
@@ -379,7 +377,6 @@ export class EhScheduleCard extends EhBaseCard {
     if (items.length === 0) return html`<div class="empty">Nothing scheduled.</div>`;
     // Filter: only render items that have some form of activity (scheduled today OR rest OR in cycle)
     const visible = items.filter(it => activeCycle(it, this.date));
-    const today = todayStr();
     return html`
       <div class="items">
         ${visible.map(item => {
