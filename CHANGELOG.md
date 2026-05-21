@@ -7,6 +7,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **App header now uses the Klebb dog mark instead of the placeholder
+  emoji.** Two PNG variants live under `public/icons/`:
+  `logo-light.png` (original dark blue, used in the light theme) and
+  `logo-dark.png` (recoloured to the dark-mode accent so it sits
+  cleanly on the dark background). Click-to-toggle-theme on the brand
+  is preserved. Fixes #267.
+
 ## [2.1.0] - 2026-05-21
 
 ### Fixed
