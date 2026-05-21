@@ -7,6 +7,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-05-21
+
 ### Added
 
 - **`KLEBB_DEMO=1` runs the server as a public no-credentials demo.**
