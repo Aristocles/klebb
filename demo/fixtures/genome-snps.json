@@ -1,0 +1,94 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "genome-snps",
+    "label": "Genome (SNPs)",
+    "emoji": "🧬",
+    "order": 850,
+    "view": {
+      "enabled": true,
+      "component": "list-card",
+      "display": {
+        "primaryField": "gene",
+        "secondaryTemplate": "{rsid} · {genotype}",
+        "emptyMessage": "No SNPs loaded yet."
+      }
+    },
+    "reports": {
+      "enabled": true,
+      "component": "table-list"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Curated SNP panel from a saliva-based whole-genome service. APOE shown up top; the categorised list flags polymorphisms with reasonable evidence in lipid metabolism, methylation, detoxification, caffeine sensitivity, sleep, and inflammation. Genotypes are illustrative only and do not constitute clinical advice.",
+  "data": {
+    "panel_provider": "DemoGenomics",
+    "collected": "__OFFSET_DAYS:-180__",
+    "apoe": "3/3",
+    "total_snps": 612000,
+    "found_count": 78,
+    "searched_count": 120,
+    "categories": [
+      {
+        "name": "Lipid metabolism",
+        "findings": [
+          { "gene": "APOE", "rsid": "rs429358", "genotype": "T/T", "phenotype": "ε3 — average risk profile" },
+          { "gene": "APOE", "rsid": "rs7412", "genotype": "C/C", "phenotype": "ε3 — average risk profile" },
+          { "gene": "PCSK9", "rsid": "rs11591147", "genotype": "G/G", "phenotype": "Wild-type; no LDL-lowering loss-of-function" },
+          { "gene": "LPA", "rsid": "rs10455872", "genotype": "A/A", "phenotype": "No Lp(a) elevation flag" },
+          { "gene": "LDLR", "rsid": "rs6511720", "genotype": "G/T", "phenotype": "Heterozygous; modest LDL-lowering" },
+          { "gene": "CETP", "rsid": "rs708272", "genotype": "A/G", "phenotype": "Heterozygous; slightly higher HDL tendency" }
+        ]
+      },
+      {
+        "name": "Methylation",
+        "findings": [
+          { "gene": "MTHFR", "rsid": "rs1801133", "genotype": "C/T", "phenotype": "Heterozygous C677T; ~30% reduced enzyme activity" },
+          { "gene": "MTHFR", "rsid": "rs1801131", "genotype": "A/A", "phenotype": "Wild-type A1298C" },
+          { "gene": "MTRR", "rsid": "rs1801394", "genotype": "A/G", "phenotype": "Heterozygous; mildly reduced B12 recycling" },
+          { "gene": "MTR", "rsid": "rs1805087", "genotype": "A/A", "phenotype": "Wild-type" },
+          { "gene": "BHMT", "rsid": "rs3733890", "genotype": "G/A", "phenotype": "Heterozygous; alternate methyl donor pathway intact" },
+          { "gene": "COMT", "rsid": "rs4680", "genotype": "G/A", "phenotype": "Val/Met — balanced dopamine clearance" }
+        ]
+      },
+      {
+        "name": "Detox",
+        "findings": [
+          { "gene": "GSTM1", "rsid": "CNV", "genotype": "Present", "phenotype": "Functional glutathione S-transferase M1" },
+          { "gene": "GSTT1", "rsid": "CNV", "genotype": "Present", "phenotype": "Functional glutathione S-transferase T1" },
+          { "gene": "GSTP1", "rsid": "rs1695", "genotype": "A/G", "phenotype": "Ile/Val — mildly reduced activity" },
+          { "gene": "NAT2", "rsid": "rs1799930", "genotype": "G/G", "phenotype": "Rapid acetylator profile" },
+          { "gene": "SOD2", "rsid": "rs4880", "genotype": "C/T", "phenotype": "Heterozygous; balanced mitochondrial SOD2 activity" },
+          { "gene": "NQO1", "rsid": "rs1800566", "genotype": "C/C", "phenotype": "Wild-type; full quinone reductase activity" }
+        ]
+      },
+      {
+        "name": "Caffeine",
+        "findings": [
+          { "gene": "CYP1A2", "rsid": "rs762551", "genotype": "A/A", "phenotype": "Rapid caffeine metaboliser" },
+          { "gene": "ADORA2A", "rsid": "rs5751876", "genotype": "C/T", "phenotype": "Intermediate caffeine-induced anxiety risk" },
+          { "gene": "AHR", "rsid": "rs2472297", "genotype": "C/T", "phenotype": "Higher CYP1A2 inducibility" }
+        ]
+      },
+      {
+        "name": "Sleep",
+        "findings": [
+          { "gene": "PER3", "rsid": "rs57875989", "genotype": "5/4", "phenotype": "Mixed chronotype tendency" },
+          { "gene": "CLOCK", "rsid": "rs1801260", "genotype": "T/C", "phenotype": "Heterozygous; slight evening preference" },
+          { "gene": "ADA", "rsid": "rs73598374", "genotype": "C/C", "phenotype": "Standard adenosine clearance; typical sleep pressure" },
+          { "gene": "BHLHE41", "rsid": "rs121912617", "genotype": "C/C", "phenotype": "Wild-type; no short-sleep variant" }
+        ]
+      },
+      {
+        "name": "Inflammation",
+        "findings": [
+          { "gene": "IL6", "rsid": "rs1800795", "genotype": "G/C", "phenotype": "Heterozygous; balanced IL-6 expression" },
+          { "gene": "TNF", "rsid": "rs1800629", "genotype": "G/G", "phenotype": "Wild-type TNF-α promoter" },
+          { "gene": "CRP", "rsid": "rs1205", "genotype": "C/T", "phenotype": "Heterozygous; intermediate baseline hs-CRP" },
+          { "gene": "IL1B", "rsid": "rs16944", "genotype": "G/A", "phenotype": "Heterozygous; balanced IL-1β response" },
+          { "gene": "HLA-DQ2.5", "rsid": "DQA1*05/DQB1*02", "genotype": "Absent", "phenotype": "No coeliac-risk haplotype detected" }
+        ]
+      }
+    ]
+  }
+}
