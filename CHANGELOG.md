@@ -7,6 +7,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-05-21
+
 ### Fixed
 
 - **`read_doc` chat tool returned ENOENT in the Docker image.** The
