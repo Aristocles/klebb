@@ -298,9 +298,32 @@ Optional feature flags:
 | `CHAT_AGENT_NAME`, `CHAT_AGENT_EMOJI` | Chat widget branding |
 | `FISH_AUDIO_API_KEY`, `FISH_AUDIO_DEFAULT_VOICE` | Voice chat |
 | `HEALTH_INSTANCE_NAME`, `HEALTH_RP_NAME` | UI branding |
+| `KLEBB_DEMO` | Set to `1` to run as a public no-credentials demo (see below) |
 
 See [`config/env.js`](config/env.js) for the complete list with
 defaults.
+
+### Running as a public demo
+
+`KLEBB_DEMO=1` flips the server into a public-demo mode used to host
+read-anyone instances at e.g. `demo.klebb.app`:
+
+- The login page replaces the passkey prompt with a single
+  "Enter the demo" button that mints a session for a shared `demo`
+  user.
+- All passkey, invite, and setup-wizard routes return `410 Gone`.
+- `POST /api/chat` short-circuits with a fixed assistant reply
+  explaining there's no AI gateway connected. No outbound HTTP.
+- Voice endpoints (`/api/voice/*`) return `503`.
+- `PATCH /api/manifests/:id` rejects `meta.enabled` mutations and the
+  `/api/settings/cards/:id/(enable|disable)` endpoints return `403`,
+  so visitors can't hide cards.
+- The authenticated app shell shows a dismissible-once banner pointing
+  back to `klebb.app` for self-hosted use.
+
+Pair the flag with a curated dataset under `$HEALTH_HOME/data/` and a
+periodic reset (cron, systemd timer, or container restart) to keep the
+demo predictable.
 
 ## Docs
 

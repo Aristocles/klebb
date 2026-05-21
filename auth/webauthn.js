@@ -99,9 +99,12 @@ function clearSessionCookie(res) {
 
 // Auth middleware: returns true if request is authenticated (or route is public)
 function isAuthenticated(req) {
+  if (isAgentRequest(req)) return true;
+  // In demo mode, only a real session counts. The bootstrap "no creds yet"
+  // shortcut would otherwise let unauthenticated visitors past the gate.
+  if (ENV.KLEBB_DEMO) return validateSession(getSessionToken(req));
   // If no credentials registered yet, allow everything (setup mode)
   if (!isSetup()) return true;
-  if (isAgentRequest(req)) return true;
   return validateSession(getSessionToken(req));
 }
 
@@ -144,6 +147,33 @@ async function handleAuthRoutes(req, res, pathname) {
     req.on('data', c => body += c);
     req.on('end', () => resolve(body));
   });
+
+  // Demo mode: serve the demo-login route, then 410 every other auth route.
+  // Status still answers (the front end uses it to gate redirects).
+  if (ENV.KLEBB_DEMO) {
+    if (pathname === '/auth/demo-login' && req.method === 'POST') {
+      const token = createSession(ENV.DEMO_USER_ID);
+      setSessionCookie(res, token);
+      return sendJSON(res, { ok: true, label: ENV.DEMO_USER_ID });
+    }
+    if (pathname === '/auth/status') {
+      const authenticated = validateSession(getSessionToken(req));
+      return sendJSON(res, { setup: true, authenticated, demo: true });
+    }
+    if (pathname === '/auth/logout' && req.method === 'POST') {
+      const token = getSessionToken(req);
+      if (token) {
+        const sessions = loadSessions();
+        delete sessions[token];
+        saveSessions(sessions);
+      }
+      clearSessionCookie(res);
+      return sendJSON(res, { ok: true });
+    }
+    if (pathname.startsWith('/auth/')) {
+      return sendJSON(res, { error: 'Disabled in demo mode' }, 410);
+    }
+  }
 
   // GET /auth/status — check if setup + authenticated
   if (pathname === '/auth/status') {

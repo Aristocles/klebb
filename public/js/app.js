@@ -32,6 +32,7 @@ class HealthApp extends LitElement {
     _settingsMenuOpen: { state: true },
     _promptQueue: { state: true },
     _buildInfo: { state: true },
+    _demo: { state: true },
   };
 
   constructor() {
@@ -45,6 +46,7 @@ class HealthApp extends LitElement {
     this._settingsMenuOpen = false;
     this._promptQueue = [];
     this._buildInfo = null;
+    this._demo = false;
     document.documentElement.setAttribute('data-theme', this.theme);
     this._handleRoute();
     this._loadInstance();
@@ -86,6 +88,8 @@ class HealthApp extends LitElement {
       if (r.ok) {
         const j = await r.json();
         if (j.name) this._instanceName = j.name;
+        this._demo = !!j.demo;
+        if (this._demo) document.documentElement.setAttribute('data-demo', '1');
       }
     } catch {}
   }
@@ -247,6 +251,23 @@ class HealthApp extends LitElement {
       white-space: nowrap;
       vertical-align: middle;
     }
+    .demo-banner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      text-align: center;
+    }
+    .demo-banner a {
+      color: #fff;
+      text-decoration: underline;
+    }
     .nav-links {
       display: flex;
       gap: 4px;
@@ -340,6 +361,12 @@ class HealthApp extends LitElement {
       ` : ''}
       ${this.showNav ? html`
         <nav>
+          ${this._demo ? html`
+            <div class="demo-banner" role="status">
+              You're viewing the public Klebb demo. Data resets hourly. Run your own at
+              <a href="https://klebb.app" target="_blank" rel="noopener">klebb.app</a>.
+            </div>
+          ` : ''}
           <div class="nav-main">
             <div class="logo" @click=${this._toggleTheme} style="cursor:pointer" title="Toggle theme">
               <img

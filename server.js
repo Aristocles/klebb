@@ -542,16 +542,26 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ error: 'Unauthorized' }));
       return;
     }
-    // Redirect to login page (or setup if no credentials yet)
-    const redirect = isSetup() ? '/login.html' : '/setup.html';
+    // Redirect to login page (or setup if no credentials yet).
+    // Demo mode never shows setup: the login page hosts the "Enter the demo" button.
+    const redirect = (ENV.KLEBB_DEMO || isSetup()) ? '/login.html' : '/setup.html';
     res.writeHead(302, { 'Location': redirect });
     res.end();
     return;
   }
 
-  // If setup is not done, redirect non-setup pages to setup
-  if (!isSetup() && pathname !== '/setup.html' && !isPublicPath(pathname) && !pathname.startsWith('/api/')) {
+  // If setup is not done, redirect non-setup pages to setup. Skipped in demo
+  // mode: the login page handles bootstrap there.
+  if (!ENV.KLEBB_DEMO && !isSetup() && pathname !== '/setup.html' && !isPublicPath(pathname) && !pathname.startsWith('/api/')) {
     res.writeHead(302, { 'Location': '/setup.html' });
+    res.end();
+    return;
+  }
+
+  // Hide /setup.html and /register entirely in demo mode (so curious
+  // visitors don't stumble onto the setup wizard).
+  if (ENV.KLEBB_DEMO && (pathname === '/setup.html' || pathname === '/register')) {
+    res.writeHead(302, { 'Location': '/login.html' });
     res.end();
     return;
   }
@@ -628,6 +638,9 @@ const server = http.createServer(async (req, res) => {
           patch = JSON.parse(body || '{}');
         } catch (e) {
           return sendJSON(res, { error: 'invalid JSON body' }, 400);
+        }
+        if (ENV.KLEBB_DEMO && patch && patch.meta && Object.prototype.hasOwnProperty.call(patch.meta, 'enabled')) {
+          return sendJSON(res, { error: 'demo mode: cards cannot be hidden' }, 403);
         }
         try {
           const result = registry.patchManifest(id, patch);
@@ -766,6 +779,9 @@ const server = http.createServer(async (req, res) => {
 
     // POST /api/settings/cards/:id/enable — set meta.enabled: true
     if (parts[0] === 'settings' && parts[1] === 'cards' && parts.length === 4 && parts[3] === 'enable' && req.method === 'POST') {
+      if (ENV.KLEBB_DEMO) {
+        return sendJSON(res, { error: 'demo mode: cards cannot be hidden' }, 403);
+      }
       try {
         registry.setMasterEnabled(parts[2], true);
         return sendJSON(res, { ok: true, enabled: true });
@@ -776,6 +792,9 @@ const server = http.createServer(async (req, res) => {
 
     // POST /api/settings/cards/:id/disable — set meta.enabled: false
     if (parts[0] === 'settings' && parts[1] === 'cards' && parts.length === 4 && parts[3] === 'disable' && req.method === 'POST') {
+      if (ENV.KLEBB_DEMO) {
+        return sendJSON(res, { error: 'demo mode: cards cannot be hidden' }, 403);
+      }
       try {
         registry.setMasterEnabled(parts[2], false);
         return sendJSON(res, { ok: true, enabled: false });
@@ -803,9 +822,14 @@ const server = http.createServer(async (req, res) => {
 
     // GET /api/chat/status — is a chat endpoint configured? UI affordances
     // that depend on the agent use this to render an enabled/disabled state
-    // without making an actual chat request.
+    // without making an actual chat request. In demo mode the chat endpoint
+    // is "configured" (the canned-reply short-circuit answers it) but
+    // outbound is reported false so voice / tool affordances stay off.
     if (parts[0] === 'chat' && parts[1] === 'status' && parts.length === 2 && req.method === 'GET') {
       res.setHeader('Cache-Control', 'no-store');
+      if (ENV.KLEBB_DEMO) {
+        return sendJSON(res, { configured: true, demo: true });
+      }
       return sendJSON(res, { configured: !!CHAT_ENDPOINT });
     }
 
@@ -1331,6 +1355,10 @@ const server = http.createServer(async (req, res) => {
           if (!Array.isArray(messages) || messages.length === 0) {
             return sendJSON(res, { error: 'messages required' }, 400);
           }
+          if (ENV.KLEBB_DEMO) {
+            const reply = `This is a public demo without an AI gateway connected, so ${ENV.CHAT_AGENT_NAME} can't answer questions or add new cards. You can still log data into the existing cards. Run your own instance (klebb.app) to chat with your own data.`;
+            return sendJSON(res, voiceMode ? { reply, speak: reply } : { reply });
+          }
 
           // Build a compact card list from the live registry, so the agent
           // always knows what cards exist right now without having to call
@@ -1489,7 +1517,14 @@ Original system prompt follows:
           name: ENV.CHAT_AGENT_NAME,
           emoji: ENV.CHAT_AGENT_EMOJI,
         },
+        demo: !!ENV.KLEBB_DEMO,
       });
+    }
+
+    // Voice is disabled in demo mode. Every /api/voice/* path returns 503
+    // before falling through to the real handlers below.
+    if (ENV.KLEBB_DEMO && parts[0] === 'voice') {
+      return sendJSON(res, { error: 'Voice disabled in demo mode', demo: true }, 503);
     }
 
     // GET /api/voice/config — current Fish Audio status (backend tier, credit, voiceId)

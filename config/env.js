@@ -123,6 +123,21 @@ const HEALTH_AUTO_EXPORT_TOKEN = (process.env.HEALTH_AUTO_EXPORT_TOKEN || '').tr
 // --- Feature flags ---
 const DEBUG_LOG = process.env.HEALTH_DEBUG === '1';
 
+// --- Demo mode ---
+// When KLEBB_DEMO=1, the server runs as a public no-credentials demo:
+//   - The login page shows a single "Enter the demo" button that calls
+//     POST /auth/demo-login and drops the visitor in as user "demo".
+//   - All passkey / invite / setup-wizard routes return 410 Gone.
+//   - POST /api/chat short-circuits with a fixed assistant reply; no
+//     outbound HTTP is made even if a CHAT_ENDPOINT_URL is set.
+//   - All voice (/api/voice/*) endpoints return 503.
+//   - PATCH /api/manifests/:id rejects meta.enabled mutations with 403,
+//     so visitors can't permanently hide demo cards.
+//   - GET /api/instance reports demo:true so the front end can render a
+//     banner and disable affordances that depend on chat / voice.
+const KLEBB_DEMO = process.env.KLEBB_DEMO === '1';
+const DEMO_USER_ID = 'demo';
+
 // --- Health system prompt (used by chat proxy) ---
 //
 // Default prompt is generic and references whatever cards the registry
@@ -493,5 +508,7 @@ module.exports = {
   getSessionSecret,
   HEALTH_AUTO_EXPORT_TOKEN,
   DEBUG_LOG,
+  KLEBB_DEMO,
+  DEMO_USER_ID,
   HEALTH_SYSTEM_PROMPT,
 };
