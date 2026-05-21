@@ -7,6 +7,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **Health Auto Export token is now managed in the Settings UI.** The
+  HAE panel offers a Generate button when none is configured, and a
+  masked display + Copy + Regenerate when one is. Regenerate prompts
+  an inline warning that the iPhone HAE app must be updated before
+  the next push. Tokens are persisted to `$HEALTH_HOME/config.json`
+  under `cfg.hae.token` (atomic write, `0o600`). The
+  `HEALTH_AUTO_EXPORT_TOKEN` env var is deprecated: on first boot
+  under the new code, an existing env value migrates into
+  `config.json` once and is then ignored, so existing instances
+  upgrade transparently. New endpoints under
+  `/api/health-auto-export/token` (GET / POST / POST `/regenerate` /
+  DELETE) all sit behind the global passkey auth gate. Fixes #278.
+
 ### Added
 
 - **Reports page on the public demo now ships with a full multi-card

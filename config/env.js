@@ -115,10 +115,14 @@ function getSessionSecret() {
 }
 
 // --- Health Auto Export ingest ---
-// When set, enables POST /api/health-auto-export for the iPhone HAE app's
-// webhook. Unset disables the endpoint entirely (returns 501). See
-// docs/HEALTH-AUTO-EXPORT.md for setup.
-const HEALTH_AUTO_EXPORT_TOKEN = (process.env.HEALTH_AUTO_EXPORT_TOKEN || '').trim() || null;
+// The HAE bearer token is no longer read from the env at runtime. It is
+// managed in the Settings UI and persisted to $HEALTH_HOME/config.json
+// under cfg.hae.token. See health-auto-export/token-store.js.
+//
+// HEALTH_AUTO_EXPORT_TOKEN is read once on boot by
+// tokenStore.migrateFromEnvIfNeeded() so existing instances upgrade
+// transparently, and is otherwise ignored. Do not export it from this
+// module: nothing else in the codebase should depend on the env value.
 
 // --- Feature flags ---
 const DEBUG_LOG = process.env.HEALTH_DEBUG === '1';
@@ -506,7 +510,6 @@ module.exports = {
   WEBAUTHN_RP_ID,
   WEBAUTHN_ORIGIN,
   getSessionSecret,
-  HEALTH_AUTO_EXPORT_TOKEN,
   DEBUG_LOG,
   KLEBB_DEMO,
   DEMO_USER_ID,

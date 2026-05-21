@@ -21,6 +21,7 @@ const { buildDateContextBlock } = require('./chat/date-context');
 const hae = require('./health-auto-export/ingest');
 const haeDiagnostics = require('./health-auto-export/diagnostics');
 const haeDiscoveries = require('./health-auto-export/discoveries');
+const haeTokenStore = require('./health-auto-export/token-store');
 const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-export/describe');
 const { CATEGORIES: MANIFEST_CATEGORIES } = require('./config/categories');
 const ccSuggestions = require('./meta/cc-suggestions');
@@ -52,6 +53,16 @@ const REPORTS_DIR = PATHS.REPORTS_DIR;
 
 // Ensure writable dirs exist
 PATHS.ensureWritableDirs();
+
+// One-shot migration: if the legacy HEALTH_AUTO_EXPORT_TOKEN env var is
+// set and config.json has no token yet, copy it across so existing
+// instances upgrade transparently. Runs before the HTTP listener so the
+// token store is consistent the moment the server accepts requests.
+try {
+  haeTokenStore.migrateFromEnvIfNeeded();
+} catch (e) {
+  console.warn('[hae] token migration error (continuing):', e.message);
+}
 
 // Configure marked for GFM (tables, etc.)
 marked.setOptions({ gfm: true, breaks: true });
@@ -529,10 +540,11 @@ const server = http.createServer(async (req, res) => {
     if (result !== null) return;
   }
 
-  // The HAE webhook carries its own token (HEALTH_AUTO_EXPORT_TOKEN) and
-  // the handler enforces it. Let the request through the outer auth gate
-  // so the handler can respond with 501/401/200 as appropriate. No session
-  // cookie or AGENT_API_TOKEN is expected from the iPhone app.
+  // The HAE webhook carries its own token (managed in Settings; see
+  // health-auto-export/token-store.js) and the handler enforces it. Let
+  // the request through the outer auth gate so the handler can respond
+  // with 501/401/200 as appropriate. No session cookie or
+  // AGENT_API_TOKEN is expected from the iPhone app.
   const isHaeIngest = pathname === '/api/health-auto-export' && req.method === 'POST';
 
   // Redirect to setup or login if not authenticated
@@ -893,19 +905,20 @@ const server = http.createServer(async (req, res) => {
       return send404(res);
     }
 
-    // POST /api/health-auto-export — iPhone Health Auto Export webhook.
+    // POST /api/health-auto-export: iPhone Health Auto Export webhook.
     //
-    // Auth: Bearer <HEALTH_AUTO_EXPORT_TOKEN>. If the env var is unset, the
-    // endpoint returns 501 (feature off). If the header is wrong or
-    // missing, returns 401. Otherwise the raw payload is archived, parsed,
-    // and upserted into atomic manifests (sleep-hours, steps,
-    // active-minutes, workouts).
+    // Auth: Bearer <token-from-Settings>. If no token has been generated
+    // (cfg.hae.token empty in $HEALTH_HOME/config.json), the endpoint
+    // returns 501 (feature off). If the header is wrong or missing,
+    // returns 401. Otherwise the raw payload is archived, parsed, and
+    // upserted into atomic manifests (sleep-hours, steps, active-minutes,
+    // workouts).
     //
     // Errors that occur AFTER auth passes are swallowed into a 200 with a
     // warning so the iPhone app's retry loop doesn't spiral. The raw
     // payload is always archived, so parse failures are debuggable later.
     if (parts[0] === 'health-auto-export' && parts.length === 1 && req.method === 'POST') {
-      const token = ENV.HEALTH_AUTO_EXPORT_TOKEN;
+      const token = haeTokenStore.getToken();
       if (!token) return sendJSON(res, { error: 'ingest disabled' }, 501);
       const auth = req.headers['authorization'];
       if (!auth || !auth.startsWith('Bearer ') || auth.slice(7).trim() !== token) {
@@ -996,7 +1009,7 @@ const server = http.createServer(async (req, res) => {
     // push snapshot written by the dispatcher.
     if (parts[0] === 'health-auto-export' && parts[1] === 'status'
         && parts.length === 2 && req.method === 'GET') {
-      const token = ENV.HEALTH_AUTO_EXPORT_TOKEN;
+      const token = haeTokenStore.getToken();
       const host = req.headers['host'] || `${HOST}:${PORT}`;
       const scheme = (req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
       return sendJSON(res, {
@@ -1004,6 +1017,54 @@ const server = http.createServer(async (req, res) => {
         endpointUrl: `${scheme}://${host}/api/health-auto-export`,
         lastPush: haeDiagnostics.readLastPush(),
       });
+    }
+
+    // GET /api/health-auto-export/token: return the current token (or
+    // null) for the Settings UI to display. Behind the global auth gate
+    // (passkey session required, same as every other /api route except
+    // the ingest webhook itself).
+    if (parts[0] === 'health-auto-export' && parts[1] === 'token'
+        && parts.length === 2 && req.method === 'GET') {
+      return sendJSON(res, {
+        token: haeTokenStore.getToken(),
+        lastRegeneratedAt: haeTokenStore.getLastRegeneratedAt(),
+      });
+    }
+
+    // POST /api/health-auto-export/token: generate a token. Returns 409
+    // if one already exists (use /regenerate to replace).
+    if (parts[0] === 'health-auto-export' && parts[1] === 'token'
+        && parts.length === 2 && req.method === 'POST') {
+      if (haeTokenStore.getToken()) {
+        return sendJSON(res, { error: 'token already set; use /regenerate' }, 409);
+      }
+      const token = haeTokenStore.generateToken();
+      return sendJSON(res, {
+        token,
+        lastRegeneratedAt: haeTokenStore.getLastRegeneratedAt(),
+      });
+    }
+
+    // POST /api/health-auto-export/token/regenerate: replace the
+    // current token with a fresh one. The old token is invalidated
+    // immediately; the iPhone HAE app must be updated before it can
+    // push again.
+    if (parts[0] === 'health-auto-export' && parts[1] === 'token'
+        && parts[2] === 'regenerate' && parts.length === 3
+        && req.method === 'POST') {
+      const token = haeTokenStore.generateToken();
+      return sendJSON(res, {
+        token,
+        lastRegeneratedAt: haeTokenStore.getLastRegeneratedAt(),
+      });
+    }
+
+    // DELETE /api/health-auto-export/token: clear the token. Subsequent
+    // ingest requests return 501 (feature off).
+    if (parts[0] === 'health-auto-export' && parts[1] === 'token'
+        && parts.length === 2 && req.method === 'DELETE') {
+      haeTokenStore.clearToken();
+      return sendJSON(res, { ok: true });
     }
 
     // GET /api/health-auto-export/discoveries — list metrics present in

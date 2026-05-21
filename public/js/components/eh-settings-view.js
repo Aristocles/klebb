@@ -24,6 +24,14 @@ export class EhSettingsView extends LitElement {
     _haeStatus: { state: true },
     _haeLastPushExpanded: { state: true },
     _haeCopied: { state: true },
+    _haeToken: { state: true },
+    _haeTokenLoaded: { state: true },
+    _haeTokenLastRegeneratedAt: { state: true },
+    _haeTokenReveal: { state: true },
+    _haeTokenCopied: { state: true },
+    _haeTokenBusy: { state: true },
+    _haeRegenConfirm: { state: true },
+    _haeTokenError: { state: true },
     _demo: { state: true },
   };
 
@@ -39,6 +47,14 @@ export class EhSettingsView extends LitElement {
     this._haeStatus = null;
     this._haeLastPushExpanded = false;
     this._haeCopied = false;
+    this._haeToken = null;
+    this._haeTokenLoaded = false;
+    this._haeTokenLastRegeneratedAt = null;
+    this._haeTokenReveal = false;
+    this._haeTokenCopied = false;
+    this._haeTokenBusy = false;
+    this._haeRegenConfirm = false;
+    this._haeTokenError = null;
     this._demo = false;
   }
 
@@ -47,6 +63,7 @@ export class EhSettingsView extends LitElement {
     this._load();
     this._loadHiddenDiscoveries();
     this._loadHaeStatus();
+    this._loadHaeToken();
     this._loadDemoFlag();
   }
 
@@ -69,23 +86,111 @@ export class EhSettingsView extends LitElement {
     }
   }
 
-  async _copyEndpoint() {
-    if (!this._haeStatus?.endpointUrl) return;
+  async _writeClipboard(text) {
     try {
-      await navigator.clipboard.writeText(this._haeStatus.endpointUrl);
-      this._haeCopied = true;
-      setTimeout(() => { this._haeCopied = false; }, 1800);
+      await navigator.clipboard.writeText(text);
     } catch {
-      // Fallback: hidden textarea selection.
       const ta = document.createElement('textarea');
-      ta.value = this._haeStatus.endpointUrl;
+      ta.value = text;
       document.body.appendChild(ta);
       ta.select();
       try { document.execCommand('copy'); } catch {}
       document.body.removeChild(ta);
-      this._haeCopied = true;
-      setTimeout(() => { this._haeCopied = false; }, 1800);
     }
+  }
+
+  async _copyEndpoint() {
+    if (!this._haeStatus?.endpointUrl) return;
+    await this._writeClipboard(this._haeStatus.endpointUrl);
+    this._haeCopied = true;
+    setTimeout(() => { this._haeCopied = false; }, 1800);
+  }
+
+  async _loadHaeToken() {
+    try {
+      const r = await fetch('/api/health-auto-export/token');
+      if (!r.ok) {
+        this._haeToken = null;
+        this._haeTokenLastRegeneratedAt = null;
+        this._haeTokenLoaded = true;
+        return;
+      }
+      const j = await r.json();
+      this._haeToken = j.token || null;
+      this._haeTokenLastRegeneratedAt = j.lastRegeneratedAt || null;
+      this._haeTokenLoaded = true;
+    } catch {
+      this._haeTokenLoaded = true;
+    }
+  }
+
+  async _generateHaeToken() {
+    if (this._haeTokenBusy) return;
+    this._haeTokenBusy = true;
+    this._haeTokenError = null;
+    try {
+      const r = await fetch('/api/health-auto-export/token', { method: 'POST' });
+      if (!r.ok) {
+        this._haeTokenError = await errorFromResponse(r, 'Could not generate token.');
+        return;
+      }
+      const j = await r.json();
+      this._haeToken = j.token;
+      this._haeTokenLastRegeneratedAt = j.lastRegeneratedAt || null;
+      this._haeTokenReveal = true;
+      // Refresh status panel so the green dot updates.
+      this._loadHaeStatus();
+      setTimeout(() => { this._haeTokenReveal = false; }, 8000);
+    } catch (e) {
+      this._haeTokenError = e?.message || 'Could not generate token.';
+    } finally {
+      this._haeTokenBusy = false;
+    }
+  }
+
+  _askRegenerateHae() {
+    this._haeRegenConfirm = true;
+    this._haeTokenError = null;
+  }
+
+  _cancelRegenerateHae() {
+    this._haeRegenConfirm = false;
+  }
+
+  async _confirmRegenerateHae() {
+    if (this._haeTokenBusy) return;
+    this._haeTokenBusy = true;
+    this._haeTokenError = null;
+    try {
+      const r = await fetch('/api/health-auto-export/token/regenerate', { method: 'POST' });
+      if (!r.ok) {
+        this._haeTokenError = await errorFromResponse(r, 'Could not regenerate token.');
+        return;
+      }
+      const j = await r.json();
+      this._haeToken = j.token;
+      this._haeTokenLastRegeneratedAt = j.lastRegeneratedAt || null;
+      this._haeRegenConfirm = false;
+      this._haeTokenReveal = true;
+      setTimeout(() => { this._haeTokenReveal = false; }, 8000);
+    } catch (e) {
+      this._haeTokenError = e?.message || 'Could not regenerate token.';
+    } finally {
+      this._haeTokenBusy = false;
+    }
+  }
+
+  async _copyHaeToken() {
+    if (!this._haeToken) return;
+    await this._writeClipboard(this._haeToken);
+    this._haeTokenCopied = true;
+    setTimeout(() => { this._haeTokenCopied = false; }, 1800);
+  }
+
+  _maskToken(token) {
+    if (!token) return '';
+    const tail = token.slice(-4);
+    return '•'.repeat(28) + tail;
   }
 
   _toggleLastPushDetail() {
@@ -444,6 +549,65 @@ export class EhSettingsView extends LitElement {
       background: var(--bg-input, rgba(0, 0, 0, 0.04));
       border-radius: 4px;
     }
+    .hae-token-empty,
+    .hae-token-value {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+    .hae-token-meta {
+      font-size: 11px;
+      color: var(--text-muted, var(--text-secondary));
+      flex-basis: 100%;
+    }
+    .hae-token-error {
+      font-size: 11px;
+      color: var(--accent-red, #ff5566);
+      flex-basis: 100%;
+    }
+    .copy-btn.primary {
+      background: var(--accent, #4488ff);
+      color: var(--accent-fg, #fff);
+      border-color: var(--accent, #4488ff);
+    }
+    .copy-btn.primary:hover {
+      filter: brightness(1.05);
+    }
+    .copy-btn.danger {
+      background: var(--accent-amber, #ffaa33);
+      color: #1a1a1a;
+      border-color: var(--accent-amber, #ffaa33);
+    }
+    .copy-btn.danger:hover {
+      filter: brightness(1.05);
+    }
+    .hae-regen-confirm {
+      display: inline-flex;
+      flex: 1;
+      min-width: 0;
+    }
+    .hae-regen-body {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--accent-amber, #ffaa33);
+      border-radius: 8px;
+      background: var(--accent-amber-bg, rgba(255, 170, 51, 0.10));
+      flex: 1;
+    }
+    .hae-regen-warning {
+      font-size: 12px;
+      color: var(--text-primary);
+      line-height: 1.4;
+    }
+    .hae-regen-actions {
+      display: inline-flex;
+      gap: 8px;
+    }
     .hae-lastpush {
       display: inline-flex;
       gap: 8px;
@@ -641,13 +805,7 @@ export class EhSettingsView extends LitElement {
         </div>
         <div class="hae-row">
           <span class="hae-label">Token</span>
-          <span class="hae-token ${s.tokenSet ? 'on' : 'off'}">
-            ${s.tokenSet
-              ? html`<span class="dot"></span>Set`
-              : html`<span class="dot"></span>Not set — add
-                  <code>HEALTH_AUTO_EXPORT_TOKEN</code> to your
-                  <code>.env</code>`}
-          </span>
+          ${this._renderHaeTokenRow()}
         </div>
         <div class="hae-row">
           <span class="hae-label">Last push</span>
@@ -669,6 +827,97 @@ export class EhSettingsView extends LitElement {
         ` : ''}
       </div>
     `;
+  }
+
+  _renderHaeTokenRow() {
+    if (!this._haeTokenLoaded) {
+      return html`<span class="muted">Loading…</span>`;
+    }
+
+    if (this._haeRegenConfirm) {
+      return html`
+        <span class="hae-regen-confirm">
+          <span class="hae-regen-body">
+            <span class="hae-regen-warning">
+              ⚠ Regenerating will invalidate the current token. You'll need
+              to update your iPhone Health Auto Export configuration with
+              the new token before the next push will be accepted.
+            </span>
+            <span class="hae-regen-actions">
+              <button
+                class="copy-btn"
+                @click=${this._cancelRegenerateHae}
+                ?disabled=${this._haeTokenBusy}
+              >Cancel</button>
+              <button
+                class="copy-btn danger"
+                @click=${this._confirmRegenerateHae}
+                ?disabled=${this._haeTokenBusy}
+              >Yes, regenerate</button>
+            </span>
+            ${this._haeTokenError ? html`<span class="hae-token-error">${this._haeTokenError}</span>` : ''}
+          </span>
+        </span>
+      `;
+    }
+
+    if (!this._haeToken) {
+      return html`
+        <span class="hae-token-empty">
+          <button
+            class="copy-btn primary"
+            @click=${this._generateHaeToken}
+            ?disabled=${this._haeTokenBusy}
+          >${this._haeTokenBusy ? 'Generating…' : 'Generate token'}</button>
+          <span class="hae-token-meta">
+            Klebb will generate a long random token. Paste it into your
+            iPhone Health Auto Export app's Authorization header.
+          </span>
+          ${this._haeTokenError ? html`<span class="hae-token-error">${this._haeTokenError}</span>` : ''}
+        </span>
+      `;
+    }
+
+    const display = this._haeTokenReveal
+      ? this._haeToken
+      : this._maskToken(this._haeToken);
+
+    return html`
+      <span class="hae-token-value">
+        <code class="endpoint-code">${display}</code>
+        <button
+          class="copy-btn"
+          @click=${this._copyHaeToken}
+          aria-label="Copy token"
+        >${this._haeTokenCopied ? 'Copied ✓' : 'Copy'}</button>
+        <button
+          class="copy-btn"
+          @click=${this._askRegenerateHae}
+          ?disabled=${this._haeTokenBusy}
+        >Regenerate</button>
+        ${this._haeTokenLastRegeneratedAt ? html`
+          <span class="hae-token-meta">
+            Last generated: ${this._formatTimestamp(this._haeTokenLastRegeneratedAt)}
+          </span>
+        ` : ''}
+        ${this._haeTokenError ? html`<span class="hae-token-error">${this._haeTokenError}</span>` : ''}
+      </span>
+    `;
+  }
+
+  _formatTimestamp(iso) {
+    try {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return iso;
+      const yr = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const da = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${yr}-${mo}-${da} ${hh}:${mm}`;
+    } catch {
+      return iso;
+    }
   }
 
   _renderLastPushSummary(lp) {
