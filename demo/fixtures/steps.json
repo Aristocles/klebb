@@ -1,0 +1,45 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "steps",
+    "label": "Steps",
+    "emoji": "👣",
+    "order": 520,
+    "ingest": {
+      "source": "hae",
+      "metric": "step_count"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{count}",
+        "unit": "steps",
+        "trendArrow": { "field": "count" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "count"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Daily step count.",
+  "data": [
+    { "date": "__OFFSET_DAYS:-13__", "count": 6243 },
+    { "date": "__OFFSET_DAYS:-12__", "count": 9112 },
+    { "date": "__OFFSET_DAYS:-11__", "count": 5478 },
+    { "date": "__OFFSET_DAYS:-10__", "count": 11324 },
+    { "date": "__OFFSET_DAYS:-9__", "count": 7822 },
+    { "date": "__OFFSET_DAYS:-8__", "count": 8945 },
+    { "date": "__OFFSET_DAYS:-7__", "count": 12011 },
+    { "date": "__OFFSET_DAYS:-6__", "count": 6589 },
+    { "date": "__OFFSET_DAYS:-5__", "count": 7341 },
+    { "date": "__OFFSET_DAYS:-4__", "count": 9876 },
+    { "date": "__OFFSET_DAYS:-3__", "count": 8112 },
+    { "date": "__OFFSET_DAYS:-2__", "count": 10567 },
+    { "date": "__OFFSET_DAYS:-1__", "count": 9234 },
+    { "date": "__OFFSET_DAYS:0__", "count": 5012 }
+  ]
+}
