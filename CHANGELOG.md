@@ -22,6 +22,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   bodies and filenames (the underscore form is accepted in filenames
   since `:` is not a legal NTFS character). Fixes #275.
 
+- **Demo fixtures + reset script now ship inside the Docker image.**
+  The Dockerfile carries `/app/demo/` and `/app/scripts/reset-demo.js`,
+  so the demo VPS reset cron can `docker exec klebb-demo node
+  /app/scripts/reset-demo.js` directly: no more `docker cp` step
+  after a `compose pull`. New `docs/DEMO.md` documents the public
+  demo runbook end-to-end (compose, env, nginx vhost, hourly reset
+  cron, image-tag prefix gotcha). The release runbook now
+  explicitly calls out that the publish workflow strips the `v`
+  prefix from git tags, so `v2.1.0` becomes Docker tag `2.1.0`.
+  Fixes #274.
+
 ## [2.1.1] - 2026-05-21
 
 ### Added
