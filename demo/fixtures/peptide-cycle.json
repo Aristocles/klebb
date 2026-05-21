@@ -1,0 +1,64 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "peptide-cycle",
+    "label": "BPC-157 cycle",
+    "emoji": "💉",
+    "order": 300,
+    "view": {
+      "enabled": true,
+      "component": "schedule-card"
+    },
+    "trends": {
+      "enabled": true,
+      "component": "schedule-timeline",
+      "itemsPath": "items"
+    },
+    "reports": {
+      "enabled": true,
+      "component": "adherence-report",
+      "showCompliance": true
+    },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": "💉"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "pastAllowed": true,
+      "todayAllowed": true,
+      "futureAllowed": false
+    }
+  },
+  "description": "BPC-157 healing protocol on a six-week cycle.",
+  "data": {
+    "items": [
+      {
+        "name": "BPC-157",
+        "short_name": "BPC",
+        "dose_mg": 0.25,
+        "dose_units": "mg",
+        "route": "subcutaneous",
+        "schedule": {
+          "type": "weekly",
+          "on_days": ["Mon", "Wed", "Fri"]
+        },
+        "cycles": [
+          { "type": "on", "start": "__OFFSET_DAYS:-21__", "end": "__OFFSET_DAYS:21__" }
+        ],
+        "doses": [
+          { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T08:14:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-19__", "takenAt": "__OFFSET_DAYS:-19__T08:02:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-17__", "takenAt": "__OFFSET_DAYS:-17__T08:30:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-14__", "takenAt": "__OFFSET_DAYS:-14__T07:55:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-12__", "takenAt": "__OFFSET_DAYS:-12__T08:11:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-10__", "takenAt": "__OFFSET_DAYS:-10__T08:24:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-7__", "takenAt": "__OFFSET_DAYS:-7__T08:08:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-5__", "takenAt": "__OFFSET_DAYS:-5__T08:33:00" },
+          { "scheduledDate": "__OFFSET_DAYS:-3__", "takenAt": "__OFFSET_DAYS:-3__T07:48:00" }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "blood-pressure",
+    "label": "Blood pressure",
+    "emoji": "🩺",
+    "order": 200,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{systolic} / {diastolic}",
+        "unit": "mmHg",
+        "thresholds": [
+          { "ifField": "systolic", "max": 120, "colour": "#44ff88", "label": "Optimal" },
+          { "ifField": "systolic", "max": 129, "colour": "#aaff66", "label": "Elevated" },
+          { "ifField": "systolic", "max": 139, "colour": "#ffaa33", "label": "Stage 1" },
+          { "ifField": "systolic", "colour": "#ff4444", "label": "Stage 2" }
+        ]
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "fields": ["systolic", "diastolic"]
+    },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": {
+        "type": "threshold",
+        "field": "systolic",
+        "rules": [
+          { "max": 120, "emoji": "🟢" },
+          { "max": 139, "emoji": "🟡" },
+          { "emoji": "🔴" }
+        ]
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 3,
+      "inputs": [
+        { "key": "systolic", "type": "number", "required": true, "min": 60, "max": 250 },
+        { "key": "diastolic", "type": "number", "required": true, "min": 40, "max": 160 }
+      ]
+    }
+  },
+  "description": "Morning blood pressure readings.",
+  "data": [
+    { "date": "__OFFSET_DAYS:-12__", "systolic": 124, "diastolic": 79 },
+    { "date": "__OFFSET_DAYS:-10__", "systolic": 126, "diastolic": 80 },
+    { "date": "__OFFSET_DAYS:-8__", "systolic": 121, "diastolic": 78 },
+    { "date": "__OFFSET_DAYS:-6__", "systolic": 119, "diastolic": 76 },
+    { "date": "__OFFSET_DAYS:-4__", "systolic": 117, "diastolic": 75 },
+    { "date": "__OFFSET_DAYS:-2__", "systolic": 118, "diastolic": 74 },
+    { "date": "__OFFSET_DAYS:0__", "systolic": 116, "diastolic": 73 }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "daily-notes",
+    "label": "Daily notes",
+    "emoji": "📝",
+    "order": 410,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{note|(no notes today)}",
+        "truncate": 200
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "note", "type": "textarea", "required": true }
+      ]
+    }
+  },
+  "description": "A single freeform note per day.",
+  "data": [
+    { "date": "__OFFSET_DAYS:-7__", "note": "Started a small lifting program: 3x5 squat, bench, row. Felt awkward but good." },
+    { "date": "__OFFSET_DAYS:-5__", "note": "Cut coffee after midday for two days running. Sleep noticeably deeper." },
+    { "date": "__OFFSET_DAYS:-3__", "note": "Long walk along the river. Took photos. Calmer afternoon than usual." },
+    { "date": "__OFFSET_DAYS:-2__", "note": "Worked through the renderer plan at the pub. Drew it out on a napkin." },
+    { "date": "__OFFSET_DAYS:-1__", "note": "Wrist still a little tight from yesterday's lift. Light day tomorrow." },
+    { "date": "__OFFSET_DAYS:0__", "note": "Prepping a public demo of the dashboard. Curious to see what people poke at first." }
+  ]
+}

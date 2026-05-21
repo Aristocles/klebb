@@ -1,0 +1,51 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "resting-heart-rate",
+    "label": "Resting heart rate",
+    "emoji": "❤️",
+    "order": 210,
+    "ingest": {
+      "source": "hae",
+      "metric": "resting_heart_rate"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{bpm}",
+        "unit": "bpm",
+        "trendArrow": { "field": "bpm", "lowerIsBetter": true },
+        "thresholds": [
+          { "ifField": "bpm", "max": 60, "colour": "#44ff88", "label": "Athletic" },
+          { "ifField": "bpm", "max": 70, "colour": "#aaff66", "label": "Healthy" },
+          { "ifField": "bpm", "max": 80, "colour": "#ffaa33", "label": "Average" },
+          { "ifField": "bpm", "colour": "#ff4444", "label": "Elevated" }
+        ]
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "bpm"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Daily resting heart rate from Apple Health.",
+  "data": [
+    { "date": "__OFFSET_DAYS:-13__", "bpm": 64 },
+    { "date": "__OFFSET_DAYS:-12__", "bpm": 63 },
+    { "date": "__OFFSET_DAYS:-11__", "bpm": 65 },
+    { "date": "__OFFSET_DAYS:-10__", "bpm": 62 },
+    { "date": "__OFFSET_DAYS:-9__", "bpm": 64 },
+    { "date": "__OFFSET_DAYS:-8__", "bpm": 63 },
+    { "date": "__OFFSET_DAYS:-7__", "bpm": 61 },
+    { "date": "__OFFSET_DAYS:-6__", "bpm": 62 },
+    { "date": "__OFFSET_DAYS:-5__", "bpm": 60 },
+    { "date": "__OFFSET_DAYS:-4__", "bpm": 60 },
+    { "date": "__OFFSET_DAYS:-3__", "bpm": 59 },
+    { "date": "__OFFSET_DAYS:-2__", "bpm": 60 },
+    { "date": "__OFFSET_DAYS:-1__", "bpm": 58 },
+    { "date": "__OFFSET_DAYS:0__", "bpm": 59 }
+  ]
+}

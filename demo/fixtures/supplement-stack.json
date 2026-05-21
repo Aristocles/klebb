@@ -1,0 +1,105 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "supplement-stack",
+    "label": "Supplement stack",
+    "emoji": "💊",
+    "order": 310,
+    "view": {
+      "enabled": true,
+      "component": "checklist-card"
+    },
+    "reports": {
+      "enabled": true,
+      "component": "adherence-report",
+      "showCompliance": true
+    },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": "💊"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "pastAllowed": true,
+      "todayAllowed": true,
+      "futureAllowed": false
+    }
+  },
+  "description": "Daily supplement check-off, grouped by time of day.",
+  "data": {
+    "items": [
+      {
+        "name": "Vitamin D3 (5000 IU)",
+        "group": "morning",
+        "takenDates": [
+          "__OFFSET_DAYS:-13__",
+          "__OFFSET_DAYS:-12__",
+          "__OFFSET_DAYS:-10__",
+          "__OFFSET_DAYS:-9__",
+          "__OFFSET_DAYS:-8__",
+          "__OFFSET_DAYS:-7__",
+          "__OFFSET_DAYS:-6__",
+          "__OFFSET_DAYS:-5__",
+          "__OFFSET_DAYS:-4__",
+          "__OFFSET_DAYS:-3__",
+          "__OFFSET_DAYS:-2__",
+          "__OFFSET_DAYS:-1__"
+        ]
+      },
+      {
+        "name": "Magnesium glycinate (400 mg)",
+        "group": "evening",
+        "takenDates": [
+          "__OFFSET_DAYS:-13__",
+          "__OFFSET_DAYS:-12__",
+          "__OFFSET_DAYS:-11__",
+          "__OFFSET_DAYS:-10__",
+          "__OFFSET_DAYS:-9__",
+          "__OFFSET_DAYS:-7__",
+          "__OFFSET_DAYS:-6__",
+          "__OFFSET_DAYS:-5__",
+          "__OFFSET_DAYS:-4__",
+          "__OFFSET_DAYS:-3__",
+          "__OFFSET_DAYS:-2__",
+          "__OFFSET_DAYS:-1__"
+        ]
+      },
+      {
+        "name": "Omega-3 (2 g EPA/DHA)",
+        "group": "morning",
+        "takenDates": [
+          "__OFFSET_DAYS:-13__",
+          "__OFFSET_DAYS:-11__",
+          "__OFFSET_DAYS:-10__",
+          "__OFFSET_DAYS:-8__",
+          "__OFFSET_DAYS:-7__",
+          "__OFFSET_DAYS:-6__",
+          "__OFFSET_DAYS:-4__",
+          "__OFFSET_DAYS:-3__",
+          "__OFFSET_DAYS:-2__",
+          "__OFFSET_DAYS:-1__"
+        ]
+      },
+      {
+        "name": "Creatine monohydrate (5 g)",
+        "group": "morning",
+        "takenDates": [
+          "__OFFSET_DAYS:-13__",
+          "__OFFSET_DAYS:-12__",
+          "__OFFSET_DAYS:-11__",
+          "__OFFSET_DAYS:-10__",
+          "__OFFSET_DAYS:-9__",
+          "__OFFSET_DAYS:-8__",
+          "__OFFSET_DAYS:-7__",
+          "__OFFSET_DAYS:-6__",
+          "__OFFSET_DAYS:-5__",
+          "__OFFSET_DAYS:-4__",
+          "__OFFSET_DAYS:-3__",
+          "__OFFSET_DAYS:-2__",
+          "__OFFSET_DAYS:-1__"
+        ]
+      }
+    ]
+  }
+}

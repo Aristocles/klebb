@@ -1,0 +1,61 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "mood",
+    "label": "Mood",
+    "emoji": "🙂",
+    "order": 400,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{mood:emoji}",
+        "secondary": "{notes|(no notes)}",
+        "emojiMap": {
+          "mood": { "1": "😩", "2": "😴", "3": "😐", "4": "🙂", "5": "😄" }
+        }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "mood"
+    },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": {
+        "type": "field-emoji",
+        "field": "mood",
+        "emojiMap": { "1": "😩", "2": "😴", "3": "😐", "4": "🙂", "5": "😄" },
+        "fallback": "🙂"
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "requireAny": ["mood", "notes"],
+      "inputs": [
+        { "key": "mood", "type": "rating", "min": 1, "max": 5 },
+        { "key": "notes", "type": "textarea" }
+      ]
+    }
+  },
+  "description": "Daily mood rating (1-5) with optional notes.",
+  "data": [
+    { "date": "__OFFSET_DAYS:-13__", "mood": 3, "notes": "Long meeting day, foggy by the afternoon." },
+    { "date": "__OFFSET_DAYS:-12__", "mood": 4, "notes": "Good run before work, kept the energy up." },
+    { "date": "__OFFSET_DAYS:-11__", "mood": 4, "notes": "Slept poorly but settled by mid-morning." },
+    { "date": "__OFFSET_DAYS:-10__", "mood": 5, "notes": "Crushed the deep-work block." },
+    { "date": "__OFFSET_DAYS:-9__", "mood": 3, "notes": "Tired, didn't push it." },
+    { "date": "__OFFSET_DAYS:-8__", "mood": 4, "notes": "Shipped a thing I'd been blocked on." },
+    { "date": "__OFFSET_DAYS:-7__", "mood": 5, "notes": "Long walk + sunshine." },
+    { "date": "__OFFSET_DAYS:-6__", "mood": 4 },
+    { "date": "__OFFSET_DAYS:-5__", "mood": 3, "notes": "Stiff lower back, careful with lifting." },
+    { "date": "__OFFSET_DAYS:-4__", "mood": 4 },
+    { "date": "__OFFSET_DAYS:-3__", "mood": 4, "notes": "Solid focus." },
+    { "date": "__OFFSET_DAYS:-2__", "mood": 5, "notes": "Best night's sleep in weeks." },
+    { "date": "__OFFSET_DAYS:-1__", "mood": 4, "notes": "Steady." },
+    { "date": "__OFFSET_DAYS:0__", "mood": 4, "notes": "Easing into the day." }
+  ]
+}
