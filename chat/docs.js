@@ -32,6 +32,7 @@ const DOC_INDEX = [
   { path: 'docs/CHAT-AGENT.md',           summary: 'Chat widget + gateway integration; AGENT_API_TOKEN write contract.' },
   { path: 'docs/HEALTH-AUTO-EXPORT.md',   summary: 'iPhone Health Auto Export ingest: catalogue, row shapes, setup.' },
   { path: 'docs/DEPLOY.md',               summary: 'Single-user and multi-user deploy guide; systemd + Docker.' },
+  { path: 'docs/DEMO.md',                 summary: 'Running a public Klebb demo (KLEBB_DEMO=1, hourly reset cron, image-tag gotchas).' },
   { path: 'docs/TESTING.md',              summary: 'Three test layers, bug-fix workflow rubric.' },
   { path: 'docs/VOICE.md',                summary: 'Voice chat (Fish Audio) configuration and usage.' },
   { path: 'docs/CI.md',                   summary: 'GitHub Actions CI overview; what runs and when.' },
