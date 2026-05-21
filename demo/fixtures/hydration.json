@@ -1,0 +1,46 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "hydration",
+    "label": "Water intake",
+    "emoji": "💧",
+    "order": 420,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{ml}",
+        "unit": "ml"
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "ml"
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "ml", "type": "stepper", "step": 250, "min": 0, "max": 10000, "required": true }
+      ]
+    }
+  },
+  "description": "Daily water intake in millilitres.",
+  "data": [
+    { "date": "__OFFSET_DAYS:-13__", "ml": 1750 },
+    { "date": "__OFFSET_DAYS:-12__", "ml": 2000 },
+    { "date": "__OFFSET_DAYS:-11__", "ml": 1500 },
+    { "date": "__OFFSET_DAYS:-10__", "ml": 2250 },
+    { "date": "__OFFSET_DAYS:-9__", "ml": 2500 },
+    { "date": "__OFFSET_DAYS:-8__", "ml": 1750 },
+    { "date": "__OFFSET_DAYS:-7__", "ml": 2000 },
+    { "date": "__OFFSET_DAYS:-6__", "ml": 2250 },
+    { "date": "__OFFSET_DAYS:-5__", "ml": 2500 },
+    { "date": "__OFFSET_DAYS:-4__", "ml": 2750 },
+    { "date": "__OFFSET_DAYS:-3__", "ml": 2000 },
+    { "date": "__OFFSET_DAYS:-2__", "ml": 2250 },
+    { "date": "__OFFSET_DAYS:-1__", "ml": 2500 },
+    { "date": "__OFFSET_DAYS:0__", "ml": 1500 }
+  ]
+}

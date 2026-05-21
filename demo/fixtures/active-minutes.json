@@ -1,0 +1,45 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "active-minutes",
+    "label": "Active minutes",
+    "emoji": "⏱️",
+    "order": 525,
+    "ingest": {
+      "source": "hae",
+      "metric": "apple_exercise_time"
+    },
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{minutes}",
+        "unit": "min",
+        "trendArrow": { "field": "minutes" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "minutes"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Daily active minutes (Apple Exercise Time).",
+  "data": [
+    { "date": "__OFFSET_DAYS:-13__", "minutes": 18 },
+    { "date": "__OFFSET_DAYS:-12__", "minutes": 42 },
+    { "date": "__OFFSET_DAYS:-11__", "minutes": 12 },
+    { "date": "__OFFSET_DAYS:-10__", "minutes": 55 },
+    { "date": "__OFFSET_DAYS:-9__", "minutes": 35 },
+    { "date": "__OFFSET_DAYS:-8__", "minutes": 38 },
+    { "date": "__OFFSET_DAYS:-7__", "minutes": 60 },
+    { "date": "__OFFSET_DAYS:-6__", "minutes": 22 },
+    { "date": "__OFFSET_DAYS:-5__", "minutes": 33 },
+    { "date": "__OFFSET_DAYS:-4__", "minutes": 48 },
+    { "date": "__OFFSET_DAYS:-3__", "minutes": 30 },
+    { "date": "__OFFSET_DAYS:-2__", "minutes": 52 },
+    { "date": "__OFFSET_DAYS:-1__", "minutes": 41 },
+    { "date": "__OFFSET_DAYS:0__", "minutes": 15 }
+  ]
+}

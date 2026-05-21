@@ -18,6 +18,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   shows a banner pointing visitors at `klebb.app` for self-hosting.
   Fixes #270.
 
+- **Curated demo dataset and reset script.** `demo/fixtures/` ships
+  eleven complete `klebb.datafile.v1` manifests (weight, sleep, mood,
+  blood pressure, hydration, steps, daily notes, supplement stack,
+  peptide cycle, active minutes, resting heart rate) populated with a
+  fortnight of plausible-but-fake history so the public demo always
+  shows trends, calendars, schedules, and threshold colour bands the
+  moment a visitor lands. Date fields use `__OFFSET_DAYS:N__`
+  placeholders that resolve to *today minus N* at reset time, so the
+  dataset rolls forward without anyone editing JSON.
+  `scripts/reset-demo.js` wipes `$HEALTH_HOME/data/` and restores the
+  fixture set; it refuses to run unless `KLEBB_DEMO=1` so it can never
+  be invoked against a real instance by accident. Hook it into a cron
+  / systemd timer / docker-compose `restart` policy on the demo host.
+  Fixes #271.
+
 ### Changed
 
 - **App header now uses the Klebb dog mark instead of the placeholder
