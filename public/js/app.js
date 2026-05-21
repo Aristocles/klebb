@@ -226,6 +226,12 @@ class HealthApp extends LitElement {
       flex-shrink: 0;
       white-space: nowrap;
     }
+    .logo-mark {
+      width: 28px;
+      height: 28px;
+      display: block;
+      flex-shrink: 0;
+    }
     .build-badge {
       display: inline-block;
       margin-left: 8px;
@@ -312,6 +318,7 @@ class HealthApp extends LitElement {
     @media (max-width: 480px) {
       .nav-main { padding: 8px 12px; gap: 6px; }
       .logo { font-size: 0.95rem; gap: 6px; }
+      .logo-mark { width: 24px; height: 24px; }
       .nav-links { gap: 2px; }
       .nav-link { font-size: 0.75rem; padding: 5px 8px; }
       main {
@@ -335,7 +342,14 @@ class HealthApp extends LitElement {
         <nav>
           <div class="nav-main">
             <div class="logo" @click=${this._toggleTheme} style="cursor:pointer" title="Toggle theme">
-              <span>${this.theme === 'light' ? '💪' : '🌙'}</span> ${this._instanceName}
+              <img
+                class="logo-mark"
+                src="${this.theme === 'dark' ? '/icons/logo-dark.png' : '/icons/logo-light.png'}"
+                alt=""
+                aria-hidden="true"
+                width="28"
+                height="28"
+              > ${this._instanceName}
               ${this._buildInfo ? html`
                 <span class="build-badge"
                   title="${this._buildInfo.commit || ''}${this._buildInfo.builtAt ? ' @ ' + this._buildInfo.builtAt : ''}"
