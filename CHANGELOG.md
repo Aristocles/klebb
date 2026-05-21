@@ -7,6 +7,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-05-21
+
 ### Changed
 
 - **Health Auto Export token is now managed in the Settings UI.** The
