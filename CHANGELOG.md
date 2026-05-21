@@ -7,6 +7,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Reports page on the public demo now ships with a full multi-card
+  set.** Three new manifest fixtures (`blood-panel.json` with eight
+  RCPA-style categories of fasting bloods, `genome-snps.json` with an
+  APOE call plus 30 categorised SNPs across lipid metabolism /
+  methylation / detox / caffeine / sleep / inflammation, and a
+  reports-shaped extension of `peptide-cycle.json`) plus four narrative
+  markdown reports under `demo/fixtures/reports/` (a blood debrief, a
+  genome overview, a quarterly debrief, and a baseline profile). The
+  reset script now seeds `$HEALTH_HOME/reports/` from the markdown
+  fixtures and resolves `__OFFSET_DAYS:N__` placeholders in both file
+  bodies and filenames (the underscore form is accepted in filenames
+  since `:` is not a legal NTFS character). Fixes #275.
+
 ## [2.1.1] - 2026-05-21
 
 ### Added
