@@ -7,6 +7,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Schedule card week-dot ring now follows the day being viewed.**
+  Previously the green halo stayed glued to real calendar today and
+  vanished entirely once the user navigated more than ~7 days from
+  today. The ring now tracks `this.date`, so stepping forward or
+  back any number of days keeps the highlight on the correct
+  letter. The internal CSS class is renamed `today-ring` →
+  `selected-ring`. Fixes #282.
+
 ## [2.1.2] - 2026-05-21
 
 ### Changed
