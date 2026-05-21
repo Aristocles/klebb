@@ -76,19 +76,21 @@ combination card if you want them shown together.
 
 ## Setup
 
-### 1. Enable the endpoint
+### 1. Generate a token in Settings
 
-Set `HEALTH_AUTO_EXPORT_TOKEN` in your klebb `.env` to any long random
-string. `openssl rand -hex 32` is a fine source.
+Open Klebb in the browser, go to **Settings**, and find the
+**Health Auto Export** panel. Click **Generate token**. Klebb mints a
+64-char hex secret, persists it to
+`$HEALTH_HOME/config.json` under `cfg.hae.token` (atomic write,
+`0o600`), and reveals it briefly in the panel so you can copy it
+straight to the clipboard.
 
-```
-HEALTH_AUTO_EXPORT_TOKEN=<your-random-hex>
-```
+Without a token the endpoint returns **501**: the feature is off by
+default.
 
-Restart klebb (or `docker compose restart` if you run in Docker).
-
-Without this env var the endpoint returns **501** — the feature is
-off by default.
+You can rotate at any time with the **Regenerate** button. Rotating
+invalidates the previous token immediately, so update the iPhone HAE
+app's Authorization header before the next push.
 
 ### 2. Configure the iPhone app
 
@@ -100,7 +102,7 @@ In Health Auto Export:
 4. **Headers**:
    ```
    Content-Type: application/json
-   Authorization: Bearer <your-HEALTH_AUTO_EXPORT_TOKEN>
+   Authorization: Bearer <token-from-Settings>
    ```
 5. **Metrics**: pick from the table above. Enabling more than you
    subscribe to is harmless — unsubscribed metrics are archived only.
@@ -171,7 +173,7 @@ If nothing shows up:
   Bearer <token>" -H "Content-Type: application/json" -d
   '{"data":{}}'` — expect `200 {"ok":true,"ingested":{}}`.
 - Wrong token → `401`.
-- Missing env var → `501`.
+- No token configured → `501`.
 
 ---
 
@@ -199,7 +201,11 @@ A successful push returns:
 Klebb's Settings view leads with a Health Auto Export panel showing:
 
 - The effective webhook URL (copy to clipboard).
-- Whether `HEALTH_AUTO_EXPORT_TOKEN` is set.
+- The token, with **Generate** when none is configured, or a masked
+  display (`••••<last 4>`) plus **Copy** and **Regenerate** buttons
+  when one is. Regenerate prompts an inline confirmation that warns
+  the iPhone HAE app must be updated before the next push will be
+  accepted.
 - Time and summary of the most recent push, expandable to show the
   full diagnostic (rows per subscriber, unsubscribed metrics seen,
   warnings).
@@ -355,7 +361,7 @@ does nothing does not churn any file.
 
 ```
 POST /api/health-auto-export
-Authorization: Bearer <HEALTH_AUTO_EXPORT_TOKEN>
+Authorization: Bearer <token-from-Settings>
 Content-Type: application/json
 ```
 
@@ -364,8 +370,23 @@ Content-Type: application/json
 | `200 {ok:true, ingested:{...}, availableUnsubscribed:[...]}` | Parsed and dispatched |
 | `200 {ok:true, warning:"..."}` | Parse or dispatch failed but raw was archived; HAE will retry |
 | `401` | Token missing or wrong |
-| `501 {error:"ingest disabled"}` | `HEALTH_AUTO_EXPORT_TOKEN` env var not set |
+| `501 {error:"ingest disabled"}` | No token configured (visit Settings → Health Auto Export) |
 
 Errors after auth passes are swallowed into `200 + warning` on
 purpose: the iPhone app retries aggressively on non-2xx, and we'd
 rather have a raw archive to debug than a spiral.
+
+---
+
+## Upgrading from older Klebb
+
+Older versions used a `HEALTH_AUTO_EXPORT_TOKEN` env var instead of an
+in-app Settings flow. On first boot under the new code:
+
+- If `cfg.hae.token` already exists in `config.json`, nothing changes.
+- If it doesn't exist *and* the env var is set, Klebb copies the env
+  value into `cfg.hae.token` once and logs a deprecation warning. The
+  iPhone app keeps working with the same token.
+- After that, the env var is ignored. You can drop the line from your
+  `.env` / systemd unit / docker-compose `environment` block at your
+  leisure.
