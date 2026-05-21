@@ -170,9 +170,17 @@ The cron fires at the top of every hour. Watch
 
 ## 7. Updating to a new release
 
+If `compose.yml` pins to a moving tag like `:main` (the default for
+`demo.klebb.app`), every push to the project's `main` branch is
+already auto-deployed by the `Deploy demo.klebb.app` GitHub Actions
+workflow. There is nothing to do.
+
+If `compose.yml` pins to a fixed version (e.g. `:2.1.2`), bump the
+tag and redeploy by hand:
+
 ```bash
 cd /opt/klebb-demo
-# Pin to the new tag in compose.yml first, e.g. ghcr.io/aristocles/klebb:2.1.3
+# Edit compose.yml to ghcr.io/aristocles/klebb:<new-tag>
 docker compose pull
 docker compose up -d
 # Re-seed; new fixtures may have landed
@@ -183,6 +191,41 @@ docker exec --user root \
 
 Image tag must match the compose file. `latest` is also published but
 explicit version pinning is recommended for visibility.
+
+### How the auto-deploy works (for `demo.klebb.app` only)
+
+1. PR merges to `main`.
+2. `.github/workflows/publish.yml` builds and pushes
+   `ghcr.io/aristocles/klebb:main` (and `:sha-<short>`).
+3. `.github/workflows/deploy-demo.yml` fires on completion of (2),
+   SSHes to the demo host, and the host's forced-command runs
+   `/usr/local/bin/klebb-demo-deploy`.
+4. That script does `docker compose pull && up -d`, waits for the
+   container to be healthy, then runs `reset-demo.js` so any new
+   fixtures land immediately.
+
+The deploy key is constrained on the host with a `command="..."`
+forced-command and `restrict` flags in `~/.ssh/authorized_keys`, so
+even if the GitHub secret leaked, the worst it could do is run that
+one script. To rotate the key:
+
+```bash
+# On the dev box
+ssh-keygen -t ed25519 -N "" -C "klebb-demo-deploy@actions" -f /tmp/klebb_demo_deploy_new
+
+# On the host: replace the line in ~/.ssh/authorized_keys
+ssh -i ~/.ssh/id_ed25519.klebb root@178.105.170.10 \
+  "sed -i '/klebb-demo-deploy@actions/d' ~/.ssh/authorized_keys; \
+   echo 'command=\"/usr/local/bin/klebb-demo-deploy\",restrict $(cat /tmp/klebb_demo_deploy_new.pub)' >> ~/.ssh/authorized_keys"
+
+# Update the GitHub secret
+gh secret set DEMO_SSH_KEY --body "$(cat /tmp/klebb_demo_deploy_new)" --repo Aristocles/klebb
+```
+
+A full forensic of the auto-deploy lives in `/var/log/syslog` (sshd
+auth lines + the script's stdout, prefixed `[deploy]`). To take it
+offline temporarily, comment out the line in `authorized_keys`; the
+workflow will fail noisily.
 
 ## Troubleshooting
 
