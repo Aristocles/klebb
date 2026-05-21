@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
+name: Deploy demo.klebb.app
+
+# Fires when "Build and publish container" finishes successfully on
+# main, so the new image is guaranteed to be on GHCR before we try
+# to pull. Manual dispatch is also allowed for re-runs.
+on:
+  workflow_run:
+    workflows: ['Build and publish container']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: SSH to host and run klebb-demo-deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Configure SSH
+        env:
+          DEMO_SSH_KEY: ${{ secrets.DEMO_SSH_KEY }}
+          DEMO_SSH_HOST_KEY: ${{ secrets.DEMO_SSH_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEMO_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DEMO_SSH_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Trigger deploy on host
+        env:
+          DEMO_SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
+              "root@${DEMO_SSH_HOST}" \
+              true
