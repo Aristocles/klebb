@@ -7,6 +7,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **`demo.klebb.app` now auto-deploys on every push to `main`.** A
+  new `.github/workflows/deploy-demo.yml` workflow fires when the
+  existing publish workflow finishes successfully, SSHes to the
+  demo host, and runs `klebb-demo-deploy` (which does
+  `docker compose pull && up -d` and re-seeds fixtures). The deploy
+  key is locked on the host with a forced-command + `restrict` so
+  the SSH session can only run that one script. See
+  `docs/DEMO.md` for the full picture and key-rotation steps.
+  Fixes #284.
+
 ### Fixed
 
 - **Schedule card week-dot ring now follows the day being viewed.**
