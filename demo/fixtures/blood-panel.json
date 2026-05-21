@@ -1,0 +1,100 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "blood-panel",
+    "label": "Blood panel",
+    "emoji": "🩸",
+    "order": 800,
+    "view": {
+      "enabled": true,
+      "component": "list-card",
+      "display": {
+        "primaryField": "label",
+        "secondaryTemplate": "{value} {unit} (ref {refLow}-{refHigh})",
+        "emptyMessage": "No blood panels recorded yet."
+      }
+    },
+    "reports": {
+      "enabled": true,
+      "component": "table-list"
+    },
+    "writeable": { "fromWebapp": false }
+  },
+  "description": "Most recent fasting blood panel. Latest collection __OFFSET_DAYS:-30__. Reference ranges follow Australian RCPA adult ranges; flag indicates out-of-range high (H) or low (L). Categories: Lipids, Liver, Kidneys, Glucose / Insulin, Iron studies, Thyroid, Inflammation.",
+  "data": {
+    "collected": "__OFFSET_DAYS:-30__",
+    "lab": "DemoLabs Pty Ltd",
+    "categories": [
+      {
+        "name": "Lipids",
+        "findings": [
+          { "label": "Total cholesterol", "value": "4.6", "unit": "mmol/L", "refLow": "<5.5", "refHigh": "", "flag": "" },
+          { "label": "HDL", "value": "1.5", "unit": "mmol/L", "refLow": ">1.0", "refHigh": "", "flag": "" },
+          { "label": "LDL (calc)", "value": "2.7", "unit": "mmol/L", "refLow": "<3.5", "refHigh": "", "flag": "" },
+          { "label": "Triglycerides", "value": "0.9", "unit": "mmol/L", "refLow": "<2.0", "refHigh": "", "flag": "" },
+          { "label": "Non-HDL chol.", "value": "3.1", "unit": "mmol/L", "refLow": "<4.0", "refHigh": "", "flag": "" }
+        ]
+      },
+      {
+        "name": "Liver",
+        "findings": [
+          { "label": "ALT", "value": "28", "unit": "U/L", "refLow": "5", "refHigh": "40", "flag": "" },
+          { "label": "AST", "value": "24", "unit": "U/L", "refLow": "10", "refHigh": "35", "flag": "" },
+          { "label": "GGT", "value": "21", "unit": "U/L", "refLow": "5", "refHigh": "55", "flag": "" },
+          { "label": "ALP", "value": "72", "unit": "U/L", "refLow": "30", "refHigh": "110", "flag": "" },
+          { "label": "Bilirubin", "value": "11", "unit": "umol/L", "refLow": "<20", "refHigh": "", "flag": "" }
+        ]
+      },
+      {
+        "name": "Kidneys",
+        "findings": [
+          { "label": "Creatinine", "value": "82", "unit": "umol/L", "refLow": "60", "refHigh": "110", "flag": "" },
+          { "label": "Urea", "value": "5.4", "unit": "mmol/L", "refLow": "2.5", "refHigh": "8.0", "flag": "" },
+          { "label": "eGFR", "value": ">90", "unit": "mL/min", "refLow": ">60", "refHigh": "", "flag": "" },
+          { "label": "Uric acid", "value": "0.34", "unit": "mmol/L", "refLow": "0.20", "refHigh": "0.42", "flag": "" }
+        ]
+      },
+      {
+        "name": "Glucose / Insulin",
+        "findings": [
+          { "label": "Fasting glucose", "value": "5.0", "unit": "mmol/L", "refLow": "3.5", "refHigh": "6.0", "flag": "" },
+          { "label": "HbA1c", "value": "33", "unit": "mmol/mol", "refLow": "<42", "refHigh": "", "flag": "" },
+          { "label": "Fasting insulin", "value": "6.2", "unit": "mIU/L", "refLow": "2.0", "refHigh": "15.0", "flag": "" },
+          { "label": "HOMA-IR (calc)", "value": "1.4", "unit": "", "refLow": "<2.0", "refHigh": "", "flag": "" }
+        ]
+      },
+      {
+        "name": "Iron studies",
+        "findings": [
+          { "label": "Iron", "value": "18", "unit": "umol/L", "refLow": "10", "refHigh": "30", "flag": "" },
+          { "label": "Ferritin", "value": "112", "unit": "ug/L", "refLow": "30", "refHigh": "300", "flag": "" },
+          { "label": "Transferrin", "value": "2.6", "unit": "g/L", "refLow": "2.0", "refHigh": "3.6", "flag": "" },
+          { "label": "Transferrin sat.", "value": "30", "unit": "%", "refLow": "15", "refHigh": "45", "flag": "" }
+        ]
+      },
+      {
+        "name": "Thyroid",
+        "findings": [
+          { "label": "TSH", "value": "1.8", "unit": "mIU/L", "refLow": "0.4", "refHigh": "4.0", "flag": "" },
+          { "label": "Free T4", "value": "14", "unit": "pmol/L", "refLow": "10", "refHigh": "20", "flag": "" },
+          { "label": "Free T3", "value": "4.6", "unit": "pmol/L", "refLow": "3.5", "refHigh": "6.5", "flag": "" }
+        ]
+      },
+      {
+        "name": "Inflammation",
+        "findings": [
+          { "label": "hs-CRP", "value": "0.6", "unit": "mg/L", "refLow": "<1.0", "refHigh": "", "flag": "" },
+          { "label": "Homocysteine", "value": "8.4", "unit": "umol/L", "refLow": "<12", "refHigh": "", "flag": "" }
+        ]
+      },
+      {
+        "name": "Vitamins",
+        "findings": [
+          { "label": "Vitamin D", "value": "92", "unit": "nmol/L", "refLow": "75", "refHigh": "200", "flag": "" },
+          { "label": "Vitamin B12", "value": "385", "unit": "pmol/L", "refLow": "180", "refHigh": "650", "flag": "" },
+          { "label": "Folate (RBC)", "value": "1240", "unit": "nmol/L", "refLow": "700", "refHigh": "1700", "flag": "" }
+        ]
+      }
+    ]
+  }
+}

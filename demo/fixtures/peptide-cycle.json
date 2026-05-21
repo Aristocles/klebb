@@ -45,7 +45,15 @@
           "on_days": ["Mon", "Wed", "Fri"]
         },
         "cycles": [
-          { "type": "on", "start": "__OFFSET_DAYS:-21__", "end": "__OFFSET_DAYS:21__" }
+          {
+            "type": "on",
+            "status": "active",
+            "cycle_number": 1,
+            "start": "__OFFSET_DAYS:-21__",
+            "end": "__OFFSET_DAYS:21__",
+            "start_date": "__OFFSET_DAYS:-21__",
+            "end_date": "__OFFSET_DAYS:21__"
+          }
         ],
         "doses": [
           { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T08:14:00" },
