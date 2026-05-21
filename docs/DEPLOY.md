@@ -11,6 +11,9 @@ server. It covers:
 The approach is intentionally lightweight: Node.js + systemd + nginx.
 No Docker, no build step, no CI dependencies.
 
+For a **public, no-credentials demo deployment** (e.g. `demo.klebb.app`),
+see [DEMO.md](DEMO.md).
+
 ---
 
 ## 1. Single-user deploy

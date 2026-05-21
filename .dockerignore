@@ -19,7 +19,7 @@ reports
 
 # Tests are not needed at runtime
 tests
-fixtures
+/fixtures
 
 # Editor cruft. Docs + root .md files are kept in the image so the
 # read_doc chat tool (chat/docs.js allowlist) can serve them at

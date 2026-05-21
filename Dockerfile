@@ -65,6 +65,13 @@ COPY --chown=klebb:klebb server ./server
 COPY --chown=klebb:klebb templates ./templates
 COPY --chown=klebb:klebb prompts ./prompts
 
+# Demo fixtures + reset script. Needed inside the image so the public
+# demo's hourly reset cron can `docker exec klebb-demo node
+# /app/scripts/reset-demo.js`. Both directories are public-safe; the
+# reset script refuses to run unless KLEBB_DEMO=1 so it can never be
+# invoked against a real instance.
+COPY --chown=klebb:klebb demo ./demo
+
 # Doc files served by the read_doc chat tool. The allowlist in
 # chat/docs.js enumerates exactly these paths; an absent file would
 # surface to the agent as ENOENT.
