@@ -251,6 +251,25 @@ chat widget), point `CHAT_ENDPOINT_URL=http://host.docker.internal:<port>/v1/cha
 in `.env`. The compose file already maps that hostname to the host via
 `extra_hosts: host.docker.internal:host-gateway`.
 
+## Ingesting reports
+
+Klebb watches `$HEALTH_HOME/inbox/` and turns anything you drop in
+there into a markdown report under `$HEALTH_HOME/reports/`, ready for
+the chat agent to read on demand. Supports `.pdf` (via `pdftotext`),
+`.png` / `.jpg` / `.jpeg` (via `tesseract`), `.txt` / `.md` verbatim,
+and `.mp3` / `.wav` / `.m4a` / `.ogg` / `.opus` (via `ffmpeg` + Fish
+ASR; requires `FISH_AUDIO_API_KEY`).
+
+```bash
+scp bloods.pdf myhost:/data/inbox/
+```
+
+The Docker image ships with all four binaries baked in, so this works
+out of the box. Failures land in `$HEALTH_HOME/inbox/_failed/` with a
+sibling `.error` file. See [`docs/REPORTS.md`](docs/REPORTS.md) for
+the full workflow, output format, troubleshooting, and the chat
+round-trip.
+
 ## Running tests
 
 ```bash
@@ -332,6 +351,7 @@ demo predictable.
 - [`MANIFEST-SCHEMA.md`](MANIFEST-SCHEMA.md) — Manifest format reference
 - [`docs/CHAT-AGENT.md`](docs/CHAT-AGENT.md) — Chat widget + server-to-server integration
 - [`docs/VOICE.md`](docs/VOICE.md) — Voice chat (Fish Audio) configuration
+- [`docs/REPORTS.md`](docs/REPORTS.md) — Inbox-driven report ingest (PDF, scans, notes, audio)
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — Single-user + multi-user deploy guide
 - [`docs/CI.md`](docs/CI.md) — CI workflow overview
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — Contributor conventions
@@ -352,6 +372,14 @@ auth/
   invites.js                      invite-code issuance
 voice/
   fish.js                         Fish Audio TTS/ASR (optional)
+  transcode.js                    ffmpeg pipe -> 16 kHz mono WAV (shared)
+ingest/
+  pipeline.js                     inbox watcher orchestrator
+  watcher.js                      fs.watch + debounce wrapper
+  extract.js                      extension-keyed dispatcher
+  extractors/                     pdf / image / text / audio extractors
+  writeReport.js                  frontmatter + atomic .md write
+  catalogue.js                    parses headers + builds chat catalogue
 public/
   js/
     app.js                        top-level routing
