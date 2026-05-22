@@ -32,30 +32,44 @@ function resolveHealthHome() {
 const HEALTH_HOME = resolveHealthHome();
 
 // Standard layout:
-//   $HEALTH_HOME/data/           — card manifest files
-//   $HEALTH_HOME/reports/        — markdown reports
-//   $HEALTH_HOME/sessions/       — WebAuthn sessions
-//   $HEALTH_HOME/credentials/    — WebAuthn credentials
-//   $HEALTH_HOME/data/_archive/  — reserved, not scanned
-//   $HEALTH_HOME/data/auto-export/  — HealthAutoExport dumps
-//   $HEALTH_HOME/config.json     — instance config
+//   $HEALTH_HOME/data/             — card manifest files
+//   $HEALTH_HOME/reports/          — markdown reports (rendered + ingested)
+//   $HEALTH_HOME/reports/_archive/ — original files filed away after ingest
+//   $HEALTH_HOME/inbox/            — drop zone for ingest pipeline
+//   $HEALTH_HOME/inbox/_failed/    — files the pipeline could not extract
+//   $HEALTH_HOME/sessions/         — WebAuthn sessions
+//   $HEALTH_HOME/credentials/      — WebAuthn credentials
+//   $HEALTH_HOME/data/_archive/    — reserved, not scanned
+//   $HEALTH_HOME/data/auto-export/ — HealthAutoExport dumps
+//   $HEALTH_HOME/config.json       — instance config
 
 const DATA_DIR = process.env.HEALTH_DATA_DIR || path.join(HEALTH_HOME, 'data');
 
 // Reports dir resolution, in priority order:
 //   1. HEALTH_REPORTS_DIR env var (explicit override)
-//   2. $HEALTH_HOME/reports/ (canonical location)
-//   3. $HEALTH_HOME/data/reports/ (alt location)
-//   4. $HEALTH_HOME/ (last resort — flat layout)
+//   2. $HEALTH_HOME/reports/ (canonical location; always returned for
+//      fresh installs so ingest writes and listing reads stay aligned)
+//   3. $HEALTH_HOME/data/reports/ (legacy alt location, only if it
+//      already exists from an older install)
 function resolveReportsDir() {
   if (process.env.HEALTH_REPORTS_DIR) return process.env.HEALTH_REPORTS_DIR;
   const canonical = path.join(HEALTH_HOME, 'reports');
   if (fs.existsSync(canonical)) return canonical;
   const under = path.join(DATA_DIR, 'reports');
   if (fs.existsSync(under)) return under;
-  return HEALTH_HOME;
+  return canonical;
 }
 const REPORTS_DIR = resolveReportsDir();
+
+// Canonical reports root for new constructs (ingest archive, inbox).
+// Independent of the resolveReportsDir() fallback chain — that chain is
+// for backwards-compat with old installs that put reports under data/.
+// New paths always anchor on $HEALTH_HOME/reports/.
+const REPORTS_CANONICAL = path.join(HEALTH_HOME, 'reports');
+const REPORTS_ARCHIVE_DIR = path.join(REPORTS_CANONICAL, '_archive');
+
+const INBOX_DIR = process.env.HEALTH_INBOX_DIR || path.join(HEALTH_HOME, 'inbox');
+const INBOX_FAILED_DIR = path.join(INBOX_DIR, '_failed');
 
 const AUTO_EXPORT_DIR = process.env.HEALTH_AUTO_EXPORT_DIR || path.join(DATA_DIR, 'auto-export');
 const SESSIONS_DIR = process.env.HEALTH_SESSIONS_DIR || path.join(HEALTH_HOME, 'sessions');
@@ -86,7 +100,7 @@ const WEBAUTHN_SESSIONS_FILE = resolveWebauthnSessionsFile();
 // Ensure directories exist where we expect to write.
 // Does NOT create HEALTH_HOME itself (bootstrap responsibility).
 function ensureWritableDirs() {
-  const toEnsure = [DATA_DIR, CHAT_DIR];
+  const toEnsure = [DATA_DIR, CHAT_DIR, REPORTS_CANONICAL, REPORTS_ARCHIVE_DIR, INBOX_DIR, INBOX_FAILED_DIR];
   if (WEBAUTHN_CREDENTIALS_FILE.startsWith(CREDENTIALS_DIR)) toEnsure.push(CREDENTIALS_DIR);
   if (WEBAUTHN_SESSIONS_FILE.startsWith(SESSIONS_DIR)) toEnsure.push(SESSIONS_DIR);
   for (const dir of toEnsure) {
@@ -98,6 +112,9 @@ module.exports = {
   HEALTH_HOME,
   DATA_DIR,
   REPORTS_DIR,
+  REPORTS_ARCHIVE_DIR,
+  INBOX_DIR,
+  INBOX_FAILED_DIR,
   AUTO_EXPORT_DIR,
   SESSIONS_DIR,
   CREDENTIALS_DIR,

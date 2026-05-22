@@ -29,15 +29,22 @@ LABEL org.opencontainers.image.title="Klebb" \
       org.opencontainers.image.source="https://github.com/Aristocles/klebb"
 
 # Runtime system dependencies:
-#   ca-certificates — HTTPS trust anchors for outbound calls (chat gateway, Fish Audio)
-#   tini            — proper PID 1 so SIGTERM reaches Node cleanly
-#   gosu            — privilege drop from root -> klebb in the entrypoint
-#   ffmpeg          — transcode browser voice-note audio to 16 kHz mono WAV for Fish ASR
+#   ca-certificates    : HTTPS trust anchors for outbound calls (chat gateway, Fish Audio)
+#   tini               : proper PID 1 so SIGTERM reaches Node cleanly
+#   gosu               : privilege drop from root -> klebb in the entrypoint
+#   ffmpeg             : transcode browser voice-note audio to 16 kHz mono WAV for Fish ASR
+#                        (also reused by the inbox audio extractor)
+#   poppler-utils      : pdftotext binary for the inbox PDF extractor
+#   tesseract-ocr (+
+#   tesseract-ocr-eng) : OCR for image reports dropped into the inbox
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
-      tini \
-      gosu \
       ffmpeg \
+      gosu \
+      poppler-utils \
+      tesseract-ocr \
+      tesseract-ocr-eng \
+      tini \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root runtime user
@@ -55,6 +62,7 @@ COPY --chown=klebb:klebb server.js ./
 COPY --chown=klebb:klebb auth ./auth
 COPY --chown=klebb:klebb chat ./chat
 COPY --chown=klebb:klebb config ./config
+COPY --chown=klebb:klebb ingest ./ingest
 COPY --chown=klebb:klebb manifests ./manifests
 COPY --chown=klebb:klebb meta ./meta
 COPY --chown=klebb:klebb public ./public

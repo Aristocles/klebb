@@ -23,6 +23,8 @@ function createSandbox({ seed = {}, credentials = null, sessions = null } = {}) 
   fs.mkdirSync(path.join(root, 'data', 'auto-export', 'activity'), { recursive: true });
   fs.mkdirSync(path.join(root, 'sessions'), { recursive: true });
   fs.mkdirSync(path.join(root, 'credentials'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'inbox', '_failed'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'reports', '_archive'), { recursive: true });
 
   // Write seed manifest files
   for (const [filename, content] of Object.entries(seed)) {

@@ -8,6 +8,11 @@ reply gets a native audio control for playback.
 Voice is strictly optional. Everything works without it; the mic just
 renders greyed out and clicking it points users back here.
 
+The same `FISH_AUDIO_API_KEY` also powers audio-file ingest: drop a
+`.mp3`, `.wav`, `.m4a`, `.ogg`, or `.opus` into `$HEALTH_HOME/inbox/`
+and it'll be transcribed into a markdown report. See
+[`REPORTS.md`](REPORTS.md) for the inbox pipeline.
+
 ---
 
 ## 1. How it works

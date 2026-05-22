@@ -186,6 +186,31 @@ sudo nginx -t && sudo systemctl reload nginx
 Voice input and voice replies are supported via Fish Audio. See
 [`docs/VOICE.md`](VOICE.md) for configuration and troubleshooting.
 
+### Inbox-driven report ingest (optional)
+
+Klebb watches `$HEALTH_HOME/inbox/` for `.pdf`, `.png`, `.jpg`,
+`.txt`, `.md`, `.mp3`, `.wav`, `.m4a`, `.ogg`, and `.opus` drops and
+extracts each into a markdown report under `$HEALTH_HOME/reports/`.
+The chat agent picks them up via the `read_report` tool.
+
+System packages required for bare-metal deploys (the published Docker
+image ships with all four baked in):
+
+- `poppler-utils` (provides `pdftotext` for PDF extraction)
+- `tesseract-ocr` + `tesseract-ocr-eng` (image OCR)
+- `ffmpeg` (already required for voice; reused for audio ingest)
+
+```bash
+sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-eng ffmpeg
+```
+
+Audio ingest reuses `FISH_AUDIO_API_KEY`: drops without it land in
+`$HEALTH_HOME/inbox/_failed/` with an explanatory `.error` sibling.
+PDF / image / text drops work without any chat or voice key set.
+
+See [`REPORTS.md`](REPORTS.md) for the full workflow, output format,
+and troubleshooting checklist.
+
 ---
 
 ## 2. Multi-user / public-facing deploy
