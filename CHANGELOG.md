@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Demo rings-layout Sleep card and Strength Training schedule
+  card.** The `demo.klebb.app` Sleep fixture is now a self-referencing
+  combination-card with `layout: rings`, surfacing Total / Deep / REM
+  / Light as concentric progress arcs against per-stage daily goals.
+  A new `demo/fixtures/strength-training.json` schedule-card fixture
+  ships ten lifts across a Mon / Wed / Fri split (3 / 3 / 4) with
+  weight, sets, reps and body part on each item. The schedule-card
+  status chip now honours an optional `item.action_label` so the
+  strength card chip reads "Lift" instead of "Inject"; the existing
+  Inject / Spray default is unchanged. Fixes #292.
 - **Inbox-driven report ingest pipeline.** Drop a `.pdf`, `.png`,
   `.jpg`, `.txt`, `.md`, `.mp3`, `.wav`, `.m4a`, `.ogg`, or `.opus`
   file into `$HEALTH_HOME/inbox/` and Klebb extracts text into

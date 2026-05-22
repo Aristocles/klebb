@@ -7,13 +7,46 @@
     "order": 500,
     "view": {
       "enabled": true,
-      "component": "generic-card",
-      "display": {
-        "template": "{hours:round(1)}",
-        "unit": "hrs",
-        "secondary": "{deep:round(1)|}h deep · {rem:round(1)|}h REM",
-        "trendArrow": { "field": "hours" }
-      }
+      "component": "combination-card",
+      "layout": "rings",
+      "combines": [
+        {
+          "sourceId": "sleep-hours",
+          "role": "ring-segment",
+          "label": "Total",
+          "accessor": "hours",
+          "unit": "h",
+          "goalDaily": 8,
+          "colour": "#7aa2ff"
+        },
+        {
+          "sourceId": "sleep-hours",
+          "role": "ring-segment",
+          "label": "Deep",
+          "accessor": "deep",
+          "unit": "h",
+          "goalDaily": 1.5,
+          "colour": "#5b3aa8"
+        },
+        {
+          "sourceId": "sleep-hours",
+          "role": "ring-segment",
+          "label": "REM",
+          "accessor": "rem",
+          "unit": "h",
+          "goalDaily": 1.8,
+          "colour": "#d36bd0"
+        },
+        {
+          "sourceId": "sleep-hours",
+          "role": "ring-segment",
+          "label": "Light",
+          "accessor": "light",
+          "unit": "h",
+          "goalDaily": 4.5,
+          "colour": "#54c7c7"
+        }
+      ]
     },
     "trends": {
       "enabled": true,
@@ -21,21 +54,21 @@
       "field": "hours"
     }
   },
-  "description": "Total sleep duration per night with deep / REM breakdown.",
+  "description": "Total sleep duration per night with deep / REM / light breakdown rendered as concentric progress rings against per-stage daily targets.",
   "data": [
-    { "date": "__OFFSET_DAYS:-13__", "hours": 6.8, "deep": 1.2, "rem": 1.4 },
-    { "date": "__OFFSET_DAYS:-12__", "hours": 7.2, "deep": 1.4, "rem": 1.6 },
-    { "date": "__OFFSET_DAYS:-11__", "hours": 6.5, "deep": 1.0, "rem": 1.3 },
-    { "date": "__OFFSET_DAYS:-10__", "hours": 7.8, "deep": 1.6, "rem": 1.7 },
-    { "date": "__OFFSET_DAYS:-9__", "hours": 7.1, "deep": 1.3, "rem": 1.5 },
-    { "date": "__OFFSET_DAYS:-8__", "hours": 6.9, "deep": 1.2, "rem": 1.4 },
-    { "date": "__OFFSET_DAYS:-7__", "hours": 8.0, "deep": 1.7, "rem": 1.8 },
-    { "date": "__OFFSET_DAYS:-6__", "hours": 7.4, "deep": 1.4, "rem": 1.6 },
-    { "date": "__OFFSET_DAYS:-5__", "hours": 6.6, "deep": 1.1, "rem": 1.3 },
-    { "date": "__OFFSET_DAYS:-4__", "hours": 7.7, "deep": 1.5, "rem": 1.7 },
-    { "date": "__OFFSET_DAYS:-3__", "hours": 7.3, "deep": 1.4, "rem": 1.6 },
-    { "date": "__OFFSET_DAYS:-2__", "hours": 7.0, "deep": 1.3, "rem": 1.5 },
-    { "date": "__OFFSET_DAYS:-1__", "hours": 7.5, "deep": 1.5, "rem": 1.6 },
-    { "date": "__OFFSET_DAYS:0__", "hours": 7.6, "deep": 1.5, "rem": 1.7 }
+    { "date": "__OFFSET_DAYS:-13__", "hours": 6.8, "deep": 1.2, "rem": 1.4, "light": 4.2 },
+    { "date": "__OFFSET_DAYS:-12__", "hours": 7.2, "deep": 1.4, "rem": 1.6, "light": 4.2 },
+    { "date": "__OFFSET_DAYS:-11__", "hours": 6.5, "deep": 1.0, "rem": 1.3, "light": 4.2 },
+    { "date": "__OFFSET_DAYS:-10__", "hours": 7.8, "deep": 1.6, "rem": 1.7, "light": 4.5 },
+    { "date": "__OFFSET_DAYS:-9__", "hours": 7.1, "deep": 1.3, "rem": 1.5, "light": 4.3 },
+    { "date": "__OFFSET_DAYS:-8__", "hours": 6.9, "deep": 1.2, "rem": 1.4, "light": 4.3 },
+    { "date": "__OFFSET_DAYS:-7__", "hours": 8.0, "deep": 1.7, "rem": 1.8, "light": 4.5 },
+    { "date": "__OFFSET_DAYS:-6__", "hours": 7.4, "deep": 1.4, "rem": 1.6, "light": 4.4 },
+    { "date": "__OFFSET_DAYS:-5__", "hours": 6.6, "deep": 1.1, "rem": 1.3, "light": 4.2 },
+    { "date": "__OFFSET_DAYS:-4__", "hours": 7.7, "deep": 1.5, "rem": 1.7, "light": 4.5 },
+    { "date": "__OFFSET_DAYS:-3__", "hours": 7.3, "deep": 1.4, "rem": 1.6, "light": 4.3 },
+    { "date": "__OFFSET_DAYS:-2__", "hours": 7.0, "deep": 1.3, "rem": 1.5, "light": 4.2 },
+    { "date": "__OFFSET_DAYS:-1__", "hours": 7.5, "deep": 1.5, "rem": 1.6, "light": 4.4 },
+    { "date": "__OFFSET_DAYS:0__", "hours": 7.6, "deep": 1.5, "rem": 1.7, "light": 4.4 }
   ]
 }
