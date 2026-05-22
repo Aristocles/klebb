@@ -21,6 +21,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Demo runbook now pins the reset/deploy `docker exec` calls to a
+  named timezone.** `scripts/reset-demo.js` anchors fixture dates to
+  the container's local calendar day; the image has no `TZ` baked in
+  so without one set the container defaults to UTC, which causes the
+  newest date to lag visitors in eastward timezones by up to a day.
+  `docs/DEMO.md` §5, §6, §7, and the troubleshooting table now show
+  `-e TZ=Australia/Sydney` alongside the existing env vars; fork
+  operators should swap in their own zone. No code change. Fixes
+  #286.
+
 - **Schedule card week-dot ring now follows the day being viewed.**
   Previously the green halo stayed glued to real calendar today and
   vanished entirely once the user navigated more than ~7 days from
