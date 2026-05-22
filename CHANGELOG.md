@@ -21,6 +21,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Reports → Blood panel no longer shows `?` for every row.** The
+  generic `table-list` renderer was hardcoded for the SNP finding
+  shape (`gene` / `rsid` / `genotype`), so any card with a
+  lab-result-shaped finding (`label` / `value` / `unit`) rendered the
+  left column as `?` and dropped the unit on the right. The renderer
+  now sniffs the finding shape per-row and uses `label` + `value
+  unit` for lab data while keeping the existing SNP layout intact.
+  The SNP-specific `APOE: ? · ?/? SNPs found` summary line is also
+  hidden on cards that don't carry SNP metadata. Fixes #290.
+
 - **Demo runbook now pins the reset/deploy `docker exec` calls to a
   named timezone.** `scripts/reset-demo.js` anchors fixture dates to
   the container's local calendar day; the image has no `TZ` baked in

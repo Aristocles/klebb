@@ -1,10 +1,29 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
-// eh-table-list.js — generic table renderer. Reports view uses this for SNPs.
+// eh-table-list.js — generic table renderer. Reports view uses this for
+// categorised, two-column rowsets. Two finding shapes are auto-detected
+// per-row:
+//   - SNP shape:   { gene, rsid, genotype }       → "GENE  GENOTYPE"
+//   - Lab shape:   { label, value, unit, ... }    → "LABEL  VALUE UNIT"
+// Other shapes fall back to the first two non-meta scalar fields. The
+// summary line is SNP-specific (APOE / count) and only renders when
+// `apoe` or `found_count` is present.
 
 import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
 import { registerRenderer } from '../renderer-registry.js';
+
+function findingKey(f) {
+  return f.gene ?? f.rsid ?? f.label ?? f.name ?? '?';
+}
+
+function findingValue(f) {
+  if (f.genotype !== undefined && f.genotype !== '') return f.genotype;
+  if (f.value !== undefined && f.value !== '') {
+    return f.unit ? `${f.value} ${f.unit}` : String(f.value);
+  }
+  return '—';
+}
 
 export class EhTableList extends EhBaseCard {
   static styles = [
@@ -34,18 +53,20 @@ export class EhTableList extends EhBaseCard {
   renderCard() {
     const d = this.data;
     if (!d) return html`<div>No data.</div>`;
-    // SNP-like shape: { apoe, total_snps, found_count, categories: [...] }
     if (d.categories && typeof d === 'object') {
+      const hasSnpSummary = d.apoe || d.found_count != null || d.searched_count != null;
       return html`
-        <div class="summary">
-          APOE: <strong>${d.apoe || '?'}</strong> · ${d.found_count ?? '?'} / ${d.searched_count ?? '?'} SNPs found
-        </div>
+        ${hasSnpSummary ? html`
+          <div class="summary">
+            APOE: <strong>${d.apoe || '?'}</strong> · ${d.found_count ?? '?'} / ${d.searched_count ?? '?'} SNPs found
+          </div>
+        ` : ''}
         <div class="kv-grid">
           ${Array.isArray(d.categories) ? d.categories.slice(0, 8).map(cat => html`
             <div class="cat-header">${cat.name || cat.category || '—'}</div>
             ${Array.isArray(cat.findings) ? cat.findings.slice(0, 6).map(f => html`
-              <span class="kv-key">${f.gene || f.rsid || '?'}</span>
-              <span class="kv-val">${f.genotype || f.value || '—'}</span>
+              <span class="kv-key">${findingKey(f)}</span>
+              <span class="kv-val">${findingValue(f)}</span>
             `) : ''}
           `) : ''}
         </div>
