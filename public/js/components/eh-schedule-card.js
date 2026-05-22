@@ -290,7 +290,11 @@ export class EhScheduleCard extends EhBaseCard {
 
   _statusChip(item) {
     const status = isScheduledOnDate(item, this.date);
-    if (status === 'scheduled') return { cls: 'inject', text: item.route === 'intranasal' ? 'Spray' : 'Inject' };
+    if (status === 'scheduled') {
+      const text = item.action_label
+        || (item.route === 'intranasal' ? 'Spray' : 'Inject');
+      return { cls: 'inject', text };
+    }
     if (status === 'rest') return { cls: 'rest', text: 'Rest day' };
     if (status === 'off') return { cls: 'off', text: 'Off cycle' };
     return null; // outside all cycles — don't show
