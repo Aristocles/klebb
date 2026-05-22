@@ -40,6 +40,21 @@ and path all come from the URL, so the endpoint doesn't have to live at
 If `CHAT_ENDPOINT_URL` is unset, the chat widget is disabled and
 `POST /api/chat` returns `503`.
 
+### Tools the agent can call
+
+The server passes a small set of tools to the chat-completions
+endpoint on every turn. If your model supports tool-use, the loop in
+`chat/tools.js` dispatches each call inline; if your model doesn't,
+the tools are simply unused.
+
+| Tool | Purpose |
+|------|---------|
+| `create_manifest` / `delete_manifest` / `patch_manifest` | Author and edit cards |
+| `read_manifest` / `list_manifests` / `write_manifest_data` | Inspect and update card data |
+| `hide_card` / `show_card` | Master enable/disable |
+| `read_doc` | Fetch any allowlisted in-repo doc (README, MANIFEST-SCHEMA, this file, etc.) |
+| `read_report` | Fetch any ingested report from `$HEALTH_HOME/reports/`. The agent gets the catalogue automatically in its system prompt; see [`REPORTS.md`](REPORTS.md) for how reports get there. |
+
 ### Legacy env vars
 
 Older deploys used `CHAT_GATEWAY_HOST` + `CHAT_GATEWAY_PORT` +

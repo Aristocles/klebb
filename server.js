@@ -5,7 +5,6 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { marked } = require('marked');
-const { spawn } = require('child_process');
 const { isAuthenticated, isAgentRequest, isPublicPath, handleAuthRoutes, isSetup } = require('./auth/webauthn');
 const PATHS = require('./config/paths');
 const ENV = require('./config/env');
@@ -15,6 +14,7 @@ const { runFirstBoot } = require('./server/first-boot');
 const { listTemplates, listPrompts } = require('./server/content');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
+const { transcodeToWav } = require('./voice/transcode');
 const { TOOL_DEFS, dispatchToolCall } = require('./chat/tools');
 const { pickEmbellishments } = require('./chat/embellish');
 const { buildDateContextBlock } = require('./chat/date-context');
@@ -27,6 +27,8 @@ const { CATEGORIES: MANIFEST_CATEGORIES } = require('./config/categories');
 const ccSuggestions = require('./meta/cc-suggestions');
 const { describeCcSchema } = require('./chat/describe-cc-schema');
 const { describeDocsCatalogue } = require('./chat/docs');
+const { describeReportsCatalogue } = require('./chat/reports');
+const inbox = require('./ingest/pipeline');
 
 // chat endpoint config (env-driven; see config/env.js)
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
@@ -187,36 +189,6 @@ function getWeightRange(start, end) {
   const arr = (weights && weights.$schema === 'klebb.datafile.v1') ? weights.data : weights;
   if (!Array.isArray(arr)) return [];
   return arr.filter(w => w.date >= start && w.date <= end);
-}
-
-// Pipe a buffer of any audio into ffmpeg and get 16kHz mono 16-bit WAV back
-// on stdout. This is the format Fish ASR accepts most reliably (advertised
-// opus/mp4 support both reject in practice).
-function transcodeToWav(inputBuf) {
-  return new Promise((resolve, reject) => {
-    const ff = spawn('ffmpeg', [
-      '-loglevel', 'error',
-      '-i', 'pipe:0',
-      '-vn',                        // no video
-      '-ac', '1',                   // mono
-      '-ar', '16000',               // 16 kHz
-      '-sample_fmt', 's16',         // 16-bit
-      '-f', 'wav',
-      'pipe:1',
-    ], { stdio: ['pipe', 'pipe', 'pipe'] });
-
-    const outChunks = [];
-    let stderr = '';
-    ff.stdout.on('data', c => outChunks.push(c));
-    ff.stderr.on('data', c => stderr += c.toString());
-    ff.on('error', reject);
-    ff.on('close', code => {
-      if (code !== 0) return reject(new Error(`ffmpeg exit ${code}: ${stderr.slice(0, 300)}`));
-      resolve(Buffer.concat(outChunks));
-    });
-    ff.stdin.on('error', () => {}); // ignore EPIPE if ffmpeg dies early
-    ff.stdin.end(inputBuf);
-  });
 }
 
 // Extract a { speak, display } JSON object from a model's raw reply.
@@ -1456,6 +1428,12 @@ const server = http.createServer(async (req, res) => {
           // happens to inline today.
           const docsCatalogueBlock = '\n\n' + describeDocsCatalogue() + '\n';
 
+          // Catalogue of reports the user has ingested into
+          // $HEALTH_HOME/reports/ via the inbox watcher. Lets the
+          // agent pull a blood panel / scan / voice memo into the
+          // turn via read_report when the question calls for it.
+          const reportsCatalogueBlock = '\n\n' + describeReportsCatalogue() + '\n';
+
           // Constrain meta.category to the canonical enum. Klebb uses the
           // field for clustering heuristics (e.g. CC suggestions); unknown
           // values are silently dropped by the registry, so agent-invented
@@ -1485,7 +1463,7 @@ const server = http.createServer(async (req, res) => {
             '',
           ].join('\n');
 
-          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + categoryBlock;
+          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + reportsCatalogueBlock + categoryBlock;
           if (voiceMode) {
             systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Chat'}, a health assistant.
 Voice mode is active: the user is speaking to you and will hear your reply aloud.
@@ -1518,7 +1496,7 @@ Return STRICTLY the JSON object. No leading/trailing text. No markdown fences.
 
 Original system prompt follows:
 
-` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + categoryBlock;
+` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + reportsCatalogueBlock + categoryBlock;
           }
 
           // Prepend system prompt
@@ -1822,5 +1800,16 @@ server.listen(PORT, HOST, () => {
     console.log(`[manifest] loaded ${stats.count} card(s); ${stats.errors} error(s)`);
   } catch (e) {
     console.error('[manifest] init failed:', e.message);
+  }
+
+  // Start the inbox watcher: drains anything left behind from a
+  // previous boot, then watches $HEALTH_HOME/inbox/ for new drops.
+  // Failures inside the pipeline land in inbox/_failed/, so a
+  // broken watcher should never wedge boot.
+  try {
+    inbox.start();
+    console.log('[ingest] inbox watcher started');
+  } catch (e) {
+    console.warn('[ingest] watcher init failed:', e.message);
   }
 });

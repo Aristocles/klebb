@@ -8,6 +8,7 @@
 
 const registry = require('../manifests/registry');
 const { readDoc } = require('./docs');
+const { readReport } = require('./reports');
 
 const TOOL_DEFS = [
   {
@@ -151,6 +152,26 @@ const TOOL_DEFS = [
   {
     type: 'function',
     function: {
+      name: 'read_report',
+      description:
+        "Fetch the full text of one of the user's ingested reports. The system prompt lists every report under '## Available reports' with its name, source format, and ingestion date; pass one of those names verbatim (no .md extension, no slashes). Reports are raw text extracted from PDFs, scans, notes, or audio the user has dropped into their inbox: blood panels, scan reports, voice memos, and similar. Use this when the user asks 'what does my latest blood panel show', 'summarise the MRI report', or any other question where the answer is in one of those files. Returns {name, path, content, ingestedAt, sourceFormat, truncated}; unknown or invalid names return {error}.",
+      parameters: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            description:
+              "Report name as listed in the system prompt's catalogue, without the .md extension (e.g. '2026-05-22-bloods-april-fast').",
+          },
+        },
+        required: ['name'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'patch_manifest',
       description:
         "Edit a card's meta or description in place without touching its data. Uses RFC 7396 JSON Merge Patch: nested objects deep-merge, arrays replace wholesale, null removes a key. Use this for any meta-only change — thresholds, labels, emoji maps, input types, writeable flags. The data block is preserved byte-for-byte. You CANNOT change $schema or meta.id via this tool; for those, delete_manifest + create_manifest is the path (and data will be lost). ALWAYS call read_manifest first so you're patching over the real current meta. Destructive-feeling patches (removing inputs from a writeable card, flipping writeable.fromWebapp from true to false on a card that has data) must be confirmed with the user exactly once before calling this.",
@@ -249,6 +270,9 @@ function dispatchToolCall(tc, ctx) {
       }
       case 'read_doc': {
         return JSON.stringify(readDoc(args.path));
+      }
+      case 'read_report': {
+        return JSON.stringify(readReport(args.name));
       }
       default:
         return JSON.stringify({ error: 'unknown tool: ' + name });
