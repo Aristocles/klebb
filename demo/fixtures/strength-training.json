@@ -12,12 +12,26 @@
     "trends": {
       "enabled": true,
       "component": "schedule-timeline",
-      "itemsPath": "items"
+      "itemsPath": "items",
+      "vocab": {
+        "done": "Done",
+        "missed": "Skipped",
+        "offSchedule": "Extra session",
+        "upcoming": "Upcoming",
+        "rest": "Rest day"
+      }
     },
     "reports": {
       "enabled": true,
       "component": "adherence-report",
-      "showCompliance": true
+      "showCompliance": true,
+      "vocab": {
+        "headline": "Consistency",
+        "done": "Sessions done",
+        "missed": "Skipped",
+        "offSchedule": "Extra",
+        "noun": "session"
+      }
     },
     "calendar": {
       "enabled": true,
@@ -31,12 +45,12 @@
       "futureAllowed": false
     }
   },
-  "description": "Three-day strength split. Monday and Wednesday each cover two compound lifts, Friday rounds out with three. Each exercise carries its working-set load in kilos plus the prescribed sets x reps so the schedule-card surfaces the day's plan as a checklist.",
+  "description": "Three-day strength split. Monday and Wednesday cover two compound lifts each; Friday adds a third accessory. Each exercise carries its working-set load in kilos plus the prescribed sets x reps so the schedule-card surfaces the day's plan as a checklist.",
   "data": {
     "items": [
       {
         "name": "Bench Press",
-        "short_name": "Bench",
+        "short_name": "Bench Press",
         "body_part": "Chest",
         "weight_kg": 72.5,
         "sets": 4,
@@ -52,20 +66,27 @@
             "type": "on",
             "status": "active",
             "cycle_number": 1,
-            "start": "__OFFSET_DAYS:-28__",
-            "start_date": "__OFFSET_DAYS:-28__"
+            "start": "__WEEKDAY:Mon:-8__",
+            "end": "__WEEKDAY:Mon:5__",
+            "start_date": "__WEEKDAY:Mon:-8__",
+            "end_date": "__WEEKDAY:Mon:5__"
           }
         ],
         "doses": [
-          { "scheduledDate": "__OFFSET_DAYS:-25__", "takenAt": "__OFFSET_DAYS:-25__T07:14:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-18__", "takenAt": "__OFFSET_DAYS:-18__T07:08:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-11__", "takenAt": "__OFFSET_DAYS:-11__T07:22:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-4__",  "takenAt": "__OFFSET_DAYS:-4__T07:11:00" }
+          { "scheduledDate": "__WEEKDAY:Mon:-8__", "takenAt": "__WEEKDAY:Mon:-8__T07:14:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-7__", "takenAt": "__WEEKDAY:Mon:-7__T07:09:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-6__", "takenAt": "__WEEKDAY:Mon:-6__T07:18:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-5__", "takenAt": "__WEEKDAY:Mon:-5__T07:11:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-4__", "takenAt": "__WEEKDAY:Mon:-4__T07:14:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-3__", "takenAt": "__WEEKDAY:Mon:-3__T07:12:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-2__", "takenAt": "__WEEKDAY:Mon:-2__T07:08:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-1__", "takenAt": "__WEEKDAY:Mon:-1__T07:11:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:0__",  "takenAt": "__WEEKDAY:Mon:0__T07:16:00" }
         ]
       },
       {
-        "name": "Lat Pull-down",
-        "short_name": "Lat PD",
+        "name": "Lat Pulldown",
+        "short_name": "Lat Pulldown",
         "body_part": "Back",
         "weight_kg": 60,
         "sets": 4,
@@ -81,20 +102,26 @@
             "type": "on",
             "status": "active",
             "cycle_number": 1,
-            "start": "__OFFSET_DAYS:-28__",
-            "start_date": "__OFFSET_DAYS:-28__"
+            "start": "__WEEKDAY:Mon:-8__",
+            "end": "__WEEKDAY:Mon:5__",
+            "start_date": "__WEEKDAY:Mon:-8__",
+            "end_date": "__WEEKDAY:Mon:5__"
           }
         ],
         "doses": [
-          { "scheduledDate": "__OFFSET_DAYS:-25__", "takenAt": "__OFFSET_DAYS:-25__T07:32:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-18__", "takenAt": "__OFFSET_DAYS:-18__T07:28:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-11__", "takenAt": "__OFFSET_DAYS:-11__T07:41:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-4__",  "takenAt": "__OFFSET_DAYS:-4__T07:33:00" }
+          { "scheduledDate": "__WEEKDAY:Mon:-8__", "takenAt": "__WEEKDAY:Mon:-8__T07:32:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-7__", "takenAt": "__WEEKDAY:Mon:-7__T07:30:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-5__", "takenAt": "__WEEKDAY:Mon:-5__T07:36:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-4__", "takenAt": "__WEEKDAY:Mon:-4__T07:33:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-3__", "takenAt": "__WEEKDAY:Mon:-3__T07:32:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-2__", "takenAt": "__WEEKDAY:Mon:-2__T07:28:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:-1__", "takenAt": "__WEEKDAY:Mon:-1__T07:33:00" },
+          { "scheduledDate": "__WEEKDAY:Mon:0__",  "takenAt": "__WEEKDAY:Mon:0__T07:34:00" }
         ]
       },
       {
         "name": "Back Squat",
-        "short_name": "Squat",
+        "short_name": "Back Squat",
         "body_part": "Legs",
         "weight_kg": 95,
         "sets": 5,
@@ -110,20 +137,26 @@
             "type": "on",
             "status": "active",
             "cycle_number": 1,
-            "start": "__OFFSET_DAYS:-28__",
-            "start_date": "__OFFSET_DAYS:-28__"
+            "start": "__WEEKDAY:Wed:-8__",
+            "end": "__WEEKDAY:Wed:5__",
+            "start_date": "__WEEKDAY:Wed:-8__",
+            "end_date": "__WEEKDAY:Wed:5__"
           }
         ],
         "doses": [
-          { "scheduledDate": "__OFFSET_DAYS:-23__", "takenAt": "__OFFSET_DAYS:-23__T07:09:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-16__", "takenAt": "__OFFSET_DAYS:-16__T07:14:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-9__",  "takenAt": "__OFFSET_DAYS:-9__T07:18:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-2__",  "takenAt": "__OFFSET_DAYS:-2__T07:11:00" }
+          { "scheduledDate": "__WEEKDAY:Wed:-8__", "takenAt": "__WEEKDAY:Wed:-8__T07:09:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:-7__", "takenAt": "__WEEKDAY:Wed:-7__T07:12:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:-6__", "takenAt": "__WEEKDAY:Wed:-6__T07:08:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:-5__", "takenAt": "__WEEKDAY:Wed:-5__T07:14:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:-4__", "takenAt": "__WEEKDAY:Wed:-4__T07:09:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:-3__", "takenAt": "__WEEKDAY:Wed:-3__T07:14:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:-1__", "takenAt": "__WEEKDAY:Wed:-1__T07:11:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:0__",  "takenAt": "__WEEKDAY:Wed:0__T07:13:00" }
         ]
       },
       {
         "name": "Romanian Deadlift",
-        "short_name": "RDL",
+        "short_name": "Deadlift",
         "body_part": "Hamstrings",
         "weight_kg": 80,
         "sets": 4,
@@ -139,20 +172,26 @@
             "type": "on",
             "status": "active",
             "cycle_number": 1,
-            "start": "__OFFSET_DAYS:-28__",
-            "start_date": "__OFFSET_DAYS:-28__"
+            "start": "__WEEKDAY:Wed:-8__",
+            "end": "__WEEKDAY:Wed:5__",
+            "start_date": "__WEEKDAY:Wed:-8__",
+            "end_date": "__WEEKDAY:Wed:5__"
           }
         ],
         "doses": [
-          { "scheduledDate": "__OFFSET_DAYS:-23__", "takenAt": "__OFFSET_DAYS:-23__T07:28:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-16__", "takenAt": "__OFFSET_DAYS:-16__T07:34:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-9__",  "takenAt": "__OFFSET_DAYS:-9__T07:36:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-2__",  "takenAt": "__OFFSET_DAYS:-2__T07:30:00" }
+          { "scheduledDate": "__WEEKDAY:Wed:-8__", "takenAt": "__WEEKDAY:Wed:-8__T07:28:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:-7__", "takenAt": "__WEEKDAY:Wed:-7__T07:30:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:-6__", "takenAt": "__WEEKDAY:Wed:-6__T07:32:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:-4__", "takenAt": "__WEEKDAY:Wed:-4__T07:28:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:-3__", "takenAt": "__WEEKDAY:Wed:-3__T07:34:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:-2__", "takenAt": "__WEEKDAY:Wed:-2__T07:36:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:-1__", "takenAt": "__WEEKDAY:Wed:-1__T07:30:00" },
+          { "scheduledDate": "__WEEKDAY:Wed:0__",  "takenAt": "__WEEKDAY:Wed:0__T07:31:00" }
         ]
       },
       {
         "name": "Overhead Press",
-        "short_name": "OHP",
+        "short_name": "Overhead Press",
         "body_part": "Shoulders",
         "weight_kg": 45,
         "sets": 4,
@@ -168,19 +207,26 @@
             "type": "on",
             "status": "active",
             "cycle_number": 1,
-            "start": "__OFFSET_DAYS:-28__",
-            "start_date": "__OFFSET_DAYS:-28__"
+            "start": "__WEEKDAY:Fri:-8__",
+            "end": "__WEEKDAY:Fri:5__",
+            "start_date": "__WEEKDAY:Fri:-8__",
+            "end_date": "__WEEKDAY:Fri:5__"
           }
         ],
         "doses": [
-          { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T07:10:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-14__", "takenAt": "__OFFSET_DAYS:-14__T07:14:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-7__",  "takenAt": "__OFFSET_DAYS:-7__T07:08:00" }
+          { "scheduledDate": "__WEEKDAY:Fri:-8__", "takenAt": "__WEEKDAY:Fri:-8__T07:10:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-6__", "takenAt": "__WEEKDAY:Fri:-6__T07:08:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-5__", "takenAt": "__WEEKDAY:Fri:-5__T07:14:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-4__", "takenAt": "__WEEKDAY:Fri:-4__T07:10:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-3__", "takenAt": "__WEEKDAY:Fri:-3__T07:14:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-2__", "takenAt": "__WEEKDAY:Fri:-2__T07:08:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-1__", "takenAt": "__WEEKDAY:Fri:-1__T07:12:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:0__",  "takenAt": "__WEEKDAY:Fri:0__T07:11:00" }
         ]
       },
       {
-        "name": "Seated Cable Row",
-        "short_name": "Row",
+        "name": "Cable Row",
+        "short_name": "Cable Row",
         "body_part": "Back",
         "weight_kg": 65,
         "sets": 4,
@@ -196,19 +242,26 @@
             "type": "on",
             "status": "active",
             "cycle_number": 1,
-            "start": "__OFFSET_DAYS:-28__",
-            "start_date": "__OFFSET_DAYS:-28__"
+            "start": "__WEEKDAY:Fri:-8__",
+            "end": "__WEEKDAY:Fri:5__",
+            "start_date": "__WEEKDAY:Fri:-8__",
+            "end_date": "__WEEKDAY:Fri:5__"
           }
         ],
         "doses": [
-          { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T07:26:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-14__", "takenAt": "__OFFSET_DAYS:-14__T07:30:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-7__",  "takenAt": "__OFFSET_DAYS:-7__T07:24:00" }
+          { "scheduledDate": "__WEEKDAY:Fri:-8__", "takenAt": "__WEEKDAY:Fri:-8__T07:26:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-7__", "takenAt": "__WEEKDAY:Fri:-7__T07:30:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-6__", "takenAt": "__WEEKDAY:Fri:-6__T07:24:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-5__", "takenAt": "__WEEKDAY:Fri:-5__T07:28:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-3__", "takenAt": "__WEEKDAY:Fri:-3__T07:30:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-2__", "takenAt": "__WEEKDAY:Fri:-2__T07:24:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-1__", "takenAt": "__WEEKDAY:Fri:-1__T07:28:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:0__",  "takenAt": "__WEEKDAY:Fri:0__T07:29:00" }
         ]
       },
       {
         "name": "Tricep Pushdown",
-        "short_name": "Pushdown",
+        "short_name": "Tricep Pushdown",
         "body_part": "Arms",
         "weight_kg": 32,
         "sets": 3,
@@ -224,14 +277,21 @@
             "type": "on",
             "status": "active",
             "cycle_number": 1,
-            "start": "__OFFSET_DAYS:-28__",
-            "start_date": "__OFFSET_DAYS:-28__"
+            "start": "__WEEKDAY:Fri:-8__",
+            "end": "__WEEKDAY:Fri:5__",
+            "start_date": "__WEEKDAY:Fri:-8__",
+            "end_date": "__WEEKDAY:Fri:5__"
           }
         ],
         "doses": [
-          { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T07:42:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-14__", "takenAt": "__OFFSET_DAYS:-14__T07:46:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-7__",  "takenAt": "__OFFSET_DAYS:-7__T07:40:00" }
+          { "scheduledDate": "__WEEKDAY:Fri:-8__", "takenAt": "__WEEKDAY:Fri:-8__T07:42:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-7__", "takenAt": "__WEEKDAY:Fri:-7__T07:46:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-6__", "takenAt": "__WEEKDAY:Fri:-6__T07:40:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-5__", "takenAt": "__WEEKDAY:Fri:-5__T07:38:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-4__", "takenAt": "__WEEKDAY:Fri:-4__T07:42:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-3__", "takenAt": "__WEEKDAY:Fri:-3__T07:46:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:-1__", "takenAt": "__WEEKDAY:Fri:-1__T07:38:00" },
+          { "scheduledDate": "__WEEKDAY:Fri:0__",  "takenAt": "__WEEKDAY:Fri:0__T07:42:00" }
         ]
       }
     ]

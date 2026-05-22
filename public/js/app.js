@@ -363,7 +363,7 @@ class HealthApp extends LitElement {
         <nav>
           ${this._demo ? html`
             <div class="demo-banner" role="status">
-              You're viewing the public Klebb demo. Data resets hourly. Run your own at
+              You're viewing the public Klebb demo. Data resets periodically. Run your own at
               <a href="https://klebb.app" target="_blank" rel="noopener">klebb.app</a>.
             </div>
           ` : ''}

@@ -22,6 +22,13 @@ const REPORTS_FIXTURES_DIR = path.join(FIXTURES_DIR, 'reports');
 // `:` is not a legal NTFS character.
 const OFFSET_RE = /__OFFSET_DAYS[:_](-?\d+)__/g;
 
+// Match __WEEKDAY:Mon:-8__ — the named weekday on-or-before today, then
+// N weeks. Used for schedule fixtures so a Monday lift always lands on
+// a Monday no matter what day of the week reset-demo runs.
+const WEEKDAY_RE = /__WEEKDAY[:_](Sun|Mon|Tue|Wed|Thu|Fri|Sat)[:_](-?\d+)__/g;
+
+const DAY_INDEX = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
 function pad(n) { return n.toString().padStart(2, '0'); }
 
 function isoDateNDaysFromToday(offset, today = new Date()) {
@@ -30,8 +37,19 @@ function isoDateNDaysFromToday(offset, today = new Date()) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+function isoDateForWeekday(dayName, weekOffset, today = new Date()) {
+  const target = DAY_INDEX[dayName];
+  if (target === undefined) throw new Error(`unknown weekday: ${dayName}`);
+  const delta = (today.getDay() - target + 7) % 7;
+  const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  d.setDate(d.getDate() - delta + weekOffset * 7);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function rewritePlaceholders(text, today = new Date()) {
-  return text.replace(OFFSET_RE, (_, n) => isoDateNDaysFromToday(parseInt(n, 10), today));
+  return text
+    .replace(WEEKDAY_RE, (_, day, n) => isoDateForWeekday(day, parseInt(n, 10), today))
+    .replace(OFFSET_RE, (_, n) => isoDateNDaysFromToday(parseInt(n, 10), today));
 }
 
 function listFixtures(dir = FIXTURES_DIR) {
@@ -172,6 +190,7 @@ module.exports = {
   resetDemo,
   rewritePlaceholders,
   isoDateNDaysFromToday,
+  isoDateForWeekday,
   listFixtures,
   listReportFixtures,
   wipeDataDir,

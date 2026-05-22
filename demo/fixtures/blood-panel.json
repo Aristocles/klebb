@@ -6,7 +6,7 @@
     "emoji": "🩸",
     "order": 800,
     "view": {
-      "enabled": true,
+      "enabled": false,
       "component": "list-card",
       "display": {
         "primaryField": "label",
