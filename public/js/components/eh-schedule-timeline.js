@@ -42,11 +42,24 @@ function fmtDateFull(s) {
   return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+const DEFAULT_VOCAB = {
+  done: 'Taken',
+  missed: 'Missed',
+  offSchedule: 'Off-schedule dose',
+  upcoming: 'Scheduled',
+  rest: 'Rest day',
+};
+
+function resolveVocab(viewConfig) {
+  const v = viewConfig?.vocab || {};
+  return { ...DEFAULT_VOCAB, ...v };
+}
+
 // Build the dot array for one cycle.
 // Returns [{ date, state, label }] where state ∈ {
 //   'taken' | 'missed' | 'rest' | 'off-schedule' | 'today' | 'future-scheduled' | 'future-rest'
 // }
-function buildDotArray(item, cycle) {
+function buildDotArray(item, cycle, vocab = DEFAULT_VOCAB) {
   const today = todayStr();
   const { start_date, end_date } = cycle;
   if (!start_date || !end_date) return [];
@@ -74,22 +87,22 @@ function buildDotArray(item, cycle) {
     let label;
     if (taken && isOff) {
       state = 'off-schedule';
-      label = 'Off-schedule dose';
+      label = vocab.offSchedule;
     } else if (taken) {
       state = 'taken';
-      label = 'Taken';
+      label = vocab.done;
     } else if (isScheduled && isFuture) {
       state = 'future-scheduled';
-      label = 'Scheduled';
+      label = vocab.upcoming;
     } else if (isScheduled) {
       state = 'missed';
-      label = 'Missed';
+      label = vocab.missed;
     } else if (isFuture) {
       state = 'future-rest';
-      label = 'Rest day';
+      label = vocab.rest;
     } else {
       state = 'rest';
-      label = 'Rest day';
+      label = vocab.rest;
     }
 
     return { date, state, label, isToday };
@@ -273,16 +286,17 @@ export class EhScheduleTimeline extends EhBaseCard {
       return html`<div class="empty">No cycles yet.</div>`;
     }
     const rows = sortCyclesAcrossItems(items);
+    const vocab = resolveVocab(this._config);
 
     return html`
       <div class="timeline-root">
-        ${rows.map(({ item, cycle }) => this._renderCycleBlock(item, cycle))}
+        ${rows.map(({ item, cycle }) => this._renderCycleBlock(item, cycle, vocab))}
         <div class="legend">
-          <span class="legend-item"><span class="dot taken"></span> Taken</span>
-          <span class="legend-item"><span class="dot missed"></span> Missed</span>
-          <span class="legend-item"><span class="dot off-schedule"></span> Off-schedule</span>
-          <span class="legend-item"><span class="dot future-scheduled"></span> Upcoming</span>
-          <span class="legend-item"><span class="dot rest"></span> Rest</span>
+          <span class="legend-item"><span class="dot taken"></span> ${vocab.done}</span>
+          <span class="legend-item"><span class="dot missed"></span> ${vocab.missed}</span>
+          <span class="legend-item"><span class="dot off-schedule"></span> ${vocab.offSchedule}</span>
+          <span class="legend-item"><span class="dot future-scheduled"></span> ${vocab.upcoming}</span>
+          <span class="legend-item"><span class="dot rest"></span> ${vocab.rest}</span>
         </div>
       </div>
 
@@ -298,8 +312,8 @@ export class EhScheduleTimeline extends EhBaseCard {
     `;
   }
 
-  _renderCycleBlock(item, cycle) {
-    const dots = buildDotArray(item, cycle);
+  _renderCycleBlock(item, cycle, vocab = DEFAULT_VOCAB) {
+    const dots = buildDotArray(item, cycle, vocab);
     const summary = cycleSummary(dots);
     return html`
       <div class="cycle-block">
@@ -320,10 +334,10 @@ export class EhScheduleTimeline extends EhBaseCard {
           `)}
         </div>
         <div class="cycle-summary">
-          <span class="taken"><strong>${summary.taken}</strong> taken</span>
-          ${summary.missed > 0 ? html`<span class="missed"><strong>${summary.missed}</strong> missed</span>` : ''}
-          ${summary.off > 0 ? html`<span class="off"><strong>${summary.off}</strong> off-schedule</span>` : ''}
-          ${summary.future > 0 ? html`<span>${summary.future} upcoming</span>` : ''}
+          <span class="taken"><strong>${summary.taken}</strong> ${vocab.done.toLowerCase()}</span>
+          ${summary.missed > 0 ? html`<span class="missed"><strong>${summary.missed}</strong> ${vocab.missed.toLowerCase()}</span>` : ''}
+          ${summary.off > 0 ? html`<span class="off"><strong>${summary.off}</strong> ${vocab.offSchedule.toLowerCase()}</span>` : ''}
+          ${summary.future > 0 ? html`<span>${summary.future} ${vocab.upcoming.toLowerCase()}</span>` : ''}
         </div>
       </div>
     `;

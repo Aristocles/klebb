@@ -9,6 +9,31 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Vocab support on schedule-timeline + adherence-report.** Both
+  renderers now read an optional `vocab` block from their view config
+  (`trends.vocab` and `reports.vocab` respectively) so a fixture can
+  customise the labels used on the timeline, legend, and report
+  summary. Existing fixtures keep their current "Taken / Missed /
+  Off-schedule" wording via defaults. Fixes #296.
+- **Weekday-anchored placeholder for demo fixtures.** `reset-demo.js`
+  now resolves `__WEEKDAY:Mon:-N__` (and the other weekday names) to
+  the named weekday N weeks from today. Use it on schedule fixtures
+  whose doses must always land on the right day of the week, no
+  matter what calendar day the demo is reset on. Refs #296.
+
+### Changed
+
+- **Demo dashboard polish.** Strength Training fixture now uses plain
+  exercise names (Bench Press, Lat Pulldown, Romanian Deadlift, etc),
+  carries an eight-week dose history with mostly-done /
+  occasionally-skipped entries, and surfaces Trends + Reports with
+  exercise-appropriate vocab ("Done / Skipped / Sessions done"). The
+  Supplement stack fixture now ships a 60-day cycles + doses history
+  so its Reports view renders adherence rather than nothing. Blood
+  panel + Genome cards are hidden from Today (`view.enabled: false`)
+  but stay in Reports. The demo banner no longer claims data is reset
+  hourly. Refs #296.
+
 - **Demo rings-layout Sleep card and Strength Training schedule
   card.** The `demo.klebb.app` Sleep fixture is now a self-referencing
   combination-card with `layout: rings`, surfacing Total / Deep / REM
