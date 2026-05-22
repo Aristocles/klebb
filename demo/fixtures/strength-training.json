@@ -31,7 +31,7 @@
       "futureAllowed": false
     }
   },
-  "description": "Three-day push/pull/legs split. Monday and Wednesday hit three lifts each, Friday adds a fourth accessory. Each exercise carries its working-set load in kilos plus the prescribed sets x reps so the schedule-card surfaces the day's plan as a checklist.",
+  "description": "Three-day strength split. Monday and Wednesday each cover two compound lifts, Friday rounds out with three. Each exercise carries its working-set load in kilos plus the prescribed sets x reps so the schedule-card surfaces the day's plan as a checklist.",
   "data": {
     "items": [
       {
@@ -93,35 +93,6 @@
         ]
       },
       {
-        "name": "Bicep Curl",
-        "short_name": "Curl",
-        "body_part": "Arms",
-        "weight_kg": 14,
-        "sets": 3,
-        "reps": 12,
-        "dose_label": "14 kg · 3×12",
-        "action_label": "Lift",
-        "schedule": {
-          "type": "weekly",
-          "on_days": ["Mon"]
-        },
-        "cycles": [
-          {
-            "type": "on",
-            "status": "active",
-            "cycle_number": 1,
-            "start": "__OFFSET_DAYS:-28__",
-            "start_date": "__OFFSET_DAYS:-28__"
-          }
-        ],
-        "doses": [
-          { "scheduledDate": "__OFFSET_DAYS:-25__", "takenAt": "__OFFSET_DAYS:-25__T07:48:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-18__", "takenAt": "__OFFSET_DAYS:-18__T07:46:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-11__", "takenAt": "__OFFSET_DAYS:-11__T07:56:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-4__",  "takenAt": "__OFFSET_DAYS:-4__T07:52:00" }
-        ]
-      },
-      {
         "name": "Back Squat",
         "short_name": "Squat",
         "body_part": "Legs",
@@ -177,35 +148,6 @@
           { "scheduledDate": "__OFFSET_DAYS:-16__", "takenAt": "__OFFSET_DAYS:-16__T07:34:00" },
           { "scheduledDate": "__OFFSET_DAYS:-9__",  "takenAt": "__OFFSET_DAYS:-9__T07:36:00" },
           { "scheduledDate": "__OFFSET_DAYS:-2__",  "takenAt": "__OFFSET_DAYS:-2__T07:30:00" }
-        ]
-      },
-      {
-        "name": "Standing Calf Raise",
-        "short_name": "Calves",
-        "body_part": "Calves",
-        "weight_kg": 50,
-        "sets": 4,
-        "reps": 15,
-        "dose_label": "50 kg · 4×15",
-        "action_label": "Lift",
-        "schedule": {
-          "type": "weekly",
-          "on_days": ["Wed"]
-        },
-        "cycles": [
-          {
-            "type": "on",
-            "status": "active",
-            "cycle_number": 1,
-            "start": "__OFFSET_DAYS:-28__",
-            "start_date": "__OFFSET_DAYS:-28__"
-          }
-        ],
-        "doses": [
-          { "scheduledDate": "__OFFSET_DAYS:-23__", "takenAt": "__OFFSET_DAYS:-23__T07:46:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-16__", "takenAt": "__OFFSET_DAYS:-16__T07:51:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-9__",  "takenAt": "__OFFSET_DAYS:-9__T07:53:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-2__",  "takenAt": "__OFFSET_DAYS:-2__T07:47:00" }
         ]
       },
       {
@@ -290,34 +232,6 @@
           { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T07:42:00" },
           { "scheduledDate": "__OFFSET_DAYS:-14__", "takenAt": "__OFFSET_DAYS:-14__T07:46:00" },
           { "scheduledDate": "__OFFSET_DAYS:-7__",  "takenAt": "__OFFSET_DAYS:-7__T07:40:00" }
-        ]
-      },
-      {
-        "name": "Dumbbell Fly",
-        "short_name": "DB Fly",
-        "body_part": "Chest",
-        "weight_kg": 16,
-        "sets": 3,
-        "reps": 12,
-        "dose_label": "16 kg · 3×12",
-        "action_label": "Lift",
-        "schedule": {
-          "type": "weekly",
-          "on_days": ["Fri"]
-        },
-        "cycles": [
-          {
-            "type": "on",
-            "status": "active",
-            "cycle_number": 1,
-            "start": "__OFFSET_DAYS:-28__",
-            "start_date": "__OFFSET_DAYS:-28__"
-          }
-        ],
-        "doses": [
-          { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T07:55:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-14__", "takenAt": "__OFFSET_DAYS:-14__T07:59:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-7__",  "takenAt": "__OFFSET_DAYS:-7__T07:54:00" }
         ]
       }
     ]
