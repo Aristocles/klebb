@@ -251,6 +251,38 @@ chat widget), point `CHAT_ENDPOINT_URL=http://host.docker.internal:<port>/v1/cha
 in `.env`. The compose file already maps that hostname to the host via
 `extra_hosts: host.docker.internal:host-gateway`.
 
+## Ingesting reports
+
+Klebb watches `$HEALTH_HOME/inbox/` and turns anything you drop in
+there into a markdown report under `$HEALTH_HOME/reports/`, ready for
+the chat agent to read on demand.
+
+Supported file types:
+
+- `.pdf` (extracted with `pdftotext -layout`, requires `poppler-utils`)
+- `.png`, `.jpg`, `.jpeg` (OCRd with `tesseract`, requires
+  `tesseract-ocr` + `tesseract-ocr-eng`)
+- `.txt`, `.md` (read verbatim)
+- `.mp3`, `.wav`, `.m4a`, `.ogg`, `.opus` (transcoded with `ffmpeg`,
+  transcribed via Fish ASR; requires `FISH_AUDIO_API_KEY`, the same
+  variable that powers voice chat)
+
+Drop a file via SSH/rsync/SCP/`docker cp`, whatever you already use:
+
+```bash
+scp bloods.pdf myhost:/data/inbox/
+```
+
+The original is filed under `$HEALTH_HOME/reports/_archive/` once
+extraction succeeds. Failures move to `$HEALTH_HOME/inbox/_failed/`
+with a sibling `.error` file describing why; rename out of `_failed/`
+to retry. The Docker image ships with all four binaries baked in, so
+this works out of the box.
+
+Once an ingest lands, the chat agent sees the new report in its
+`## Available reports` block on the next turn and can fetch the full
+text via the `read_report` tool.
+
 ## Running tests
 
 ```bash
@@ -352,6 +384,14 @@ auth/
   invites.js                      invite-code issuance
 voice/
   fish.js                         Fish Audio TTS/ASR (optional)
+  transcode.js                    ffmpeg pipe -> 16 kHz mono WAV (shared)
+ingest/
+  pipeline.js                     inbox watcher orchestrator
+  watcher.js                      fs.watch + debounce wrapper
+  extract.js                      extension-keyed dispatcher
+  extractors/                     pdf / image / text / audio extractors
+  writeReport.js                  frontmatter + atomic .md write
+  catalogue.js                    parses headers + builds chat catalogue
 public/
   js/
     app.js                        top-level routing

@@ -9,6 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Inbox-driven report ingest pipeline.** Drop a `.pdf`, `.png`,
+  `.jpg`, `.txt`, `.md`, `.mp3`, `.wav`, `.m4a`, `.ogg`, or `.opus`
+  file into `$HEALTH_HOME/inbox/` and Klebb extracts text into
+  `$HEALTH_HOME/reports/<YYYY-MM-DD>-<stem>.md` using infra binaries
+  only (no LLM at ingest): `pdftotext` for PDFs, `tesseract` for
+  images, raw `fs.readFile` for text/markdown, and the existing Fish
+  ASR pipeline for audio. Originals are filed under
+  `reports/_archive/`; extraction failures land in `inbox/_failed/`
+  with a sibling `.error` file describing the cause. A new
+  `read_report` chat tool plus the `## Available reports` system
+  prompt block let Klebbius pull any ingested report into a turn on
+  demand. Fixes #288.
 - **`demo.klebb.app` now auto-deploys on every push to `main`.** A
   new `.github/workflows/deploy-demo.yml` workflow fires when the
   existing publish workflow finishes successfully, SSHes to the
