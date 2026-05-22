@@ -266,6 +266,14 @@ export class EhAdherenceReport extends EhBaseCard {
     }
 
     const rows = sortCyclesAcrossItems(items);
+    const vocab = {
+      headline: 'Adherence',
+      done: 'Doses taken',
+      missed: 'Missed',
+      offSchedule: 'Off-schedule',
+      noun: 'taken',
+      ...(this._config?.vocab || {}),
+    };
 
     // Aggregate totals across every cycle in-window (active + past)
     const today = todayStr();
@@ -289,41 +297,41 @@ export class EhAdherenceReport extends EhBaseCard {
         <div class="overview">
           <div class="stat-cell">
             <div class="stat-num ${overallPct === null ? 'neutral' : overallPct >= 90 ? 'ok' : overallPct >= 70 ? 'warn' : 'err'}">${overallPct === null ? '—' : overallPct + '%'}</div>
-            <div class="stat-label">Adherence</div>
+            <div class="stat-label">${vocab.headline}</div>
           </div>
           <div class="stat-cell">
             <div class="stat-num neutral">${totTaken}</div>
-            <div class="stat-label">Doses taken</div>
+            <div class="stat-label">${vocab.done}</div>
           </div>
           <div class="stat-cell">
             <div class="stat-num ${totMissed > 0 ? 'err' : 'neutral'}">${totMissed}</div>
-            <div class="stat-label">Missed</div>
+            <div class="stat-label">${vocab.missed}</div>
           </div>
           <div class="stat-cell">
             <div class="stat-num ${totOff > 0 ? 'warn' : 'neutral'}">${totOff}</div>
-            <div class="stat-label">Off-schedule</div>
+            <div class="stat-label">${vocab.offSchedule}</div>
           </div>
         </div>
 
         ${activeCycles > 0 ? html`
           <div class="section-h">Active cycles · ${activeCycles}</div>
-          ${rows.filter(r => r.cycle.status === 'active').map(r => this._renderCycleRow(r))}
+          ${rows.filter(r => r.cycle.status === 'active').map(r => this._renderCycleRow(r, vocab))}
         ` : ''}
 
         ${rows.some(r => r.cycle.status === 'scheduled' && r.cycle.start_date > today) ? html`
           <div class="section-h">Upcoming · ${upcomingCycles}</div>
-          ${rows.filter(r => r.cycle.status === 'scheduled' && r.cycle.start_date > today).map(r => this._renderCycleRow(r))}
+          ${rows.filter(r => r.cycle.status === 'scheduled' && r.cycle.start_date > today).map(r => this._renderCycleRow(r, vocab))}
         ` : ''}
 
         ${rows.some(r => r.cycle.status === 'completed') ? html`
           <div class="section-h">Completed</div>
-          ${rows.filter(r => r.cycle.status === 'completed').map(r => this._renderCycleRow(r))}
+          ${rows.filter(r => r.cycle.status === 'completed').map(r => this._renderCycleRow(r, vocab))}
         ` : ''}
       </div>
     `;
   }
 
-  _renderCycleRow({ item, cycle }) {
+  _renderCycleRow({ item, cycle }, vocab = { noun: 'taken', missed: 'missed', offSchedule: 'off-schedule' }) {
     const stats = cycleStats(item, cycle);
     const pct = adherencePct(stats);
     const barClass = pct === null ? '' : pct >= 90 ? '' : pct >= 70 ? 'warn' : 'err';
@@ -351,9 +359,9 @@ export class EhAdherenceReport extends EhBaseCard {
           </div>
         ` : ''}
         <div class="cycle-stats">
-          <span><strong>${stats.taken}</strong> / ${stats.scheduled} taken</span>
-          ${stats.missed > 0 ? html`<span class="missed"><strong>${stats.missed}</strong> missed</span>` : ''}
-          ${stats.offSchedule > 0 ? html`<span class="off"><strong>${stats.offSchedule}</strong> off-schedule</span>` : ''}
+          <span><strong>${stats.taken}</strong> / ${stats.scheduled} ${vocab.noun}</span>
+          ${stats.missed > 0 ? html`<span class="missed"><strong>${stats.missed}</strong> ${vocab.missed.toLowerCase()}</span>` : ''}
+          ${stats.offSchedule > 0 ? html`<span class="off"><strong>${stats.offSchedule}</strong> ${vocab.offSchedule.toLowerCase()}</span>` : ''}
           ${stats.upcoming > 0 ? html`<span>${stats.upcoming} upcoming</span>` : ''}
           ${pct !== null ? html`<span class="pct">${pct}%</span>` : ''}
         </div>
