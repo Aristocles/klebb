@@ -255,33 +255,20 @@ in `.env`. The compose file already maps that hostname to the host via
 
 Klebb watches `$HEALTH_HOME/inbox/` and turns anything you drop in
 there into a markdown report under `$HEALTH_HOME/reports/`, ready for
-the chat agent to read on demand.
-
-Supported file types:
-
-- `.pdf` (extracted with `pdftotext -layout`, requires `poppler-utils`)
-- `.png`, `.jpg`, `.jpeg` (OCRd with `tesseract`, requires
-  `tesseract-ocr` + `tesseract-ocr-eng`)
-- `.txt`, `.md` (read verbatim)
-- `.mp3`, `.wav`, `.m4a`, `.ogg`, `.opus` (transcoded with `ffmpeg`,
-  transcribed via Fish ASR; requires `FISH_AUDIO_API_KEY`, the same
-  variable that powers voice chat)
-
-Drop a file via SSH/rsync/SCP/`docker cp`, whatever you already use:
+the chat agent to read on demand. Supports `.pdf` (via `pdftotext`),
+`.png` / `.jpg` / `.jpeg` (via `tesseract`), `.txt` / `.md` verbatim,
+and `.mp3` / `.wav` / `.m4a` / `.ogg` / `.opus` (via `ffmpeg` + Fish
+ASR; requires `FISH_AUDIO_API_KEY`).
 
 ```bash
 scp bloods.pdf myhost:/data/inbox/
 ```
 
-The original is filed under `$HEALTH_HOME/reports/_archive/` once
-extraction succeeds. Failures move to `$HEALTH_HOME/inbox/_failed/`
-with a sibling `.error` file describing why; rename out of `_failed/`
-to retry. The Docker image ships with all four binaries baked in, so
-this works out of the box.
-
-Once an ingest lands, the chat agent sees the new report in its
-`## Available reports` block on the next turn and can fetch the full
-text via the `read_report` tool.
+The Docker image ships with all four binaries baked in, so this works
+out of the box. Failures land in `$HEALTH_HOME/inbox/_failed/` with a
+sibling `.error` file. See [`docs/REPORTS.md`](docs/REPORTS.md) for
+the full workflow, output format, troubleshooting, and the chat
+round-trip.
 
 ## Running tests
 
@@ -364,6 +351,7 @@ demo predictable.
 - [`MANIFEST-SCHEMA.md`](MANIFEST-SCHEMA.md) — Manifest format reference
 - [`docs/CHAT-AGENT.md`](docs/CHAT-AGENT.md) — Chat widget + server-to-server integration
 - [`docs/VOICE.md`](docs/VOICE.md) — Voice chat (Fish Audio) configuration
+- [`docs/REPORTS.md`](docs/REPORTS.md) — Inbox-driven report ingest (PDF, scans, notes, audio)
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — Single-user + multi-user deploy guide
 - [`docs/CI.md`](docs/CI.md) — CI workflow overview
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — Contributor conventions

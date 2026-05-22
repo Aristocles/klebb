@@ -208,6 +208,9 @@ Audio ingest reuses `FISH_AUDIO_API_KEY`: drops without it land in
 `$HEALTH_HOME/inbox/_failed/` with an explanatory `.error` sibling.
 PDF / image / text drops work without any chat or voice key set.
 
+See [`REPORTS.md`](REPORTS.md) for the full workflow, output format,
+and troubleshooting checklist.
+
 ---
 
 ## 2. Multi-user / public-facing deploy
