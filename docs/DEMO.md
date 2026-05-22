@@ -126,13 +126,20 @@ so you can seed straight from inside the running container:
 
 ```bash
 docker exec --user root \
-  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data \
+  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=Australia/Sydney \
   klebb-demo node /app/scripts/reset-demo.js
 ```
 
 This wipes any JSON in `/data/data/` and any markdown in
 `/data/reports/`, then copies the curated fixture set over and
 rewrites `__OFFSET_DAYS:N__` placeholders against today.
+
+`TZ` matters: the script anchors `__OFFSET_DAYS:0__` to the
+container's local calendar date. The image has no `TZ` baked in, so
+without one set here it defaults to UTC. Pin it to whatever timezone
+matches the demo's intended audience so visitors always see entries
+on today's date; for the operator's `demo.klebb.app` that's
+`Australia/Sydney`. Pick your own if forking.
 
 Verify the dashboard now shows the curated cards plus the Reports
 page entries.
@@ -151,7 +158,7 @@ if ! docker ps --format '{{.Names}}' | grep -q '^klebb-demo$'; then
 fi
 
 docker exec --user root \
-  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data \
+  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=Australia/Sydney \
   klebb-demo node /app/scripts/reset-demo.js
 ```
 
@@ -185,7 +192,7 @@ docker compose pull
 docker compose up -d
 # Re-seed; new fixtures may have landed
 docker exec --user root \
-  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data \
+  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=Australia/Sydney \
   klebb-demo node /app/scripts/reset-demo.js
 ```
 
@@ -236,7 +243,7 @@ workflow will fail noisily.
 | Reset script: "Cannot find module" | The image is older than 2.1.2 and doesn't carry `demo/` or `scripts/reset-demo.js`. Pull a newer tag. |
 | Reset script: "refuses to run without KLEBB_DEMO=1" | The cron is wired correctly; the `.env` for the running container does not have `KLEBB_DEMO=1`. Add it and `docker compose up -d` to recreate. |
 | Visitors see the passkey prompt instead of "Enter the demo" | `KLEBB_DEMO=1` not set in the environment of the running container. Confirm with `docker inspect klebb-demo \| grep -i klebb_demo`. |
-| Cards don't show fresh dates | The hourly cron isn't firing. `tail /var/log/klebb-demo-reset.log` and `systemctl status cron`. |
+| Cards don't show fresh dates | First check the cron is firing: `tail /var/log/klebb-demo-reset.log` and `systemctl status cron`. If it is firing but the newest dates lag the visitor's calendar by a day, the `docker exec` is missing `-e TZ=<your-zone>`; the script anchors to the container's local TZ, which defaults to UTC. |
 
 ## What the demo does NOT do
 
