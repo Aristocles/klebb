@@ -347,7 +347,7 @@ demo predictable.
 ## Docs
 
 - [`docs/CARDS.md`](docs/CARDS.md) — How to write and manage cards (user guide)
-- [`docs/RECIPES.md`](docs/RECIPES.md) — 10 copy-pasteable card patterns (cookbook)
+- [`docs/RECIPES.md`](docs/RECIPES.md) — 12 copy-pasteable card patterns (cookbook)
 - [`MANIFEST-SCHEMA.md`](MANIFEST-SCHEMA.md) — Manifest format reference
 - [`docs/CHAT-AGENT.md`](docs/CHAT-AGENT.md) — Chat widget + server-to-server integration
 - [`docs/VOICE.md`](docs/VOICE.md) — Voice chat (Fish Audio) configuration
