@@ -68,6 +68,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **`auth/invites` no longer hides config-read failures.** A bare
+  `try { ... } catch { return {}; }` in `_readConfig` collapsed every
+  failure mode (missing file, EACCES, parse error) into the same
+  empty-config return value, so an unreadable `config.json` (commonly
+  caused by `docker exec ... node scripts/invite.js` writing the file
+  as root while the server runs as UID 1001) was indistinguishable
+  from legitimate first-run state and surfaced as "this invite link
+  is invalid or expired" with no log line. Now ENOENT is the only
+  silent path; other read or parse errors log the path + errno to
+  stderr and rethrow. `_writeConfig` errors include the path for the
+  same symmetry, and `scripts/invite.js` warns to stderr after a
+  successful write if the resulting file's uid/gid does not match the
+  current process. Fixes #301.
+
 - **Reports → Blood panel no longer shows `?` for every row.** The
   generic `table-list` renderer was hardcoded for the SNP finding
   shape (`gene` / `rsid` / `genotype`), so any card with a
