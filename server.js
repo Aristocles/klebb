@@ -16,6 +16,7 @@ const { listTemplates, listPrompts } = require('./server/content');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 const { transcodeToWav } = require('./voice/transcode');
+const { sanitiseForTts } = require('./voice/sanitise-for-tts');
 const { TOOL_DEFS, dispatchToolCall } = require('./chat/tools');
 const { pickEmbellishments } = require('./chat/embellish');
 const { buildDateContextBlock } = require('./chat/date-context');
@@ -1617,7 +1618,12 @@ Original system prompt follows:
           if (!text || typeof text !== 'string' || !text.trim()) {
             return sendJSON(res, { error: 'text required' }, 400);
           }
-          const capped = text.slice(0, 4000);
+          // Strip markdown / URLs so Fish doesn't read syntax aloud
+          // ("asterisk asterisk bold asterisk asterisk"). Cache keys
+          // off the cleaned text so repeated speakings hit cache.
+          const cleaned = sanitiseForTts(text);
+          if (!cleaned) return sendJSON(res, { error: 'text required' }, 400);
+          const capped = cleaned.slice(0, 4000);
           const fmt = format === 'wav' ? 'wav' : 'mp3';
           const voiceId = require('./voice/fish').getCurrentBackend ? undefined : undefined;
           const key = voiceCache.hashKey(capped, 'default', fmt);
