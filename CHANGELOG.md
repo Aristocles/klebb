@@ -82,6 +82,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Hidden donor cards keep their daily prompts when surfaced through
+  a combination card.** The prompt queue used to skip any card with
+  `meta.enabled: false`, even when the user had hidden the atomic card
+  only because it was rolled into a visible combination card. Now the
+  queue checks whether at least one visible combination card lists the
+  donor in its `meta.view.combines[].sourceId`; if so, the donor's
+  prompt fires as before. Hidden cards with no combo references stay
+  suppressed. Fixes #316.
 - **Voice ASR works on iOS Safari again.** `MediaRecorder` on iOS only
   produces fragmented MP4, whose `moov` atom sits at the end of the
   stream. The transcode helper was piping bytes into `ffmpeg -i pipe:0`,
