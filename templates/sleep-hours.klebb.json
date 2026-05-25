@@ -20,9 +20,8 @@
       "enabled": true,
       "component": "generic-card",
       "display": {
-        "template": "{hours:round(1)}",
-        "unit": "hrs",
-        "secondary": "{deep:round(1)|}h deep · {rem:round(1)|}h REM",
+        "template": "{hours:hm}",
+        "secondary": "{deep:hm|} deep · {rem:hm|} REM",
         "trendArrow": { "field": "hours" }
       }
     },
