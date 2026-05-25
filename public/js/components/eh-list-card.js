@@ -430,7 +430,7 @@ export class EhListCard extends EhBaseCard {
         ` : ''}
 
         ${this._editing
-          ? this._renderEditMode(rows)
+          ? this._renderEditMode(rows, display)
           : this._renderViewMode(rows, display)}
 
         ${this._formError ? html`<div class="err">${this._formError}</div>` : ''}
@@ -518,7 +518,7 @@ export class EhListCard extends EhBaseCard {
     this._expandedRow = null;
   }
 
-  _renderEditMode(rows) {
+  _renderEditMode(rows, display) {
     const primaryField = this._primaryField();
     const primaryInput = this._primaryInput();
     const secondaryInputs = this._secondaryInputs();

@@ -82,6 +82,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **List-card row detail form no longer crashes in edit mode.** On a
+  list-card with secondary fields, tapping the per-row `…` button after
+  pressing the pencil to enter edit mode replaced the card with
+  `Render failed: Can't find variable: display`. `_renderEditMode` was
+  passing a `display` identifier to the inline `eh-input-form` that was
+  only defined in `renderCard` / `_renderViewMode`. The variable is now
+  threaded through to edit mode the same way it is to view mode.
+  Fixes #317.
 - **Voice replies no longer read markdown syntax aloud.** The
   voice-mode chat agent is told to put plain prose in `speak`, but
   occasionally leaks bold/italic, links, or inline code through. Fish
