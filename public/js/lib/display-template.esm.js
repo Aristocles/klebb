@@ -5,6 +5,8 @@
 // display-template.js (UMD) — Node tests use the UMD version, browser
 // components use this one.
 
+import { hoursToHM } from './format-hours.esm.js';
+
 export function isEmpty(v) {
   return v === null || v === undefined || v === '';
 }
@@ -91,6 +93,13 @@ function resolveField(row, display, expr) {
     // stringify to "true"/"false" on the card. See #215.
     if (modifier === 'check') {
       return value ? '✅' : (fallback ?? '');
+    }
+    // :hm — treat the field as decimal hours and render as H:MM.
+    if (modifier === 'hm') {
+      if (isEmpty(value)) return fallback ?? '';
+      const hm = hoursToHM(value);
+      if (hm !== null) return hm;
+      return fallback ?? String(value);
     }
   }
   if (isEmpty(value)) return fallback ?? '';

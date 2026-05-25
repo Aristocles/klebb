@@ -5,6 +5,8 @@
 // combines-resolver.js (UMD) — Node tests use the UMD version, browser
 // components use this one.
 
+import { hoursToHM } from './format-hours.esm.js';
+
 export function getByPath(obj, pathStr) {
   if (!obj || !pathStr) return undefined;
   const parts = String(pathStr).split('.');
@@ -28,11 +30,15 @@ export function firstScalarKey(row) {
   return null;
 }
 
-export function stringifyValue(value, emojiMap) {
+export function stringifyValue(value, emojiMap, format) {
   if (value === null || value === undefined) return null;
   if (emojiMap) {
     const key = String(value);
     if (emojiMap[key]) return emojiMap[key];
+  }
+  if (format === 'hm') {
+    const hm = hoursToHM(value);
+    if (hm !== null) return hm;
   }
   if (typeof value === 'number') {
     if (Number.isInteger(value)) return String(value);
@@ -79,6 +85,7 @@ export function resolveEntry(entry, sources, date) {
     unit: entry?.unit || null,
     colour: entry?.colour || null,
     emojiMap: entry?.emojiMap || null,
+    format: entry?.format || null,
   };
 
   const isRingSegment = role === 'ring-segment';
@@ -133,7 +140,7 @@ export function resolveEntry(entry, sources, date) {
       ...base,
       state: 'ok',
       value: sum,
-      displayValue: stringifyValue(sum, base.emojiMap),
+      displayValue: stringifyValue(sum, base.emojiMap, base.format),
       row: null,
       period: 'week',
       goalWeekly: goalWeeklyN,
@@ -161,7 +168,7 @@ export function resolveEntry(entry, sources, date) {
     ...base,
     state: 'ok',
     value,
-    displayValue: stringifyValue(value, base.emojiMap),
+    displayValue: stringifyValue(value, base.emojiMap, base.format),
     row,
   };
 
