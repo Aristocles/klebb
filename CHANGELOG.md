@@ -82,6 +82,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Voice ASR works on iOS Safari again.** `MediaRecorder` on iOS only
+  produces fragmented MP4, whose `moov` atom sits at the end of the
+  stream. The transcode helper was piping bytes into `ffmpeg -i pipe:0`,
+  which can't seek backward, so the demuxer rejected the input with
+  `Invalid data found when processing input` and the `/api/voice/asr`
+  endpoint returned 500. The helper now stages input in a tempfile
+  before invoking ffmpeg, restoring seek and unblocking iOS recordings.
+  Same helper is used by the inbox audio extractor, so that path
+  benefits too. Fixes #319.
 - **List-card row detail form no longer crashes in edit mode.** On a
   list-card with secondary fields, tapping the per-row `…` button after
   pressing the pencil to enter edit mode replaced the card with
