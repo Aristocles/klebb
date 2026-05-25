@@ -380,6 +380,14 @@ Mismatch between browser origin and server RP_ID is the #1 cause.
 **Chat widget shows "Chat is not configured."**
 `CHAT_ENDPOINT_URL` or `CHAT_API_KEY` is unset. Set both in the env file and restart.
 
+**Chat times out and the journal is silent.**
+Set `HEALTH_DEBUG=1` and restart. The `/api/chat` path then emits
+structured `[chat:<reqId>]` lines for request entry, each agent-loop
+iteration (with gateway latency), each tool dispatch (with manifest id
+and duration), and the final outcome — visible in `journalctl -u
+klebb@<instance>` or `docker compose logs klebb`. Structural facts
+only; no prompt or reply bodies are logged.
+
 **Voice doesn't work.**
 See [`docs/VOICE.md`](VOICE.md) for Fish Audio configuration and the
 full troubleshooting list.
