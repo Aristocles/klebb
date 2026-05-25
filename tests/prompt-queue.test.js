@@ -283,6 +283,108 @@ test('buildPromptQueue: checklist mode includes card when NONE taken', () => {
   assert.equal(q.length, 1);
 });
 
+// --- combination-card inheritance (#316) ---
+//
+// A hidden atomic card that is referenced as a sourceId by a visible
+// combination card should still produce a prompt, since the user is
+// surfacing it through the combo. Without this, the only way to roll
+// Mood (or similar) into a combo is to drop its daily prompt entirely.
+
+test('buildPromptQueue: hidden donor referenced by visible combo card → prompts', () => {
+  const storage = makeStorage();
+  const manifests = [
+    {
+      meta: {
+        id: 'mood',
+        enabled: false,
+        prompt: { enabled: true },
+      },
+      data: [],
+    },
+    {
+      meta: {
+        id: 'wellbeing',
+        view: {
+          component: 'combination-card',
+          combines: [{ sourceId: 'mood', role: 'primary' }],
+        },
+      },
+      data: [],
+    },
+  ];
+  const q = buildPromptQueue(manifests, { date: '2026-04-23', storage });
+  assert.equal(q.length, 1);
+  assert.equal(q[0].meta.id, 'mood');
+});
+
+test('buildPromptQueue: hidden donor with no combo references → still skipped', () => {
+  // Preserves the existing behaviour from "skips disabled cards even
+  // with prompt.enabled": a hidden card not surfaced anywhere stays
+  // suppressed, so the user genuinely-hidden cards stop nagging.
+  const storage = makeStorage();
+  const manifests = [
+    { meta: { id: 'mood', enabled: false, prompt: { enabled: true } }, data: [] },
+    {
+      meta: {
+        id: 'unrelated',
+        view: {
+          component: 'combination-card',
+          combines: [{ sourceId: 'weight', role: 'primary' }],
+        },
+      },
+      data: [],
+    },
+  ];
+  const q = buildPromptQueue(manifests, { date: '2026-04-23', storage });
+  assert.deepEqual(q, []);
+});
+
+test('buildPromptQueue: combo card itself hidden does NOT keep donor alive', () => {
+  // If the combo card is also hidden, the donor isn't being surfaced
+  // anywhere visible, so the prompt should stay suppressed.
+  const storage = makeStorage();
+  const manifests = [
+    { meta: { id: 'mood', enabled: false, prompt: { enabled: true } }, data: [] },
+    {
+      meta: {
+        id: 'wellbeing',
+        enabled: false,
+        view: {
+          component: 'combination-card',
+          combines: [{ sourceId: 'mood', role: 'primary' }],
+        },
+      },
+      data: [],
+    },
+  ];
+  const q = buildPromptQueue(manifests, { date: '2026-04-23', storage });
+  assert.deepEqual(q, []);
+});
+
+test('buildPromptQueue: combo inheritance still respects today-entry suppression', () => {
+  // The whenMissing rule still applies: if mood already has today's
+  // entry, the prompt is suppressed regardless of combo inheritance.
+  const storage = makeStorage();
+  const manifests = [
+    {
+      meta: { id: 'mood', enabled: false, prompt: { enabled: true } },
+      data: [{ date: '2026-04-23', mood: 4 }],
+    },
+    {
+      meta: {
+        id: 'wellbeing',
+        view: {
+          component: 'combination-card',
+          combines: [{ sourceId: 'mood', role: 'primary' }],
+        },
+      },
+      data: [],
+    },
+  ];
+  const q = buildPromptQueue(manifests, { date: '2026-04-23', storage });
+  assert.deepEqual(q, []);
+});
+
 test('buildPromptQueue: defends against malformed manifest entries', () => {
   const storage = makeStorage();
   const manifests = [
