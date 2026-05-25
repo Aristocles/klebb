@@ -75,6 +75,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Voice replies no longer read markdown syntax aloud.** The
+  voice-mode chat agent is told to put plain prose in `speak`, but
+  occasionally leaks bold/italic, links, or inline code through. Fish
+  Audio then read the syntax verbatim ("asterisk asterisk bold
+  asterisk asterisk"). The TTS endpoint now sanitises text before it
+  reaches Fish: bold/italic/strike, inline + fenced code, markdown
+  links (`[label](url)` keeps the label), bare URLs, bare square
+  brackets, and leading line markers (`#`, `>`, `-`, `*`, `+`,
+  `1.`) are all stripped. Parentheses are left alone so prose like
+  "your weight (in kg) trended down" still reads naturally. Fixes #314.
 - **PWA / apple-touch-icon home-screen artwork.** The five
   `public/icons/icon-*.png` tiles still showed the legacy "Eddz"
   wordmark and rocket image, so adding Klebb to the iOS home screen
