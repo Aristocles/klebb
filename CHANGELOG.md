@@ -75,6 +75,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **PWA / apple-touch-icon home-screen artwork.** The five
+  `public/icons/icon-*.png` tiles still showed the legacy "Eddz"
+  wordmark and rocket image, so adding Klebb to the iOS home screen
+  produced a bookmark with the old branding. They have been
+  regenerated from `logo-dark.png` with the "Klebb" wordmark on the
+  brand-dark `#0f0f1a` tile. A new `scripts/regen-pwa-icons.py` makes
+  the generation reproducible from the source logo. Note: iOS caches
+  apple-touch-icons per-bookmark, so existing home-screen shortcuts
+  must be removed and re-added after deploy. Fixes #305.
 - **Reports → Blood panel no longer shows `?` for every row.** The
   generic `table-list` renderer was hardcoded for the SNP finding
   shape (`gene` / `rsid` / `genotype`), so any card with a
