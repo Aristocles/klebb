@@ -22,11 +22,13 @@
 
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
-    module.exports = factory();
+    module.exports = factory(require('./format-hours.js'));
   } else {
-    root.ehDisplayTemplate = factory();
+    root.ehDisplayTemplate = factory(root.ehFormatHours);
   }
-}(typeof self !== 'undefined' ? self : this, function () {
+}(typeof self !== 'undefined' ? self : this, function (formatHours) {
+
+  const hoursToHM = formatHours && formatHours.hoursToHM;
 
   function isEmpty(v) {
     return v === null || v === undefined || v === '';
@@ -122,6 +124,14 @@
       // stringify to "true"/"false" on the card. See #215.
       if (modifier === 'check') {
         return value ? '✅' : (fallback ?? '');
+      }
+      // :hm — treat the field as decimal hours and render as H:MM.
+      // Non-numeric / missing values fall through to the fallback.
+      if (modifier === 'hm') {
+        if (isEmpty(value)) return fallback ?? '';
+        const hm = hoursToHM ? hoursToHM(value) : null;
+        if (hm !== null) return hm;
+        return fallback ?? String(value);
       }
       // Unknown modifier → ignore
     }

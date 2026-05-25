@@ -144,6 +144,39 @@ describe('display-template', () => {
       assert.equal(renderTemplate('{xxx}', { yyy: 1 }), '');
     });
 
+    // #312: render decimal hours as H:MM on cards that surface
+    // durations (sleep, in-bed, awake). The on-disk shape stays
+    // decimal; this is purely a display-layer modifier.
+    describe(':hm modifier (#312)', () => {
+      test('integer hours render as H:00', () => {
+        assert.equal(renderTemplate('{hours:hm}', { hours: 8 }), '8:00');
+      });
+
+      test('typical decimal hours render as H:MM', () => {
+        assert.equal(renderTemplate('{hours:hm}', { hours: 8.17 }), '8:10');
+        assert.equal(renderTemplate('{hours:hm}', { hours: 0.92 }), '0:55');
+      });
+
+      test('carry boundary: 0.999 hours rounds up to 1:00, not 0:60', () => {
+        assert.equal(renderTemplate('{hours:hm}', { hours: 0.999 }), '1:00');
+      });
+
+      test('null / missing falls back to pipe default or empty', () => {
+        assert.equal(renderTemplate('{hours:hm}', { hours: null }), '');
+        assert.equal(renderTemplate('{hours:hm}', {}), '');
+        assert.equal(renderTemplate('{hours:hm|--}', {}), '--');
+      });
+
+      test('non-numeric falls back to pipe default or stringified value', () => {
+        assert.equal(renderTemplate('{hours:hm}', { hours: 'oops' }), 'oops');
+        assert.equal(renderTemplate('{hours:hm|--}', { hours: 'oops' }), '--');
+      });
+
+      test('negative clamps at 0:00', () => {
+        assert.equal(renderTemplate('{hours:hm}', { hours: -1 }), '0:00');
+      });
+    });
+
     // #215: booleans used to stringify to "true" / "false" which looked
     // silly on cards like workouts ("{trained} · {type}" → "true · ...").
     // The :check modifier renders a tick when truthy, empty string

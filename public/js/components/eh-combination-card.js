@@ -15,6 +15,7 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { registerRenderer } from '../renderer-registry.js';
 import { resolveCombines, canEditDonor } from '../lib/combines-resolver.esm.js';
+import { hoursToHM } from '../lib/format-hours.esm.js';
 import { loadECharts, chartTheme } from './eh-chart-base.js';
 import './eh-input-form.js';
 
@@ -389,7 +390,10 @@ export class EhCombinationCard extends LitElement {
     const pct = Math.round(resolved.ratio * 100);
     const valueStr = resolved.displayValue;
     const isWeekly = resolved.period === 'week';
-    const goalStr = String(isWeekly ? resolved.goalWeekly : resolved.goalDaily);
+    const rawGoal = isWeekly ? resolved.goalWeekly : resolved.goalDaily;
+    const goalStr = resolved.format === 'hm'
+      ? (hoursToHM(rawGoal) ?? String(rawGoal))
+      : String(rawGoal);
     const periodSuffix = isWeekly ? ' /wk' : '';
     return html`
       <div class="ring-legend-row ${resolved.complete ? 'complete' : ''}">

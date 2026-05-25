@@ -218,6 +218,7 @@ Template syntax:
 - `{key:emoji}` → look up in `emojiMap[key]`
 - `{key:check}` → render `✅` when truthy, empty string when falsy/missing
 - `{key:truncate(N)}` → cap a string at N chars, append `…` when cut
+- `{key:hm}` → treat as decimal hours, render as `H:MM` (e.g. `8.17` → `8:10`)
 - `{key|default}` → fallback when empty
 - `{key?yes:no}` → ternary on truthiness
 - `{nested.path}` → dotted access
@@ -607,6 +608,7 @@ An ordered array of source entries. Each entry:
 | `goalDaily` | one of `goalDaily`/`goalWeekly` required for `ring-segment` | Positive finite number. Ring fills `min(value / goalDaily, 1)` against the viewed date's row; overshoot paints a "complete" glow. |
 | `goalWeekly` | one of `goalDaily`/`goalWeekly` required for `ring-segment` | Positive finite number. Ring fills `min(weeklySum / goalWeekly, 1)` summing the accessor across all rows in the Mon-Sun week containing the viewed date. If both goals are set, `goalWeekly` wins. |
 | `colour` | no | CSS colour for a `ring-segment`. Falls back to the renderer's theme palette by ring index. |
+| `format` | no | Display hint. Currently supported: `"hm"` — treat the value as decimal hours and render the legend value and goal as `H:MM` (e.g. `8.17` → `8:10`). Unknown values fall through to the default numeric stringification. |
 
 ### Row resolution
 

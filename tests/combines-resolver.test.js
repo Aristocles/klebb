@@ -68,6 +68,38 @@ describe('stringifyValue', () => {
     assert.equal(stringifyValue(true), 'yes');
     assert.equal(stringifyValue(false), 'no');
   });
+
+  // #312: hours-as-time hint, opt-in via the third arg. Off by default
+  // so non-time fields keep their existing 2dp behaviour.
+  describe('format: "hm" (decimal hours → H:MM, #312)', () => {
+    test('integer hours → H:00', () => {
+      assert.equal(stringifyValue(8, null, 'hm'), '8:00');
+    });
+    test('typical decimal → H:MM', () => {
+      assert.equal(stringifyValue(8.17, null, 'hm'), '8:10');
+      assert.equal(stringifyValue(0.92, null, 'hm'), '0:55');
+    });
+    test('carry boundary: 0.999 → 1:00, not 0:60', () => {
+      assert.equal(stringifyValue(0.999, null, 'hm'), '1:00');
+    });
+    test('null / undefined → null (unchanged)', () => {
+      assert.equal(stringifyValue(null, null, 'hm'), null);
+      assert.equal(stringifyValue(undefined, null, 'hm'), null);
+    });
+    test('non-numeric falls through to default stringification', () => {
+      assert.equal(stringifyValue('oops', null, 'hm'), 'oops');
+    });
+    test('negative clamps at 0:00', () => {
+      assert.equal(stringifyValue(-0.5, null, 'hm'), '0:00');
+    });
+    test('absent format leaves existing behaviour untouched', () => {
+      assert.equal(stringifyValue(8.17), '8.17');
+      assert.equal(stringifyValue(8.17, null), '8.17');
+    });
+    test('emojiMap still wins over format', () => {
+      assert.equal(stringifyValue(4, { '4':'🙂' }, 'hm'), '🙂');
+    });
+  });
 });
 
 describe('resolveEntry', () => {
@@ -178,6 +210,36 @@ describe('resolveEntry', () => {
     );
     assert.equal(r.state, 'no-accessor-match');
     assert.ok(r.row);
+  });
+
+  test('format: "hm" flows from entry to displayValue (#312)', () => {
+    const r = resolveEntry(
+      { sourceId: 'sleep-hours', role: 'primary', accessor: 'hours', format: 'hm' },
+      sources, '2026-05-04',
+    );
+    assert.equal(r.state, 'ok');
+    assert.equal(r.value, 8.1);
+    assert.equal(r.displayValue, '8:06');
+    assert.equal(r.format, 'hm');
+  });
+
+  test('format: "hm" applied to weekly ring sum (#312)', () => {
+    // Week of 2026-05-04 = Mon 2026-05-04..Sun 2026-05-10. Only the
+    // 2026-05-04 row falls inside, so the weekly sum is just 8.1 →
+    // 8:06. Tests the weekly path in resolveEntry.
+    const r = resolveEntry(
+      {
+        sourceId: 'sleep-hours',
+        role: 'ring-segment',
+        accessor: 'hours',
+        format: 'hm',
+        goalWeekly: 56,
+      },
+      sources, '2026-05-04',
+    );
+    assert.equal(r.state, 'ok');
+    assert.equal(r.period, 'week');
+    assert.equal(r.displayValue, '8:06');
   });
 
   test('emojiMap applied to displayValue', () => {

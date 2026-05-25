@@ -35,11 +35,13 @@
 
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
-    module.exports = factory();
+    module.exports = factory(require('./format-hours.js'));
   } else {
-    root.ehCombinesResolver = factory();
+    root.ehCombinesResolver = factory(root.ehFormatHours);
   }
-}(typeof self !== 'undefined' ? self : this, function () {
+}(typeof self !== 'undefined' ? self : this, function (formatHours) {
+
+  const hoursToHM = formatHours && formatHours.hoursToHM;
 
   // Dotted-path accessor. Returns undefined if any hop is missing.
   function getByPath(obj, pathStr) {
@@ -68,11 +70,17 @@
 
   // Stringify the resolved value for display. The renderer can override
   // presentation (e.g. emojiMap lookup) but this gives a sensible default.
-  function stringifyValue(value, emojiMap) {
+  // `format` is an opt-in display hint; "hm" treats the number as decimal
+  // hours and renders as H:MM. emojiMap takes precedence over format.
+  function stringifyValue(value, emojiMap, format) {
     if (value === null || value === undefined) return null;
     if (emojiMap) {
       const key = String(value);
       if (emojiMap[key]) return emojiMap[key];
+    }
+    if (format === 'hm' && hoursToHM) {
+      const hm = hoursToHM(value);
+      if (hm !== null) return hm;
     }
     if (typeof value === 'number') {
       // Trim to 2dp unless already integral
@@ -124,6 +132,7 @@
       unit: entry?.unit || null,
       colour: entry?.colour || null,
       emojiMap: entry?.emojiMap || null,
+      format: entry?.format || null,
     };
 
     // Ring-segment entries need a positive finite target. goalWeekly wins
@@ -184,7 +193,7 @@
         ...base,
         state: 'ok',
         value: sum,
-        displayValue: stringifyValue(sum, base.emojiMap),
+        displayValue: stringifyValue(sum, base.emojiMap, base.format),
         row: null,
         period: 'week',
         goalWeekly: goalWeeklyN,
@@ -212,7 +221,7 @@
       ...base,
       state: 'ok',
       value,
-      displayValue: stringifyValue(value, base.emojiMap),
+      displayValue: stringifyValue(value, base.emojiMap, base.format),
       row,
     };
 

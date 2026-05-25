@@ -9,6 +9,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Hours-as-time display hint.** New optional `format: "hm"` field on
+  `meta.view.combines[]` entries renders the legend value and goal as
+  `H:MM` instead of decimal hours (e.g. `8.17` → `8:10`, `8` → `8:00`).
+  A matching `{key:hm}` modifier in the display-template engine lets
+  atomic generic-cards (e.g. `sleep-hours`) use the same conversion.
+  The on-disk shape is unchanged — manifests still store decimal
+  hours. Fixes #312.
 - **Forensic logging on the chat agent loop.** Setting `HEALTH_DEBUG=1`
   now emits structured `[chat:<reqId>]` lines on `/api/chat` covering
   request entry, each agent-loop iteration with gateway latency, each
