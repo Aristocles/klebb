@@ -9,6 +9,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Forensic logging on the chat agent loop.** Setting `HEALTH_DEBUG=1`
+  now emits structured `[chat:<reqId>]` lines on `/api/chat` covering
+  request entry, each agent-loop iteration with gateway latency, each
+  tool dispatch with manifest id and duration, and the final outcome.
+  Off by default; structural facts only (no prompt or reply bodies are
+  logged). Closes the blind spot where a client-side timeout left the
+  journal silent. Fixes #303.
 - **Vocab support on schedule-timeline + adherence-report.** Both
   renderers now read an optional `vocab` block from their view config
   (`trends.vocab` and `reports.vocab` respectively) so a fixture can
