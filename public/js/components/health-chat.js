@@ -886,7 +886,7 @@ class HealthChat extends LitElement {
 
   // ---------- Chat pipeline ----------
 
-  async _fetchChat(messages, voiceMode, timeoutMs = 180000) {
+  async _fetchChat(messages, voiceMode, timeoutMs = 600000) {
     if (this._abortController) this._abortController.abort();
     this._abortController = new AbortController();
     const timeoutId = setTimeout(() => this._abortController?.abort(), timeoutMs);
@@ -929,7 +929,7 @@ class HealthChat extends LitElement {
       // Single request, generous timeout. Earlier two-phase retry was meant
       // for stale TCP sockets after visibility-change; in practice it caused
       // confusing "Gateway unavailable" errors on slow (tool-using) replies.
-      const data = await this._fetchChat(chatMessages, useVoice, 120000);
+      const data = await this._fetchChat(chatMessages, useVoice);
       if (data.error) this._pushError(data.error);
       else {
         const extra = data.followup ? {
@@ -1089,7 +1089,7 @@ class HealthChat extends LitElement {
       // Chat (voice mode)
       const chatMessages = this._messages.filter(m => m.role !== 'error');
       let replyData;
-      try { replyData = await this._fetchChat(chatMessages, true, 120000); }
+      try { replyData = await this._fetchChat(chatMessages, true); }
       catch (e) {
         this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
         return;

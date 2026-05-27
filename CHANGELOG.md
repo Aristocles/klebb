@@ -82,6 +82,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Chat client no longer times out on slow multi-iter turns.** The
+  chat widget aborted at 120s while the server-side tool-calling loop
+  could legitimately take longer (a single gateway hop is capped at
+  180s, and a turn can chain several). The client default now matches
+  the other long-poll routes at 600s, and both call sites use that
+  default. The matching nginx ceiling on `/api/chat` is raised
+  separately at the operator level. Fixes #323.
 - **Hidden donor cards keep their daily prompts when surfaced through
   a combination card.** The prompt queue used to skip any card with
   `meta.enabled: false`, even when the user had hidden the atomic card
