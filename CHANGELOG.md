@@ -37,6 +37,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Chat agent stance.** The default system prompt now carries a
+  short "Your stance" section that frames the user as an informed
+  adult driving their own regimen and tells the agent not to refuse
+  or hedge on peptide / supplement / dosing questions. Carve-out is
+  narrow: genuine emergencies and acute diagnosis (chest pain,
+  suspected stroke, suicidal ideation, anaphylaxis, unknown lump).
+  Without this framing the underlying model fell back to a generic
+  refusal on a fresh chat, then engaged once the user re-asked with
+  manifest-tool framing; the inconsistency erodes trust.
+  `HEALTH_SYSTEM_PROMPT` and `HEALTH_SYSTEM_PROMPT_FILE` overrides
+  still take precedence. Fixes #326.
+
 - **Demo dashboard polish.** Strength Training fixture now uses plain
   exercise names (Bench Press, Lat Pulldown, Romanian Deadlift, etc),
   carries an eight-week dose history with mostly-done /
