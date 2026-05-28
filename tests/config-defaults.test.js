@@ -192,6 +192,15 @@ describe('config/env.js defaults', () => {
     assert.ok(env.HEALTH_SYSTEM_PROMPT.includes('health assistant'));
   });
 
+  test('default system prompt frames the user as the decision-maker, not a patient to gatekeep', () => {
+    const env = freshEnv();
+    const p = env.HEALTH_SYSTEM_PROMPT;
+    assert.ok(p.includes('## Your stance'), 'should declare a stance section');
+    assert.ok(/informed adult/i.test(p), 'should frame the user as an informed adult');
+    assert.ok(/not a gatekeeper/i.test(p), 'should explicitly tell the agent not to gatekeep');
+    assert.ok(/emergenc/i.test(p), 'should carve out emergencies as the exception');
+  });
+
   test('default system prompt advertises the create/delete endpoints + the full renderer + input surface', () => {
     const env = freshEnv();
     const p = env.HEALTH_SYSTEM_PROMPT;
