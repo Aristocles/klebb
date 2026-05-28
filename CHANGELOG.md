@@ -82,6 +82,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **"New chat" button now aborts the in-flight reply.** Clicking the
+  📝 button while a chat reply was still on the wire cleared the
+  message list but left the textarea disabled until the server eventually
+  responded (and the reply was discarded into the empty chat). The button
+  now aborts the `/api/chat` fetch, drops the loading state immediately
+  so the textarea re-enables, suppresses the spurious "Request timed
+  out" error in the freshly-cleared chat, and refocuses the input on
+  desktop. Fixes #325.
 - **Chat client no longer times out on slow multi-iter turns.** The
   chat widget aborted at 120s while the server-side tool-calling loop
   could legitimately take longer (a single gateway hop is capped at

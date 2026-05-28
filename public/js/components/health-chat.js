@@ -707,6 +707,15 @@ class HealthChat extends LitElement {
   }
 
   async _clearHistory() {
+    // If a reply is in flight, abort it so the textarea re-enables
+    // immediately. The flag is read by _sendText / _handleRecordedBlob's
+    // catch blocks so they don't push a stale error into the cleared chat.
+    if (this._abortController) {
+      this._userAbortedChat = true;
+      this._abortController.abort();
+      this._abortController = null;
+    }
+    this._loading = false;
     stopSharedAudio();
     this._audioCache.forEach(v => { try { URL.revokeObjectURL(v.url); } catch {} });
     this._audioCache.clear();
@@ -714,6 +723,14 @@ class HealthChat extends LitElement {
     this._playingMsgId = null;
     this._voiceArmed = false;
     if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
+    // Refocus the textarea so the user can type the next message right
+    // away. Desktop only: touch keyboards re-popping is jarring.
+    this.updateComplete.then(() => {
+      if (this._recording) return;
+      if (matchMedia('(max-width: 480px)').matches) return;
+      const input = this.shadowRoot?.querySelector('.chat-input');
+      if (input && !input.disabled) input.focus();
+    });
     try {
       await fetch('/api/chat/history', { method: 'DELETE', cache: 'no-store' });
     } catch {}
@@ -947,7 +964,11 @@ class HealthChat extends LitElement {
         }
       }
     } catch (e) {
-      this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
+      if (this._userAbortedChat) {
+        this._userAbortedChat = false;
+      } else {
+        this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
+      }
     }
     this._loading = false;
     this._abortController = null;
@@ -1091,7 +1112,11 @@ class HealthChat extends LitElement {
       let replyData;
       try { replyData = await this._fetchChat(chatMessages, true); }
       catch (e) {
-        this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
+        if (this._userAbortedChat) {
+          this._userAbortedChat = false;
+        } else {
+          this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
+        }
         return;
       }
 
