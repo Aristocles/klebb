@@ -90,6 +90,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   so the textarea re-enables, suppresses the spurious "Request timed
   out" error in the freshly-cleared chat, and refocuses the input on
   desktop. Fixes #325.
+- **`no-personal-refs` test honours gitignore.** The scanner walked
+  the working tree directly and so flagged operator-private files
+  that exist on disk but never ship (`BRIEF-FOR-CC.md`, `CLAUDE.md`,
+  `.claude/`, `data/sessions/*.json`). CI was unaffected (clean
+  checkout) but local `npm test` was noisy with up to 17 spurious
+  hits, conditioning developers to ignore the scanner. The scanner
+  now drives off `git ls-files`, so it only sees what actually
+  ships. Real residue in tracked files still fails the test.
+  Fixes #330.
 - **Chat client no longer times out on slow multi-iter turns.** The
   chat widget aborted at 120s while the server-side tool-calling loop
   could legitimately take longer (a single gateway hop is capped at
