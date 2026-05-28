@@ -82,6 +82,90 @@ export class EhListCard extends EhBaseCard {
     return inputs.filter(i => i.key !== this._primaryField());
   }
 
+  _resolveOptionLabel(input, value) {
+    const opts = input?.options || [];
+    for (const o of opts) {
+      if (typeof o === 'string') {
+        if (o === value) return o;
+      } else if (o && typeof o === 'object') {
+        if (String(o.value) === String(value)) return o.label || o.value;
+      }
+    }
+    return value;
+  }
+
+  _renderPrimaryInput(input, row, idx, isDeleted) {
+    const v = row[input.key];
+    const update = (val) => this._updateDraftField(idx, input.key, val);
+    const placeholder = input.placeholder || input.label || '';
+    switch (input?.type) {
+      case 'select':
+        return html`
+          <select
+            class="primary-input"
+            ?disabled=${isDeleted}
+            ?required=${input.required}
+            @change=${(e) => update(e.target.value)}
+          >
+            <option value="" ?selected=${v === '' || v == null}>${placeholder || 'Select...'}</option>
+            ${(input.options || []).map(o => {
+              const val = typeof o === 'string' ? o : o.value;
+              const label = typeof o === 'string' ? o : (o.label || o.value);
+              return html`<option value=${val} ?selected=${String(v) === String(val)}>${label}</option>`;
+            })}
+          </select>`;
+      case 'time':
+      case 'date':
+        return html`
+          <input
+            class="primary-input"
+            type=${input.type}
+            .value=${v ?? ''}
+            ?disabled=${isDeleted}
+            ?required=${input.required}
+            @input=${(e) => update(e.target.value)}
+          />`;
+      case 'number':
+        return html`
+          <input
+            class="primary-input"
+            type="number"
+            .value=${v ?? ''}
+            placeholder=${placeholder}
+            min=${input.min ?? ''}
+            max=${input.max ?? ''}
+            step=${input.step ?? ''}
+            ?disabled=${isDeleted}
+            ?required=${input.required}
+            @input=${(e) => update(e.target.value === '' ? null : Number(e.target.value))}
+          />`;
+      case 'textarea':
+        return html`
+          <textarea
+            class="primary-input"
+            .value=${v ?? ''}
+            placeholder=${placeholder}
+            rows=${input.rows || 2}
+            maxlength=${input.maxLength ?? ''}
+            ?disabled=${isDeleted}
+            ?required=${input.required}
+            @input=${(e) => update(e.target.value)}
+          ></textarea>`;
+      case 'text':
+      default:
+        return html`
+          <input
+            class="primary-input"
+            type="text"
+            .value=${v ?? ''}
+            placeholder=${placeholder}
+            maxlength=${input.maxLength ?? ''}
+            ?disabled=${isDeleted}
+            @input=${(e) => update(e.target.value)}
+          />`;
+    }
+  }
+
   _truncate(s, n) {
     if (typeof s !== 'string') return s == null ? '' : String(s);
     if (s.length <= n) return s;
@@ -444,11 +528,15 @@ export class EhListCard extends EhBaseCard {
     }
     const maxChars = this._maxCharPreview();
     const primaryField = this._primaryField();
+    const primaryInput = this._primaryInput();
     const secondaryInputs = this._secondaryInputs();
     return html`
       <ul class="rows">
         ${rows.map((row, idx) => {
-          const primary = row[primaryField] ?? '';
+          const rawPrimary = row[primaryField] ?? '';
+          const primary = primaryInput?.type === 'select'
+            ? this._resolveOptionLabel(primaryInput, rawPrimary)
+            : rawPrimary;
           const truncated = this._truncate(primary, maxChars);
           const expanded = this._expandedRow === idx;
           const secondary = display.secondaryTemplate
@@ -519,10 +607,8 @@ export class EhListCard extends EhBaseCard {
   }
 
   _renderEditMode(rows, display) {
-    const primaryField = this._primaryField();
     const primaryInput = this._primaryInput();
     const secondaryInputs = this._secondaryInputs();
-    const maxLen = primaryInput?.maxLength;
     const hasSecondaryFields = secondaryInputs.length > 0;
     return html`
       <ul class="rows">
@@ -538,15 +624,9 @@ export class EhListCard extends EhBaseCard {
                   aria-label="${isDeleted ? 'Restore' : 'Delete'} row ${idx + 1}"
                   title="${isDeleted ? 'Restore' : 'Delete'}"
                 >${isDeleted ? '↺' : '➖'}</button>
-                <input
-                  class="primary-input"
-                  type="text"
-                  .value=${row[primaryField] ?? ''}
-                  placeholder="${primaryInput?.placeholder || primaryInput?.label || ''}"
-                  maxlength="${maxLen || ''}"
-                  ?disabled=${isDeleted}
-                  @input=${(e) => this._updateDraftField(idx, primaryField, e.target.value)}
-                />
+                ${primaryInput
+                  ? this._renderPrimaryInput(primaryInput, row, idx, isDeleted)
+                  : html`<span class="primary">${row[this._primaryField()] ?? ''}</span>`}
                 ${hasSecondaryFields && !isDeleted ? html`
                   <button
                     class="detail-btn"
