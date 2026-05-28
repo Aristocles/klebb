@@ -14,12 +14,6 @@ export class EhWelcomeCard extends EhBaseCard {
   static styles = [
     EhBaseCard.styles,
     css`
-      .intro {
-        font-size: 14px;
-        line-height: 1.55;
-        color: var(--text-primary);
-        margin: 0 0 16px;
-      }
       .paths {
         display: grid;
         grid-template-columns: 1fr;
@@ -153,11 +147,6 @@ export class EhWelcomeCard extends EhBaseCard {
 
   renderCard() {
     return html`
-      <p class="intro">
-        Klebb is a file-driven dashboard powered by a chat agent: every
-        card is a JSON file on disk, and the chat agent writes those
-        files for you. Start with one of the three paths below.
-      </p>
       <div class="paths">
         <button type="button" class="path featured" @click=${this._openPrompts}>
           <span class="start-chip">★ Start here</span>
