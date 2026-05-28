@@ -94,6 +94,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **`list-card` honours the declared input type on the primary field.**
+  In edit mode the primary field was hardcoded to `<input type="text">`
+  regardless of what `writeable.inputs[primary].type` declared, so a
+  card with a `select` primary rendered as an empty text box. The
+  primary now dispatches on `type` (text, select, time, date, number,
+  textarea), and view mode resolves `{value, label}` option labels
+  before display. Existing list-cards (text primaries) are unchanged.
+  Fixes #332.
 - **"New chat" button now aborts the in-flight reply.** Clicking the
   📝 button while a chat reply was still on the wire cleared the
   message list but left the textarea disabled until the server eventually
