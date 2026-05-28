@@ -11,23 +11,25 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const REPO_ROOT = path.join(__dirname, '..');
 
-// Directories to skip entirely.
-const SKIP_DIRS = new Set([
-  'node_modules',
-  '.git',
-  'tests',                 // tests can legitimately mention names (they are fixtures)
-  '_legacy-v1',            // legacy UI not loaded anymore
-]);
+// Top-level directory prefixes to skip. The scanner is driven off
+// git ls-files so node_modules / .git are already excluded; this list
+// covers tracked paths whose contents legitimately mention names
+// (test fixtures, legacy UI).
+const SKIP_PREFIXES = [
+  'tests/',
+  '_legacy-v1/',
+];
 
 // File suffixes to scan.
 const SCAN_EXTS = new Set(['.js', '.md', '.html', '.css', '.json']);
 
-// Files to skip individually (by absolute path from repo root).
+// Files to skip individually (paths relative to repo root, forward-slash form).
 const SKIP_FILES = new Set([
   'package-lock.json',
   'CHANGELOG.md', // historical notes legitimately mention pre-rename values
@@ -53,41 +55,53 @@ const FORBIDDEN = [
   { pattern: /['"][0-9a-f]{48,}['"]/, name: 'hex token ≥48 chars' },
 ];
 
-function scanDir(dir) {
+// List tracked files via git so the scan only sees what actually ships.
+// Local-only artefacts (BRIEF-FOR-CC.md, CLAUDE.md, .claude/, data/, etc.)
+// are gitignored and therefore invisible here, even though they exist
+// on the operator's working copy. Fixes #330.
+function listTrackedFiles() {
+  const out = execFileSync('git', ['-C', REPO_ROOT, 'ls-files', '-z'], {
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  return out.split('\0').filter(Boolean);
+}
+
+function scanRepo() {
   const findings = [];
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const ent of entries) {
-    if (ent.isDirectory()) {
-      if (SKIP_DIRS.has(ent.name)) continue;
-      findings.push(...scanDir(path.join(dir, ent.name)));
-    } else if (ent.isFile()) {
-      const full = path.join(dir, ent.name);
-      const rel = path.relative(REPO_ROOT, full);
-      if (SKIP_FILES.has(rel)) continue;
-      const ext = path.extname(ent.name);
-      if (!SCAN_EXTS.has(ext)) continue;
-      const content = fs.readFileSync(full, 'utf8');
-      const lines = content.split('\n');
-      lines.forEach((line, idx) => {
-        for (const rule of FORBIDDEN) {
-          if (rule.pattern.test(line)) {
-            findings.push({
-              file: rel,
-              line: idx + 1,
-              rule: rule.name,
-              text: line.trim().slice(0, 120),
-            });
-          }
-        }
-      });
+  for (const rel of listTrackedFiles()) {
+    if (SKIP_FILES.has(rel)) continue;
+    if (SKIP_PREFIXES.some(p => rel.startsWith(p))) continue;
+    const ext = path.extname(rel);
+    if (!SCAN_EXTS.has(ext)) continue;
+    const full = path.join(REPO_ROOT, rel);
+    let content;
+    try {
+      content = fs.readFileSync(full, 'utf8');
+    } catch {
+      // File listed by git but not on disk (e.g. case-only rename mid-checkout).
+      continue;
     }
+    const lines = content.split('\n');
+    lines.forEach((line, idx) => {
+      for (const rule of FORBIDDEN) {
+        if (rule.pattern.test(line)) {
+          findings.push({
+            file: rel,
+            line: idx + 1,
+            rule: rule.name,
+            text: line.trim().slice(0, 120),
+          });
+        }
+      }
+    });
   }
   return findings;
 }
 
 describe('no-personal-refs (repo hygiene)', () => {
   test('no personal identifiers or hardcoded paths in source', () => {
-    const findings = scanDir(REPO_ROOT);
+    const findings = scanRepo();
     if (findings.length > 0) {
       const report = findings
         .map(f => `  ${f.file}:${f.line}  [${f.rule}]  ${f.text}`)
