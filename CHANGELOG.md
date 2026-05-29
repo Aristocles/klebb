@@ -94,6 +94,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **`generic-card` renders every entry per day when
+  `maxReadingsPerDay > 1`.** The save path already capped multiple
+  rows correctly, but the display path returned the first matching
+  row only and the UI offered a single edit/add affordance, so cards
+  intended as event logs (stool, BMs, BP across the day) silently lost
+  earlier entries from view. Cards with `maxReadingsPerDay > 1` now
+  render every row dated the current day as its own list line, sorted
+  by `time` if present, with per-row edit + delete and a separate
+  ➕ Add control. `fallbackToLatest` is suppressed in this mode (showing
+  yesterday's *list* on Today is more confusing than helpful). The
+  default `maxReadingsPerDay: 1` path is unchanged. Fixes #336.
 - **Chat-agent system prompt steers event logs at `generic-card`, not
   `list-card`.** The renderer summary previously described `list-card`
   as a "persistent chronological list of entries; data is `[{date,
