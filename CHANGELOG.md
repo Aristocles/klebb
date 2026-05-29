@@ -94,6 +94,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Chat-agent system prompt steers event logs at `generic-card`, not
+  `list-card`.** The renderer summary previously described `list-card`
+  as a "persistent chronological list of entries; data is `[{date,
+  ...}]`", which was wrong on both counts (`list-card` is a permanent
+  roster, rows do not carry a `date`). The agent therefore reached for
+  `list-card` whenever the user asked for any kind of repeated log,
+  and the resulting card showed every row on every day with no
+  per-date scoping. The renderer summary now matches the actual
+  contract and explicitly points event-style multi-entry logs at
+  `generic-card` with `maxReadingsPerDay`. Fixes #334.
 - **`list-card` honours the declared input type on the primary field.**
   In edit mode the primary field was hardcoded to `<input type="text">`
   regardless of what `writeable.inputs[primary].type` declared, so a
