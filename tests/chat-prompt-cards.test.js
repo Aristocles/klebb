@@ -128,6 +128,34 @@ describe('chat proxy dynamic card-list injection', () => {
     assert.ok(/never in .?meta\.schedule.?/i.test(sp), 'prompt warns against meta.schedule');
   });
 
+  test('system prompt steers event-style logs at generic-card, not list-card', async () => {
+    // Regression for #334: the prompt previously described list-card as
+    // "persistent chronological list of entries; data is [{date,...}]",
+    // which is wrong on both counts and led the agent to pick list-card
+    // for per-day event logs (food log, stool log, etc.). The corrected
+    // text must (a) NOT call list-card chronological/per-row-dated, and
+    // (b) name maxReadingsPerDay or generic-card as the right answer
+    // for multi-entry-per-day logging.
+    const res = await req(server.baseUrl, '/api/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'hi' }], voiceMode: false },
+    });
+    assert.equal(res.status, 200);
+    const sp = gateway.getLastPrompt();
+    assert.ok(
+      !/list-card[^.\n]*chronological/i.test(sp),
+      'prompt must not describe list-card as chronological'
+    );
+    assert.ok(
+      /list-card[\s\S]{0,400}(permanent roster|currently true|NOT per-day)/i.test(sp),
+      'prompt must describe list-card as a non-per-day roster'
+    );
+    assert.ok(
+      /maxReadingsPerDay/.test(sp),
+      'prompt must mention maxReadingsPerDay as the multi-entry-per-day knob'
+    );
+  });
+
   test('system prompt forbids silent embellishments on create', async () => {
     const res = await req(server.baseUrl, '/api/chat', {
       method: 'POST',
