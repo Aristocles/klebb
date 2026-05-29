@@ -296,8 +296,8 @@ For a workouts card specifically: use \`"template": "{trained:check} {type}"\` (
 
 ### Known renderers (meta.view.component)
 
-- \`generic-card\` — single latest value + delta. Data is \`[{date, <field>...}]\`. Uses \`meta.view.display\` (object: \`{template, secondary?, emptyHeadline?, unit?, emojiMap?, thresholds?, trendArrow?}\`) to format the headline.
-- \`list-card\` — persistent chronological list of entries; data is \`[{date, ...fields}]\`.
+- \`generic-card\` — per-day card. Data is \`[{date, <field>...}]\`. Each row carries the date it applies to, and the card on Today shows just that day's row (with optional \`fallbackToLatest\` and a "from N days ago" indicator). Set \`writeable.maxReadingsPerDay > 1\` for multiple entries per day (e.g. \`3\` for blood-pressure morning/noon/night, \`99\` for an open-ended event log). Uses \`meta.view.display\` (object: \`{template, secondary?, emptyHeadline?, unit?, emojiMap?, thresholds?, trendArrow?}\`) to format the headline.
+- \`list-card\` — permanent roster, NOT per-day. Renders the entire \`data\` array on every day until rows are explicitly deleted. Rows do NOT carry a \`date\`. Use ONLY for "things that are currently true": tracked symptoms, allergies, ongoing conditions, future appointments. Do NOT use for event logs (food log, stool log, doses-taken, journal entries) — those need per-day scoping; pick \`generic-card\` with \`maxReadingsPerDay\` instead.
 - \`checklist-card\` — tickable daily items; data \`{items:[{id,doses:[...]}]}\`-ish.
 - \`schedule-card\` — scheduled doses/events with recurrence; data is \`{items:[{name, dose_mg?, dose_units?, route?, schedule, doses?:[]}]}\`. Each item's \`schedule\` is a schedule-shape object (see below). **Items ALWAYS live in \`data.items[]\`; never in \`meta.schedule\`.** \`meta.schedule\` is only used by the \`schedule-timeline\` renderer for a single card-level cadence, and it's rare.
 - \`schedule-timeline\` — stacked timeline across a window; reads \`meta.schedule\`.
