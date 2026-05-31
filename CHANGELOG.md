@@ -94,6 +94,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Modal prompt fires for hidden donor surfaced by a visible combo
+  card.** The #316 carve-out ("a hidden atomic card surfaced by a
+  visible combination card still prompts") worked in the unit-test
+  path but was undone in the live app: `checkPromptsForToday`
+  fetched data only for prompt candidates, then handed that slim
+  list to `buildPromptQueue`, whose internal `surfaced` recompute
+  no longer saw the combo card. `buildPromptQueue` now accepts a
+  pre-computed `surfaced` set, and the network wrapper passes one
+  derived from the full manifest list. Fixes #338.
 - **`generic-card` renders every entry per day when
   `maxReadingsPerDay > 1`.** The save path already capped multiple
   rows correctly, but the display path returned the first matching

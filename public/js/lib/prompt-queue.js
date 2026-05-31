@@ -129,12 +129,18 @@ function surfacedByVisibleCombo(manifests) {
 
 // Build the queue. Pure function separated so tests can run it against
 // a synthetic manifest list without hitting the network.
+//
+// `surfaced` (optional) lets the caller pre-compute donor-visibility from
+// a wider manifest list than `manifests` itself. The network path passes
+// only candidate cards in `manifests`, so combo cards aren't there to
+// rediscover the surfacing relationship — see #338.
 export function buildPromptQueue(manifests, {
   date = todayStr(),
   storage = globalThis.localStorage,
+  surfaced = null,
 } = {}) {
   const out = [];
-  const surfaced = surfacedByVisibleCombo(manifests);
+  if (!surfaced) surfaced = surfacedByVisibleCombo(manifests);
   for (const card of manifests || []) {
     const meta = card?.meta;
     if (!meta) continue;
@@ -213,5 +219,5 @@ export async function checkPromptsForToday() {
     }
   }));
 
-  return buildPromptQueue(withData, { date });
+  return buildPromptQueue(withData, { date, surfaced });
 }
