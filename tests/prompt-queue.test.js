@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildPromptQueue,
+  checkPromptsForToday,
   entryExistsForDate,
   allScheduledTakenForDate,
   wasShownToday,
@@ -383,6 +384,60 @@ test('buildPromptQueue: combo inheritance still respects today-entry suppression
   ];
   const q = buildPromptQueue(manifests, { date: '2026-04-23', storage });
   assert.deepEqual(q, []);
+});
+
+// --- checkPromptsForToday integration (#338) ---
+//
+// The unit tests above call buildPromptQueue with the full manifest list,
+// so the in-function `surfaced` recompute always sees the visible combo.
+// The live network path slices manifests down to candidates before
+// building the queue, which used to drop the donor-surfacing relationship
+// and silently kill prompts for hidden donors. The fix passes a
+// pre-computed `surfaced` set through.
+
+function withGlobals({ fetchImpl, storage }, fn) {
+  const prevFetch = globalThis.fetch;
+  const prevStorage = globalThis.localStorage;
+  globalThis.fetch = fetchImpl;
+  globalThis.localStorage = storage;
+  return Promise.resolve(fn()).finally(() => {
+    globalThis.fetch = prevFetch;
+    globalThis.localStorage = prevStorage;
+  });
+}
+
+test('checkPromptsForToday: hidden donor surfaced by visible combo still prompts', async () => {
+  const storage = makeStorage();
+  const entries = [
+    { id: 'mood', meta: { id: 'mood', enabled: false, prompt: { enabled: true } } },
+    {
+      id: 'wellbeing',
+      meta: {
+        id: 'wellbeing',
+        view: {
+          component: 'combination-card',
+          combines: [{ sourceId: 'mood', role: 'primary' }],
+        },
+      },
+    },
+  ];
+  const dataById = { mood: [] };
+  const fetchImpl = async (url) => {
+    if (url === '/api/manifests') {
+      return { ok: true, json: async () => ({ entries }) };
+    }
+    const m = url.match(/^\/api\/manifests\/([^/]+)\/data$/);
+    if (m) {
+      const id = decodeURIComponent(m[1]);
+      return { ok: true, json: async () => ({ data: dataById[id] ?? null }) };
+    }
+    return { ok: false, json: async () => ({}) };
+  };
+  await withGlobals({ fetchImpl, storage }, async () => {
+    const q = await checkPromptsForToday();
+    assert.equal(q.length, 1);
+    assert.equal(q[0].meta.id, 'mood');
+  });
 });
 
 test('buildPromptQueue: defends against malformed manifest entries', () => {
