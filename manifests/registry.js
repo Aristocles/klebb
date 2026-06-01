@@ -240,11 +240,58 @@ function errors() {
   return [..._errors];
 }
 
+// Reject (or rescue) a `data` value that arrived as a JSON-encoded string,
+// which is what happens when an upstream caller has stringified twice. If
+// the parsed result is a structured value, accept it and warn so the
+// offending writer is traceable; if it stays scalar, throw — there's no
+// safe interpretation. See #342.
+function _coerceWriteData(id, newData) {
+  if (typeof newData !== 'string') return newData;
+  let parsed;
+  try {
+    parsed = JSON.parse(newData);
+  } catch {
+    throw new Error(`writeData(${id}): data is a string and not valid JSON; pass an object/array, not a pre-serialised string`);
+  }
+  if (parsed === null || typeof parsed !== 'object') {
+    throw new Error(`writeData(${id}): data must be an object or array, got string that parsed to ${parsed === null ? 'null' : typeof parsed}`);
+  }
+  console.warn(`[manifest] writeData(${id}): rescued double-serialised data (caller passed a JSON string); accepting parsed value`);
+  return parsed;
+}
+
+// Sanity-check the runtime shape of `newData` against the manifest's
+// declared `schema.type`, when present. Catches a wider class of writer
+// bugs (bare value where an array is expected, etc.) without pulling a
+// full JSON-Schema validator. See #342.
+function _assertSchemaShape(id, schema, newData) {
+  if (!schema || typeof schema !== 'object' || typeof schema.type !== 'string') return;
+  const declared = schema.type;
+  const actual = Array.isArray(newData)
+    ? 'array'
+    : newData === null
+      ? 'null'
+      : typeof newData;
+  if (declared === 'array' && actual !== 'array') {
+    throw new Error(`writeData(${id}): schema declares type "array" but received ${actual}`);
+  }
+  if (declared === 'object' && actual !== 'object') {
+    throw new Error(`writeData(${id}): schema declares type "object" but received ${actual}`);
+  }
+  if (declared !== 'array' && declared !== 'object' && actual !== declared) {
+    throw new Error(`writeData(${id}): schema declares type "${declared}" but received ${actual}`);
+  }
+}
+
 // Write full file back with updated data block. Preserves meta/description/schema.
 // Uses atomic tmp+rename to avoid partial writes.
 function writeData(id, newData) {
   const entry = _entries.get(id);
   if (!entry) throw new Error(`unknown manifest: ${id}`);
+
+  newData = _coerceWriteData(id, newData);
+  _assertSchemaShape(id, entry.schema, newData);
+
   const full = {
     $schema: entry.version,
     meta: entry.meta,
