@@ -87,6 +87,19 @@ describe('server HTTP API', () => {
       assert.equal(check.json.data[1].kg, 86.5);
     });
 
+    test('POST /api/manifests/:id/data rejects pre-serialised string data with 400 (#342)', async () => {
+      const res = await req(server.baseUrl, '/api/manifests/weight/data', {
+        method: 'POST',
+        body: { data: JSON.stringify([{ date: '2026-04-22', kg: 87 }]) },
+      });
+      assert.equal(res.status, 400);
+      assert.match(res.json.error || '', /JSON object or array, not a string/);
+
+      // Persisted data must NOT have been clobbered
+      const check = await req(server.baseUrl, '/api/manifests/weight/data');
+      assert.ok(Array.isArray(check.json.data), 'data still an array');
+    });
+
     test('GET /api/views/view returns cards with view.enabled', async () => {
       const res = await req(server.baseUrl, '/api/views/view');
       assert.equal(res.status, 200);
