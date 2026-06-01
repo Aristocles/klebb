@@ -707,6 +707,13 @@ const server = http.createServer(async (req, res) => {
           const parsed = JSON.parse(body);
           if (!('data' in parsed)) return sendJSON(res, { error: 'missing data field in body' }, 400);
 
+          // Reject pre-serialised data outright at the HTTP boundary.
+          // The registry has a rescue path as a safety net, but a string
+          // here is always a writer bug we want loud feedback on. See #342.
+          if (typeof parsed.data === 'string') {
+            return sendJSON(res, { error: 'data must be a JSON object or array, not a string' }, 400);
+          }
+
           // Safety net: if an external agent still sends date-keyed data
           // (the legacy mood/notes shape), auto-convert to array on the way in.
           // Logs a warning so the offending writer can be tracked down.

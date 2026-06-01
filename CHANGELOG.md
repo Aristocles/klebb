@@ -94,6 +94,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Guard `manifests.writeData` against malformed `data` writes.** A
+  card's `data` block could be persisted as a JSON-encoded string
+  (`"data": "{...}"` instead of `"data": {...}`) when an upstream
+  caller double-serialised before write, breaking renderers. The
+  registry now coerces a string `data` value: it parses once, accepts
+  the result if it's a structured object/array (with a console warn
+  naming the manifest), and throws otherwise. When a manifest declares
+  a top-level `schema.type`, the runtime shape of the new value is
+  also checked against it before any disk write. The HTTP boundary
+  (`POST /api/manifests/:id/data`) returns 400 instead of silently
+  rescuing string `data`. Fixes #342.
 - **Modal prompt fires for hidden donor surfaced by a visible combo
   card.** The #316 carve-out ("a hidden atomic card surfaced by a
   visible combination card still prompts") worked in the unit-test

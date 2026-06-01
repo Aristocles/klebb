@@ -242,6 +242,98 @@ describe('manifest registry', () => {
     }
   });
 
+  // --- writeData hardening (#342) ---
+
+  test('writeData rescues a JSON-string that parses to an object/array, with a warn', () => {
+    const sandbox = createSandbox({
+      seed: {
+        'weight.json': {
+          $schema: 'klebb.datafile.v1',
+          meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'generic-card' } },
+          data: [{ date: '2026-04-20', kg: 85 }],
+        },
+      },
+    });
+    const origWarn = console.warn;
+    let warned = '';
+    console.warn = (msg) => { warned += String(msg); };
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      const payload = JSON.stringify([{ date: '2026-04-21', kg: 86 }]);
+      registry.writeData('weight', payload);
+      const raw = fs.readFileSync(path.join(sandbox, 'data', 'weight.json'), 'utf8');
+      const parsed = JSON.parse(raw);
+      assert.ok(Array.isArray(parsed.data), 'data persisted as array, not a string');
+      assert.equal(parsed.data[0].kg, 86);
+      assert.match(warned, /rescued double-serialised/);
+    } finally {
+      console.warn = origWarn;
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('writeData throws when data is a string that parses to a scalar', () => {
+    const sandbox = createSandbox({
+      seed: {
+        'weight.json': {
+          $schema: 'klebb.datafile.v1',
+          meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'generic-card' } },
+          data: [],
+        },
+      },
+    });
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      assert.throws(() => registry.writeData('weight', '"hello"'), /must be an object or array/);
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('writeData throws when data is a string that is not valid JSON', () => {
+    const sandbox = createSandbox({
+      seed: {
+        'weight.json': {
+          $schema: 'klebb.datafile.v1',
+          meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'generic-card' } },
+          data: [],
+        },
+      },
+    });
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      assert.throws(() => registry.writeData('weight', 'not json{'), /not valid JSON/);
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('writeData throws when newData shape conflicts with declared schema.type', () => {
+    const sandbox = createSandbox({
+      seed: {
+        'mood.json': {
+          $schema: 'klebb.datafile.v1',
+          meta: { id: 'mood', label: 'Mood', view: { enabled: true, component: 'generic-card' } },
+          schema: { type: 'array' },
+          data: [],
+        },
+      },
+    });
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      assert.throws(
+        () => registry.writeData('mood', { items: [] }),
+        /schema declares type "array" but received object/,
+      );
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
   // --- Malformed manifest handling ---
 
   test('invalid JSON is silently skipped as an error', () => {
