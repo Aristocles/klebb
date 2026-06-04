@@ -896,6 +896,236 @@ agent API surface.
 
 ---
 
+## Renderer behaviour reference
+
+This section is the authoritative answer to "what does renderer X actually
+read from the manifest, and what does it write to data on user
+interaction". Use it before claiming that a manifest patch will produce
+a behaviour change — if the renderer doesn't read the field you're
+patching, the patch does nothing visible.
+
+Each entry has three parts:
+
+- **Reads** — manifest keys and data fields the renderer consults.
+- **Writes** — what the renderer puts into `data` on user interaction,
+  and which user actions trigger it.
+- **Ignores** — manifest keys the schema permits on this card but the
+  renderer does NOT consult. Patching these has no effect on this
+  renderer.
+
+The most important question per renderer is: **does this renderer's
+write path consult `meta.writeable.inputs`, or does it hardcode the
+shape?** Both patterns exist; mixing them up is the most common cause
+of "I patched the manifest and nothing changed".
+
+| Renderer | Write path consults `writeable.inputs`? |
+|----------|------------------------------------------|
+| `generic-card` | Yes |
+| `list-card` | Yes |
+| `combination-card` (edit pencil) | Yes — but on the DONOR card's inputs, not its own |
+| `prompt-modal` with `mode:"modal"` | Yes |
+| `schedule-card` (check-off ✓) | **No** — write shape is hardcoded |
+| `checklist-card` (tick) | **No** — write shape is hardcoded |
+| `prompt-modal` with `mode:"checklist"` | **No** — write shape is hardcoded |
+
+### `generic-card`
+
+**Reads:**
+- `meta.view.fallbackToLatest`, `meta.view.dateContext` (legacy alias).
+- `meta.view.display.template`, `.secondary`, `.unit`, `.emojiMap`,
+  `.emptyHeadline`, `.thresholds`, `.trendArrow.field`.
+- `meta.writeable.fromWebapp`, `.inputs[]`, `.maxReadingsPerDay`,
+  `.prefillFromLatest`, `.requireAny`.
+- Data rows by date: `{date, time?, ...templateKeys}`.
+
+**Writes:**
+- Tap the ➕ / ✏️ button → opens an `eh-input-form` built from
+  `meta.writeable.inputs`. Submit upserts a row at the viewed date.
+- With `maxReadingsPerDay > 1`, multiple rows for the same date are
+  appended (capped to N most recent).
+
+**Ignores:**
+- Any data field not referenced by the display template or the inputs
+  list. They persist in the file but neither render nor become
+  editable.
+
+### `list-card`
+
+**Reads:**
+- `meta.view.display.primaryField` (default `"name"`),
+  `.secondaryTemplate`, `.emptyMessage`.
+- `meta.writeable.inputs[]` — drives both the add form and the
+  per-row "..." edit popover. Both primary and secondary fields are
+  editable from inputs alone.
+- Data rows: free-form objects; the renderer doesn't impose a shape.
+  `added: ISO8601` is auto-stamped on row creation.
+
+**Writes:**
+- Add a row → `eh-input-form` built from `meta.writeable.inputs`.
+- Edit a row's secondary fields → same form, pre-filled from the row.
+- Delete a row → splices the row out of the array.
+- Rows do NOT carry a `date`. List-card is a permanent roster, not a
+  per-day log.
+
+**Ignores:**
+- Layout / display keys beyond the three above. The renderer always
+  shows the full roster on every viewed date.
+
+### `schedule-card`
+
+**Reads:**
+- `meta.view.colorMap` (item-name → colour map; legacy alias
+  `meta.colorMap` also accepted).
+- Data shape: `{ items: [{ name, short_name?, dose_mg?, dose_units?,
+  route?, action_label?, dose_label?, schedule, cycles[], doses[] }] }`.
+- Per-item `schedule` and `cycles[]` for the dot-grid and "scheduled
+  today / rest day / off cycle" status.
+- Per-item `doses[].{scheduledDate, takenAt, offSchedule?}` for the
+  check-off state.
+
+**Writes:**
+- Tap the ✓ checkbox on a scheduled item → appends a hardcoded entry
+  to that item's `doses[]`:
+  `{ scheduledDate: <viewed date>, takenAt: <ISO now> }`.
+  The off-schedule (dashed-border) variant adds `offSchedule: true`.
+- Untick → sets `takenAt: null` on the matching dose entry.
+
+**Ignores:**
+- `meta.writeable.inputs` — schedule-card's check-off flow does NOT
+  consult inputs. Adding fields to inputs does NOT make them appear in
+  the check-off path. Per-dose metadata beyond `{scheduledDate,
+  takenAt, offSchedule}` requires renderer changes; see
+  [issue #345](https://github.com/Aristocles/klebb/issues/345) for the
+  in-flight extension that wires inputs in via `meta.view.checkOffForm`.
+
+### `checklist-card`
+
+**Reads:**
+- Data shapes accepted: `items[]`, `{ items: [...] }`, or
+  `{ current: [...] }`.
+- Per-item: `name`, `schedule` | `cycles`, `frequency`, `day`,
+  `startDate`, `dose`, `timing`.
+- Check state: `item.doses[].{scheduledDate, takenAt}` OR
+  `item.takenDates[]` (array of ISO dates).
+
+**Writes:**
+- Tap the row checkbox → if the item has a `doses[]` array, append
+  `{ scheduledDate, takenAt }`. Otherwise append the date string to
+  `item.takenDates[]`. Both shapes hardcoded.
+
+**Ignores:**
+- `meta.writeable.inputs` — checklist-card has no input-driven write
+  path. The renderer is daily-tick only.
+
+### `combination-card`
+
+**Reads:**
+- `meta.view.layout` (`"stack"` | `"rings"`).
+- `meta.view.combines[]`: each entry is `{sourceId, role, label?,
+  accessor?, unit?, emojiMap?, goalDaily?, goalWeekly?, colour?,
+  format?}`.
+- For each `sourceId`, fetches that DONOR card's full manifest
+  (including its `meta.writeable.inputs`) and its data.
+
+**Writes:**
+- Edit pencil next to a row → opens an `eh-input-form` built from the
+  DONOR's `meta.writeable.inputs`. Save writes back into the donor's
+  data file, not the combination card. The combination card's own
+  `data` array stays empty by contract.
+- Fires a `manifest-data-changed` event so the sibling donor card on
+  screen refreshes.
+
+**Ignores:**
+- Its own `meta.writeable.inputs` (combination cards are read-only
+  windows; only donors are editable through them).
+- `data` on the combination card itself — must be `[]` (see
+  `MANIFEST-SCHEMA.md` — empty-data contract).
+
+### `markdown-doc`
+
+**Reads:**
+- `data.markdown` — a single string of CommonMark.
+
+**Writes:**
+- None from the dashboard UI. Edit the file (or use the chat agent's
+  `write_manifest_data`) to update.
+
+**Ignores:**
+- `meta.writeable` entirely — the renderer has no edit affordance.
+
+### `line-chart` (and `area-chart`, `bar-chart`)
+
+Used in `meta.trends.component`, not `meta.view.component`. Read-only
+in the Trends view.
+
+**Reads:**
+- `meta.trends.xKey`, `.yKey`, `.field`, `.series[]`, `.unit`.
+- Data rows by date for the configured field(s).
+
+**Writes:**
+- None.
+
+### `schedule-timeline`
+
+Used in `meta.trends.component` (rare) or `meta.reports.component`.
+Read-only in those views.
+
+**Reads:**
+- `meta.schedule` (single card-level cadence) OR `data.items[]` and
+  per-item `schedule` / `doses[]`.
+- `meta.reports.windowDays`, `.showPast`, `.showFuture`.
+
+**Writes:**
+- None.
+
+### `table-list`
+
+Used in `meta.reports.component`. Read-only.
+
+**Reads:**
+- `meta.reports.columns[]` (`{field, header, format?}`),
+  `.sort.{field, dir}`.
+- Data rows are surfaced as table rows.
+
+**Writes:**
+- None.
+
+### `adherence-report`
+
+Used in `meta.reports.component`. Read-only.
+
+**Reads:**
+- `data.items[].doses[]` and per-item `schedule` / `cycles[]` for the
+  expected-vs-taken calculation.
+- `meta.reports.showCompliance`, `.showInventory`.
+
+**Writes:**
+- None.
+
+### `greeting-banner`
+
+**Reads:**
+- `meta.view.slot:"top"` to claim the top banner row.
+- `meta.label`, `meta.emoji`, `meta.view.display.template`.
+
+**Writes:**
+- None.
+
+### `day-marker`
+
+Used in `meta.calendar.component`. Read-only.
+
+**Reads:**
+- `meta.calendar.marker` — static emoji string, or one of the four
+  shapes (`field-emoji`, `trend-arrow`, `threshold`, `template`)
+  documented in the Calendar markers section above.
+- Data rows for the date being painted.
+
+**Writes:**
+- None.
+
+---
+
 ## Schema version
 
 The `$schema` field identifies the manifest format. The only currently
