@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Renderer behaviour reference in `docs/CARDS.md`.** New section
+  documenting, per built-in renderer, what it reads from the manifest,
+  what it writes to data on user interaction, and what it ignores. The
+  most load-bearing fact is the table of which renderers route their
+  write path through `meta.writeable.inputs` (generic-card, list-card,
+  combination-card edit, prompt-modal in modal mode) and which
+  hardcode the write shape (schedule-card check-off, checklist-card,
+  prompt-modal in checklist mode). Refs #346.
+
 - **Hours-as-time display hint.** New optional `format: "hm"` field on
   `meta.view.combines[]` entries renders the legend value and goal as
   `H:MM` instead of decimal hours (e.g. `8.17` → `8:10`, `8` → `8:00`).
@@ -36,6 +45,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   matter what calendar day the demo is reset on. Refs #296.
 
 ### Changed
+
+- **Chat agent verifies renderer behaviour from docs first.** The
+  default system prompt now carries a "Verifying renderer behaviour"
+  section telling the agent to consult the new **Renderer behaviour
+  reference** in `docs/CARDS.md` before claiming what a built-in
+  renderer reads / writes / ignores, and to declare uncertainty
+  ("I can't verify this from the docs") when the answer isn't there.
+  Reasoning by analogy across renderers is forbidden — the fact that
+  one renderer consults `meta.writeable.inputs` is not evidence that
+  another does. Closes the failure mode where the agent confidently
+  proposed a `meta.writeable.inputs` patch for `schedule-card`'s
+  check-off path, which the renderer doesn't consult. Fixes #346.
 
 - **Chat agent stance.** The default system prompt now carries a
   short "Your stance" section that frames the user as an informed
