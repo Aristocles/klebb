@@ -139,4 +139,18 @@ describe('chat proxy injects CC schema into system prompt', () => {
     assert.match(prompt, /MANIFEST-SCHEMA\.md/);
     assert.match(prompt, /docs\/CARDS\.md/);
   });
+
+  test('system prompt tells the agent to verify renderer behaviour from docs first', async () => {
+    const res = await req(server.baseUrl, '/api/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'hello' }] },
+    });
+    assert.equal(res.status, 200);
+    const prompt = gateway.getLastPrompt();
+    assert.ok(prompt);
+    assert.match(prompt, /## Verifying renderer behaviour/);
+    assert.match(prompt, /Renderer behaviour reference/);
+    assert.match(prompt, /reason by analogy/i);
+    assert.match(prompt, /can't verify this from the docs/i);
+  });
 });
