@@ -140,6 +140,20 @@ describe('chat proxy injects CC schema into system prompt', () => {
     assert.match(prompt, /docs\/CARDS\.md/);
   });
 
+  test('system prompt exposes renderer source as a separate subsection', async () => {
+    const res = await req(server.baseUrl, '/api/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'hello' }] },
+    });
+    assert.equal(res.status, 200);
+    const prompt = gateway.getLastPrompt();
+    assert.ok(prompt);
+    assert.match(prompt, /### Documentation/);
+    assert.match(prompt, /### Renderer source/);
+    assert.match(prompt, /public\/js\/components\/eh-schedule-card\.js/);
+    assert.match(prompt, /public\/js\/components\/eh-input-form\.js/);
+  });
+
   test('system prompt tells the agent to verify renderer behaviour from docs first', async () => {
     const res = await req(server.baseUrl, '/api/chat', {
       method: 'POST',
@@ -152,5 +166,7 @@ describe('chat proxy injects CC schema into system prompt', () => {
     assert.match(prompt, /Renderer behaviour reference/);
     assert.match(prompt, /reason by analogy/i);
     assert.match(prompt, /can't verify this from the docs/i);
+    assert.match(prompt, /Docs first/);
+    assert.match(prompt, /Renderer source if the docs leave a gap/);
   });
 });
