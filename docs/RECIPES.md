@@ -730,6 +730,104 @@ and why only one pencil per donor renders.
 
 ---
 
+## Recipe 13 — Schedule-card with per-dose metadata + retroactive review
+
+For an injectable peptide cycle where you want to log WHERE you injected
+each time, AND rate how the previous site is reacting (bruise, welt,
+etch) when you log the new dose. Requires the `chips` and `chips-multi`
+input types.
+
+The two new pieces are `meta.view.checkOffForm` (which fields go on the
+new dose, which on the previous dose) and chip inputs for the actual
+options. See `docs/CARDS.md` "Schedule-card per-dose metadata" for the
+full reference.
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "peptide-cycle",
+    "label": "Peptide Cycle",
+    "emoji": "💉",
+    "order": 320,
+    "view": {
+      "enabled": true,
+      "component": "schedule-card",
+      "checkOffForm": {
+        "currentDoseFields":  ["site_side", "site_region", "site_position"],
+        "previousDoseFields": ["reactions"],
+        "previousDosePrompt": "How does the last injection site look?"
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "todayAllowed": true,
+      "pastAllowed": true,
+      "futureAllowed": false,
+      "inputs": [
+        { "key": "site_side",     "label": "Side",     "type": "chips",
+          "options": ["left", "right", "centre"] },
+        { "key": "site_region",   "label": "Region",   "type": "chips",
+          "options": ["belly", "flank", "thigh", "delt", "glute", "tricep"] },
+        { "key": "site_position", "label": "Position", "type": "chips",
+          "options": ["upper", "middle", "lower"] },
+        { "key": "reactions",     "label": "Reactions", "type": "chips-multi",
+          "options": ["none", "bruised", "red", "swollen", "itchy", "tender", "welt", "lump"] }
+      ]
+    }
+  },
+  "description": "Injectable peptide cycle with per-dose injection-site logging and retroactive reaction review on the previous dose.",
+  "data": {
+    "items": [
+      {
+        "name": "BPC-157",
+        "dose_mg": 0.25, "dose_units": "mg", "route": "subcutaneous",
+        "schedule": { "type": "daily", "times_per_day": 1, "start_date": "2026-06-01", "cycle_weeks": 6 },
+        "doses": []
+      }
+    ]
+  }
+}
+```
+
+What you see on the dashboard: tap the ✓ on a scheduled item, the row
+expands inline with a "Last: 3d ago · right belly upper" context line,
+the reaction chips for the previous site, and the side/region/position
+chips for the new dose. Submit writes the new dose with site fields
+stamped on, AND merges the reaction chips you ticked onto the previous
+dose entry.
+
+Stored shape per dose:
+
+```json
+{
+  "scheduledDate": "2026-06-08",
+  "takenAt": "2026-06-08T09:14:00Z",
+  "site_side": "left",
+  "site_region": "thigh",
+  "site_position": "upper"
+}
+```
+
+Plus, on the previous taken dose, whatever was already there + the
+reactions array:
+
+```json
+{
+  "scheduledDate": "2026-06-05",
+  "takenAt": "2026-06-05T09:30:00Z",
+  "site_side": "right",
+  "site_region": "belly",
+  "site_position": "upper",
+  "reactions": ["bruised", "itchy"]
+}
+```
+
+Schedule-cards without `meta.view.checkOffForm` keep the original
+one-tap check-off — the form-driven path is opt-in.
+
+---
+
 ## Next steps
 
 - For the full manifest spec (every field, every input type, every
