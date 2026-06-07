@@ -38,6 +38,29 @@ if (args.help || !args.label) { usage(); process.exit(args.help ? 0 : 1); }
 
 const invite = invites.createInvite({ label: args.label, expiresInDays: args.expiresInDays || 3 });
 
+// Warn loudly if the resulting config.json is owned by a uid/gid that
+// differs from the running process. This catches the Docker footgun where
+// `docker exec <container> node scripts/invite.js` runs as root and writes
+// /data/config.json as 0600 root:root, leaving the long-running klebb
+// server (UID 1001) unable to read it. See issue #301.
+try {
+  const fs = require('fs');
+  const PATHS = require('../config/paths');
+  if (typeof process.getuid === 'function') {
+    const st = fs.statSync(PATHS.CONFIG_PATH);
+    const puid = process.getuid();
+    const pgid = typeof process.getgid === 'function' ? process.getgid() : null;
+    if (st.uid !== puid || (pgid !== null && st.gid !== pgid)) {
+      process.stderr.write(
+        `[invite] WARNING: ${PATHS.CONFIG_PATH} is owned by ${st.uid}:${st.gid} but ` +
+        `this process runs as ${puid}:${pgid}. The webapp likely runs as a ` +
+        `different user and may not be able to read the file. ` +
+        `Run \`chown <webapp-user> ${PATHS.CONFIG_PATH}\` from the host.\n`
+      );
+    }
+  }
+} catch {}
+
 // Work out the registration URL
 const origin = process.env.HEALTH_ORIGIN || ENV.WEBAUTHN_ORIGIN || 'https://localhost:8080';
 
