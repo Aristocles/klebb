@@ -9,6 +9,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Chip pills as a new input type — `chips` and `chips-multi`.** Two
+  new entries in `meta.writeable.inputs[*].type` for tappable pill
+  chips. `chips` is single-select and stores the selected option's
+  value (string); tapping the selected chip clears it. `chips-multi`
+  is multi-select and stores an array of values; `required: true`
+  means at least one chip must be selected. Both share `select`'s
+  `options` shape (`["a", "b"]` or `[{value, label}]`). Used in
+  every renderer that already routes through `eh-input-form` —
+  generic-card, list-card, combination-card edit, prompt-modal in
+  modal mode. Prefer `chips` over `select` for short option lists
+  (≤ 8) where all options should be visible at once; stay on `select`
+  for long lists. Documented in `docs/CARDS.md` and
+  `MANIFEST-SCHEMA.md`. Fixes #344.
+
 - **Chat agent can fetch built-in renderer source through `read_doc`.**
   The `chat/docs.js` allowlist now exposes the twelve `eh-*.js` Lit
   components under `public/js/components/` (every built-in card

@@ -9,10 +9,17 @@
 // upserted entry).
 //
 // Input types supported:
-//   number, text, textarea, select, emoji-picker, colour, checkbox, date, time, rating
+//   number, stepper, text, textarea, select, emoji-picker, colour, checkbox,
+//   date, time, rating, chips, chips-multi
 //
 // Each input entry (in meta.writeable.inputs) has:
 //   { key, type, label?, placeholder?, required?, min?, max?, step?, options?, emojis? }
+//
+// chips / chips-multi share `select`'s `options` shape (string array, or
+// [{value, label}] for display-vs-stored splits). chips stores the
+// selected option's value as a string. chips-multi stores an array of
+// selected values; empty array = unset, and required: true means at
+// least one chip selected.
 //
 // Card renderers pass the current date (for defaulting) and any prefilled values
 // (for edit mode):
@@ -76,8 +83,14 @@ export class EhInputForm extends LitElement {
           // Sensible per-type defaults
           if (input.type === 'checkbox') s[input.key] = !!input.default;
           else if (input.type === 'number' || input.type === 'rating' || input.type === 'stepper') s[input.key] = input.default ?? null;
+          else if (input.type === 'chips-multi') s[input.key] = Array.isArray(input.default) ? [...input.default] : [];
           else if ('default' in input) s[input.key] = input.default;
           else s[input.key] = '';
+        } else if (input.type === 'chips-multi' && !Array.isArray(s[input.key])) {
+          // Coerce a non-array prefilled value (legacy single-string)
+          // to the array shape this type expects.
+          const v = s[input.key];
+          s[input.key] = (v === null || v === undefined || v === '') ? [] : [v];
         }
       }
       this._state = s;
@@ -93,6 +106,7 @@ export class EhInputForm extends LitElement {
       if (input.required) {
         const v = this._state[input.key];
         if (v === null || v === undefined || v === '') return false;
+        if (input.type === 'chips-multi' && (!Array.isArray(v) || v.length === 0)) return false;
       }
     }
     // requireAny: at least one of the listed keys must have a value.
@@ -101,7 +115,9 @@ export class EhInputForm extends LitElement {
     if (Array.isArray(this.requireAny) && this.requireAny.length > 0) {
       const hasAny = this.requireAny.some(k => {
         const v = this._state[k];
-        return v !== null && v !== undefined && v !== '';
+        if (v === null || v === undefined || v === '') return false;
+        if (Array.isArray(v)) return v.length > 0;
+        return true;
       });
       if (!hasAny) return false;
     }
@@ -233,6 +249,72 @@ export class EhInputForm extends LitElement {
               return html`<option value=${val} ?selected=${String(v) === String(val)}>${label}</option>`;
             })}
           </select>`;
+      case 'chips': {
+        // Single-select pill chips. Stores the option's `value` as a
+        // string. Tap an unselected chip to select it; tapping the
+        // selected chip again clears the value (so a non-required
+        // chips field can be left empty after a stray tap).
+        const opts = (input.options || []).map(o => (
+          typeof o === 'string' ? { value: o, label: o } : { value: o.value, label: o.label || o.value }
+        ));
+        const selectedStr = v === null || v === undefined ? '' : String(v);
+        return html`
+          <div
+            class="chip-row"
+            id=${id}
+            role="group"
+            aria-label="${input.label || input.key}"
+          >
+            ${opts.map(o => {
+              const isSel = selectedStr === String(o.value);
+              return html`
+                <button
+                  type="button"
+                  class="chip ${isSel ? 'selected' : ''}"
+                  role="button"
+                  aria-pressed=${isSel ? 'true' : 'false'}
+                  @click=${() => this._update(input.key, isSel ? '' : o.value)}
+                >${o.label}</button>
+              `;
+            })}
+          </div>`;
+      }
+      case 'chips-multi': {
+        // Multi-select pill chips. Stores an array of option values.
+        // Tap to toggle. Required: at least one chip selected.
+        const opts = (input.options || []).map(o => (
+          typeof o === 'string' ? { value: o, label: o } : { value: o.value, label: o.label || o.value }
+        ));
+        const arr = Array.isArray(v) ? v : [];
+        const selectedSet = new Set(arr.map(x => String(x)));
+        const onToggle = (val) => {
+          const sval = String(val);
+          const next = selectedSet.has(sval)
+            ? arr.filter(x => String(x) !== sval)
+            : [...arr, val];
+          this._update(input.key, next);
+        };
+        return html`
+          <div
+            class="chip-row"
+            id=${id}
+            role="group"
+            aria-label="${input.label || input.key}"
+          >
+            ${opts.map(o => {
+              const isSel = selectedSet.has(String(o.value));
+              return html`
+                <button
+                  type="button"
+                  class="chip ${isSel ? 'selected' : ''}"
+                  role="button"
+                  aria-pressed=${isSel ? 'true' : 'false'}
+                  @click=${() => onToggle(o.value)}
+                >${o.label}</button>
+              `;
+            })}
+          </div>`;
+      }
       case 'emoji-picker': {
         const emojis = input.emojis || DEFAULT_EMOJIS;
         const onPick = (i, e) => {
@@ -408,6 +490,42 @@ export class EhInputForm extends LitElement {
       border-color: var(--accent);
       background: var(--accent);
       color: var(--text-inverse, white);
+    }
+
+    /* --- Chip pills (chips / chips-multi) --- */
+    .chip-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .chip {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.12s;
+      font-family: inherit;
+      line-height: 1.2;
+    }
+    .chip:hover:not(.selected) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .chip.selected {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--text-inverse, white);
+    }
+    .chip:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .chip { transition: none; }
     }
 
     /* --- Stepper (number with −/+ buttons on either side) --- */
