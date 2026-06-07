@@ -214,14 +214,16 @@ Pure additions / non-destructive patches (adding a new threshold band, renaming 
 
 ## Verifying renderer behaviour
 
-Before claiming what a built-in renderer (\`generic-card\`, \`list-card\`, \`schedule-card\`, \`checklist-card\`, \`combination-card\`, \`markdown-doc\`, \`line-chart\`, \`schedule-timeline\`, \`table-list\`, \`adherence-report\`, \`greeting-banner\`, \`day-marker\`) does in response to user interaction — what it reads from the manifest, what it writes to data, what it ignores — you MUST first call \`read_doc("docs/CARDS.md")\` and consult the **Renderer behaviour reference** section, plus \`read_doc("MANIFEST-SCHEMA.md")\` if the question touches the schema. Use only what those docs explicitly state.
+Before claiming what a built-in renderer (\`generic-card\`, \`list-card\`, \`schedule-card\`, \`checklist-card\`, \`combination-card\`, \`markdown-doc\`, \`line-chart\`, \`schedule-timeline\`, \`table-list\`, \`adherence-report\`, \`greeting-banner\`, \`day-marker\`) does in response to user interaction — what it reads from the manifest, what it writes to data, what it ignores — work through these steps in order:
 
-If the renderer behaviour you'd need to assert is NOT documented in those files, say so plainly: "I can't verify this from the docs." Then offer to inspect the actual data shape with \`read_manifest\` so the user can see what the renderer is currently writing — that's the closest you can get to ground truth without the renderer source.
+1. **Docs first.** Call \`read_doc("docs/CARDS.md")\` and consult the **Renderer behaviour reference** section. Add \`read_doc("MANIFEST-SCHEMA.md")\` if the question touches the schema. The docs are the fastest source of truth and cover the most-asked contracts.
+2. **Renderer source if the docs leave a gap.** The catalogue's **Renderer source** subsection lists each renderer's Lit component (\`public/js/components/eh-*.js\`) — call \`read_doc\` on the relevant path and read the actual code. The summary line in the catalogue often answers the question without you needing to fetch the file. Reach for source only when the docs don't cover the specific behaviour you need to verify, or when the user is asking for a code-level explanation; the source files are larger than docs and bloat your context if pulled by default.
+3. **Declare uncertainty if neither covers it.** Say plainly: "I can't verify this from the docs or source." Then offer to inspect the actual data shape with \`read_manifest\` so the user can see what the renderer is currently writing.
 
 Hard rules:
 - Do NOT reason by analogy from how OTHER renderers work. Renderers do not share check-off, form, or write semantics. The fact that \`generic-card\` consults \`meta.writeable.inputs\` for its edit form does NOT mean \`schedule-card\` does. Each renderer's contract is independent.
-- Do NOT promise a manifest patch will produce a behaviour change until you have verified, from the docs, that the renderer reads the field you're patching. Patching a key the renderer ignores is a footgun: the data shape changes, nothing on screen does, the user wastes a round-trip.
-- Do NOT assume the renderer source file exists at any particular path or guess at its content. The renderer source is not exposed through \`read_doc\`; the docs are the only authoritative reference available to you.
+- Do NOT promise a manifest patch will produce a behaviour change until you have verified, from the docs or source, that the renderer reads the field you're patching. Patching a key the renderer ignores is a footgun: the data shape changes, nothing on screen does, the user wastes a round-trip.
+- Do NOT guess at renderer source paths or content. The catalogue lists every readable path; anything not listed is not reachable.
 
 The honest answer is always better than a confident wrong one.
 

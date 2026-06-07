@@ -67,6 +67,20 @@ describe('chat/docs.readDoc: success path', () => {
     assert.equal(res.path, 'docs/CARDS.md');
     assert.ok(res.content.length > 0);
   });
+
+  test('reads a renderer source file (eh-schedule-card.js)', () => {
+    const res = readDoc('public/js/components/eh-schedule-card.js');
+    assert.equal(res.path, 'public/js/components/eh-schedule-card.js');
+    assert.ok(res.content.length > 0);
+    assert.match(res.content, /registerRenderer\('schedule-card', 'eh-schedule-card'\)/);
+  });
+
+  test('reads eh-input-form.js (the inputs router)', () => {
+    const res = readDoc('public/js/components/eh-input-form.js');
+    assert.equal(res.path, 'public/js/components/eh-input-form.js');
+    assert.ok(res.content.length > 0);
+    assert.match(res.content, /meta\.writeable\.inputs/);
+  });
 });
 
 describe('chat/docs.readDoc: rejection path', () => {
@@ -115,6 +129,24 @@ describe('chat/docs.describeDocsCatalogue', () => {
     for (const entry of DOC_INDEX) {
       assert.ok(out.includes('`' + entry.path + '`'),
         `catalogue missing ${entry.path}`);
+    }
+  });
+
+  test('splits into Documentation and Renderer source subsections', () => {
+    const out = describeDocsCatalogue();
+    assert.match(out, /### Documentation/);
+    assert.match(out, /### Renderer source/);
+    // Documentation must appear before Renderer source so the agent
+    // reaches for docs first by default.
+    assert.ok(out.indexOf('### Documentation') < out.indexOf('### Renderer source'));
+  });
+
+  test('every renderer-source entry actually exists on disk', () => {
+    const sources = DOC_INDEX.filter(e => e.kind === 'source');
+    assert.ok(sources.length > 0, 'expected at least one source entry');
+    for (const entry of sources) {
+      assert.ok(entry.path.startsWith('public/js/components/'),
+        `source entry not under public/js/components/: ${entry.path}`);
     }
   });
 });
