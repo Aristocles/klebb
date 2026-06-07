@@ -458,8 +458,14 @@ input form renders the right widget per type.
 | `date` | date picker | — |
 | `time` | time picker | — |
 | `rating` | 1..N buttons | `min`, `max` (default 1..5) |
+| `chips` | single-select pill chips | `options: [string]` or `[{value, label}]` |
+| `chips-multi` | multi-select pill chips | `options: [string]` or `[{value, label}]` |
 
 All types support: `key` (required), `label`, `required`, `default`, `help`.
+
+**`chips` vs `select`.** Both accept the same `options` shape and store a single string value. `select` renders as a dropdown; `chips` renders as tappable pills. Prefer `chips` when the option list is short (≤ 8) and you want all options visible at once — much faster on mobile than opening a dropdown. Tapping the currently-selected chip clears the value (so a non-required chips field can be left empty after a stray tap). For long lists, stay on `select`.
+
+**`chips-multi`.** Stores an array of selected option values, in selection order. Empty array = unset. With `required: true`, validation requires at least one chip selected. Useful for tag-style fields (workout categories, mood descriptors, reaction notes) where multiple options can apply at once.
 
 **`required` on inputs.** Defaults to `false` (optional). When `required: true`:
 - The inline edit form blocks Save with an error message if the field is empty.
