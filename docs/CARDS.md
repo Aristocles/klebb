@@ -930,7 +930,8 @@ of "I patched the manifest and nothing changed".
 | `list-card` | Yes |
 | `combination-card` (edit pencil) | Yes — but on the DONOR card's inputs, not its own |
 | `prompt-modal` with `mode:"modal"` | Yes |
-| `schedule-card` (check-off ✓) | **No** — write shape is hardcoded |
+| `schedule-card` (check-off ✓) with `meta.view.checkOffForm` set | Yes — only the keys named in `currentDoseFields` / `previousDoseFields` |
+| `schedule-card` (check-off ✓) without `meta.view.checkOffForm` | **No** — write shape is hardcoded |
 | `checklist-card` (tick) | **No** — write shape is hardcoded |
 | `prompt-modal` with `mode:"checklist"` | **No** — write shape is hardcoded |
 
@@ -982,27 +983,33 @@ of "I patched the manifest and nothing changed".
 **Reads:**
 - `meta.view.colorMap` (item-name → colour map; legacy alias
   `meta.colorMap` also accepted).
+- `meta.view.checkOffForm` (optional; opts the card into the per-dose
+  metadata flow — see "schedule-card per-dose metadata" below).
+- `meta.writeable.inputs[]` — ONLY when `meta.view.checkOffForm` is
+  set. Without `checkOffForm`, inputs are ignored.
 - Data shape: `{ items: [{ name, short_name?, dose_mg?, dose_units?,
   route?, action_label?, dose_label?, schedule, cycles[], doses[] }] }`.
 - Per-item `schedule` and `cycles[]` for the dot-grid and "scheduled
   today / rest day / off cycle" status.
-- Per-item `doses[].{scheduledDate, takenAt, offSchedule?}` for the
-  check-off state.
+- Per-item `doses[].{scheduledDate, takenAt, offSchedule?, ...}` for
+  the check-off state. Additional per-dose keys are written when
+  `checkOffForm` is set.
 
-**Writes:**
+**Writes (default — no `checkOffForm`):**
 - Tap the ✓ checkbox on a scheduled item → appends a hardcoded entry
   to that item's `doses[]`:
   `{ scheduledDate: <viewed date>, takenAt: <ISO now> }`.
   The off-schedule (dashed-border) variant adds `offSchedule: true`.
 - Untick → sets `takenAt: null` on the matching dose entry.
 
-**Ignores:**
-- `meta.writeable.inputs` — schedule-card's check-off flow does NOT
-  consult inputs. Adding fields to inputs does NOT make them appear in
-  the check-off path. Per-dose metadata beyond `{scheduledDate,
-  takenAt, offSchedule}` requires renderer changes; see
-  [issue #345](https://github.com/Aristocles/klebb/issues/345) for the
-  in-flight extension that wires inputs in via `meta.view.checkOffForm`.
+**Writes (with `meta.view.checkOffForm`):**
+- Tap the ✓ checkbox → expands an inline form below the row, sourced
+  from `meta.writeable.inputs`. On Submit, writes
+  `{ scheduledDate, takenAt, ...currentDoseFields }` to a new (or
+  same-date) dose entry, and merges any `previousDoseFields` values
+  onto the most recent prior dose with a `takenAt` set
+  (retroactive review — see "schedule-card per-dose metadata" below).
+- Untick → unchanged. Always immediate, never opens the form.
 
 ### `checklist-card`
 
@@ -1129,6 +1136,132 @@ Used in `meta.calendar.component`. Read-only.
 
 **Writes:**
 - None.
+
+---
+
+## Schedule-card per-dose metadata and retroactive review
+
+`schedule-card` defaults to a one-tap check-off: tapping the ✓ stamps
+`{ scheduledDate, takenAt }` (plus `offSchedule: true` on the
+dashed-border variant) and saves. That covers basic adherence
+tracking, but some scheduled regimens want richer per-dose metadata —
+where you injected, what reaction the previous site is showing, an
+energy-after rating, a free-text note. Setting
+`meta.view.checkOffForm` opts the card into the form-driven flow.
+
+### Shape
+
+```json
+"meta": {
+  "view": {
+    "component": "schedule-card",
+    "checkOffForm": {
+      "currentDoseFields":  ["site_side", "site_region", "site_position"],
+      "previousDoseFields": ["reactions"],
+      "previousDosePrompt": "How does the last injection site look?"
+    }
+  },
+  "writeable": {
+    "fromWebapp": true,
+    "todayAllowed": true,
+    "inputs": [
+      { "key": "site_side",     "label": "Side",     "type": "chips",
+        "options": ["left", "right", "centre"] },
+      { "key": "site_region",   "label": "Region",   "type": "chips",
+        "options": ["belly", "flank", "thigh", "delt", "glute", "tricep"] },
+      { "key": "site_position", "label": "Position", "type": "chips",
+        "options": ["upper", "middle", "lower"] },
+      { "key": "reactions",     "label": "Reactions", "type": "chips-multi",
+        "options": ["none", "bruised", "red", "swollen", "itchy", "tender", "welt", "lump"] }
+    ]
+  }
+}
+```
+
+### Fields
+
+- **`currentDoseFields`** (string[]): keys whose values are stamped
+  onto the new dose entry being created when the user submits the
+  form. Each key MUST exist in `meta.writeable.inputs[]`; keys not
+  declared in inputs are ignored.
+- **`previousDoseFields`** (string[]): keys whose values are merged
+  onto the most recent PRIOR dose entry that has a `takenAt`
+  timestamp set. This is the retroactive-review channel — the user is
+  rating the previous dose's outcome (a bruise, a welt, an itch)
+  while logging the new one. If no prior taken dose exists, this
+  section is hidden and only `currentDoseFields` are surfaced.
+- **`previousDosePrompt`** (string, optional): a short label rendered
+  above the previous-dose fields. Useful when "Reactions" alone isn't
+  obviously about the previous site (e.g. "How does the last
+  injection site look?").
+
+### What the user sees
+
+Tap the ✓ on a scheduled item → the row expands inline and shows:
+
+1. A muted "Last:" line with the relative date and a summary built by
+   joining the previous dose's `currentDoseFields` values with spaces
+   (e.g. `Last: 3d ago · right belly upper`). Hidden when no prior
+   taken dose exists.
+2. The `previousDoseFields` inputs (with the optional
+   `previousDosePrompt` above them).
+3. The `currentDoseFields` inputs.
+4. Submit / Cancel.
+
+Submit writes the new dose with current-dose fields stamped on, and
+merges the previous-dose fields onto the prior dose entry. Cancel
+collapses the form without writing.
+
+### Stored shape
+
+The new dose entry:
+
+```json
+{
+  "scheduledDate": "2026-06-08",
+  "takenAt": "2026-06-08T09:14:00Z",
+  "site_side": "left",
+  "site_region": "thigh",
+  "site_position": "upper"
+}
+```
+
+The previous dose entry (after merge) has whatever it had before plus
+the `previousDoseFields` keys:
+
+```json
+{
+  "scheduledDate": "2026-06-05",
+  "takenAt": "2026-06-05T09:30:00Z",
+  "site_side": "right",
+  "site_region": "belly",
+  "site_position": "upper",
+  "reactions": ["bruised", "itchy"]
+}
+```
+
+### Edge cases
+
+- **No previous dose at all (first dose ever):** the previous-dose
+  section is hidden entirely; only `currentDoseFields` are shown.
+- **Previous scheduled dose was skipped (`takenAt: null`):** the
+  renderer walks backwards through `doses[]` to find the most recent
+  entry with `takenAt` set. If every prior entry was skipped, the
+  previous-dose section is hidden.
+- **Untick:** unchanged. Untick is always immediate and clears
+  `takenAt` on the matching dose entry; it never opens the form.
+- **Off-schedule check-off:** opens the same form, with the same
+  fields. The new dose entry carries `offSchedule: true` in addition
+  to the field values.
+- **Field key not in inputs:** ignored. The renderer reads from
+  `meta.writeable.inputs[]` and silently drops any field key listed
+  in `checkOffForm` that doesn't have a matching input declaration.
+
+### Backwards compatibility
+
+A schedule-card without `meta.view.checkOffForm` (or with an empty
+config) keeps the original one-tap check-off behaviour exactly as
+before. This is purely additive.
 
 ---
 
