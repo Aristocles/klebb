@@ -48,6 +48,7 @@ export class EhGenericCard extends EhBaseCard {
   static properties = {
     ...EhBaseCard.properties,
     _editing: { state: true },
+    _editingIndex: { state: true },
     _saving: { state: true },
     _formError: { state: true },
   };
@@ -55,8 +56,33 @@ export class EhGenericCard extends EhBaseCard {
   constructor() {
     super();
     this._editing = false;
+    // Absolute index in the data array of the row being edited, or null
+    // when the form is in "add new" mode. Only meaningful when
+    // maxReadingsPerDay > 1; ignored in the single-entry path.
+    this._editingIndex = null;
     this._saving = false;
     this._formError = null;
+  }
+
+  _maxReadingsPerDay() {
+    return this._m()?.writeable?.maxReadingsPerDay ?? 1;
+  }
+
+  // For multi-entry mode: every row whose date === this.date, paired
+  // with its absolute index in the underlying data array (so edit + delete
+  // mutate the right row even after time-sorting for display).
+  _rowsForExactDate() {
+    const rows = this._entries();
+    const sameDay = [];
+    rows.forEach((row, idx) => {
+      if (row && row.date === this.date) sameDay.push({ row, idx });
+    });
+    sameDay.sort((a, b) => {
+      const at = a.row.time || '';
+      const bt = b.row.time || '';
+      return String(at).localeCompare(String(bt));
+    });
+    return sameDay;
   }
 
   // Local aliases — don't shadow EhBaseCard's _meta getter
@@ -100,13 +126,37 @@ export class EhGenericCard extends EhBaseCard {
     return entries.find(e => e.date === this.date) || null;
   }
 
-  _openEdit() {
+  _openEdit(index = null) {
     this._editing = true;
+    this._editingIndex = (typeof index === 'number') ? index : null;
     this._formError = null;
   }
   _closeEdit() {
     this._editing = false;
+    this._editingIndex = null;
     this._formError = null;
+  }
+
+  async _onDeleteRow(index) {
+    const existing = this._entries();
+    if (index < 0 || index >= existing.length) return;
+    this._saving = true;
+    this._formError = null;
+    try {
+      const updated = existing.filter((_, i) => i !== index);
+      const r = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: updated }),
+      });
+      if (!r.ok) throw await errorFromResponse(r);
+      invalidateManifestCache(this.card.id);
+      this.data = updated;
+    } catch (err) {
+      this._formError = err.message;
+    } finally {
+      this._saving = false;
+    }
   }
 
   async _onSubmit(e) {
@@ -119,17 +169,23 @@ export class EhGenericCard extends EhBaseCard {
       if (!entry.date) entry.date = this.date;
       const existing = this._entries();
       const max = meta?.writeable?.maxReadingsPerDay ?? 1;
-
-      const sameDay = existing.filter(d => d.date === entry.date);
-      const others = existing.filter(d => d.date !== entry.date);
+      const editIdx = this._editingIndex;
 
       let updated;
-      if (max === 1) {
-        updated = [...others, entry];
+      if (max > 1 && typeof editIdx === 'number'
+          && editIdx >= 0 && editIdx < existing.length) {
+        // Replace the targeted row in place (multi-entry edit).
+        updated = existing.map((row, i) => (i === editIdx ? entry : row));
       } else {
-        const combined = [...sameDay, entry];
-        const capped = combined.slice(-max);
-        updated = [...others, ...capped];
+        const sameDay = existing.filter(d => d.date === entry.date);
+        const others = existing.filter(d => d.date !== entry.date);
+        if (max === 1) {
+          updated = [...others, entry];
+        } else {
+          const combined = [...sameDay, entry];
+          const capped = combined.slice(-max);
+          updated = [...others, ...capped];
+        }
       }
       updated.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
@@ -143,6 +199,7 @@ export class EhGenericCard extends EhBaseCard {
       invalidateManifestCache(this.card.id);
       this.data = updated;
       this._editing = false;
+      this._editingIndex = null;
     } catch (err) {
       this._formError = err.message;
     } finally {
@@ -261,6 +318,88 @@ export class EhGenericCard extends EhBaseCard {
       .card-inner { position: relative; padding-right: 4px; padding-left: 10px; }
       .err { color: #ff4466; font-size: 12px; margin-top: 6px; }
 
+      .gen-rows {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .gen-list-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 0;
+        border-top: 1px solid var(--border);
+        min-height: 36px;
+      }
+      .gen-list-row:first-child { border-top: none; }
+      .gen-list-text {
+        flex: 1;
+        min-width: 0;
+        font-size: 14px;
+        color: var(--text-primary);
+        overflow-wrap: anywhere;
+      }
+      .gen-list-secondary {
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+      .gen-list-actions {
+        display: inline-flex;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+      .gen-row-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        font-size: 13px;
+        cursor: pointer;
+        font-family: inherit;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        padding: 0;
+      }
+      .gen-row-btn:hover, .gen-row-btn:focus-visible {
+        border-color: var(--accent);
+        color: var(--accent);
+        outline: none;
+      }
+      .gen-row-btn.danger:hover, .gen-row-btn.danger:focus-visible {
+        border-color: #d0323e;
+        color: #d0323e;
+      }
+      .gen-add-row {
+        padding: 10px 0 0 0;
+        border-top: 1px dashed var(--border);
+        margin-top: 4px;
+      }
+      .gen-add-btn {
+        background: transparent;
+        border: 1px dashed var(--border);
+        color: var(--accent);
+        padding: 8px 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-family: inherit;
+        font-weight: 600;
+        width: 100%;
+      }
+      .gen-add-btn:hover {
+        border-color: var(--accent);
+        background: var(--accent-bg, rgba(0,212,170,0.05));
+      }
+      .gen-add-btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .edit-btn { transition: none; }
       }
@@ -294,6 +433,14 @@ export class EhGenericCard extends EhBaseCard {
   renderCard() {
     const meta = this._m();
     const display = this._display();
+    // When the manifest opts into multiple readings per day, render a
+    // per-day list with per-row edit/delete + an Add action. The single-
+    // entry path below is left untouched. fallbackToLatest is suppressed
+    // here: showing yesterday's *list* on Today is more confusing than
+    // helpful.
+    if (this._maxReadingsPerDay() > 1) {
+      return this._renderMultiEntry();
+    }
     // Two different resolutions:
     //   - displayEntry:  what the card headline shows. Honours
     //     fallbackToLatest on Today, so a card with no row today
@@ -415,6 +562,90 @@ export class EhGenericCard extends EhBaseCard {
             </div>` : ''}
         ` : html`
           <div class="gen-empty">${headline}</div>
+        `}
+
+        ${this._formError ? html`<div class="err">${this._formError}</div>` : ''}
+      </div>
+    `;
+  }
+
+  // Multi-entry path: render every row dated this.date as its own line,
+  // with per-row edit + delete and a separate ➕ Add control. Triggered
+  // by meta.writeable.maxReadingsPerDay > 1.
+  _renderMultiEntry() {
+    const meta = this._m();
+    const display = this._display();
+    const entries = this._entries();
+    const sameDay = this._rowsForExactDate();
+    const canWrite = this._canWrite
+      && Array.isArray(meta?.writeable?.inputs)
+      && meta.writeable.inputs.length > 0;
+
+    // When the form is open, resolve the row being edited (if any) by
+    // its absolute index in the data array. _editingIndex === null means
+    // the form is in "add new" mode.
+    const editIdx = this._editingIndex;
+    const editEntry = (typeof editIdx === 'number' && editIdx >= 0 && editIdx < entries.length)
+      ? entries[editIdx]
+      : null;
+
+    return html`
+      <div class="card-inner">
+        ${this._editing ? html`
+          <eh-input-form
+            .inputs=${meta.writeable.inputs}
+            .values=${editEntry || {}}
+            .date=${this.date}
+            .display=${display}
+            .requireAny=${meta.writeable.requireAny || null}
+            submit-label=${editEntry ? 'Update' : 'Add'}
+            ?busy=${this._saving}
+            @eh-submit=${this._onSubmit}
+            @eh-cancel=${this._closeEdit}
+          ></eh-input-form>
+        ` : html`
+          ${sameDay.length === 0 ? html`
+            <div class="gen-empty">${display.emptyHeadline || 'No entries yet'}</div>
+          ` : html`
+            <ul class="gen-rows">
+              ${sameDay.map(({ row, idx }) => {
+                const text = display.template
+                  ? renderTemplate(display.template, row, display)
+                  : (row[Object.keys(row).find(k => k !== 'date' && k !== 'added')] ?? '');
+                const sub = display.secondary
+                  ? renderTemplate(display.secondary, row, display)
+                  : '';
+                return html`
+                  <li class="gen-list-row">
+                    <div class="gen-list-text">
+                      ${text}
+                      ${sub ? html`<div class="gen-list-secondary">${sub}</div>` : ''}
+                    </div>
+                    ${canWrite ? html`
+                      <span class="gen-list-actions">
+                        <button class="gen-row-btn"
+                          @click=${() => this._openEdit(idx)}
+                          aria-label="Edit entry"
+                          title="Edit">✏️</button>
+                        <button class="gen-row-btn danger"
+                          @click=${() => this._onDeleteRow(idx)}
+                          ?disabled=${this._saving}
+                          aria-label="Delete entry"
+                          title="Delete">➖</button>
+                      </span>
+                    ` : ''}
+                  </li>
+                `;
+              })}
+            </ul>
+          `}
+          ${canWrite ? html`
+            <div class="gen-add-row">
+              <button class="gen-add-btn"
+                @click=${() => this._openEdit(null)}
+                aria-label="Add entry">➕ Add</button>
+            </div>
+          ` : ''}
         `}
 
         ${this._formError ? html`<div class="err">${this._formError}</div>` : ''}

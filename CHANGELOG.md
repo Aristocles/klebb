@@ -9,6 +9,29 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Renderer behaviour reference in `docs/CARDS.md`.** New section
+  documenting, per built-in renderer, what it reads from the manifest,
+  what it writes to data on user interaction, and what it ignores. The
+  most load-bearing fact is the table of which renderers route their
+  write path through `meta.writeable.inputs` (generic-card, list-card,
+  combination-card edit, prompt-modal in modal mode) and which
+  hardcode the write shape (schedule-card check-off, checklist-card,
+  prompt-modal in checklist mode). Refs #346.
+
+- **Hours-as-time display hint.** New optional `format: "hm"` field on
+  `meta.view.combines[]` entries renders the legend value and goal as
+  `H:MM` instead of decimal hours (e.g. `8.17` → `8:10`, `8` → `8:00`).
+  A matching `{key:hm}` modifier in the display-template engine lets
+  atomic generic-cards (e.g. `sleep-hours`) use the same conversion.
+  The on-disk shape is unchanged — manifests still store decimal
+  hours. Fixes #312.
+- **Forensic logging on the chat agent loop.** Setting `HEALTH_DEBUG=1`
+  now emits structured `[chat:<reqId>]` lines on `/api/chat` covering
+  request entry, each agent-loop iteration with gateway latency, each
+  tool dispatch with manifest id and duration, and the final outcome.
+  Off by default; structural facts only (no prompt or reply bodies are
+  logged). Closes the blind spot where a client-side timeout left the
+  journal silent. Fixes #303.
 - **Vocab support on schedule-timeline + adherence-report.** Both
   renderers now read an optional `vocab` block from their view config
   (`trends.vocab` and `reports.vocab` respectively) so a fixture can
@@ -22,6 +45,30 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   matter what calendar day the demo is reset on. Refs #296.
 
 ### Changed
+
+- **Chat agent verifies renderer behaviour from docs first.** The
+  default system prompt now carries a "Verifying renderer behaviour"
+  section telling the agent to consult the new **Renderer behaviour
+  reference** in `docs/CARDS.md` before claiming what a built-in
+  renderer reads / writes / ignores, and to declare uncertainty
+  ("I can't verify this from the docs") when the answer isn't there.
+  Reasoning by analogy across renderers is forbidden — the fact that
+  one renderer consults `meta.writeable.inputs` is not evidence that
+  another does. Closes the failure mode where the agent confidently
+  proposed a `meta.writeable.inputs` patch for `schedule-card`'s
+  check-off path, which the renderer doesn't consult. Fixes #346.
+
+- **Chat agent stance.** The default system prompt now carries a
+  short "Your stance" section that frames the user as an informed
+  adult driving their own regimen and tells the agent not to refuse
+  or hedge on peptide / supplement / dosing questions. Carve-out is
+  narrow: genuine emergencies and acute diagnosis (chest pain,
+  suspected stroke, suicidal ideation, anaphylaxis, unknown lump).
+  Without this framing the underlying model fell back to a generic
+  refusal on a fresh chat, then engaged once the user re-asked with
+  manifest-tool framing; the inconsistency erodes trust.
+  `HEALTH_SYSTEM_PROMPT` and `HEALTH_SYSTEM_PROMPT_FILE` overrides
+  still take precedence. Fixes #326.
 
 - **Demo dashboard polish.** Strength Training fixture now uses plain
   exercise names (Bench Press, Lat Pulldown, Romanian Deadlift, etc),
@@ -81,7 +128,125 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   same symmetry, and `scripts/invite.js` warns to stderr after a
   successful write if the resulting file's uid/gid does not match the
   current process. Fixes #301.
-
+- **Guard `manifests.writeData` against malformed `data` writes.** A
+  card's `data` block could be persisted as a JSON-encoded string
+  (`"data": "{...}"` instead of `"data": {...}`) when an upstream
+  caller double-serialised before write, breaking renderers. The
+  registry now coerces a string `data` value: it parses once, accepts
+  the result if it's a structured object/array (with a console warn
+  naming the manifest), and throws otherwise. When a manifest declares
+  a top-level `schema.type`, the runtime shape of the new value is
+  also checked against it before any disk write. The HTTP boundary
+  (`POST /api/manifests/:id/data`) returns 400 instead of silently
+  rescuing string `data`. Fixes #342.
+- **Modal prompt fires for hidden donor surfaced by a visible combo
+  card.** The #316 carve-out ("a hidden atomic card surfaced by a
+  visible combination card still prompts") worked in the unit-test
+  path but was undone in the live app: `checkPromptsForToday`
+  fetched data only for prompt candidates, then handed that slim
+  list to `buildPromptQueue`, whose internal `surfaced` recompute
+  no longer saw the combo card. `buildPromptQueue` now accepts a
+  pre-computed `surfaced` set, and the network wrapper passes one
+  derived from the full manifest list. Fixes #338.
+- **`generic-card` renders every entry per day when
+  `maxReadingsPerDay > 1`.** The save path already capped multiple
+  rows correctly, but the display path returned the first matching
+  row only and the UI offered a single edit/add affordance, so cards
+  intended as event logs (stool, BMs, BP across the day) silently lost
+  earlier entries from view. Cards with `maxReadingsPerDay > 1` now
+  render every row dated the current day as its own list line, sorted
+  by `time` if present, with per-row edit + delete and a separate
+  ➕ Add control. `fallbackToLatest` is suppressed in this mode (showing
+  yesterday's *list* on Today is more confusing than helpful). The
+  default `maxReadingsPerDay: 1` path is unchanged. Fixes #336.
+- **Chat-agent system prompt steers event logs at `generic-card`, not
+  `list-card`.** The renderer summary previously described `list-card`
+  as a "persistent chronological list of entries; data is `[{date,
+  ...}]`", which was wrong on both counts (`list-card` is a permanent
+  roster, rows do not carry a `date`). The agent therefore reached for
+  `list-card` whenever the user asked for any kind of repeated log,
+  and the resulting card showed every row on every day with no
+  per-date scoping. The renderer summary now matches the actual
+  contract and explicitly points event-style multi-entry logs at
+  `generic-card` with `maxReadingsPerDay`. Fixes #334.
+- **`list-card` honours the declared input type on the primary field.**
+  In edit mode the primary field was hardcoded to `<input type="text">`
+  regardless of what `writeable.inputs[primary].type` declared, so a
+  card with a `select` primary rendered as an empty text box. The
+  primary now dispatches on `type` (text, select, time, date, number,
+  textarea), and view mode resolves `{value, label}` option labels
+  before display. Existing list-cards (text primaries) are unchanged.
+  Fixes #332.
+- **"New chat" button now aborts the in-flight reply.** Clicking the
+  📝 button while a chat reply was still on the wire cleared the
+  message list but left the textarea disabled until the server eventually
+  responded (and the reply was discarded into the empty chat). The button
+  now aborts the `/api/chat` fetch, drops the loading state immediately
+  so the textarea re-enables, suppresses the spurious "Request timed
+  out" error in the freshly-cleared chat, and refocuses the input on
+  desktop. Fixes #325.
+- **`no-personal-refs` test honours gitignore.** The scanner walked
+  the working tree directly and so flagged operator-private files
+  that exist on disk but never ship (`BRIEF-FOR-CC.md`, `CLAUDE.md`,
+  `.claude/`, `data/sessions/*.json`). CI was unaffected (clean
+  checkout) but local `npm test` was noisy with up to 17 spurious
+  hits, conditioning developers to ignore the scanner. The scanner
+  now drives off `git ls-files`, so it only sees what actually
+  ships. Real residue in tracked files still fails the test.
+  Fixes #330.
+- **Chat client no longer times out on slow multi-iter turns.** The
+  chat widget aborted at 120s while the server-side tool-calling loop
+  could legitimately take longer (a single gateway hop is capped at
+  180s, and a turn can chain several). The client default now matches
+  the other long-poll routes at 600s, and both call sites use that
+  default. The matching nginx ceiling on `/api/chat` is raised
+  separately at the operator level. Fixes #323.
+- **Hidden donor cards keep their daily prompts when surfaced through
+  a combination card.** The prompt queue used to skip any card with
+  `meta.enabled: false`, even when the user had hidden the atomic card
+  only because it was rolled into a visible combination card. Now the
+  queue checks whether at least one visible combination card lists the
+  donor in its `meta.view.combines[].sourceId`; if so, the donor's
+  prompt fires as before. Hidden cards with no combo references stay
+  suppressed. Fixes #316.
+- **Voice ASR works on iOS Safari again.** `MediaRecorder` on iOS only
+  produces fragmented MP4, whose `moov` atom sits at the end of the
+  stream. The transcode helper was piping bytes into `ffmpeg -i pipe:0`,
+  which can't seek backward, so the demuxer rejected the input with
+  `Invalid data found when processing input` and the `/api/voice/asr`
+  endpoint returned 500. The helper now stages input in a tempfile
+  before invoking ffmpeg, restoring seek and unblocking iOS recordings.
+  Same helper is used by the inbox audio extractor, so that path
+  benefits too. Fixes #319.
+- **List-card row detail form no longer crashes in edit mode.** On a
+  list-card with secondary fields, tapping the per-row `…` button after
+  pressing the pencil to enter edit mode replaced the card with
+  `Render failed: Can't find variable: display`. `_renderEditMode` was
+  passing a `display` identifier to the inline `eh-input-form` that was
+  only defined in `renderCard` / `_renderViewMode`. The variable is now
+  threaded through to edit mode the same way it is to view mode.
+  Fixes #317.
+- **Voice replies no longer read markdown syntax aloud.** The
+  voice-mode chat agent is told to put plain prose in `speak`, but
+  occasionally leaks bold/italic, links, or inline code through. Fish
+  Audio then read the syntax verbatim ("asterisk asterisk bold
+  asterisk asterisk"). The TTS endpoint now sanitises text before it
+  reaches Fish: bold/italic/strike, inline + fenced code, markdown
+  links (`[label](url)` keeps the label), bare URLs, bare square
+  brackets, and leading line markers (`#`, `>`, `-`, `*`, `+`,
+  `1.`) are all stripped. Parentheses are left alone so prose like
+  "your weight (in kg) trended down" still reads naturally. Fixes #314.
+- **PWA / apple-touch-icon home-screen artwork.** The five
+  `public/icons/icon-*.png` tiles still showed the legacy "Eddz"
+  wordmark and rocket image, so adding Klebb to the iOS home screen
+  produced a bookmark with the old branding. They have been
+  regenerated from `logo-dark.png` with the dog-head mark centred on
+  the brand-dark `#0f0f1a` tile (no wordmark; iOS already prints the
+  bookmark label beneath the tile). A new
+  `scripts/regen-pwa-icons.py` makes the generation reproducible from
+  the source logo. Note: iOS caches apple-touch-icons per-bookmark,
+  so existing home-screen shortcuts must be removed and re-added
+  after deploy. Fixes #305, #307.
 - **Reports → Blood panel no longer shows `?` for every row.** The
   generic `table-list` renderer was hardcoded for the SNP finding
   shape (`gene` / `rsid` / `genotype`), so any card with a

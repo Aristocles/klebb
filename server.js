@@ -4,6 +4,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { marked } = require('marked');
 const { isAuthenticated, isAgentRequest, isPublicPath, handleAuthRoutes, isSetup } = require('./auth/webauthn');
 const PATHS = require('./config/paths');
@@ -15,6 +16,7 @@ const { listTemplates, listPrompts } = require('./server/content');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 const { transcodeToWav } = require('./voice/transcode');
+const { sanitiseForTts } = require('./voice/sanitise-for-tts');
 const { TOOL_DEFS, dispatchToolCall } = require('./chat/tools');
 const { pickEmbellishments } = require('./chat/embellish');
 const { buildDateContextBlock } = require('./chat/date-context');
@@ -34,6 +36,15 @@ const inbox = require('./ingest/pipeline');
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
 const CHAT_API_KEY = ENV.CHAT_API_KEY;
 const CHAT_MODEL = ENV.CHAT_MODEL;
+const DEBUG_LOG = ENV.DEBUG_LOG;
+
+// Forensic logging for the chat agent loop. Off by default; flip on with
+// HEALTH_DEBUG=1. Emits structural facts only (durations, counts, tool
+// names, manifest ids) so a journal grep can reconstruct a stuck turn
+// without exposing prompt or reply bodies.
+function chatLog(reqId, ...parts) {
+  if (DEBUG_LOG) console.log(`[chat:${reqId}]`, ...parts);
+}
 const CHAT_ENDPOINT = CHAT_ENDPOINT_URL ? (() => {
   const u = new URL(CHAT_ENDPOINT_URL);
   return {
@@ -290,16 +301,20 @@ function callGateway({ messages, tools }) {
 //   3. otherwise, return the assistant's text as the final reply.
 // Caps at MAX_ITERS to keep a misbehaving model from looping forever; if we
 // hit the cap we return the last text we saw (or a fallback).
-async function runAgentLoop({ systemPrompt, userMessages }) {
+async function runAgentLoop({ systemPrompt, userMessages, reqId = '-' }) {
   const MAX_ITERS = 5;
   const messages = [{ role: 'system', content: systemPrompt }, ...userMessages];
   const ctx = { touches: [] };
   let lastAssistantText = '';
   for (let i = 0; i < MAX_ITERS; i++) {
+    const gwStart = Date.now();
     const gw = await callGateway({ messages, tools: TOOL_DEFS });
+    const gwMs = Date.now() - gwStart;
     const choice = gw.choices?.[0];
     const msg = choice?.message || {};
     const finish = choice?.finish_reason;
+    const toolCount = Array.isArray(msg.tool_calls) ? msg.tool_calls.length : 0;
+    chatLog(reqId, `iter=${i} gw=${gwMs}ms finish=${finish || '-'} tools=${toolCount}`);
 
     if (typeof msg.content === 'string' && msg.content.trim()) {
       lastAssistantText = msg.content;
@@ -314,23 +329,35 @@ async function runAgentLoop({ systemPrompt, userMessages }) {
         tool_calls: msg.tool_calls,
       });
       for (const tc of msg.tool_calls) {
+        const name = tc.function?.name || '-';
+        let manifestId = '-';
+        try {
+          const args = JSON.parse(tc.function?.arguments || '{}');
+          manifestId = args.id || args.manifest?.meta?.id || '-';
+        } catch {}
+        const tStart = Date.now();
+        const result = dispatchToolCall(tc, ctx);
+        const tMs = Date.now() - tStart;
+        const ok = !/"error"\s*:/.test(result);
+        chatLog(reqId, `tool ${name} id=${manifestId} took=${tMs}ms ${ok ? 'ok' : 'err'}`);
         messages.push({
           role: 'tool',
           tool_call_id: tc.id,
-          name: tc.function?.name,
-          content: dispatchToolCall(tc, ctx),
+          name,
+          content: result,
         });
       }
       continue;
     }
 
-    return { finalText: msg.content || lastAssistantText || '', cappedOut: false, ctx };
+    return { finalText: msg.content || lastAssistantText || '', cappedOut: false, ctx, iters: i + 1 };
   }
   return {
     finalText: lastAssistantText ||
       "I wasn't able to finish that in one turn — please re-ask or be more specific.",
     cappedOut: true,
     ctx,
+    iters: MAX_ITERS,
   };
 }
 
@@ -679,6 +706,13 @@ const server = http.createServer(async (req, res) => {
         try {
           const parsed = JSON.parse(body);
           if (!('data' in parsed)) return sendJSON(res, { error: 'missing data field in body' }, 400);
+
+          // Reject pre-serialised data outright at the HTTP boundary.
+          // The registry has a rescue path as a safety net, but a string
+          // here is always a writer bug we want loud feedback on. See #342.
+          if (typeof parsed.data === 'string') {
+            return sendJSON(res, { error: 'data must be a JSON object or array, not a string' }, 400);
+          }
 
           // Safety net: if an external agent still sends date-keyed data
           // (the legacy mood/notes shape), auto-convert to array on the way in.
@@ -1509,9 +1543,14 @@ Original system prompt follows:
             return sendJSON(res, { error: 'Chat endpoint not configured' }, 503);
           }
 
-          runAgentLoop({ systemPrompt, userMessages: messages })
-            .then(({ finalText, ctx }) => {
+          const reqId = crypto.randomBytes(3).toString('hex');
+          const turnStart = Date.now();
+          chatLog(reqId, `start turns=${messages.length} voice=${!!voiceMode}`);
+
+          runAgentLoop({ systemPrompt, userMessages: messages, reqId })
+            .then(({ finalText, ctx, cappedOut, iters }) => {
               const followup = buildFollowup(ctx);
+              chatLog(reqId, `done total=${Date.now() - turnStart}ms iters=${iters} capped=${!!cappedOut}`);
               if (voiceMode) {
                 const parsedReply = extractJsonReply(finalText);
                 if (parsedReply && (parsedReply.speak || parsedReply.display)) {
@@ -1526,6 +1565,7 @@ Original system prompt follows:
             })
             .catch((e) => {
               const msg = e.message || String(e);
+              chatLog(reqId, `err total=${Date.now() - turnStart}ms ${msg.split(':')[0]}`);
               if (msg.startsWith('gateway_timeout')) {
                 console.error('Chat gateway timeout');
                 if (!res.headersSent) sendJSON(res, { error: 'Request timed out' }, 504);
@@ -1585,7 +1625,12 @@ Original system prompt follows:
           if (!text || typeof text !== 'string' || !text.trim()) {
             return sendJSON(res, { error: 'text required' }, 400);
           }
-          const capped = text.slice(0, 4000);
+          // Strip markdown / URLs so Fish doesn't read syntax aloud
+          // ("asterisk asterisk bold asterisk asterisk"). Cache keys
+          // off the cleaned text so repeated speakings hit cache.
+          const cleaned = sanitiseForTts(text);
+          if (!cleaned) return sendJSON(res, { error: 'text required' }, 400);
+          const capped = cleaned.slice(0, 4000);
           const fmt = format === 'wav' ? 'wav' : 'mp3';
           const voiceId = require('./voice/fish').getCurrentBackend ? undefined : undefined;
           const key = voiceCache.hashKey(capped, 'default', fmt);

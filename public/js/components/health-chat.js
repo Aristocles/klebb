@@ -597,6 +597,9 @@ class HealthChat extends LitElement {
     this._expanded = localStorage.getItem('klebb-chat-expanded') === '1';
     this._saveTimer = null;
     this._starterChips = null;
+    // One-shot voice arming: set when a starter prompt is pasted in,
+    // consumed (and disarmed) by the next _sendText.
+    this._voiceArmed = false;
     this._checkVoiceAvailability();
     this._checkChatConfigured();
     this._loadInstance();
@@ -704,12 +707,30 @@ class HealthChat extends LitElement {
   }
 
   async _clearHistory() {
+    // If a reply is in flight, abort it so the textarea re-enables
+    // immediately. The flag is read by _sendText / _handleRecordedBlob's
+    // catch blocks so they don't push a stale error into the cleared chat.
+    if (this._abortController) {
+      this._userAbortedChat = true;
+      this._abortController.abort();
+      this._abortController = null;
+    }
+    this._loading = false;
     stopSharedAudio();
     this._audioCache.forEach(v => { try { URL.revokeObjectURL(v.url); } catch {} });
     this._audioCache.clear();
     this._messages = [];
     this._playingMsgId = null;
+    this._voiceArmed = false;
     if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
+    // Refocus the textarea so the user can type the next message right
+    // away. Desktop only: touch keyboards re-popping is jarring.
+    this.updateComplete.then(() => {
+      if (this._recording) return;
+      if (matchMedia('(max-width: 480px)').matches) return;
+      const input = this.shadowRoot?.querySelector('.chat-input');
+      if (input && !input.disabled) input.focus();
+    });
     try {
       await fetch('/api/chat/history', { method: 'DELETE', cache: 'no-store' });
     } catch {}
@@ -844,6 +865,7 @@ class HealthChat extends LitElement {
       // prior conversation into them bleeds stale context into the reply.
       this._clearHistory();
       this._input = text;
+      this._voiceArmed = true;
       if (!this._open) this._toggle();
       this.updateComplete.then(() => {
         const input = this.shadowRoot?.querySelector('.chat-input');
@@ -881,7 +903,7 @@ class HealthChat extends LitElement {
 
   // ---------- Chat pipeline ----------
 
-  async _fetchChat(messages, voiceMode, timeoutMs = 180000) {
+  async _fetchChat(messages, voiceMode, timeoutMs = 600000) {
     if (this._abortController) this._abortController.abort();
     this._abortController = new AbortController();
     const timeoutId = setTimeout(() => this._abortController?.abort(), timeoutMs);
@@ -913,21 +935,40 @@ class HealthChat extends LitElement {
     this._loading = true;
     this._scrollToBottom();
     const chatMessages = this._messages.filter(m => m.role !== 'error');
+    // Consume the one-shot voice arming. A starter prompt paste sets
+    // _voiceArmed; the next send routes through voice mode if Fish
+    // Audio is configured. Disarm immediately so a follow-up send is
+    // text-only.
+    const useVoice = this._voiceArmed && this._voiceAvailable;
+    this._voiceArmed = false;
+    if (useVoice) primeSharedAudio();
     try {
       // Single request, generous timeout. Earlier two-phase retry was meant
       // for stale TCP sockets after visibility-change; in practice it caused
       // confusing "Gateway unavailable" errors on slow (tool-using) replies.
-      const data = await this._fetchChat(chatMessages, false, 120000);
+      const data = await this._fetchChat(chatMessages, useVoice);
       if (data.error) this._pushError(data.error);
       else {
         const extra = data.followup ? {
           followupText: data.followup.text,
           embellishments: Array.isArray(data.followup.embellishments) ? data.followup.embellishments : [],
         } : {};
-        this._addMsg('assistant', data.reply, extra);
+        if (useVoice) {
+          const speakText = data.speak || data.reply;
+          const displayText = data.reply || data.display || data.speak || '';
+          const msgId = this._addMsg('assistant', displayText, { ...extra, speakText });
+          this._scrollToBottom();
+          await this._generateAndAutoplay(msgId, speakText);
+        } else {
+          this._addMsg('assistant', data.reply, extra);
+        }
       }
     } catch (e) {
-      this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
+      if (this._userAbortedChat) {
+        this._userAbortedChat = false;
+      } else {
+        this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
+      }
     }
     this._loading = false;
     this._abortController = null;
@@ -1069,9 +1110,13 @@ class HealthChat extends LitElement {
       // Chat (voice mode)
       const chatMessages = this._messages.filter(m => m.role !== 'error');
       let replyData;
-      try { replyData = await this._fetchChat(chatMessages, true, 120000); }
+      try { replyData = await this._fetchChat(chatMessages, true); }
       catch (e) {
-        this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
+        if (this._userAbortedChat) {
+          this._userAbortedChat = false;
+        } else {
+          this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
+        }
         return;
       }
 

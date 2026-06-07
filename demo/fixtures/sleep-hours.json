@@ -15,7 +15,7 @@
           "role": "ring-segment",
           "label": "Total",
           "accessor": "hours",
-          "unit": "h",
+          "format": "hm",
           "goalDaily": 8,
           "colour": "#7aa2ff"
         },
@@ -24,7 +24,7 @@
           "role": "ring-segment",
           "label": "Deep",
           "accessor": "deep",
-          "unit": "h",
+          "format": "hm",
           "goalDaily": 1.5,
           "colour": "#5b3aa8"
         },
@@ -33,7 +33,7 @@
           "role": "ring-segment",
           "label": "REM",
           "accessor": "rem",
-          "unit": "h",
+          "format": "hm",
           "goalDaily": 1.8,
           "colour": "#d36bd0"
         },
@@ -42,7 +42,7 @@
           "role": "ring-segment",
           "label": "Light",
           "accessor": "light",
-          "unit": "h",
+          "format": "hm",
           "goalDaily": 4.5,
           "colour": "#54c7c7"
         }

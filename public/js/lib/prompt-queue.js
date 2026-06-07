@@ -106,21 +106,51 @@ export function allScheduledTakenForDate(data, date) {
   return scheduledCount > 0;
 }
 
+// Build the set of donor ids surfaced by at least one visible
+// combination card. A combination card lists its donors in
+// meta.view.combines[].sourceId; if the combo itself is visible, those
+// donors are effectively visible to the user even when their atomic
+// card has meta.enabled:false. See #316 — without this, hiding the
+// atomic Mood card to roll it into a combo silently kills its prompt.
+function surfacedByVisibleCombo(manifests) {
+  const out = new Set();
+  for (const card of manifests || []) {
+    const meta = card?.meta;
+    if (!meta) continue;
+    if (meta.enabled === false) continue;
+    const combines = meta.view?.combines;
+    if (!Array.isArray(combines)) continue;
+    for (const c of combines) {
+      if (c?.sourceId) out.add(c.sourceId);
+    }
+  }
+  return out;
+}
+
 // Build the queue. Pure function separated so tests can run it against
 // a synthetic manifest list without hitting the network.
+//
+// `surfaced` (optional) lets the caller pre-compute donor-visibility from
+// a wider manifest list than `manifests` itself. The network path passes
+// only candidate cards in `manifests`, so combo cards aren't there to
+// rediscover the surfacing relationship — see #338.
 export function buildPromptQueue(manifests, {
   date = todayStr(),
   storage = globalThis.localStorage,
+  surfaced = null,
 } = {}) {
   const out = [];
+  if (!surfaced) surfaced = surfacedByVisibleCombo(manifests);
   for (const card of manifests || []) {
     const meta = card?.meta;
     if (!meta) continue;
     const prompt = meta.prompt;
     if (!prompt || prompt.enabled !== true) continue;
     // Respect disabled cards at the registry level — don't nag about
-    // cards the user has hidden.
-    if (meta.enabled === false) continue;
+    // cards the user has hidden. Exception: a hidden card surfaced by
+    // a visible combination card still prompts, since the user is
+    // seeing it through the combo (#316).
+    if (meta.enabled === false && !surfaced.has(meta.id)) continue;
     if (wasShownToday(meta.id, date, storage)) continue;
     const whenMissing = prompt.whenMissing !== false; // default true
     if (whenMissing) {
@@ -158,12 +188,18 @@ export async function checkPromptsForToday() {
   // AND haven't already been shown today. This avoids a data fetch for
   // every card on the homepage every time the app loads.
   const date = todayStr();
+  // A hidden donor that's referenced by a visible combination card
+  // still warrants a prompt (#316). Compute this against the full
+  // manifest list before filtering out hidden cards.
+  const surfaced = surfacedByVisibleCombo(
+    entries.map(e => ({ meta: e.meta || e })),
+  );
   const candidates = [];
   for (const e of entries) {
     const meta = e.meta || e;
     const prompt = meta?.prompt;
     if (!prompt || prompt.enabled !== true) continue;
-    if (meta.enabled === false) continue;
+    if (meta.enabled === false && !surfaced.has(meta.id)) continue;
     if (wasShownToday(meta.id, date)) continue;
     candidates.push(meta);
   }
@@ -183,5 +219,5 @@ export async function checkPromptsForToday() {
     }
   }));
 
-  return buildPromptQueue(withData, { date });
+  return buildPromptQueue(withData, { date, surfaced });
 }
