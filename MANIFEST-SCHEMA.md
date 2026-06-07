@@ -462,6 +462,8 @@ other. Up to ~20 entries per card are reasonable. The hardcoded
 | `date` | — |
 | `time` | — |
 | `rating` | `min`, `max` (1..5 default) |
+| `chips` | `options: [string]` or `[{value,label}]` (single-select pill chips; tap selected to clear) |
+| `chips-multi` | `options: [string]` or `[{value,label}]` (multi-select pill chips; stores an array; `required` means ≥1 selected) |
 
 All support: `key` (required), `label`, `required`, `default`, `help`.
 
