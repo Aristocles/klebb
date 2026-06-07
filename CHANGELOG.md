@@ -9,6 +9,23 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Chat agent can fetch built-in renderer source through `read_doc`.**
+  The `chat/docs.js` allowlist now exposes the twelve `eh-*.js` Lit
+  components under `public/js/components/` (every built-in card
+  renderer plus `eh-input-form` and `eh-prompt-modal`) as a separate
+  "Renderer source" subsection in the system-prompt catalogue. The
+  agent reaches for docs first; renderer source is the second-stop
+  source of truth when the docs leave a gap on a specific behaviour or
+  the user asks for a code-level explanation. Each entry's one-line
+  summary states the renderer's most-asked contract fact (consults
+  `meta.writeable.inputs` vs hardcodes the write shape, primarily) so
+  the agent can usually answer without fetching the file. Same
+  allowlist + path-traversal guard + 200KB cap as before; no globbing,
+  manual entries only. The "Verifying renderer behaviour" section in
+  the system prompt is updated to a three-step ladder: docs first,
+  renderer source if the docs leave a gap, declare uncertainty
+  otherwise. Fixes #348.
+
 - **Renderer behaviour reference in `docs/CARDS.md`.** New section
   documenting, per built-in renderer, what it reads from the manifest,
   what it writes to data on user interaction, and what it ignores. The
