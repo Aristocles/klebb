@@ -24,19 +24,38 @@ const crypto = require('crypto');
 const PATHS = require('../config/paths');
 
 function _readConfig() {
+  let raw;
   try {
-    const raw = fs.readFileSync(PATHS.CONFIG_PATH, 'utf8');
+    raw = fs.readFileSync(PATHS.CONFIG_PATH, 'utf8');
+  } catch (err) {
+    if (err && err.code === 'ENOENT') return {};
+    process.stderr.write(
+      `[invites] failed to read ${PATHS.CONFIG_PATH} (${err.code || 'ERR'}): ${err.message}\n`
+    );
+    throw err;
+  }
+  try {
     return JSON.parse(raw);
-  } catch {
-    return {};
+  } catch (err) {
+    process.stderr.write(
+      `[invites] failed to parse ${PATHS.CONFIG_PATH}: ${err.message}\n`
+    );
+    throw err;
   }
 }
 
 function _writeConfig(cfg) {
   try { fs.mkdirSync(path.dirname(PATHS.CONFIG_PATH), { recursive: true }); } catch {}
   const tmp = PATHS.CONFIG_PATH + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), { mode: 0o600 });
-  fs.renameSync(tmp, PATHS.CONFIG_PATH);
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), { mode: 0o600 });
+    fs.renameSync(tmp, PATHS.CONFIG_PATH);
+  } catch (err) {
+    process.stderr.write(
+      `[invites] failed to write ${PATHS.CONFIG_PATH} (${err.code || 'ERR'}): ${err.message}\n`
+    );
+    throw err;
+  }
 }
 
 function generateCode(label) {
