@@ -9,6 +9,26 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Schedule-card per-dose metadata + retroactive review of the
+  previous dose.** Setting `meta.view.checkOffForm` opts a
+  schedule-card into a form-driven check-off: tapping the ✓ now
+  expands an inline form sourced from `meta.writeable.inputs` instead
+  of hardcoding `{scheduledDate, takenAt}`. Two ordered field lists
+  drive the form: `currentDoseFields` (stamped onto the new dose
+  entry) and `previousDoseFields` (merged onto the most recent prior
+  dose with `takenAt` set — the retroactive-review channel). Above
+  the form, a "Last:" context line summarises the previous dose's
+  current-dose-field values plus a relative date (e.g. `Last: 3d ago
+  · right belly upper`). Hidden when no prior taken dose exists. An
+  optional `previousDosePrompt` string customises the label above the
+  previous-dose inputs. Untick is unchanged and never opens the form.
+  Schedule-cards without `checkOffForm` keep the original one-tap
+  behaviour exactly as before (purely additive). Documented in
+  `docs/CARDS.md` "Schedule-card per-dose metadata" + a new recipe
+  in `docs/RECIPES.md`. Renderer-source summary in `chat/docs.js`
+  updated so the chat agent's catalogue reflects the new contract.
+  Fixes #345.
+
 - **Chip pills as a new input type — `chips` and `chips-multi`.** Two
   new entries in `meta.writeable.inputs[*].type` for tappable pill
   chips. `chips` is single-select and stores the selected option's
