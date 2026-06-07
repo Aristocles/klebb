@@ -534,7 +534,7 @@ Use one of these names in `meta.view.component` / `meta.trends.component`:
 |------|-----------|
 | `generic-card` | Zero-code headline + secondary + input form (preferred default) |
 | `list-card` | Persistent roster of items (symptoms, allergies, etc.) — rows stay until explicitly deleted |
-| `schedule-card` | Peptide/medication schedule with dot-grid visualisation |
+| `schedule-card` | Peptide/medication schedule with dot-grid visualisation. Optional `meta.view.checkOffForm` opts the card into form-driven check-off with per-dose metadata + retroactive review of the previous dose — see `docs/CARDS.md` "Schedule-card per-dose metadata". |
 | `checklist-card` | Daily checklist |
 | `markdown-doc` | Static markdown content |
 | `line-chart` | Trends line chart |

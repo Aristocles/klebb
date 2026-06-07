@@ -20,6 +20,7 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
 import { isScheduledOnDate, effectiveCycles } from '../lib/schedule.js';
 import { registerRenderer } from '../renderer-registry.js';
+import './eh-input-form.js';
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -79,6 +80,22 @@ function cycleProgress(item, dateStr) {
 }
 
 export class EhScheduleCard extends EhBaseCard {
+  // Extend the base reactive properties with one renderer-internal
+  // bit of state: which scheduled item (if any) currently has the
+  // check-off form expanded inline. The key is the item's `name` (or
+  // `short_name` if no name); only one item's form is open at a time.
+  static properties = {
+    ...EhBaseCard.properties,
+    _expandedItemKey: { state: true },
+    _formError: { state: true },
+  };
+
+  constructor() {
+    super();
+    this._expandedItemKey = null;
+    this._formError = null;
+  }
+
   static styles = [
     EhBaseCard.styles,
     css`
@@ -259,6 +276,42 @@ export class EhScheduleCard extends EhBaseCard {
         padding: 8px 0;
       }
 
+      /* --- Inline check-off form (per-dose metadata, see #345) --- */
+      .item-row { display: flex; flex-direction: column; gap: 0; }
+      .checkoff-form {
+        margin-top: 8px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-card);
+      }
+      .prev-dose {
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px dashed var(--border);
+      }
+      .prev-dose-line {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+      .prev-dose-label {
+        font-weight: 600;
+        margin-right: 4px;
+      }
+      .prev-dose-summary {
+        color: var(--text-primary);
+      }
+      .prev-dose-prompt {
+        font-size: 11px;
+        color: var(--text-muted, var(--text-secondary));
+        margin-top: 4px;
+      }
+      .form-error {
+        color: #ff4466;
+        font-size: 12px;
+        margin-top: 8px;
+      }
+
       @media (max-width: 480px) {
         .item { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 8px; }
         .ring, .ring svg { width: 40px; height: 40px; }
@@ -307,10 +360,99 @@ export class EhScheduleCard extends EhBaseCard {
     return '';
   }
 
+  // Per-dose-metadata config (see #345). When meta.view.checkOffForm is
+  // present with a non-empty currentDoseFields list, tapping ✓ expands
+  // an inline form sourced from meta.writeable.inputs instead of
+  // immediately stamping {scheduledDate, takenAt}.
+  _checkOffFormConfig() {
+    const cfg = this._config?.checkOffForm || this._meta?.checkOffForm;
+    if (!cfg || typeof cfg !== 'object') return null;
+    const current = Array.isArray(cfg.currentDoseFields) ? cfg.currentDoseFields : [];
+    const previous = Array.isArray(cfg.previousDoseFields) ? cfg.previousDoseFields : [];
+    if (current.length === 0 && previous.length === 0) return null;
+    return {
+      currentDoseFields: current,
+      previousDoseFields: previous,
+      previousDosePrompt: typeof cfg.previousDosePrompt === 'string'
+        ? cfg.previousDosePrompt : null,
+    };
+  }
+
+  _writeableInputs() {
+    const inputs = this._meta?.writeable?.inputs;
+    return Array.isArray(inputs) ? inputs : [];
+  }
+
+  // Inputs filtered to a list of keys, in the order that `keys` lists
+  // them (so the form renders previousDoseFields first, currentDoseFields
+  // second, regardless of the order in meta.writeable.inputs[]). Silently
+  // skips any field key the manifest's writeable.inputs[] doesn't
+  // actually declare.
+  _filteredInputs(keys) {
+    if (!Array.isArray(keys) || keys.length === 0) return [];
+    const byKey = new Map();
+    for (const input of this._writeableInputs()) byKey.set(input.key, input);
+    const out = [];
+    for (const key of keys) {
+      const input = byKey.get(key);
+      if (input) out.push(input);
+    }
+    return out;
+  }
+
+  // The most recent dose with a takenAt timestamp set, OR null. Walks
+  // backwards to skip scheduled-but-untaken entries (takenAt: null).
+  _findPreviousDose(item) {
+    if (!Array.isArray(item.doses)) return null;
+    for (let i = item.doses.length - 1; i >= 0; i--) {
+      const d = item.doses[i];
+      if (d && d.takenAt) return { dose: d, index: i };
+    }
+    return null;
+  }
+
+  _itemKey(item) {
+    return item.name || item.short_name || '';
+  }
+
+  _summarisePreviousDose(prevDose, currentDoseFields) {
+    if (!prevDose) return '';
+    const parts = [];
+    for (const key of currentDoseFields) {
+      const v = prevDose[key];
+      if (v === null || v === undefined || v === '') continue;
+      parts.push(Array.isArray(v) ? v.join(', ') : String(v));
+    }
+    return parts.join(' ');
+  }
+
+  _relativeDays(isoTimestamp) {
+    if (!isoTimestamp) return '';
+    const then = new Date(isoTimestamp);
+    if (Number.isNaN(then.getTime())) return '';
+    const today = new Date(this.date + 'T00:00:00');
+    const days = Math.round((today - new Date(then.toDateString())) / 86400000);
+    if (days <= 0) return 'today';
+    if (days === 1) return 'yesterday';
+    return `${days}d ago`;
+  }
+
   async _toggleDose(item, opts = {}) {
     if (!this._canWrite) return;
     const doses = Array.isArray(item.doses) ? [...item.doses] : [];
     const idx = doses.findIndex(d => d.scheduledDate === this.date);
+    const alreadyTaken = idx >= 0 && doses[idx].takenAt;
+
+    // Form-driven path: only fires on the "take a dose" tap, never on
+    // untick. Untick clears takenAt and saves immediately, same as
+    // before. The form also skips on disable.
+    const formCfg = this._checkOffFormConfig();
+    if (formCfg && !alreadyTaken) {
+      this._formError = null;
+      this._expandedItemKey = this._itemKey(item) + (opts.offSchedule ? ':offschedule' : '');
+      return;
+    }
+
     if (idx >= 0) {
       if (doses[idx].takenAt) doses[idx] = { ...doses[idx], takenAt: null };
       else {
@@ -323,20 +465,71 @@ export class EhScheduleCard extends EhBaseCard {
       if (opts.offSchedule) entry.offSchedule = true;
       doses.push(entry);
     }
-    // Update the item in this.data.items
+    await this._persistDoses(item, doses);
+  }
+
+  async _persistDoses(item, doses) {
     const d = this.data;
     const updatedItems = d.items.map(it => it === item ? { ...it, doses } : it);
     this.data = { ...d, items: updatedItems };
     this.requestUpdate();
     try {
-      await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
+      const res = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: this.data }),
       });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`save failed: ${res.status} ${text}`);
+      }
     } catch (e) {
       console.warn('[schedule] save failed', e);
+      this._formError = e.message || 'save failed';
     }
+  }
+
+  async _submitCheckOffForm(item, opts, e) {
+    const payload = (e && e.detail) || {};
+    const formCfg = this._checkOffFormConfig();
+    if (!formCfg) return;
+
+    // Build the new dose entry. eh-input-form auto-fills `date` from
+    // its .date property — drop it; schedule-card uses scheduledDate.
+    const newDose = { scheduledDate: this.date, takenAt: new Date().toISOString() };
+    if (opts.offSchedule) newDose.offSchedule = true;
+    for (const key of formCfg.currentDoseFields) {
+      if (key in payload) newDose[key] = payload[key];
+    }
+
+    // Clone the item's doses and resolve the previous-dose merge BEFORE
+    // pushing the new one (so "previous" doesn't accidentally point at
+    // itself).
+    const doses = Array.isArray(item.doses) ? [...item.doses] : [];
+    let prev = null;
+    for (let i = doses.length - 1; i >= 0; i--) {
+      if (doses[i] && doses[i].takenAt) { prev = { dose: doses[i], index: i }; break; }
+    }
+    if (prev && formCfg.previousDoseFields.length > 0) {
+      const merged = { ...prev.dose };
+      for (const key of formCfg.previousDoseFields) {
+        if (key in payload) merged[key] = payload[key];
+      }
+      doses[prev.index] = merged;
+    }
+
+    // Replace any existing same-date dose entry, otherwise append.
+    const idx = doses.findIndex(d => d.scheduledDate === this.date);
+    if (idx >= 0) doses[idx] = newDose; else doses.push(newDose);
+
+    this._expandedItemKey = null;
+    this._formError = null;
+    await this._persistDoses(item, doses);
+  }
+
+  _cancelCheckOffForm() {
+    this._expandedItemKey = null;
+    this._formError = null;
   }
 
   _renderRing(cp, colour) {
@@ -376,6 +569,56 @@ export class EhScheduleCard extends EhBaseCard {
     `;
   }
 
+  _renderCheckOffForm(item, opts) {
+    const cfg = this._checkOffFormConfig();
+    if (!cfg) return '';
+    const all = this._writeableInputs();
+    if (all.length === 0) return '';
+    const fieldKeys = [...cfg.previousDoseFields, ...cfg.currentDoseFields];
+    const inputs = this._filteredInputs(fieldKeys);
+    if (inputs.length === 0) return '';
+
+    const prev = this._findPreviousDose(item);
+    const summary = prev ? this._summarisePreviousDose(prev.dose, cfg.currentDoseFields) : '';
+    const ago = prev ? this._relativeDays(prev.dose.takenAt) : '';
+    const showPrevContext = !!(prev && (summary || cfg.previousDoseFields.length > 0));
+
+    // If there is no previous dose, hide the previous-dose fields by
+    // restricting the form to currentDoseFields only.
+    const visibleInputs = prev
+      ? inputs
+      : this._filteredInputs(cfg.currentDoseFields);
+
+    const onSubmit = (e) => this._submitCheckOffForm(item, opts, e);
+    const onCancel = () => this._cancelCheckOffForm();
+
+    return html`
+      <div class="checkoff-form">
+        ${showPrevContext ? html`
+          <div class="prev-dose">
+            <div class="prev-dose-line">
+              <span class="prev-dose-label">Last:</span>
+              <span class="prev-dose-summary">${ago}${summary ? ' · ' + summary : ''}</span>
+            </div>
+            ${cfg.previousDosePrompt ? html`
+              <div class="prev-dose-prompt">${cfg.previousDosePrompt}</div>
+            ` : ''}
+          </div>
+        ` : ''}
+        <eh-input-form
+          .inputs=${visibleInputs}
+          .values=${{}}
+          .date=${this.date}
+          submit-label=${opts.offSchedule ? 'Log off-schedule dose' : 'Log dose'}
+          cancel-label="Cancel"
+          @eh-submit=${onSubmit}
+          @eh-cancel=${onCancel}
+        ></eh-input-form>
+        ${this._formError ? html`<div class="form-error">${this._formError}</div>` : ''}
+      </div>
+    `;
+  }
+
   renderCard() {
     const items = this._items;
     if (items.length === 0) return html`<div class="empty">Nothing scheduled.</div>`;
@@ -396,36 +639,44 @@ export class EhScheduleCard extends EhBaseCard {
           const doseEntry = Array.isArray(item.doses)
             ? item.doses.find(d => d.scheduledDate === this.date) : null;
           const isOffScheduleTaken = !!(taken && (isRestToday || doseEntry?.offSchedule));
+          const itemKey = this._itemKey(item);
+          const formKey = this._expandedItemKey;
+          const formExpandedScheduled = formKey === itemKey;
+          const formExpandedOffSchedule = formKey === itemKey + ':offschedule';
           return html`
-            <div class="item">
-              ${this._renderRing(cp, colour)}
-              <div class="info">
-                <div class="name">${item.short_name || item.name}</div>
-                ${isScheduledToday ? html`<div class="dose">${this._doseLabel(item)}${item.dose_units ? ' · ' + item.dose_units + 'u' : ''}</div>` : ''}
-                <div class="cycle-text">
-                  ${cp.type === 'off' ? 'Off cycle' : 'Cycle'} · Day ${cp.day}${cp.total ? ' of ' + cp.total : ''}
+            <div class="item-row">
+              <div class="item">
+                ${this._renderRing(cp, colour)}
+                <div class="info">
+                  <div class="name">${item.short_name || item.name}</div>
+                  ${isScheduledToday ? html`<div class="dose">${this._doseLabel(item)}${item.dose_units ? ' · ' + item.dose_units + 'u' : ''}</div>` : ''}
+                  <div class="cycle-text">
+                    ${cp.type === 'off' ? 'Off cycle' : 'Cycle'} · Day ${cp.day}${cp.total ? ' of ' + cp.total : ''}
+                  </div>
+                  ${this._renderWeekDots(item, colour)}
                 </div>
-                ${this._renderWeekDots(item, colour)}
+                <div class="right">
+                  ${chip ? html`<span class="chip ${chip.cls}">${chip.text}</span>` : ''}
+                  ${isScheduledToday ? html`
+                    <div
+                      class="checkbox ${taken ? 'checked' : ''} ${this._canWrite ? '' : 'disabled'}"
+                      @click=${() => this._toggleDose(item)}
+                      role="button"
+                      aria-label="mark ${item.name} taken"
+                    ></div>
+                  ` : isRestToday ? html`
+                    <div
+                      class="checkbox off-schedule ${isOffScheduleTaken ? 'checked' : ''} ${this._canWrite ? '' : 'disabled'}"
+                      @click=${() => this._toggleDose(item, { offSchedule: true })}
+                      role="button"
+                      aria-label="log extra ${item.name} dose (off-schedule)"
+                      title="Log an off-schedule dose"
+                    ></div>
+                  ` : ''}
+                </div>
               </div>
-              <div class="right">
-                ${chip ? html`<span class="chip ${chip.cls}">${chip.text}</span>` : ''}
-                ${isScheduledToday ? html`
-                  <div
-                    class="checkbox ${taken ? 'checked' : ''} ${this._canWrite ? '' : 'disabled'}"
-                    @click=${() => this._toggleDose(item)}
-                    role="button"
-                    aria-label="mark ${item.name} taken"
-                  ></div>
-                ` : isRestToday ? html`
-                  <div
-                    class="checkbox off-schedule ${isOffScheduleTaken ? 'checked' : ''} ${this._canWrite ? '' : 'disabled'}"
-                    @click=${() => this._toggleDose(item, { offSchedule: true })}
-                    role="button"
-                    aria-label="log extra ${item.name} dose (off-schedule)"
-                    title="Log an off-schedule dose"
-                  ></div>
-                ` : ''}
-              </div>
+              ${formExpandedScheduled ? this._renderCheckOffForm(item, { offSchedule: false }) : ''}
+              ${formExpandedOffSchedule ? this._renderCheckOffForm(item, { offSchedule: true }) : ''}
             </div>
           `;
         })}
