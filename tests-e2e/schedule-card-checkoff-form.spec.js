@@ -413,24 +413,109 @@ test.describe('#359: previous-dose section is visually separated from new-dose f
     const orderedSelectors = await innerForm.evaluate((root) => {
       const sr = root.shadowRoot;
       if (!sr) return [];
-      // The form's render uses .field wrappers + hr.form-divider.
-      const els = Array.from(sr.querySelectorAll('.field, hr.form-divider'));
+      // The form's render uses .field wrappers + hr.form-divider +
+      // .form-section-label (the optional new-dose heading).
+      const els = Array.from(sr.querySelectorAll('.field, hr.form-divider, .form-section-label'));
       return els.map(el => {
         if (el.tagName === 'HR') return 'divider';
+        if (el.classList.contains('form-section-label')) return 'heading:' + el.textContent.trim();
         const label = el.querySelector('label');
         return label ? label.textContent.trim() : '(no-label)';
       });
     });
-    // Expected order: Reactions, divider, Side, Region, Position.
+    // Expected order: Reactions, divider, heading, Side, Region, Position.
     // Stripping the trailing " *" required marker (none of our chips
     // are required, so this is a no-op, but defensive).
     const cleaned = orderedSelectors.map(s => s.replace(/\s*\*\s*$/, ''));
     const reactionsIdx = cleaned.indexOf('Reactions');
     const dividerIdx = cleaned.indexOf('divider');
+    const headingIdx = cleaned.findIndex(s => s.startsWith('heading:'));
     const sideIdx = cleaned.indexOf('Side');
     expect(reactionsIdx).toBeGreaterThanOrEqual(0);
     expect(dividerIdx).toBe(reactionsIdx + 1);
-    expect(sideIdx).toBe(dividerIdx + 1);
+    // The heading sits between the divider and the first new-dose
+    // field. The default fallback when currentDosePrompt is unset is
+    // "This dose"; the seed manifest in this spec does NOT set it,
+    // so we expect the fallback.
+    expect(headingIdx).toBe(dividerIdx + 1);
+    expect(cleaned[headingIdx]).toBe('heading:This dose');
+    expect(sideIdx).toBe(headingIdx + 1);
+
+    await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
+  });
+});
+
+test.describe('#361: new-dose section is labelled by currentDosePrompt', () => {
+  test('manifest currentDosePrompt overrides the "This dose" fallback', async ({ page, sandboxState }) => {
+    // Seed a variant with currentDosePrompt set explicitly.
+    const today = todayISO();
+    const startDate = shiftDays(today, -10);
+    const priorDoseDate = shiftDays(today, -3);
+    const m = {
+      $schema: 'klebb.datafile.v1',
+      meta: {
+        id: CARD_ID,
+        label: 'Peptide check-off (e2e)',
+        emoji: '💉',
+        order: 9202,
+        category: 'protocols',
+        view: {
+          enabled: true,
+          component: 'schedule-card',
+          checkOffForm: {
+            currentDoseFields: ['site_side', 'site_region', 'site_position'],
+            previousDoseFields: ['reactions'],
+            previousDosePrompt: 'How does the last injection site look?',
+            currentDosePrompt: 'This injection',
+          },
+        },
+        writeable: {
+          fromWebapp: true, todayAllowed: true, pastAllowed: true, futureAllowed: false,
+          inputs: [
+            { key: 'site_side',     label: 'Side',     type: 'chips',
+              options: ['left', 'right', 'centre'] },
+            { key: 'site_region',   label: 'Region',   type: 'chips',
+              options: ['belly', 'flank', 'thigh'] },
+            { key: 'site_position', label: 'Position', type: 'chips',
+              options: ['upper', 'middle', 'lower'] },
+            { key: 'reactions',     label: 'Reactions', type: 'chips-multi',
+              options: ['bruised', 'red', 'itchy'] },
+          ],
+        },
+      },
+      description: 'currentDosePrompt visibility test (#361).',
+      data: {
+        items: [
+          {
+            name: 'TestPeptide-361',
+            schedule: { type: 'daily', start_date: startDate, cycle_weeks: 4 },
+            doses: [
+              {
+                scheduledDate: priorDoseDate,
+                takenAt: `${priorDoseDate}T08:00:00Z`,
+                site_side: 'right', site_region: 'belly', site_position: 'upper',
+              },
+            ],
+          },
+        ],
+      },
+    };
+    await seed(page.request, sandboxState.baseUrl, m);
+
+    await page.goto('/');
+    const card = page.locator(`[data-card-id="${CARD_ID}"] eh-schedule-card`);
+    await expect(card).toBeVisible({ timeout: 10_000 });
+
+    await card.locator('.checkbox').first().click();
+    const innerForm = card.locator('.checkoff-form eh-input-form');
+    await expect(innerForm).toBeVisible();
+
+    // Read the rendered heading text from inside the shadow root.
+    const heading = await innerForm.evaluate(root => {
+      const el = root.shadowRoot && root.shadowRoot.querySelector('.form-section-label');
+      return el ? el.textContent.trim() : null;
+    });
+    expect(heading).toBe('This injection');
 
     await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
   });

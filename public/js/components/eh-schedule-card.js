@@ -393,6 +393,8 @@ export class EhScheduleCard extends EhBaseCard {
       previousDoseFields: previous,
       previousDosePrompt: typeof cfg.previousDosePrompt === 'string'
         ? cfg.previousDosePrompt : null,
+      currentDosePrompt: typeof cfg.currentDosePrompt === 'string'
+        ? cfg.currentDosePrompt : null,
     };
   }
 
@@ -657,6 +659,14 @@ export class EhScheduleCard extends EhBaseCard {
     const dividerAfterKey = (cfg.previousDoseFields.length > 0 && prev)
       ? cfg.previousDoseFields[cfg.previousDoseFields.length - 1]
       : '';
+    // The new-dose section gets a small heading right after the
+    // divider so users know what those fields describe. Use the
+    // manifest's currentDosePrompt if set; otherwise fall back to a
+    // generic "This dose". Only when the divider exists; without a
+    // divider there's nothing to label.
+    const dividerLabel = dividerAfterKey
+      ? (cfg.currentDosePrompt || 'This dose')
+      : '';
 
     return html`
       <div class="checkoff-form">
@@ -678,6 +688,7 @@ export class EhScheduleCard extends EhBaseCard {
           submit-label=${opts.offSchedule ? 'Log off-schedule dose' : 'Log dose'}
           cancel-label="Cancel"
           divider-after-key=${dividerAfterKey}
+          divider-label=${dividerLabel}
           @eh-submit=${onSubmit}
           @eh-cancel=${onCancel}
         ></eh-input-form>
