@@ -772,7 +772,7 @@ full reference.
         { "key": "site_position", "label": "Position", "type": "chips",
           "options": ["upper", "middle", "lower"] },
         { "key": "reactions",     "label": "Reactions", "type": "chips-multi",
-          "options": ["none", "bruised", "red", "swollen", "itchy", "tender", "welt", "lump"] }
+          "options": ["bruised", "red", "swollen", "itchy", "tender", "welt", "lump"] }
       ]
     }
   },

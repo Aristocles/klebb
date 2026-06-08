@@ -1018,8 +1018,10 @@ of "I patched the manifest and nothing changed".
 - A muted summary line on the item itself for the viewed date,
   showing the dose's `currentDoseFields` and `previousDoseFields`
   values. Hidden when no logged dose exists for the date or the
-  entry carries no form-relevant values. The chips-multi reactions
-  value `"none"` is filtered from the rendered line.
+  entry carries no form-relevant values. As a defensive filter for
+  legacy data, the chips-multi value `"none"` is filtered from the
+  rendered line — but the canonical recipe omits `"none"` from the
+  reactions options entirely (absence of selection is implicit).
 
 ### `checklist-card`
 
@@ -1182,7 +1184,7 @@ energy-after rating, a free-text note. Setting
       { "key": "site_position", "label": "Position", "type": "chips",
         "options": ["upper", "middle", "lower"] },
       { "key": "reactions",     "label": "Reactions", "type": "chips-multi",
-        "options": ["none", "bruised", "red", "swollen", "itchy", "tender", "welt", "lump"] }
+        "options": ["bruised", "red", "swollen", "itchy", "tender", "welt", "lump"] }
     ]
   }
 }
@@ -1228,9 +1230,13 @@ were just logged for the viewed date. Format: current-dose values
 joined with spaces, optionally a ` · ` separator, then any
 `previousDoseFields` values joined with `, `. Same line format on
 past dates — the card becomes a per-day record, not just a check-off
-button. The `none` value in chips-multi reactions is filtered from
-the rendered line; it's implicit, either by ticking the chip or by
-leaving the field empty.
+button. The canonical recipe omits `"none"` from the reactions
+options — absence of selection is the implicit "no reaction" state,
+so a separate chip would just be a way to make the multi-select
+inconsistent (e.g. ticking `"none"` alongside `"bruised"`). For
+defensive measure the renderer also filters any legacy
+`reactions: ["none"]` value from the rendered line, so old data
+from before this change continues to render cleanly.
 
 ### Editing a logged dose
 
