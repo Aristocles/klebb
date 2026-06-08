@@ -7,6 +7,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-06-08
+
 ### Added
 
 - **Schedule-card per-dose metadata + retroactive review of the
