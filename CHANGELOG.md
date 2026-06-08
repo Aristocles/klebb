@@ -7,6 +7,31 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **`eh-input-form` accepts `divider-after-key`.** Optional attribute
+  that renders a thin horizontal separator after the input whose key
+  matches. Generic, opt-in; absent = no divider. Used by
+  schedule-card to split previous-dose fields from new-dose fields
+  visually. Refs #359.
+
+### Changed
+
+- **Schedule-card check-off form visually separates previous-dose
+  context from new-dose fields.** The "Last: ..." line + the
+  `previousDosePrompt` now render inside a tinted panel
+  (`background: var(--bg-input)`, padding, rounded corners) so it
+  reads as a discrete block. The `right thigh middle` value renders
+  at 13px font-weight 600 to stand out. The previously-rendered
+  dashed bottom border on the panel is gone — its job (separating
+  prev-dose content from new-dose fields) is now done by a
+  `divider-after-key` rendered inside `eh-input-form` after the last
+  previousDoseField. The reactions chips still sit outside the
+  panel, in normal styling, and the divider now sits below them
+  rather than above. Closes the operator-reported confusion where
+  reactions looked like just another field on today's dose despite
+  semantically belonging to dose N-1. Fixes #359.
+
 ### Changed
 
 - **`"none"` removed from the canonical reactions chips-multi

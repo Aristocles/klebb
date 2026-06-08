@@ -28,9 +28,14 @@
 //     .values=${prefilled}
 //     .date=${'2026-04-20'}
 //     submit-label="Save"
+//     divider-after-key="reactions"   // optional, see below
 //     @eh-submit=${(e) => this._saveEntry(e.detail)}
 //     @eh-cancel=${() => this._closeForm()}
 //   ></eh-input-form>
+//
+// divider-after-key (optional): render a thin horizontal separator
+// after the input whose key matches. Used by schedule-card to split
+// its previous-dose fields visually from its new-dose fields.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 
@@ -53,6 +58,11 @@ export class EhInputForm extends LitElement {
     // still apply in addition — use requireAny for the listed keys
     // instead of per-input required. See #193 Part B.
     requireAny: { type: Array, attribute: 'require-any' },
+    // When set, the form renders a thin horizontal separator after the
+    // input whose key matches. Used by schedule-card to visually group
+    // its previous-dose fields (reactions) above a divider, with the
+    // current-dose fields below. Opt-in; absent = no divider.
+    dividerAfterKey: { type: String, attribute: 'divider-after-key' },
     submitLabel: { type: String, attribute: 'submit-label' },
     cancelLabel: { type: String, attribute: 'cancel-label' },
     busy: { type: Boolean },
@@ -67,6 +77,7 @@ export class EhInputForm extends LitElement {
     this.date = null;
     this.display = null;
     this.requireAny = null;
+    this.dividerAfterKey = null;
     this.submitLabel = 'Save';
     this.cancelLabel = 'Cancel';
     this.busy = false;
@@ -637,6 +648,14 @@ export class EhInputForm extends LitElement {
     }
     .error { color: #ff4466; font-size: 12px; }
     .help { font-size: 11px; color: var(--text-muted, var(--text-secondary)); }
+    /* Opt-in section separator. Set divider-after-key="<input.key>" on
+       the host to render this after that field. Used by schedule-card
+       (#359) to split previous-dose fields from current-dose fields. */
+    hr.form-divider {
+      border: 0;
+      border-top: 1px solid var(--border);
+      margin: 4px 0 4px;
+    }
 
     @media (prefers-reduced-motion: reduce) {
       .btn, .emoji, .rating { transition: none; }
@@ -655,6 +674,8 @@ export class EhInputForm extends LitElement {
             ${this._renderInput(input)}
             ${input.help ? html`<div class="help">${input.help}</div>` : ''}
           </div>
+          ${this.dividerAfterKey && this.dividerAfterKey === input.key
+            ? html`<hr class="form-divider" />` : ''}
         `)}
         ${this._error ? html`<div class="error">${this._error}</div>` : ''}
         <div class="actions">
