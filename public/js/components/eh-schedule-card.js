@@ -153,6 +153,18 @@ export class EhScheduleCard extends EhBaseCard {
         color: var(--text-muted, var(--text-secondary));
         margin-top: 1px;
       }
+      /* Per-dose metadata summary for the viewed date — site, reactions
+         the user logged via meta.view.checkOffForm. Hidden when the
+         viewed date has no dose entry or the entry carries nothing
+         from the form's field lists. See #354. */
+      .dose-summary {
+        font-size: 11px;
+        color: var(--text-muted, var(--text-secondary));
+        margin-top: 1px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
 
       /* Week dots */
       .week {
@@ -426,6 +438,38 @@ export class EhScheduleCard extends EhBaseCard {
     return parts.join(' ');
   }
 
+  // Render the metadata of a dose entry as a one-line summary for the
+  // card body (NOT the previous-dose context line, which has its own
+  // formatter above). Two clusters: current-dose values joined with
+  // spaces, and previous-dose values joined with ", ". Clusters
+  // separated by " · ". The reactions value "none" is filtered from
+  // chips-multi arrays — it's implicit, either by ticking the chip or
+  // leaving the field empty. Returns '' when no fields carry a value.
+  _summariseDoseForCard(dose, formCfg) {
+    if (!dose || !formCfg) return '';
+    const cluster = (keys, joiner) => {
+      const out = [];
+      for (const key of keys) {
+        const v = dose[key];
+        if (v === null || v === undefined || v === '') continue;
+        if (Array.isArray(v)) {
+          const filtered = v.filter(x => x !== 'none');
+          if (filtered.length === 0) continue;
+          out.push(filtered.join(joiner));
+        } else {
+          out.push(String(v));
+        }
+      }
+      return out;
+    };
+    const current = cluster(formCfg.currentDoseFields, ' ');
+    const previous = cluster(formCfg.previousDoseFields, ', ');
+    const sections = [];
+    if (current.length > 0) sections.push(current.join(' '));
+    if (previous.length > 0) sections.push(previous.join(', '));
+    return sections.join(' · ');
+  }
+
   _relativeDays(isoTimestamp) {
     if (!isoTimestamp) return '';
     const then = new Date(isoTimestamp);
@@ -592,6 +636,15 @@ export class EhScheduleCard extends EhBaseCard {
     const onSubmit = (e) => this._submitCheckOffForm(item, opts, e);
     const onCancel = () => this._cancelCheckOffForm();
 
+    // Prefill the form when a dose entry already exists for the viewed
+    // date — lets the user edit a logged dose by re-tapping ✓ instead
+    // of having to untick + re-fill from scratch. eh-input-form's
+    // willUpdate handles chips-multi array coercion already.
+    const existingDose = Array.isArray(item.doses)
+      ? item.doses.find(d => d.scheduledDate === this.date)
+      : null;
+    const formValues = existingDose ? { ...existingDose } : {};
+
     return html`
       <div class="checkoff-form">
         ${showPrevContext ? html`
@@ -607,7 +660,7 @@ export class EhScheduleCard extends EhBaseCard {
         ` : ''}
         <eh-input-form
           .inputs=${visibleInputs}
-          .values=${{}}
+          .values=${formValues}
           .date=${this.date}
           submit-label=${opts.offSchedule ? 'Log off-schedule dose' : 'Log dose'}
           cancel-label="Cancel"
@@ -643,6 +696,9 @@ export class EhScheduleCard extends EhBaseCard {
           const formKey = this._expandedItemKey;
           const formExpandedScheduled = formKey === itemKey;
           const formExpandedOffSchedule = formKey === itemKey + ':offschedule';
+          const formCfg = this._checkOffFormConfig();
+          const doseSummary = (formCfg && doseEntry && doseEntry.takenAt)
+            ? this._summariseDoseForCard(doseEntry, formCfg) : '';
           return html`
             <div class="item-row">
               <div class="item">
@@ -653,6 +709,7 @@ export class EhScheduleCard extends EhBaseCard {
                   <div class="cycle-text">
                     ${cp.type === 'off' ? 'Off cycle' : 'Cycle'} · Day ${cp.day}${cp.total ? ' of ' + cp.total : ''}
                   </div>
+                  ${doseSummary ? html`<div class="dose-summary">${doseSummary}</div>` : ''}
                   ${this._renderWeekDots(item, colour)}
                 </div>
                 <div class="right">

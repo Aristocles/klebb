@@ -203,3 +203,175 @@ test.describe('#345: schedule-card check-off form with per-dose metadata', () =>
     await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
   });
 });
+
+test.describe('#354: schedule-card surfaces logged per-dose metadata + edit on re-tap', () => {
+  test('logged dose surfaces a summary line on the card after submit', async ({ page, sandboxState }) => {
+    const m = manifest();
+    await seed(page.request, sandboxState.baseUrl, m);
+
+    await page.goto('/');
+    const card = page.locator(`[data-card-id="${CARD_ID}"] eh-schedule-card`);
+    await expect(card).toBeVisible({ timeout: 10_000 });
+
+    await card.locator('.checkbox').first().click();
+    const form = card.locator('.checkoff-form');
+    const innerForm = form.locator('eh-input-form');
+    const chipRows = innerForm.locator('.chip-row');
+
+    // Submit with site fields + a chips-multi reaction.
+    await chipRows.nth(0).locator('.chip', { hasText: 'bruised' }).click();
+    await chipRows.nth(1).locator('.chip', { hasText: 'left' }).click();
+    await chipRows.nth(2).locator('.chip', { hasText: 'thigh' }).click();
+    await chipRows.nth(3).locator('.chip', { hasText: 'upper' }).click();
+    await innerForm.getByRole('button', { name: /log dose/i }).click();
+    await expect(form).toHaveCount(0);
+
+    // The card should now show a summary line carrying the new-dose
+    // site fields. The chips-multi `bruised` reaction sits on the
+    // PREVIOUS dose (per the merge behaviour) so it surfaces on the
+    // card's last-completed-dose line for that prior dose, not on
+    // today's summary. Today's summary is current-fields only.
+    const summary = card.locator('.dose-summary').first();
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText('left thigh upper');
+
+    await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
+  });
+
+  test('re-tapping the ✓ on a logged dose pre-fills the form for editing', async ({ page, sandboxState }) => {
+    const m = manifest();
+    await seed(page.request, sandboxState.baseUrl, m);
+
+    await page.goto('/');
+    const card = page.locator(`[data-card-id="${CARD_ID}"] eh-schedule-card`);
+    await expect(card).toBeVisible({ timeout: 10_000 });
+
+    // First submit: log "left thigh upper".
+    await card.locator('.checkbox').first().click();
+    let form = card.locator('.checkoff-form');
+    let innerForm = form.locator('eh-input-form');
+    let chipRows = innerForm.locator('.chip-row');
+    await chipRows.nth(1).locator('.chip', { hasText: 'left' }).click();
+    await chipRows.nth(2).locator('.chip', { hasText: 'thigh' }).click();
+    await chipRows.nth(3).locator('.chip', { hasText: 'upper' }).click();
+    await innerForm.getByRole('button', { name: /log dose/i }).click();
+    await expect(form).toHaveCount(0);
+
+    // Re-tap the now-checked checkbox to UNTICK first (immediate save,
+    // no form), then tap again to expand the form for editing. The
+    // dose entry persists on disk through the untick (just takenAt
+    // cleared), so the prefill should kick in.
+    await card.locator('.checkbox').first().click(); // untick
+    await card.locator('.checkbox').first().click(); // re-tick → form opens
+
+    form = card.locator('.checkoff-form');
+    await expect(form).toBeVisible();
+    innerForm = form.locator('eh-input-form');
+    chipRows = innerForm.locator('.chip-row');
+
+    // The site chips should be pre-selected from the previous submit.
+    await expect(chipRows.nth(1).locator('.chip.selected', { hasText: 'left' })).toBeVisible();
+    await expect(chipRows.nth(2).locator('.chip.selected', { hasText: 'thigh' })).toBeVisible();
+    await expect(chipRows.nth(3).locator('.chip.selected', { hasText: 'upper' })).toBeVisible();
+
+    // Edit: clear `left` (tap to deselect), pick `right` instead.
+    await chipRows.nth(1).locator('.chip.selected', { hasText: 'left' }).click();
+    await chipRows.nth(1).locator('.chip', { hasText: 'right' }).click();
+    await innerForm.getByRole('button', { name: /log dose/i }).click();
+
+    // The data file should reflect the edit, not stack a second dose.
+    const res = await page.request.get(`${sandboxState.baseUrl}/api/manifests/${CARD_ID}/data`);
+    const body = await res.json();
+    const doses = body.data.items[0].doses;
+    // The seed had 1 prior dose; we logged 1 today; total 2. The edit
+    // replaces in place, doesn't append.
+    expect(doses.length).toBe(2);
+    expect(doses[1].site_side).toBe('right');
+    expect(doses[1].site_region).toBe('thigh');
+    expect(doses[1].site_position).toBe('upper');
+
+    await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
+  });
+
+  test('reactions:["none"] is filtered from the on-card summary', async ({ page, sandboxState }) => {
+    // Seed a manifest where the prior dose ALREADY has both site
+    // fields and reactions:["none"]. The card's summary line for that
+    // prior dose's date should show site only — no `· none` suffix.
+    const today = todayISO();
+    const priorDate = shiftDays(today, -3);
+    const startDate = shiftDays(today, -10);
+    const m = {
+      $schema: 'klebb.datafile.v1',
+      meta: {
+        id: CARD_ID,
+        label: 'Chips none filtering (e2e)',
+        emoji: '💉',
+        order: 9201,
+        category: 'protocols',
+        view: {
+          enabled: true,
+          component: 'schedule-card',
+          checkOffForm: {
+            currentDoseFields: ['site_side', 'site_region', 'site_position'],
+            previousDoseFields: ['reactions'],
+          },
+        },
+        writeable: {
+          fromWebapp: true,
+          todayAllowed: true,
+          pastAllowed: true,
+          futureAllowed: false,
+          inputs: [
+            { key: 'site_side',     label: 'Side',     type: 'chips',
+              options: ['left', 'right', 'centre'] },
+            { key: 'site_region',   label: 'Region',   type: 'chips',
+              options: ['belly', 'flank', 'thigh', 'delt'] },
+            { key: 'site_position', label: 'Position', type: 'chips',
+              options: ['upper', 'middle', 'lower'] },
+            { key: 'reactions',     label: 'Reactions', type: 'chips-multi',
+              options: ['none', 'bruised', 'red', 'swollen', 'itchy'] },
+          ],
+        },
+      },
+      description: 'Reactions:["none"] visibility test (#354).',
+      data: {
+        items: [
+          {
+            name: 'Test',
+            short_name: 'T',
+            schedule: { type: 'daily', start_date: startDate, cycle_weeks: 4 },
+            doses: [
+              {
+                scheduledDate: priorDate,
+                takenAt: `${priorDate}T08:00:00Z`,
+                site_side: 'left',
+                site_region: 'thigh',
+                site_position: 'upper',
+                reactions: ['none'],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    await seed(page.request, sandboxState.baseUrl, m);
+
+    await page.goto('/');
+    const card = page.locator(`[data-card-id="${CARD_ID}"] eh-schedule-card`);
+    await expect(card).toBeVisible({ timeout: 10_000 });
+
+    // Step back to the prior date so the card surfaces THAT day's dose.
+    // Use the date-view's prev-date affordance — three taps back.
+    for (let i = 0; i < 3; i++) {
+      await page.locator('eh-date-view button[aria-label*="previous"], eh-date-view button[aria-label*="Previous"]').first().click();
+    }
+
+    const summary = card.locator('.dose-summary').first();
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText('left thigh upper');
+    // Crucially, NO " · none" suffix from reactions:["none"].
+    await expect(summary).not.toContainText('none');
+
+    await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
+  });
+});

@@ -1009,7 +1009,17 @@ of "I patched the manifest and nothing changed".
   same-date) dose entry, and merges any `previousDoseFields` values
   onto the most recent prior dose with a `takenAt` set
   (retroactive review — see "schedule-card per-dose metadata" below).
+- Re-tapping ✓ on a date that already has a dose entry opens the
+  form pre-filled with that entry's values for editing. Submit
+  replaces the entry wholesale (no second dose stacked).
 - Untick → unchanged. Always immediate, never opens the form.
+
+**Renders (with `meta.view.checkOffForm`):**
+- A muted summary line on the item itself for the viewed date,
+  showing the dose's `currentDoseFields` and `previousDoseFields`
+  values. Hidden when no logged dose exists for the date or the
+  entry carries no form-relevant values. The chips-multi reactions
+  value `"none"` is filtered from the rendered line.
 
 ### `checklist-card`
 
@@ -1211,6 +1221,29 @@ Tap the ✓ on a scheduled item → the row expands inline and shows:
 Submit writes the new dose with current-dose fields stamped on, and
 merges the previous-dose fields onto the prior dose entry. Cancel
 collapses the form without writing.
+
+After submit, a small muted summary line renders on the item itself
+(between the cycle text and the week dots) showing the values that
+were just logged for the viewed date. Format: current-dose values
+joined with spaces, optionally a ` · ` separator, then any
+`previousDoseFields` values joined with `, `. Same line format on
+past dates — the card becomes a per-day record, not just a check-off
+button. The `none` value in chips-multi reactions is filtered from
+the rendered line; it's implicit, either by ticking the chip or by
+leaving the field empty.
+
+### Editing a logged dose
+
+Tapping ✓ on a date that already has a logged dose entry now opens
+the form pre-filled from that entry's values. Edit chips, submit;
+the existing dose is replaced wholesale (no second entry stacked).
+The `previousDoseFields` merge still targets the most recent prior
+taken dose, not the entry being edited.
+
+If you'd rather drop the dose entirely, untick first (immediate save,
+clears `takenAt`); to log a fresh dose afterwards, tap ✓ again — the
+form opens pre-filled with the previously-logged values, ready to
+adjust.
 
 ### Stored shape
 
