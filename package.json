@@ -1,6 +1,6 @@
 {
   "name": "klebb",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "A file-driven personal health dashboard. Every card is a JSON file.",
   "main": "server.js",
   "scripts": {

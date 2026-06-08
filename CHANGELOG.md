@@ -7,6 +7,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-06-08
+
 ### Added
 
 - **`eh-input-form` accepts `divider-after-key`.** Optional attribute
