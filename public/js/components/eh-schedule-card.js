@@ -297,13 +297,18 @@ export class EhScheduleCard extends EhBaseCard {
         border-radius: 8px;
         background: var(--bg-card);
       }
+      /* Previous-dose section (#359). The panel marks "this is about
+         a different dose than the one being logged". The reactions
+         chips render outside the panel in normal styling, then a
+         form-divider separates them from the new-dose fields. */
       .prev-dose {
+        background: var(--bg-input, rgba(0,0,0,0.04));
+        padding: 10px 12px;
+        border-radius: 8px;
         margin-bottom: 10px;
-        padding-bottom: 10px;
-        border-bottom: 1px dashed var(--border);
       }
       .prev-dose-line {
-        font-size: 12px;
+        font-size: 13px;
         color: var(--text-secondary);
       }
       .prev-dose-label {
@@ -312,9 +317,10 @@ export class EhScheduleCard extends EhBaseCard {
       }
       .prev-dose-summary {
         color: var(--text-primary);
+        font-weight: 600;
       }
       .prev-dose-prompt {
-        font-size: 11px;
+        font-size: 12px;
         color: var(--text-muted, var(--text-secondary));
         margin-top: 4px;
       }
@@ -645,6 +651,13 @@ export class EhScheduleCard extends EhBaseCard {
       : null;
     const formValues = existingDose ? { ...existingDose } : {};
 
+    // When previousDoseFields is non-empty, render a divider after
+    // its last field so the previous-dose section (panel + reactions
+    // chips) is visually separated from the new-dose fields below.
+    const dividerAfterKey = (cfg.previousDoseFields.length > 0 && prev)
+      ? cfg.previousDoseFields[cfg.previousDoseFields.length - 1]
+      : '';
+
     return html`
       <div class="checkoff-form">
         ${showPrevContext ? html`
@@ -664,6 +677,7 @@ export class EhScheduleCard extends EhBaseCard {
           .date=${this.date}
           submit-label=${opts.offSchedule ? 'Log off-schedule dose' : 'Log dose'}
           cancel-label="Cancel"
+          divider-after-key=${dividerAfterKey}
           @eh-submit=${onSubmit}
           @eh-cancel=${onCancel}
         ></eh-input-form>
