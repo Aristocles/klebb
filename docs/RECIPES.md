@@ -756,7 +756,8 @@ full reference.
       "checkOffForm": {
         "currentDoseFields":  ["site_side", "site_region", "site_position"],
         "previousDoseFields": ["reactions"],
-        "previousDosePrompt": "How does the last injection site look?"
+        "previousDosePrompt": "How does the last injection site look?",
+        "currentDosePrompt":  "This injection"
       }
     },
     "writeable": {
