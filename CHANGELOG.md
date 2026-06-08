@@ -7,6 +7,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-06-08
+
 ### Added
 
 - **Schedule-card check-off form labels its new-dose section.** The
