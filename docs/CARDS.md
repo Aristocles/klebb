@@ -1170,7 +1170,8 @@ energy-after rating, a free-text note. Setting
     "checkOffForm": {
       "currentDoseFields":  ["site_side", "site_region", "site_position"],
       "previousDoseFields": ["reactions"],
-      "previousDosePrompt": "How does the last injection site look?"
+      "previousDosePrompt": "How does the last injection site look?",
+      "currentDosePrompt":  "This injection"
     }
   },
   "writeable": {
@@ -1206,19 +1207,30 @@ energy-after rating, a free-text note. Setting
   above the previous-dose fields. Useful when "Reactions" alone isn't
   obviously about the previous site (e.g. "How does the last
   injection site look?").
+- **`currentDosePrompt`** (string, optional): a small heading rendered
+  immediately under the form's section divider, anchoring the new-
+  dose fields. Without this, three chip rows like Side / Region /
+  Position have no framing for what they collectively describe. Only
+  rendered when the form has both previous- AND current-dose
+  sections (i.e. when there's a divider to label). Defaults to a
+  generic `"This dose"` if not set; injection cards typically want
+  `"This injection"`.
 
 ### What the user sees
 
 Tap the ✓ on a scheduled item → the row expands inline and shows:
 
-1. A muted "Last:" line with the relative date and a summary built by
-   joining the previous dose's `currentDoseFields` values with spaces
-   (e.g. `Last: 3d ago · right belly upper`). Hidden when no prior
-   taken dose exists.
-2. The `previousDoseFields` inputs (with the optional
-   `previousDosePrompt` above them).
-3. The `currentDoseFields` inputs.
-4. Submit / Cancel.
+1. A tinted previous-dose panel with a "Last:" line — the relative
+   date and a summary built by joining the previous dose's
+   `currentDoseFields` values with spaces (e.g. `Last: 3d ago ·
+   right belly upper`) — and the optional `previousDosePrompt` below
+   it. Hidden when no prior taken dose exists.
+2. The `previousDoseFields` inputs (e.g. reactions chips).
+3. A horizontal divider with a small heading
+   (`currentDosePrompt`, defaulting to "This dose") that labels the
+   new-dose section.
+4. The `currentDoseFields` inputs (e.g. side / region / position).
+5. Submit / Cancel.
 
 Submit writes the new dose with current-dose fields stamped on, and
 merges the previous-dose fields onto the prior dose entry. Cancel

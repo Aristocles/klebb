@@ -7,6 +7,24 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Schedule-card check-off form labels its new-dose section.** The
+  three site chip rows (Side / Region / Position) now sit under a
+  small heading after the form's section divider, anchoring what
+  they collectively describe. New optional
+  `meta.view.checkOffForm.currentDosePrompt` field on schedule-card
+  manifests sets the heading text; defaults to a generic
+  `"This dose"` when the field is absent. Mirrors the existing
+  `previousDosePrompt`. Only rendered when the form has both
+  previous- AND current-dose sections (i.e. when there's a divider
+  to label). Closes the operator-reported gap where the new-dose
+  section had no framing for what its chips were about. Demo
+  fixture and Recipe 13 set `"This injection"` so the canonical
+  recipe ships the more specific phrasing. The renderer's
+  `eh-input-form` gains a generic `divider-label` attribute that
+  pairs with `divider-after-key`. Fixes #361.
+
 ## [2.3.0] - 2026-06-08
 
 ### Added

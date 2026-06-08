@@ -17,7 +17,8 @@
         "previousDoseFields": [
           "reactions"
         ],
-        "previousDosePrompt": "How does the last injection site look?"
+        "previousDosePrompt": "How does the last injection site look?",
+        "currentDosePrompt": "This injection"
       }
     },
     "trends": {
