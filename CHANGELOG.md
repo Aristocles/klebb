@@ -7,6 +7,28 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Schedule-card surfaces logged per-dose metadata on the card and
+  pre-fills the form on re-tap.** Two related improvements to the
+  `meta.view.checkOffForm` flow added in v2.2.0 (#345):
+  - The values logged via the form (site, reactions, etc.) now render
+    as a small muted summary line on the item itself for the viewed
+    date, between the cycle text and the week dots. Format: current-
+    dose values joined with spaces, then ` · ` separator, then any
+    previous-dose values joined with `, `. The chips-multi reactions
+    value `"none"` is filtered from the rendered line — it's
+    implicit, either by ticking the chip or leaving the field empty.
+    The chip stays available so users can explicitly mark "I checked
+    and it was fine"; the renderer just doesn't echo it back.
+  - Re-tapping ✓ on a date that already has a dose entry opens the
+    form pre-filled with that entry's values for editing. Submit
+    replaces the entry wholesale (no second dose stacked). The
+    `previousDoseFields` merge still targets the most recent prior
+    taken dose, not the entry being edited. Closes the workflow gap
+    where editing a logged dose required ticking → unticking →
+    re-ticking → re-filling every chip from scratch. Fixes #354.
+
 ### Changed
 
 - **Demo Injections card showcases per-dose injection-site logging.**
