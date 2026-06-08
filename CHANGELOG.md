@@ -7,6 +7,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **`"none"` removed from the canonical reactions chips-multi
+  options** in `demo/fixtures/peptide-cycle.json`, `docs/RECIPES.md`
+  Recipe 13, and the `docs/CARDS.md` schedule-card per-dose metadata
+  example. The chips-multi field allows multi-select, so offering
+  `"none"` as an option meant a user could tick `"none"` alongside
+  `"bruised"` — nonsensical. Absence of selection is already the
+  implicit "no reaction" state. The renderer's defensive
+  `'none'`-filter in `_summariseDoseForCard` (#354) stays in place
+  so any legacy dose entries that already carry `reactions:
+  ["none"]` continue to render cleanly. Refs #357.
+
 ### Added
 
 - **Schedule-card surfaces logged per-dose metadata on the card and
