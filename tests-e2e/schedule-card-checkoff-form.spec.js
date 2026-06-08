@@ -375,3 +375,63 @@ test.describe('#354: schedule-card surfaces logged per-dose metadata + edit on r
     await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
   });
 });
+
+test.describe('#359: previous-dose section is visually separated from new-dose fields', () => {
+  test('form renders a divider after reactions, panel wraps the prev-dose context', async ({ page, sandboxState }) => {
+    const m = manifest();
+    await seed(page.request, sandboxState.baseUrl, m);
+
+    await page.goto('/');
+    const card = page.locator(`[data-card-id="${CARD_ID}"] eh-schedule-card`);
+    await expect(card).toBeVisible({ timeout: 10_000 });
+
+    await card.locator('.checkbox').first().click();
+    const form = card.locator('.checkoff-form');
+    await expect(form).toBeVisible();
+
+    // The "Last:" panel exists and is rendered as a discrete block
+    // (the renderer wraps it in .prev-dose).
+    const prevDose = form.locator('.prev-dose');
+    await expect(prevDose).toBeVisible();
+    await expect(prevDose).toContainText('Last:');
+    // The panel should NOT carry the old dashed bottom border. Sanity
+    // check that the new tinted background is set instead. The
+    // browser will resolve the var to whichever theme is active; we
+    // just need to confirm a non-transparent background was applied.
+    const bg = await prevDose.evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(bg).not.toBe('rgba(0, 0, 0, 0)');
+    expect(bg).not.toBe('transparent');
+
+    // The form-divider <hr> renders inside eh-input-form. Its
+    // position relative to the chip-rows is what we care about: it
+    // should sit AFTER the reactions chip-row (index 0 — see the
+    // existing #354 test for the order of chipRows) and BEFORE
+    // site_side, site_region, site_position.
+    const innerForm = form.locator('eh-input-form');
+    // Build flat lists of all chip-row + divider elements in DOM
+    // order, then assert the divider falls between row 0 and row 1.
+    const orderedSelectors = await innerForm.evaluate((root) => {
+      const sr = root.shadowRoot;
+      if (!sr) return [];
+      // The form's render uses .field wrappers + hr.form-divider.
+      const els = Array.from(sr.querySelectorAll('.field, hr.form-divider'));
+      return els.map(el => {
+        if (el.tagName === 'HR') return 'divider';
+        const label = el.querySelector('label');
+        return label ? label.textContent.trim() : '(no-label)';
+      });
+    });
+    // Expected order: Reactions, divider, Side, Region, Position.
+    // Stripping the trailing " *" required marker (none of our chips
+    // are required, so this is a no-op, but defensive).
+    const cleaned = orderedSelectors.map(s => s.replace(/\s*\*\s*$/, ''));
+    const reactionsIdx = cleaned.indexOf('Reactions');
+    const dividerIdx = cleaned.indexOf('divider');
+    const sideIdx = cleaned.indexOf('Side');
+    expect(reactionsIdx).toBeGreaterThanOrEqual(0);
+    expect(dividerIdx).toBe(reactionsIdx + 1);
+    expect(sideIdx).toBe(dividerIdx + 1);
+
+    await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
+  });
+});
