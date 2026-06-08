@@ -7,6 +7,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **Demo Injections card showcases per-dose injection-site logging.**
+  `demo/fixtures/peptide-cycle.json` now declares
+  `meta.view.checkOffForm` and the four chip inputs (side / region /
+  position + reactions) introduced in #344 / #345. Historical doses
+  on BPC-157 and Ozempic are annotated with plausible rotation
+  patterns and the occasional `bruised` / `tender` / `red, itchy`
+  reaction so the "Last:" context line renders something real when
+  a visitor taps ✓ on demo.klebb.app. Insulin's last six doses are
+  annotated; the 24 older daily entries stay bare. Refs #352.
+
 ## [2.2.0] - 2026-06-08
 
 ### Added

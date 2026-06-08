@@ -7,7 +7,12 @@
     "order": 300,
     "view": {
       "enabled": true,
-      "component": "schedule-card"
+      "component": "schedule-card",
+      "checkOffForm": {
+        "currentDoseFields": ["site_side", "site_region", "site_position"],
+        "previousDoseFields": ["reactions"],
+        "previousDosePrompt": "How does the last injection site look?"
+      }
     },
     "trends": {
       "enabled": true,
@@ -28,7 +33,17 @@
       "fromWebapp": true,
       "pastAllowed": true,
       "todayAllowed": true,
-      "futureAllowed": false
+      "futureAllowed": false,
+      "inputs": [
+        { "key": "site_side",     "label": "Side",     "type": "chips",
+          "options": ["left", "right", "centre"] },
+        { "key": "site_region",   "label": "Region",   "type": "chips",
+          "options": ["belly", "flank", "thigh", "delt", "glute", "tricep"] },
+        { "key": "site_position", "label": "Position", "type": "chips",
+          "options": ["upper", "middle", "lower"] },
+        { "key": "reactions",     "label": "Reactions", "type": "chips-multi",
+          "options": ["none", "bruised", "red", "swollen", "itchy", "tender", "welt", "lump"] }
+      ]
     }
   },
   "description": "Injectables tracked together: BPC-157 (peptide healing protocol), semaglutide (weekly GLP-1), and basal insulin (daily). Each item carries its own schedule and cycle, so the schedule-card and adherence-report both render multi-protocol histories cleanly.",
@@ -56,15 +71,32 @@
           }
         ],
         "doses": [
-          { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T08:14:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-19__", "takenAt": "__OFFSET_DAYS:-19__T08:02:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-17__", "takenAt": "__OFFSET_DAYS:-17__T08:30:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-14__", "takenAt": "__OFFSET_DAYS:-14__T07:55:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-12__", "takenAt": "__OFFSET_DAYS:-12__T08:11:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-10__", "takenAt": "__OFFSET_DAYS:-10__T08:24:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-7__", "takenAt": "__OFFSET_DAYS:-7__T08:08:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-5__", "takenAt": "__OFFSET_DAYS:-5__T08:33:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-3__", "takenAt": "__OFFSET_DAYS:-3__T07:48:00" }
+          { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T08:14:00",
+            "site_side": "left",  "site_region": "belly", "site_position": "upper" },
+          { "scheduledDate": "__OFFSET_DAYS:-19__", "takenAt": "__OFFSET_DAYS:-19__T08:02:00",
+            "site_side": "right", "site_region": "belly", "site_position": "upper",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-17__", "takenAt": "__OFFSET_DAYS:-17__T08:30:00",
+            "site_side": "left",  "site_region": "belly", "site_position": "lower",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-14__", "takenAt": "__OFFSET_DAYS:-14__T07:55:00",
+            "site_side": "right", "site_region": "belly", "site_position": "lower",
+            "reactions": ["bruised"] },
+          { "scheduledDate": "__OFFSET_DAYS:-12__", "takenAt": "__OFFSET_DAYS:-12__T08:11:00",
+            "site_side": "left",  "site_region": "flank", "site_position": "middle",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-10__", "takenAt": "__OFFSET_DAYS:-10__T08:24:00",
+            "site_side": "right", "site_region": "flank", "site_position": "middle",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-7__",  "takenAt": "__OFFSET_DAYS:-7__T08:08:00",
+            "site_side": "left",  "site_region": "belly", "site_position": "upper",
+            "reactions": ["red", "itchy"] },
+          { "scheduledDate": "__OFFSET_DAYS:-5__",  "takenAt": "__OFFSET_DAYS:-5__T08:33:00",
+            "site_side": "right", "site_region": "belly", "site_position": "upper",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-3__",  "takenAt": "__OFFSET_DAYS:-3__T07:48:00",
+            "site_side": "left",  "site_region": "flank", "site_position": "middle",
+            "reactions": ["none"] }
         ]
       },
       {
@@ -89,14 +121,29 @@
           }
         ],
         "doses": [
-          { "scheduledDate": "__OFFSET_DAYS:-56__", "takenAt": "__OFFSET_DAYS:-56__T19:42:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-49__", "takenAt": "__OFFSET_DAYS:-49__T20:05:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-42__", "takenAt": "__OFFSET_DAYS:-42__T19:11:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-35__", "takenAt": "__OFFSET_DAYS:-35__T19:48:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-28__", "takenAt": "__OFFSET_DAYS:-28__T20:21:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T19:34:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-14__", "takenAt": "__OFFSET_DAYS:-14__T19:50:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-7__", "takenAt": "__OFFSET_DAYS:-7__T20:08:00" }
+          { "scheduledDate": "__OFFSET_DAYS:-56__", "takenAt": "__OFFSET_DAYS:-56__T19:42:00",
+            "site_side": "left",  "site_region": "thigh", "site_position": "upper" },
+          { "scheduledDate": "__OFFSET_DAYS:-49__", "takenAt": "__OFFSET_DAYS:-49__T20:05:00",
+            "site_side": "right", "site_region": "thigh", "site_position": "upper",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-42__", "takenAt": "__OFFSET_DAYS:-42__T19:11:00",
+            "site_side": "left",  "site_region": "thigh", "site_position": "middle",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-35__", "takenAt": "__OFFSET_DAYS:-35__T19:48:00",
+            "site_side": "right", "site_region": "thigh", "site_position": "middle",
+            "reactions": ["tender"] },
+          { "scheduledDate": "__OFFSET_DAYS:-28__", "takenAt": "__OFFSET_DAYS:-28__T20:21:00",
+            "site_side": "left",  "site_region": "belly", "site_position": "lower",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-21__", "takenAt": "__OFFSET_DAYS:-21__T19:34:00",
+            "site_side": "right", "site_region": "belly", "site_position": "lower",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-14__", "takenAt": "__OFFSET_DAYS:-14__T19:50:00",
+            "site_side": "left",  "site_region": "thigh", "site_position": "lower",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-7__",  "takenAt": "__OFFSET_DAYS:-7__T20:08:00",
+            "site_side": "right", "site_region": "thigh", "site_position": "lower",
+            "reactions": ["bruised"] }
         ]
       },
       {
@@ -140,12 +187,23 @@
           { "scheduledDate": "__OFFSET_DAYS:-10__", "takenAt": "__OFFSET_DAYS:-10__T22:17:00" },
           { "scheduledDate": "__OFFSET_DAYS:-9__", "takenAt": "__OFFSET_DAYS:-9__T22:22:00" },
           { "scheduledDate": "__OFFSET_DAYS:-8__", "takenAt": "__OFFSET_DAYS:-8__T22:08:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-6__", "takenAt": "__OFFSET_DAYS:-6__T22:42:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-5__", "takenAt": "__OFFSET_DAYS:-5__T22:11:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-4__", "takenAt": "__OFFSET_DAYS:-4__T22:18:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-3__", "takenAt": "__OFFSET_DAYS:-3__T22:25:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-2__", "takenAt": "__OFFSET_DAYS:-2__T22:14:00" },
-          { "scheduledDate": "__OFFSET_DAYS:-1__", "takenAt": "__OFFSET_DAYS:-1__T22:21:00" }
+          { "scheduledDate": "__OFFSET_DAYS:-6__", "takenAt": "__OFFSET_DAYS:-6__T22:42:00",
+            "site_side": "left",  "site_region": "thigh", "site_position": "upper" },
+          { "scheduledDate": "__OFFSET_DAYS:-5__", "takenAt": "__OFFSET_DAYS:-5__T22:11:00",
+            "site_side": "right", "site_region": "thigh", "site_position": "upper",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-4__", "takenAt": "__OFFSET_DAYS:-4__T22:18:00",
+            "site_side": "left",  "site_region": "belly", "site_position": "lower",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-3__", "takenAt": "__OFFSET_DAYS:-3__T22:25:00",
+            "site_side": "right", "site_region": "belly", "site_position": "lower",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-2__", "takenAt": "__OFFSET_DAYS:-2__T22:14:00",
+            "site_side": "left",  "site_region": "thigh", "site_position": "middle",
+            "reactions": ["none"] },
+          { "scheduledDate": "__OFFSET_DAYS:-1__", "takenAt": "__OFFSET_DAYS:-1__T22:21:00",
+            "site_side": "right", "site_region": "thigh", "site_position": "middle",
+            "reactions": ["none"] }
         ]
       }
     ]
