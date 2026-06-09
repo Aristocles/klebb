@@ -7,6 +7,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Internal
+
+- **Manifest path parser + resolver.** New pure module
+  `manifests/path.js` providing `parsePath()` and `resolvePath()`
+  for an equality-only path language (`segment.segment[k=v]`,
+  with `[index=N]` for direct array indexing). Returns
+  `{container, key, value}` so callers can mutate via the parent
+  reference; throws typed `BadPath` / `NoMatch` / `Ambiguous` /
+  `WrongType` errors with stable `code` fields. Phase 1 of the
+  row-level chat tools work; nothing user-visible yet. Refs #363.
+
 ## [2.3.1] - 2026-06-08
 
 ### Added
