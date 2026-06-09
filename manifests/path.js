@@ -164,31 +164,44 @@ function parsePath(input) {
     return n;
   }
 
-  function readSegment() {
-    const name = readIdent();
+  function readFilterBody() {
+    // assumes leading '[' is at peek(); advances past the closing ']'
+    advance();
+    const by = readIdent();
+    if (peek() !== '=') {
+      throw new BadPath(`expected '=' after filter key at position ${i}`, i,
+        "filters look like [key=value], e.g. [name=\"BPC-157\"]");
+    }
+    advance();
+    const value = readLiteral();
+    if (peek() !== ']') {
+      throw new BadPath(`expected ']' to close filter at position ${i}, got ${describeChar(peek())}`, i);
+    }
+    advance();
+    return { by, value };
+  }
+
+  function readSegment(allowLeadingFilter) {
+    let name = '';
     let filter = null;
+    if (allowLeadingFilter && peek() === '[') {
+      // Root-array filter: [k=v] with no property step. Only allowed as
+      // the first segment so callers can address elements of an array-
+      // typed data block directly.
+      filter = readFilterBody();
+      return { name, filter };
+    }
+    name = readIdent();
     if (peek() === '[') {
-      advance();
-      const by = readIdent();
-      if (peek() !== '=') {
-        throw new BadPath(`expected '=' after filter key at position ${i}`, i,
-          "filters look like [key=value], e.g. [name=\"BPC-157\"]");
-      }
-      advance();
-      const value = readLiteral();
-      if (peek() !== ']') {
-        throw new BadPath(`expected ']' to close filter at position ${i}, got ${describeChar(peek())}`, i);
-      }
-      advance();
-      filter = { by, value };
+      filter = readFilterBody();
     }
     return { name, filter };
   }
 
-  segments.push(readSegment());
+  segments.push(readSegment(true));
   while (peek() === '.') {
     advance();
-    segments.push(readSegment());
+    segments.push(readSegment(false));
   }
   if (i !== s.length) {
     throw new BadPath(`unexpected ${describeChar(peek())} at position ${i}`, i,
@@ -223,32 +236,34 @@ function resolvePath(data, segments, opts) {
 
   for (let idx = 0; idx < segments.length; idx++) {
     const seg = segments[idx];
-    if (current === null || current === undefined) {
-      throw new NoMatch(`segment '${seg.name}' traverses through ${current === null ? 'null' : 'undefined'}`, idx);
+    const stepIntoProperty = seg.name !== '';
+    if (stepIntoProperty) {
+      if (current === null || current === undefined) {
+        throw new NoMatch(`segment '${seg.name}' traverses through ${current === null ? 'null' : 'undefined'}`, idx);
+      }
+      if (typeof current !== 'object') {
+        throw new WrongType(`segment '${seg.name}' expects an object/array but found ${typeof current}`, idx);
+      }
+      if (Array.isArray(current)) {
+        throw new WrongType(`segment '${seg.name}' expects an object property but found an array`, idx);
+      }
+      if (!Object.prototype.hasOwnProperty.call(current, seg.name)) {
+        throw new NoMatch(`property '${seg.name}' not found`, idx);
+      }
+      container = current;
+      key = seg.name;
+      current = current[seg.name];
     }
-    if (typeof current !== 'object') {
-      throw new WrongType(`segment '${seg.name}' expects an object/array but found ${typeof current}`, idx);
-    }
-    if (Array.isArray(current)) {
-      throw new WrongType(`segment '${seg.name}' expects an object property but found an array`, idx);
-    }
-
-    // Step into the named property.
-    if (!Object.prototype.hasOwnProperty.call(current, seg.name)) {
-      throw new NoMatch(`property '${seg.name}' not found`, idx);
-    }
-    container = current;
-    key = seg.name;
-    current = current[seg.name];
 
     if (seg.filter) {
+      const label = seg.name === '' ? '' : seg.name;
       const matches = applyFilter(current, seg.filter, idx);
       if (matches.length === 0) {
-        throw new NoMatch(`${seg.name}[${describeFilter(seg.filter)}] matched no rows`, idx);
+        throw new NoMatch(`${label}[${describeFilter(seg.filter)}] matched no rows`, idx);
       }
       if (matches.length > 1 && !options.allowMultiple) {
         throw new Ambiguous(
-          `${seg.name}[${describeFilter(seg.filter)}] matched ${matches.length} rows`,
+          `${label}[${describeFilter(seg.filter)}] matched ${matches.length} rows`,
           matches.length,
           idx,
         );
@@ -256,7 +271,6 @@ function resolvePath(data, segments, opts) {
       if (options.allowMultiple && idx === segments.length - 1) {
         return { matches };
       }
-      // Pick the unique match and continue.
       const m = matches[0];
       container = m.container;
       key = m.key;
