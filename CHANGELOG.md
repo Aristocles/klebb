@@ -7,6 +7,28 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Row-level chat tools.** The chat agent gains five new tools that
+  operate on a single row at a time instead of round-tripping the
+  whole `data` block: `read_manifest_meta` (meta + description +
+  schema only, no rows), `read_manifest_rows` (addressable slice of
+  the data block, auto-truncates long arrays to 10 with
+  `{truncated, total}` and collapses long sub-arrays to
+  `{omittedArray, count}`; `order: "desc"` for the latest entries),
+  `append_row`, `update_row`, `remove_row`. All three writers respect
+  the existing `meta.writeable.fromWebapp` gate and surface typed
+  failure codes (`BAD_PATH`, `NO_MATCH`, `AMBIGUOUS`, `WRONG_TYPE`)
+  so the model can self-correct without a wholesale retry. The path
+  language is documented inline in each tool's description: tiny
+  equality-only grammar, `seg.seg[k=v]` with `[index=N]` and a
+  leading `[k=v]` for array-rooted cards. Existing `read_manifest`
+  and `write_manifest_data` stay as fallbacks for non-array shapes
+  and wholesale restructures. Closes the long-running cause of chat
+  gateway timeouts on edits to large schedule cards: a row append
+  that previously rewrote ~67 kB of JSON now round-trips a single
+  dose. Closes #363.
+
 ### Internal
 
 - **Manifest path parser + resolver.** New pure module
