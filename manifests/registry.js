@@ -283,6 +283,34 @@ function _assertSchemaShape(id, schema, newData) {
   }
 }
 
+// Build the on-disk JSON envelope for an entry. When a 2-arg form is used,
+// the override is set unconditionally (so callers can emit data:null
+// deliberately). When the 1-arg form is used, falls back to entry.data and
+// skips the key when null/undefined (matches setMasterEnabled / patchManifest
+// pre-existing behaviour). Caller is responsible for any pre-write validation.
+function _buildEntryEnvelope(entry, ...rest) {
+  const overridden = rest.length > 0;
+  const full = {
+    $schema: entry.version,
+    meta: entry.meta,
+  };
+  if (entry.description) full.description = entry.description;
+  if (entry.schema) full.schema = entry.schema;
+  if (overridden) {
+    full.data = rest[0];
+  } else if (entry.data !== null && entry.data !== undefined) {
+    full.data = entry.data;
+  }
+  return full;
+}
+
+// Atomic write of a fully-formed envelope to entry.source via tmp+rename.
+function _persistEnvelope(entry, envelope) {
+  const tmp = entry.source + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(envelope, null, 2));
+  fs.renameSync(tmp, entry.source);
+}
+
 // Write full file back with updated data block. Preserves meta/description/schema.
 // Uses atomic tmp+rename to avoid partial writes.
 function writeData(id, newData) {
@@ -292,17 +320,7 @@ function writeData(id, newData) {
   newData = _coerceWriteData(id, newData);
   _assertSchemaShape(id, entry.schema, newData);
 
-  const full = {
-    $schema: entry.version,
-    meta: entry.meta,
-  };
-  if (entry.description) full.description = entry.description;
-  if (entry.schema) full.schema = entry.schema;
-  full.data = newData;
-
-  const tmp = entry.source + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(full, null, 2));
-  fs.renameSync(tmp, entry.source);
+  _persistEnvelope(entry, _buildEntryEnvelope(entry, newData));
   entry.data = newData;
   return true;
 }
@@ -328,16 +346,7 @@ function setMasterEnabled(id, enabled) {
   const entry = _entries.get(id);
   if (!entry) throw new Error(`unknown manifest: ${id}`);
   entry.meta = { ...entry.meta, enabled: !!enabled };
-  const full = {
-    $schema: entry.version,
-    meta: entry.meta,
-  };
-  if (entry.description) full.description = entry.description;
-  if (entry.schema) full.schema = entry.schema;
-  if (entry.data !== null) full.data = entry.data;
-  const tmp = entry.source + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(full, null, 2));
-  fs.renameSync(tmp, entry.source);
+  _persistEnvelope(entry, _buildEntryEnvelope(entry));
   return !!enabled;
 }
 
@@ -563,34 +572,33 @@ function patchManifest(id, patch) {
     throw new Error('patch touches protected field: data (use writeData)');
   }
 
-  const merged = {
-    $schema: entry.version,
-    meta: isPlainObject(patch.meta)
-      ? mergePatch(entry.meta, patch.meta)
-      : entry.meta,
-  };
+  const newMeta = isPlainObject(patch.meta)
+    ? mergePatch(entry.meta, patch.meta)
+    : entry.meta;
+  let newDescription = entry.description || null;
   // description: patch can set (string) or remove (null). Undefined = keep.
   if ('description' in patch) {
     if (patch.description === null) {
-      // removed
+      newDescription = null;
     } else if (typeof patch.description === 'string') {
-      merged.description = patch.description;
+      newDescription = patch.description;
     } else {
       throw new Error('description must be a string or null');
     }
-  } else if (entry.description) {
-    merged.description = entry.description;
   }
-  if (entry.schema) merged.schema = entry.schema;
-  if (entry.data !== null) merged.data = entry.data;
+
+  const stagedEntry = {
+    ...entry,
+    meta: newMeta,
+    description: newDescription,
+  };
+  const merged = _buildEntryEnvelope(stagedEntry);
 
   // Re-validate. strictId:false so we don't reject legacy ids that already
   // loaded; we already blocked id changes above.
   validateManifestShape(merged, { strictId: false });
 
-  const tmp = entry.source + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(merged, null, 2));
-  fs.renameSync(tmp, entry.source);
+  _persistEnvelope(entry, merged);
   entry.meta = merged.meta;
   entry.description = merged.description || null;
   return { id };
