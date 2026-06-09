@@ -40,6 +40,11 @@
 // heading rendered immediately after the divider, labelling the
 // section that begins on the divider's far side. Used by schedule-
 // card to anchor the new-dose section (e.g. "This injection").
+//
+// actions-position (optional): "bottom" (default), "top", or "both".
+// Schedule-card's check-off form sets this to "both" so the user can
+// confirm with a second tap right under their thumb without scrolling
+// past chip rows when they're skipping the metadata fields. See #370.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 
@@ -75,6 +80,13 @@ export class EhInputForm extends LitElement {
     dividerLabel: { type: String, attribute: 'divider-label' },
     submitLabel: { type: String, attribute: 'submit-label' },
     cancelLabel: { type: String, attribute: 'cancel-label' },
+    // Where the Cancel / Submit bar renders. "bottom" (default) keeps
+    // the original layout; "top" moves it above the inputs; "both"
+    // renders identical bars at top and bottom. Schedule-card's
+    // check-off form uses "both" so the user can confirm with a
+    // second tap right under their thumb (no scroll past chip rows
+    // when they're not logging metadata) — see #370.
+    actionsPosition: { type: String, attribute: 'actions-position' },
     busy: { type: Boolean },
     _state: { state: true },
     _error: { state: true },
@@ -91,6 +103,7 @@ export class EhInputForm extends LitElement {
     this.dividerLabel = null;
     this.submitLabel = 'Save';
     this.cancelLabel = 'Cancel';
+    this.actionsPosition = 'bottom';
     this.busy = false;
     this._state = {};
     this._error = null;
@@ -629,6 +642,10 @@ export class EhInputForm extends LitElement {
       justify-content: flex-end;
       margin-top: 6px;
     }
+    .actions.actions-top {
+      margin-top: 0;
+      margin-bottom: 2px;
+    }
     .btn {
       padding: 7px 14px;
       border-radius: 6px;
@@ -684,12 +701,25 @@ export class EhInputForm extends LitElement {
     }
   `;
 
+  _renderActions(position) {
+    return html`
+      <div class="actions actions-${position}">
+        <button type="button" class="btn ghost" ?disabled=${this.busy} @click=${this._onCancel}>${this.cancelLabel}</button>
+        <button type="submit" class="btn primary" ?disabled=${this.busy || !this._isValid()}>${this.busy ? 'Saving…' : this.submitLabel}</button>
+      </div>
+    `;
+  }
+
   render() {
     if (!Array.isArray(this.inputs) || this.inputs.length === 0) {
       return html`<em>No inputs defined for this card.</em>`;
     }
+    const pos = this.actionsPosition;
+    const showTop = pos === 'top' || pos === 'both';
+    const showBottom = pos !== 'top';
     return html`
       <form @submit=${this._onSubmit}>
+        ${showTop ? this._renderActions('top') : ''}
         ${this.inputs.map(input => html`
           <div class="field ${input.type === 'checkbox' ? 'checkbox' : ''}">
             ${input.label ? html`<label for="in-${input.key}">${input.label}${input.required ? ' *' : ''}</label>` : ''}
@@ -703,10 +733,7 @@ export class EhInputForm extends LitElement {
             ` : ''}
         `)}
         ${this._error ? html`<div class="error">${this._error}</div>` : ''}
-        <div class="actions">
-          <button type="button" class="btn ghost" ?disabled=${this.busy} @click=${this._onCancel}>${this.cancelLabel}</button>
-          <button type="submit" class="btn primary" ?disabled=${this.busy || !this._isValid()}>${this.busy ? 'Saving…' : this.submitLabel}</button>
-        </div>
+        ${showBottom ? this._renderActions('bottom') : ''}
       </form>
     `;
   }
