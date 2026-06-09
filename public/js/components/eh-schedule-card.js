@@ -687,6 +687,7 @@ export class EhScheduleCard extends EhBaseCard {
           .date=${this.date}
           submit-label=${opts.offSchedule ? 'Log off-schedule dose' : 'Log dose'}
           cancel-label="Cancel"
+          actions-position="both"
           divider-after-key=${dividerAfterKey}
           divider-label=${dividerLabel}
           @eh-submit=${onSubmit}
