@@ -29,6 +29,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   that previously rewrote ~67 kB of JSON now round-trips a single
   dose. Closes #363.
 
+### Changed
+
+- **Schedule-card check-off form: actions render at top and bottom.**
+  Tapping a scheduled item's ✓ now shows Cancel / Log dose bars both
+  above and below the inputs, so the common "tick a dose without
+  logging the site" path is two thumb-adjacent taps with no scrolling
+  past the chip rows. The bottom bar stays for users who do fill the
+  fields. Driven by a new `actions-position` prop on `eh-input-form`
+  (`bottom` (default) / `top` / `both`); other cards using the form
+  are unchanged. Closes #370.
+
 ### Internal
 
 - **Manifest path parser + resolver.** New pure module
