@@ -141,6 +141,28 @@ describe('parsePath: filters', () => {
       { name: 'items', filter: { by: 'name', value: 'a.b.c' } },
     ]);
   });
+
+  test('leading bracket filter (root-array form)', () => {
+    assert.deepEqual(parsePath('[date="2026-05-04"]'), [
+      { name: '', filter: { by: 'date', value: '2026-05-04' } },
+    ]);
+  });
+
+  test('leading bracket filter then property descent', () => {
+    assert.deepEqual(parsePath('[index=2].notes'), [
+      { name: '', filter: { by: 'index', value: 2 } },
+      { name: 'notes', filter: null },
+    ]);
+  });
+
+  test('after a dot, leading bracket is rejected (only root may filter without ident)', () => {
+    try { parsePath('items.[index=0]'); }
+    catch (e) {
+      assert.equal(e.code, 'BAD_PATH');
+      return;
+    }
+    assert.fail('expected BadPath');
+  });
 });
 
 describe('parsePath: errors', () => {
@@ -353,6 +375,38 @@ describe('resolvePath: container/key let callers mutate via parent', () => {
     const r = resolvePath(data, parsePath('rows'));
     r.value.push({name: 'b'});
     assert.equal(data.rows.length, 2);
+  });
+});
+
+describe('resolvePath: root-array filter', () => {
+  test('filter the root value when it is an array', () => {
+    const data = [
+      { date: '2026-05-04', mood: 4 },
+      { date: '2026-05-05', mood: 5 },
+    ];
+    const r = resolvePath(data, parsePath('[date="2026-05-05"]'));
+    assert.deepEqual(r.value, { date: '2026-05-05', mood: 5 });
+    assert.equal(r.container, data);
+    assert.equal(r.key, 1);
+  });
+
+  test('root-array filter then property descent', () => {
+    const data = [
+      { name: 'a', tags: ['x', 'y'] },
+      { name: 'b', tags: ['z'] },
+    ];
+    const r = resolvePath(data, parsePath('[name="b"].tags'));
+    assert.deepEqual(r.value, ['z']);
+    assert.equal(r.container, data[1]);
+    assert.equal(r.key, 'tags');
+  });
+
+  test('root-array filter on a non-array root throws WRONG_TYPE', () => {
+    const data = { items: [] };
+    assert.throws(
+      () => resolvePath(data, parsePath('[name="x"]')),
+      e => e.code === 'WRONG_TYPE',
+    );
   });
 });
 

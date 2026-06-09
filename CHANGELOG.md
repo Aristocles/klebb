@@ -12,11 +12,23 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **Manifest path parser + resolver.** New pure module
   `manifests/path.js` providing `parsePath()` and `resolvePath()`
   for an equality-only path language (`segment.segment[k=v]`,
-  with `[index=N]` for direct array indexing). Returns
+  with `[index=N]` for direct array indexing, and a leading
+  `[k=v]` form for filtering an array-typed root). Returns
   `{container, key, value}` so callers can mutate via the parent
   reference; throws typed `BadPath` / `NoMatch` / `Ambiguous` /
   `WrongType` errors with stable `code` fields. Phase 1 of the
   row-level chat tools work; nothing user-visible yet. Refs #363.
+- **Registry row-level read/write functions.** New `readRows`,
+  `appendRow`, `updateRow`, `removeRow` on `manifests/registry.js`
+  composed on top of the path module above. All writers atomically
+  deep-clone, mutate, schema-check, and persist via the existing
+  tmp+rename idiom; on any error before rename, on-disk state and
+  the in-memory cache are unchanged. Path / shape failures bubble
+  up with their `code` fields preserved. Step-0 cleanup pulled the
+  envelope-build and atomic-persist patterns out of `writeData` /
+  `setMasterEnabled` / `patchManifest` into shared helpers so all
+  callers share one persistence path. Phase 2 of #363; nothing
+  user-visible yet. Refs #366.
 
 ## [2.3.1] - 2026-06-08
 
