@@ -191,6 +191,104 @@ const TOOL_DEFS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'read_manifest_meta',
+      description:
+        "Return ONLY a card's meta + description + schema, NOT its data block. Cheap (~2 kB) even for cards with thousands of rows. Call this before any write to confirm the card's writeable rules and shape; it has the same role read_manifest used to play, minus the row-bulk that bloats your context. If you actually need to inspect rows, follow up with read_manifest_rows.",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Manifest id.' },
+        },
+        required: ['id'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'read_manifest_rows',
+      description:
+        "Return a slice of a card's data block, addressed by a tiny path language. Use INSTEAD of read_manifest when a card has lots of rows (peptides, mood logs, anything that grew over time). Path grammar (equality-only): `seg.seg[k=v]`, where `seg` is a property name (letters, digits, _, -) and `[k=v]` filters an array element by exact equality. Numeric literals are bare (1, 1.5, -3); strings are quoted (\"BPC-157\" or 'BPC-157'); true/false bare. Special filter `[index=N]` picks the Nth element of an array. A leading `[k=v]` (no property) filters an array-typed root. Empty path returns the whole data block. Examples: `items` (top-level array), `items[name=\"BPC-157\"]` (one item), `items[name=\"BPC-157\"].doses` (its doses), `[date=\"2026-05-04\"]` (one row of an array-rooted card), `[index=2].notes` (notes prop of the 3rd row). IMPORTANT auto-truncation: if the resolved value is an array longer than 10, only the first 10 rows are returned with {truncated:true, total:N}; if it's an object whose properties contain arrays longer than 10, those arrays are replaced with {omittedArray:true, count:N}. The response payload is therefore NOT the full data; re-fetch by a deeper path if you need the omitted rows. Pass {order:'desc'} to flip the truncation window to the LAST 10 rows (use this for `last dose` / `latest entry` questions). Errors return {error, code} with code in {BAD_PATH, NO_MATCH, AMBIGUOUS, WRONG_TYPE} so you can self-correct: BAD_PATH = grammar error, NO_MATCH = path resolves to nothing, AMBIGUOUS = filter matches >1 row (narrow the filter), WRONG_TYPE = wrong shape at the resolved spot.",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Manifest id.' },
+          path: {
+            type: 'string',
+            description: "Path expression in the grammar above. Empty string returns the whole data block (use sparingly; prefer a more targeted path).",
+          },
+          order: {
+            type: 'string',
+            enum: ['asc', 'desc'],
+            description: "When the resolved value is an array longer than 10, controls which window is returned. 'asc' (default) returns the first 10 in their on-disk order; 'desc' returns the last 10 (i.e. the most recent rows for an append-only log). Has no effect when the array is <=10 rows.",
+          },
+        },
+        required: ['id', 'path'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'append_row',
+      description:
+        "Append one row to the array at `path` inside a card's data block. Path resolves the SAME way read_manifest_rows resolves; see that tool's description for the full grammar. The target must be an array; appending a peptide goes to `items`, appending a dose goes to `items[name=\"BPC-157\"].doses`, appending to an array-rooted card uses `''` (empty path). Rejected if meta.writeable.fromWebapp is not true. Errors return {error, code} with the same codes as read_manifest_rows. ALWAYS call read_manifest_meta or read_manifest_rows first to confirm the card's existing shape and writeable rules; appending into a path that doesn't exist returns NO_MATCH (no auto-create; create the parent row first if needed).",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Manifest id.' },
+          path: { type: 'string', description: 'Path to the array to append to. May be empty for an array-rooted card.' },
+          value: { description: 'The row to append. Shape matches the existing rows in that array.' },
+        },
+        required: ['id', 'path', 'value'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_row',
+      description:
+        "Apply RFC 7396 JSON Merge Patch to ONE row identified by `path`. Nested objects deep-merge; arrays in `changes` replace wholesale; null removes a key. Path resolves the SAME way read_manifest_rows resolves. The target must be a plain object. The path MUST resolve unambiguously: if the filter matches more than one row, you get AMBIGUOUS; narrow the filter (add a second key, use [index=N], etc.). Rejected if meta.writeable.fromWebapp is not true. Errors return {error, code}. Confirm with the user EXACTLY ONCE before any update that removes data (passing `null` for an existing key, or replacing an array with a shorter one).",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Manifest id.' },
+          path: { type: 'string', description: 'Path to a single row (must resolve to one plain object, not the root).' },
+          changes: {
+            type: 'object',
+            description: 'RFC 7396 patch. Only the keys you want to change. null removes a key.',
+            additionalProperties: true,
+          },
+        },
+        required: ['id', 'path', 'changes'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'remove_row',
+      description:
+        "Remove ONE row from its parent array, identified by `path`. Path resolves the SAME way read_manifest_rows resolves. The path's leaf must be an array element (a filtered segment, e.g. `items[name=\"X\"]` or `items[name=\"X\"].doses[scheduledDate=\"YYYY-MM-DD\"]`); you cannot remove a property of an object with this tool, and you cannot remove the root data value (use write_manifest_data for those). The path MUST resolve unambiguously. Rejected if meta.writeable.fromWebapp is not true. Errors return {error, code}. Confirm with the user EXACTLY ONCE before calling: removal is destructive and not undoable.",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Manifest id.' },
+          path: { type: 'string', description: "Path to a single row (leaf must be a filtered array element, e.g. items[name=\"X\"])." },
+        },
+        required: ['id', 'path'],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // Execute a single tool_call from an assistant response. Always returns a
@@ -268,6 +366,59 @@ function dispatchToolCall(tc, ctx) {
         recordTouch(ctx, { id: args.id, flow: 'edit' });
         return JSON.stringify({ ok: true, ...result });
       }
+      case 'read_manifest_meta': {
+        const entry = registry.get(args.id);
+        if (!entry) {
+          return JSON.stringify({ error: `unknown manifest: ${args.id}` });
+        }
+        return JSON.stringify({
+          meta: entry.meta,
+          description: entry.description || null,
+          schema: entry.schema || null,
+        });
+      }
+      case 'read_manifest_rows': {
+        try {
+          const r = registry.readRows(args.id, args.path || '');
+          const order = args.order === 'desc' ? 'desc' : 'asc';
+          return JSON.stringify(_summariseReadResult(r.value, order));
+        } catch (e) {
+          return _toolErrorPayload(e, args);
+        }
+      }
+      case 'append_row': {
+        const gateErr = _writeableGate(args.id);
+        if (gateErr) return gateErr;
+        try {
+          const out = registry.appendRow(args.id, args.path || '', args.value);
+          recordTouch(ctx, { id: args.id, flow: 'edit' });
+          return JSON.stringify({ ok: true, id: args.id, ...out });
+        } catch (e) {
+          return _toolErrorPayload(e, args);
+        }
+      }
+      case 'update_row': {
+        const gateErr = _writeableGate(args.id);
+        if (gateErr) return gateErr;
+        try {
+          const out = registry.updateRow(args.id, args.path || '', args.changes);
+          recordTouch(ctx, { id: args.id, flow: 'edit' });
+          return JSON.stringify({ ok: true, id: args.id, after: out.after });
+        } catch (e) {
+          return _toolErrorPayload(e, args);
+        }
+      }
+      case 'remove_row': {
+        const gateErr = _writeableGate(args.id);
+        if (gateErr) return gateErr;
+        try {
+          const out = registry.removeRow(args.id, args.path || '');
+          recordTouch(ctx, { id: args.id, flow: 'edit' });
+          return JSON.stringify({ ok: true, id: args.id, removed: out.removed, totalAfter: out.totalAfter });
+        } catch (e) {
+          return _toolErrorPayload(e, args);
+        }
+      }
       case 'read_doc': {
         return JSON.stringify(readDoc(args.path));
       }
@@ -280,6 +431,63 @@ function dispatchToolCall(tc, ctx) {
   } catch (e) {
     return JSON.stringify({ error: e.message || String(e) });
   }
+}
+
+const SUMMARY_LIMIT = 10;
+
+// Shape the read_manifest_rows return so the model never receives an
+// unbounded array. Two passes:
+//   - if value is an array longer than SUMMARY_LIMIT, slice to a window
+//     (head for 'asc', tail for 'desc') and emit {rows, total, truncated, window}.
+//   - if value is a plain object, walk one level into its props; any
+//     array property longer than SUMMARY_LIMIT collapses to
+//     {omittedArray:true, count:N}. Shorter arrays and non-array props
+//     are returned as-is.
+//   - primitives and short arrays return as-is.
+function _summariseReadResult(value, order) {
+  if (Array.isArray(value)) {
+    if (value.length <= SUMMARY_LIMIT) {
+      return { rows: value, total: value.length, truncated: false };
+    }
+    const rows = order === 'desc'
+      ? value.slice(-SUMMARY_LIMIT)
+      : value.slice(0, SUMMARY_LIMIT);
+    return { rows, total: value.length, truncated: true, window: order };
+  }
+  if (value !== null && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (Array.isArray(v) && v.length > SUMMARY_LIMIT) {
+        out[k] = { omittedArray: true, count: v.length };
+      } else {
+        out[k] = v;
+      }
+    }
+    return { row: out };
+  }
+  return { value };
+}
+
+function _writeableGate(id) {
+  const entry = registry.get(id);
+  if (!entry) {
+    return JSON.stringify({ error: `unknown manifest: ${id}` });
+  }
+  const w = entry.meta?.writeable;
+  if (!w || !w.fromWebapp) {
+    return JSON.stringify({
+      error: `${id} is not writeable from the webapp (meta.writeable.fromWebapp is not true). Use patch_manifest to flip the flag first if the user wants to make it writeable.`,
+    });
+  }
+  return null;
+}
+
+function _toolErrorPayload(e, args) {
+  const payload = { error: e.message || String(e) };
+  if (e && typeof e.code === 'string') payload.code = e.code;
+  if (args && typeof args.path === 'string') payload.path = args.path;
+  if (args && typeof args.id === 'string') payload.id = args.id;
+  return JSON.stringify(payload);
 }
 
 // Record a manifest-touch for post-turn consumers. If the same id is
