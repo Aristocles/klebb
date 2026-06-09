@@ -141,7 +141,7 @@ test.describe('#345: schedule-card check-off form with per-dose metadata', () =>
     await chipRows.nth(3).locator('.chip', { hasText: 'upper' }).click();
 
     // Submit.
-    await innerForm.getByRole('button', { name: /log dose/i }).click();
+    await innerForm.getByRole('button', { name: /log dose/i }).first().click();
 
     // Form should collapse.
     await expect(form).toHaveCount(0);
@@ -191,7 +191,7 @@ test.describe('#345: schedule-card check-off form with per-dose metadata', () =>
 
     // Tap a chip then cancel.
     await form.locator('.chip', { hasText: 'bruised' }).click();
-    await form.getByRole('button', { name: /cancel/i }).click();
+    await form.getByRole('button', { name: /cancel/i }).first().click();
     await expect(form).toHaveCount(0);
 
     // Data file unchanged: still one dose, no reactions on it.
@@ -223,7 +223,7 @@ test.describe('#354: schedule-card surfaces logged per-dose metadata + edit on r
     await chipRows.nth(1).locator('.chip', { hasText: 'left' }).click();
     await chipRows.nth(2).locator('.chip', { hasText: 'thigh' }).click();
     await chipRows.nth(3).locator('.chip', { hasText: 'upper' }).click();
-    await innerForm.getByRole('button', { name: /log dose/i }).click();
+    await innerForm.getByRole('button', { name: /log dose/i }).first().click();
     await expect(form).toHaveCount(0);
 
     // The card should now show a summary line carrying the new-dose
@@ -254,7 +254,7 @@ test.describe('#354: schedule-card surfaces logged per-dose metadata + edit on r
     await chipRows.nth(1).locator('.chip', { hasText: 'left' }).click();
     await chipRows.nth(2).locator('.chip', { hasText: 'thigh' }).click();
     await chipRows.nth(3).locator('.chip', { hasText: 'upper' }).click();
-    await innerForm.getByRole('button', { name: /log dose/i }).click();
+    await innerForm.getByRole('button', { name: /log dose/i }).first().click();
     await expect(form).toHaveCount(0);
 
     // Re-tap the now-checked checkbox to UNTICK first (immediate save,
@@ -277,7 +277,7 @@ test.describe('#354: schedule-card surfaces logged per-dose metadata + edit on r
     // Edit: clear `left` (tap to deselect), pick `right` instead.
     await chipRows.nth(1).locator('.chip.selected', { hasText: 'left' }).click();
     await chipRows.nth(1).locator('.chip', { hasText: 'right' }).click();
-    await innerForm.getByRole('button', { name: /log dose/i }).click();
+    await innerForm.getByRole('button', { name: /log dose/i }).first().click();
 
     // The data file should reflect the edit, not stack a second dose.
     const res = await page.request.get(`${sandboxState.baseUrl}/api/manifests/${CARD_ID}/data`);
@@ -440,6 +440,47 @@ test.describe('#359: previous-dose section is visually separated from new-dose f
     expect(headingIdx).toBe(dividerIdx + 1);
     expect(cleaned[headingIdx]).toBe('heading:This dose');
     expect(sideIdx).toBe(headingIdx + 1);
+
+    await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
+  });
+});
+
+test.describe('#370: check-off form actions render at top and bottom', () => {
+  test('both action bars render, and the top Log dose submits', async ({ page, sandboxState }) => {
+    const m = manifest();
+    await seed(page.request, sandboxState.baseUrl, m);
+
+    await page.goto('/');
+    const card = page.locator(`[data-card-id="${CARD_ID}"] eh-schedule-card`);
+    await expect(card).toBeVisible({ timeout: 10_000 });
+
+    await card.locator('.checkbox').first().click();
+    const innerForm = card.locator('.checkoff-form eh-input-form');
+    await expect(innerForm).toBeVisible();
+
+    // Both action bars present in the shadow root, in DOM order
+    // top → inputs → bottom.
+    const positions = await innerForm.evaluate(root => {
+      const sr = root.shadowRoot;
+      if (!sr) return [];
+      return Array.from(sr.querySelectorAll('.actions')).map(el => {
+        if (el.classList.contains('actions-top')) return 'top';
+        if (el.classList.contains('actions-bottom')) return 'bottom';
+        return 'unknown';
+      });
+    });
+    expect(positions).toEqual(['top', 'bottom']);
+
+    // Submit by tapping the TOP Log dose button (no scrolling past chips).
+    await innerForm.getByRole('button', { name: /log dose/i }).first().click();
+    await expect(card.locator('.checkoff-form')).toHaveCount(0);
+
+    // Round-trip — today's dose should be on disk with takenAt set.
+    const res = await page.request.get(`${sandboxState.baseUrl}/api/manifests/${CARD_ID}/data`);
+    const body = await res.json();
+    const todays = body.data.items[0].doses.find(d => d.scheduledDate === todayISO());
+    expect(todays).toBeTruthy();
+    expect(todays.takenAt).toBeTruthy();
 
     await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
   });
