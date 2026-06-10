@@ -45,6 +45,14 @@
 // Schedule-card's check-off form sets this to "both" so the user can
 // confirm with a second tap right under their thumb without scrolling
 // past chip rows when they're skipping the metadata fields. See #370.
+//
+// .headerSlot (optional, property only): a Lit template rendered
+// between the top action bar and the first input. Used by schedule-
+// card to host its prev-dose context block ("Last: 4d ago / How does
+// the last injection site look?") between the two so the top action
+// bar sits at the very top of the popped-out form, above the prev-
+// dose context. Has no effect when actions-position is "bottom".
+// See #375.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 
@@ -87,6 +95,12 @@ export class EhInputForm extends LitElement {
     // second tap right under their thumb (no scroll past chip rows
     // when they're not logging metadata) — see #370.
     actionsPosition: { type: String, attribute: 'actions-position' },
+    // Lit template, set as a property (no `attribute` form). Rendered
+    // between the top action bar and the first input. Used by
+    // schedule-card to host its prev-dose context inside the form so
+    // the top action bar can sit above it. Default `null` = nothing
+    // rendered. See #375.
+    headerSlot: { attribute: false },
     busy: { type: Boolean },
     _state: { state: true },
     _error: { state: true },
@@ -104,6 +118,7 @@ export class EhInputForm extends LitElement {
     this.submitLabel = 'Save';
     this.cancelLabel = 'Cancel';
     this.actionsPosition = 'bottom';
+    this.headerSlot = null;
     this.busy = false;
     this._state = {};
     this._error = null;
@@ -634,8 +649,6 @@ export class EhInputForm extends LitElement {
     @media (prefers-reduced-motion: reduce) {
       .stepper-btn { transition: none; }
     }
-      color: var(--text-inverse, white);
-    }
     .actions {
       display: flex;
       gap: 8px;
@@ -645,6 +658,36 @@ export class EhInputForm extends LitElement {
     .actions.actions-top {
       margin-top: 0;
       margin-bottom: 2px;
+    }
+
+    /* Header slot: used by schedule-card to host its prev-dose
+       context block ("Last: 4d ago / How does the last injection site
+       look?") between the top action bar and the inputs. The
+       prev-dose-* rules below are duplicated from eh-schedule-card's
+       own stylesheet because shadow DOM scoping doesn't let host
+       styles reach into here. Keep in sync if either evolves. See #375. */
+    .header-slot { margin-bottom: 10px; }
+    .header-slot .prev-dose {
+      background: var(--bg-input, rgba(0,0,0,0.04));
+      padding: 10px 12px;
+      border-radius: 8px;
+    }
+    .header-slot .prev-dose-line {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .header-slot .prev-dose-label {
+      font-weight: 600;
+      margin-right: 4px;
+    }
+    .header-slot .prev-dose-summary {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .header-slot .prev-dose-prompt {
+      font-size: 12px;
+      color: var(--text-muted, var(--text-secondary));
+      margin-top: 4px;
     }
     .btn {
       padding: 7px 14px;
@@ -720,6 +763,7 @@ export class EhInputForm extends LitElement {
     return html`
       <form @submit=${this._onSubmit}>
         ${showTop ? this._renderActions('top') : ''}
+        ${this.headerSlot ? html`<div class="header-slot">${this.headerSlot}</div>` : ''}
         ${this.inputs.map(input => html`
           <div class="field ${input.type === 'checkbox' ? 'checkbox' : ''}">
             ${input.label ? html`<label for="in-${input.key}">${input.label}${input.required ? ' *' : ''}</label>` : ''}

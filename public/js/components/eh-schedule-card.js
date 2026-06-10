@@ -297,33 +297,10 @@ export class EhScheduleCard extends EhBaseCard {
         border-radius: 8px;
         background: var(--bg-card);
       }
-      /* Previous-dose section (#359). The panel marks "this is about
-         a different dose than the one being logged". The reactions
-         chips render outside the panel in normal styling, then a
-         form-divider separates them from the new-dose fields. */
-      .prev-dose {
-        background: var(--bg-input, rgba(0,0,0,0.04));
-        padding: 10px 12px;
-        border-radius: 8px;
-        margin-bottom: 10px;
-      }
-      .prev-dose-line {
-        font-size: 13px;
-        color: var(--text-secondary);
-      }
-      .prev-dose-label {
-        font-weight: 600;
-        margin-right: 4px;
-      }
-      .prev-dose-summary {
-        color: var(--text-primary);
-        font-weight: 600;
-      }
-      .prev-dose-prompt {
-        font-size: 12px;
-        color: var(--text-muted, var(--text-secondary));
-        margin-top: 4px;
-      }
+      /* Previous-dose section (#359, #375). The panel-and-prompt
+         markup is now hosted inside <eh-input-form> via its
+         headerSlot prop, so the .prev-dose* styles live there. The
+         schedule-card keeps no styling for those classes. */
       .form-error {
         color: #ff4466;
         font-size: 12px;
@@ -668,23 +645,30 @@ export class EhScheduleCard extends EhBaseCard {
       ? (cfg.currentDosePrompt || 'This dose')
       : '';
 
+    // The prev-dose context block ("Last: 4d ago / How does the last
+    // injection site look?") is hosted INSIDE the form via headerSlot
+    // so the top action bar (which the form renders) sits visually
+    // above it: the user pops the form, sees Cancel / Log dose at the
+    // very top, then the prompt, then the chips. See #375.
+    const prevDoseSlot = showPrevContext ? html`
+      <div class="prev-dose">
+        <div class="prev-dose-line">
+          <span class="prev-dose-label">Last:</span>
+          <span class="prev-dose-summary">${ago}${summary ? ' · ' + summary : ''}</span>
+        </div>
+        ${cfg.previousDosePrompt ? html`
+          <div class="prev-dose-prompt">${cfg.previousDosePrompt}</div>
+        ` : ''}
+      </div>
+    ` : null;
+
     return html`
       <div class="checkoff-form">
-        ${showPrevContext ? html`
-          <div class="prev-dose">
-            <div class="prev-dose-line">
-              <span class="prev-dose-label">Last:</span>
-              <span class="prev-dose-summary">${ago}${summary ? ' · ' + summary : ''}</span>
-            </div>
-            ${cfg.previousDosePrompt ? html`
-              <div class="prev-dose-prompt">${cfg.previousDosePrompt}</div>
-            ` : ''}
-          </div>
-        ` : ''}
         <eh-input-form
           .inputs=${visibleInputs}
           .values=${formValues}
           .date=${this.date}
+          .headerSlot=${prevDoseSlot}
           submit-label=${opts.offSchedule ? 'Log off-schedule dose' : 'Log dose'}
           cancel-label="Cancel"
           actions-position="both"
