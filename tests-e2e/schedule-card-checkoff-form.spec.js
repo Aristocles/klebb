@@ -561,3 +561,79 @@ test.describe('#361: new-dose section is labelled by currentDosePrompt', () => {
     await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
   });
 });
+
+test.describe('#375: top action bar sits above the prev-dose context', () => {
+  test('top actions render before .prev-dose, both action bars right-aligned', async ({ page, sandboxState }) => {
+    const m = manifest();
+    await seed(page.request, sandboxState.baseUrl, m);
+
+    await page.goto('/');
+    const card = page.locator(`[data-card-id="${CARD_ID}"] eh-schedule-card`);
+    await expect(card).toBeVisible({ timeout: 10_000 });
+
+    await card.locator('.checkbox').first().click();
+    const innerForm = card.locator('.checkoff-form eh-input-form');
+    await expect(innerForm).toBeVisible();
+
+    // Walk the form's shadow DOM and capture the rendered top-level
+    // structure. Expected order: top actions, header-slot (prev-dose
+    // context), inputs (chip rows + divider + heading), bottom actions.
+    const order = await innerForm.evaluate(root => {
+      const sr = root.shadowRoot;
+      if (!sr) return [];
+      const formEl = sr.querySelector('form');
+      if (!formEl) return [];
+      const tags = [];
+      for (const child of formEl.children) {
+        if (child.classList.contains('actions-top')) tags.push('actions-top');
+        else if (child.classList.contains('actions-bottom')) tags.push('actions-bottom');
+        else if (child.classList.contains('header-slot')) tags.push('header-slot');
+        else if (child.classList.contains('field')) tags.push('field');
+        else if (child.tagName === 'HR') tags.push('divider');
+        else if (child.classList.contains('form-section-label')) tags.push('heading');
+        else tags.push(child.tagName.toLowerCase());
+      }
+      return tags;
+    });
+    // Top actions FIRST, then header-slot (prev-dose), then fields,
+    // then bottom actions LAST.
+    expect(order[0]).toBe('actions-top');
+    expect(order[1]).toBe('header-slot');
+    expect(order[order.length - 1]).toBe('actions-bottom');
+    // The header-slot must come before any field.
+    const firstFieldIdx = order.indexOf('field');
+    const headerSlotIdx = order.indexOf('header-slot');
+    expect(headerSlotIdx).toBeLessThan(firstFieldIdx);
+
+    // Both action bars render right-aligned (justify-content: flex-end
+    // resolves to "flex-end" computed). Pre-#375 the rule was being
+    // dropped due to an orphan CSS brace earlier in the stylesheet.
+    const justifies = await innerForm.evaluate(root => {
+      const sr = root.shadowRoot;
+      if (!sr) return null;
+      const top = sr.querySelector('.actions-top');
+      const bot = sr.querySelector('.actions-bottom');
+      return {
+        top: top ? getComputedStyle(top).justifyContent : null,
+        bot: bot ? getComputedStyle(bot).justifyContent : null,
+      };
+    });
+    expect(justifies.top).toBe('flex-end');
+    expect(justifies.bot).toBe('flex-end');
+
+    // The prev-dose markup is now inside eh-input-form's shadow (via
+    // headerSlot), not in the schedule-card's shadow as before. Sanity-
+    // check the .prev-dose block is still visible and correctly styled.
+    const prevDoseBg = await innerForm.evaluate(root => {
+      const sr = root.shadowRoot;
+      if (!sr) return null;
+      const el = sr.querySelector('.header-slot .prev-dose');
+      return el ? getComputedStyle(el).backgroundColor : null;
+    });
+    expect(prevDoseBg).not.toBe(null);
+    expect(prevDoseBg).not.toBe('rgba(0, 0, 0, 0)');
+    expect(prevDoseBg).not.toBe('transparent');
+
+    await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
+  });
+});

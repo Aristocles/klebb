@@ -7,6 +7,26 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Schedule-card check-off form: top action bar now sits above the
+  prev-dose context, and both bars right-align as intended.** The
+  Cancel / Log dose pair at the top of the popped-out form
+  previously rendered below "How does the last injection site look?",
+  and both bars rendered left-aligned despite their CSS asking for
+  the right. Two bugs: (1) the prev-dose context (`Last: ...` panel
+  + prompt) was rendered by `eh-schedule-card` outside the form, so
+  the form's top action bar slotted in below it. Moved into the form
+  via a new `.headerSlot` Lit-template prop on `eh-input-form`,
+  sitting between the top action bar and the inputs. Order is now:
+  top actions, prev-dose context, divider + new-dose chips, bottom
+  actions. (2) An orphan CSS brace inside `eh-input-form`'s
+  stylesheet (`color: var(--text-inverse, white); }` with no matching
+  opener, left over from an earlier stepper-input batch) was causing
+  the browser's CSS parser to drop the `.actions { justify-content:
+  flex-end; ... }` rule on the floor. Removed the dead three lines;
+  both action bars now sit at the right edge of the form. Closes #375.
+
 ### Added
 
 - **Row-level chat tools.** The chat agent gains five new tools that
@@ -42,18 +62,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Internal
 
-- **Sharper system-prompt copy on which read tool to default to.**
-  Live-test of the new row tools (#369) on a real instance showed
-  the model still calling `read_manifest` (full-fat, returns the
-  whole data block) for pre-write inspection instead of
-  `read_manifest_meta` (meta + description + schema only). The
-  prompt now states `read_manifest_meta` is the DEFAULT pre-write
-  call (~95% case), `read_manifest_rows` is the DEFAULT data-
-  inspection call, and `read_manifest` is the LAST RESORT only when
-  the user explicitly asked for everything AND no row-path could
-  give the same answer. The "Read before write" rule is restated to
-  call out which read to default to for which inspection. No code
-  changes outside `config/env.js`. Closes #373.
 - **Manifest path parser + resolver.** New pure module
   `manifests/path.js` providing `parsePath()` and `resolvePath()`
   for an equality-only path language (`segment.segment[k=v]`,
