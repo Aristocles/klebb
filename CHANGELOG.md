@@ -42,6 +42,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Internal
 
+- **Sharper system-prompt copy on which read tool to default to.**
+  Live-test of the new row tools (#369) on a real instance showed
+  the model still calling `read_manifest` (full-fat, returns the
+  whole data block) for pre-write inspection instead of
+  `read_manifest_meta` (meta + description + schema only). The
+  prompt now states `read_manifest_meta` is the DEFAULT pre-write
+  call (~95% case), `read_manifest_rows` is the DEFAULT data-
+  inspection call, and `read_manifest` is the LAST RESORT only when
+  the user explicitly asked for everything AND no row-path could
+  give the same answer. The "Read before write" rule is restated to
+  call out which read to default to for which inspection. No code
+  changes outside `config/env.js`. Closes #373.
 - **Manifest path parser + resolver.** New pure module
   `manifests/path.js` providing `parsePath()` and `resolvePath()`
   for an equality-only path language (`segment.segment[k=v]`,
