@@ -562,6 +562,121 @@ test.describe('#361: new-dose section is labelled by currentDosePrompt', () => {
   });
 });
 
+test.describe('#378: previous-dose hint skips a same-day dose', () => {
+  test('after logging today, re-opening the form still shows the PRIOR dose', async ({ page, sandboxState }) => {
+    // Seed two doses: a prior one 3 days ago at "right belly upper",
+    // AND today's already logged at "left thigh upper" (takenAt set).
+    // The previous-dose hint must point at the 3-days-ago entry, not
+    // at today's entry. Without the fix, _findPreviousDose walks back
+    // and stops at today, so the hint reads "left thigh upper" and
+    // the reaction-merge target becomes today's dose.
+    const today = todayISO();
+    const priorDate = shiftDays(today, -3);
+    const startDate = shiftDays(today, -10);
+    const m = {
+      $schema: 'klebb.datafile.v1',
+      meta: {
+        id: CARD_ID,
+        label: '#378 prev-dose skip-today (e2e)',
+        emoji: '💉',
+        order: 9203,
+        category: 'protocols',
+        view: {
+          enabled: true,
+          component: 'schedule-card',
+          checkOffForm: {
+            currentDoseFields: ['site_side', 'site_region', 'site_position'],
+            previousDoseFields: ['reactions'],
+          },
+        },
+        writeable: {
+          fromWebapp: true, todayAllowed: true, pastAllowed: true, futureAllowed: false,
+          inputs: [
+            { key: 'site_side',     label: 'Side',     type: 'chips',
+              options: ['left', 'right', 'centre'] },
+            { key: 'site_region',   label: 'Region',   type: 'chips',
+              options: ['belly', 'flank', 'thigh', 'delt'] },
+            { key: 'site_position', label: 'Position', type: 'chips',
+              options: ['upper', 'middle', 'lower'] },
+            { key: 'reactions',     label: 'Reactions', type: 'chips-multi',
+              options: ['none', 'bruised', 'red', 'swollen', 'itchy'] },
+          ],
+        },
+      },
+      description: 'Previous-dose hint must skip a same-day dose entry (#378).',
+      data: {
+        items: [
+          {
+            name: 'TestPeptide-378',
+            schedule: { type: 'daily', start_date: startDate, cycle_weeks: 4 },
+            doses: [
+              {
+                scheduledDate: priorDate,
+                takenAt: `${priorDate}T08:00:00Z`,
+                site_side: 'right', site_region: 'belly', site_position: 'upper',
+              },
+              {
+                scheduledDate: today,
+                takenAt: `${today}T08:00:00Z`,
+                site_side: 'left', site_region: 'thigh', site_position: 'upper',
+              },
+            ],
+          },
+        ],
+      },
+    };
+    await seed(page.request, sandboxState.baseUrl, m);
+
+    await page.goto('/');
+    const card = page.locator(`[data-card-id="${CARD_ID}"] eh-schedule-card`);
+    await expect(card).toBeVisible({ timeout: 10_000 });
+
+    // Untick → re-tick to expand the form for the existing today entry.
+    await card.locator('.checkbox').first().click(); // untick (clears takenAt, persists)
+    await card.locator('.checkbox').first().click(); // re-tick → opens form
+
+    const form = card.locator('.checkoff-form');
+    await expect(form).toBeVisible();
+
+    // The prev-dose context line must reflect the PRIOR dose (3 days
+    // ago, "right belly upper"), NOT today's logged site
+    // ("left thigh upper").
+    const innerForm = form.locator('eh-input-form');
+    const prevSummaryText = await innerForm.evaluate(root => {
+      const sr = root.shadowRoot;
+      if (!sr) return null;
+      const el = sr.querySelector('.header-slot .prev-dose-summary');
+      return el ? el.textContent.trim() : null;
+    });
+    expect(prevSummaryText).toContain('right belly upper');
+    expect(prevSummaryText).not.toContain('left thigh upper');
+
+    // Pick a reactions chip — it should merge onto the PRIOR dose,
+    // not today's. (The merge target is the same lookup; both call
+    // sites must skip same-day.)
+    const chipRows = innerForm.locator('.chip-row');
+    await chipRows.nth(0).locator('.chip', { hasText: 'bruised' }).click();
+    // Resubmit (today's site fields are already prefilled).
+    await innerForm.getByRole('button', { name: /log dose/i }).first().click();
+    await expect(form).toHaveCount(0);
+
+    // Round-trip: the prior dose (3 days ago) should now carry
+    // reactions:["bruised"]. Today's dose must NOT.
+    const res = await page.request.get(`${sandboxState.baseUrl}/api/manifests/${CARD_ID}/data`);
+    const body = await res.json();
+    const doses = body.data.items[0].doses;
+    const prior = doses.find(d => d.scheduledDate === priorDate);
+    const todays = doses.find(d => d.scheduledDate === today);
+    expect(prior).toBeTruthy();
+    expect(todays).toBeTruthy();
+    expect(Array.isArray(prior.reactions)).toBe(true);
+    expect(prior.reactions).toContain('bruised');
+    expect(todays.reactions).toBeUndefined();
+
+    await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
+  });
+});
+
 test.describe('#375: top action bar sits above the prev-dose context', () => {
   test('top actions render before .prev-dose, both action bars right-aligned', async ({ page, sandboxState }) => {
     const m = manifest();
