@@ -7,6 +7,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Schedule-card previous-dose hint no longer points at today's dose
+  after logging.** When a `checkOffForm` declares `previousDoseFields`
+  (the reactions-at-prior-site flow), the form surfaces a "Last:"
+  context line summarising the most recent dose, and merges any
+  `previousDoseFields` payload values back onto that same dose. Both
+  lookups walked backwards through `item.doses` to find the most
+  recent entry with `takenAt` set. After the user logged today's dose
+  and re-opened the form to fill in the prior-site reaction, that
+  walk landed on today's entry instead of the one before it: the hint
+  showed today's location, and the reaction got stamped onto today's
+  dose. Both call sites (`_findPreviousDose` and the inline walk-back
+  in `_submitCheckOffForm`) now skip any dose whose `scheduledDate`
+  matches the currently-viewed date. Closes #378.
+
 ## [2.4.0] - 2026-06-10
 
 ### Fixed

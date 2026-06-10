@@ -398,12 +398,15 @@ export class EhScheduleCard extends EhBaseCard {
   }
 
   // The most recent dose with a takenAt timestamp set, OR null. Walks
-  // backwards to skip scheduled-but-untaken entries (takenAt: null).
+  // backwards to skip scheduled-but-untaken entries (takenAt: null) and
+  // any dose for the currently-viewed date — when the user logs today
+  // and re-opens the form to fill in the previous-dose reaction, the
+  // "previous" dose is the one before today, not today itself.
   _findPreviousDose(item) {
     if (!Array.isArray(item.doses)) return null;
     for (let i = item.doses.length - 1; i >= 0; i--) {
       const d = item.doses[i];
-      if (d && d.takenAt) return { dose: d, index: i };
+      if (d && d.takenAt && d.scheduledDate !== this.date) return { dose: d, index: i };
     }
     return null;
   }
@@ -537,7 +540,8 @@ export class EhScheduleCard extends EhBaseCard {
     const doses = Array.isArray(item.doses) ? [...item.doses] : [];
     let prev = null;
     for (let i = doses.length - 1; i >= 0; i--) {
-      if (doses[i] && doses[i].takenAt) { prev = { dose: doses[i], index: i }; break; }
+      const d = doses[i];
+      if (d && d.takenAt && d.scheduledDate !== this.date) { prev = { dose: d, index: i }; break; }
     }
     if (prev && formCfg.previousDoseFields.length > 0) {
       const merged = { ...prev.dose };
