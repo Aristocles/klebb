@@ -7,6 +7,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-06-10
+
 ### Fixed
 
 - **Schedule-card check-off form: top action bar now sits above the
