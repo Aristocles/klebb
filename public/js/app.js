@@ -20,6 +20,7 @@ import './components/health-chat.js';
 import './components/eh-prompt-modal.js';
 import { checkPromptsForToday } from './lib/prompt-queue.js';
 import { localToday } from './lib/date-util.js';
+import { readTheme, applyTheme, toggleTheme } from './lib/theme.js';
 
 class HealthApp extends LitElement {
   static properties = {
@@ -41,13 +42,15 @@ class HealthApp extends LitElement {
     this.routeParam = '';
     this.showNav = true;
     this.dayDate = '';
-    this.theme = localStorage.getItem('klebb-theme') || 'light';
+    this.theme = readTheme();
     this._instanceName = 'Klebb';
     this._settingsMenuOpen = false;
     this._promptQueue = [];
     this._buildInfo = null;
     this._demo = false;
-    document.documentElement.setAttribute('data-theme', this.theme);
+    applyTheme(this.theme);
+    this._onThemeChanged = (e) => { this.theme = e.detail.theme; };
+    window.addEventListener('klebb-theme-changed', this._onThemeChanged);
     this._handleRoute();
     this._loadInstance();
     this._loadBuildInfo();
@@ -80,6 +83,7 @@ class HealthApp extends LitElement {
     super.disconnectedCallback();
     window.removeEventListener('click', this._onGlobalClick);
     window.removeEventListener('keydown', this._onGlobalKey);
+    window.removeEventListener('klebb-theme-changed', this._onThemeChanged);
   }
 
   async _loadInstance() {
@@ -134,9 +138,7 @@ class HealthApp extends LitElement {
   }
 
   _toggleTheme() {
-    this.theme = this.theme === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', this.theme);
-    localStorage.setItem('klebb-theme', this.theme);
+    toggleTheme();
   }
 
   _handleRoute() {
