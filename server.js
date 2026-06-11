@@ -25,6 +25,9 @@ const haeDiagnostics = require('./health-auto-export/diagnostics');
 const haeDiscoveries = require('./health-auto-export/discoveries');
 const haeTokenStore = require('./health-auto-export/token-store');
 const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-export/describe');
+const userTz = require('./lib/user-tz');
+const notificationsState = require('./lib/notifications-state');
+const notificationsScheduler = require('./lib/notifications-scheduler');
 const { CATEGORIES: MANIFEST_CATEGORIES } = require('./config/categories');
 const ccSuggestions = require('./meta/cc-suggestions');
 const { describeCcSchema } = require('./chat/describe-cc-schema');
@@ -1641,6 +1644,27 @@ Original system prompt follows:
       });
     }
 
+    // POST /api/user/tz — capture the user's IANA timezone for the
+    // notifications scheduler. The browser posts this on every session
+    // boot; the server only writes when the value changed.
+    if (parts[0] === 'user' && parts[1] === 'tz' && parts.length === 2 && req.method === 'POST') {
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        let parsed;
+        try { parsed = JSON.parse(body || '{}'); }
+        catch { return sendJSON(res, { error: 'invalid JSON body' }, 400); }
+        try {
+          const result = userTz.writeUserTz(parsed.tz);
+          return sendJSON(res, { ok: true, tz: result.tz, changed: result.changed });
+        } catch (e) {
+          if (e.code === 'INVALID_TZ') return sendJSON(res, { error: 'invalid tz' }, 400);
+          return sendJSON(res, { error: e.message || 'tz write failed' }, 500);
+        }
+      });
+      return;
+    }
+
     // Voice is disabled in demo mode. Every /api/voice/* path returns 503
     // before falling through to the real handlers below.
     if (ENV.KLEBB_DEMO && parts[0] === 'voice') {
@@ -1908,4 +1932,27 @@ server.listen(PORT, HOST, () => {
   } catch (e) {
     console.warn('[ingest] watcher init failed:', e.message);
   }
+
+  // Notifications scheduler: 1-minute tick, evaluates triggers, fires
+  // due notifications. Disabled in demo mode (the demo doesn't deliver
+  // push). The dispatch path is logging-only in v3.0.0; PR #386 wires
+  // up the real Web Push send.
+  if (!ENV.KLEBB_DEMO) {
+    try {
+      registry.onDelete((id) => notificationsState.pruneCard(id));
+      notificationsScheduler.start(registry);
+      console.log('[notifications] scheduler started');
+    } catch (e) {
+      console.warn('[notifications] scheduler init failed:', e.message);
+    }
+  }
 });
+
+// Graceful shutdown: stop the scheduler so the test harness's SIGTERM
+// doesn't leave a stray timer keeping the process alive.
+function _shutdown() {
+  try { notificationsScheduler.stop(); } catch {}
+  process.exit(0);
+}
+process.on('SIGTERM', _shutdown);
+process.on('SIGINT', _shutdown);

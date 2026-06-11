@@ -9,6 +9,46 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **`meta.notifications` schema: declarative push reminders per card.**
+  Cards may declare an `items[]` array of notifications inside their
+  `meta.notifications` block. Each item has an `id`, `label`, `title`,
+  `body`, a `trigger` (v3.0.0 supports `daily` and `weekly` types),
+  and optional `action`, `privacy`, and `default` fields. Validator
+  is lenient at load (drops bad items silently so a malformed sidecar
+  can't wedge the registry) and strict at create / PATCH (returns 422
+  with an `invalid notifications: ...` prefix). Caps: 10 items per
+  manifest, 50 active items per instance. Documented in
+  `MANIFEST-SCHEMA.md`. Refs #385.
+
+- **In-process notifications scheduler.** A self-rescheduling
+  `setTimeout` lands on the start of each minute, walks the registry,
+  evaluates triggers, and dispatches due notifications. Idempotent:
+  `lastFired` stores the slot ISO (not the wall-clock fire time) so a
+  restart inside the minute doesn't refire. Coalesces same-minute
+  fires into a single dispatch event. Honours global `paused_until`
+  (skips and does not advance `lastFired`, so the most recent missed
+  slot fires when paused expires) and `quiet_hours` (advances
+  `lastFired` but skips the dispatch). The dispatch path is
+  logging-only in this PR; the Web Push send arrives in #386.
+  Started at server boot when `!KLEBB_DEMO`; stopped on SIGTERM /
+  SIGINT. Refs #385.
+
+- **Per-instance runtime state file at
+  `$HEALTH_HOME/notifications.state.json`.** Mode `0o600`, atomic
+  tmp+rename writes with `fsync`. Stores per-item enabled/lastFired,
+  global quiet hours, and the global pause deadline. Created lazily
+  on first toggle. The registry's new `onDelete` hook prunes orphan
+  entries when a card is deleted. Refs #385.
+
+- **User-timezone capture for the scheduler.** New `POST /api/user/tz`
+  endpoint validates against `Intl.supportedValuesOf('timeZone')` and
+  persists to `$HEALTH_HOME/user.json` (mode `0o600`, atomic). The
+  client sends the browser's `Intl.DateTimeFormat().resolvedOptions().timeZone`
+  on each session boot, idempotently (skipped when unchanged since
+  last post). The scheduler reads the user's TZ first and falls back
+  to `process.env.TZ`, so reminders fire in the user's local time
+  even when they travel. Refs #385.
+
 - **PWA shell: a real service worker.** `public/sw.js` registers at
   scope `/` from the app shell on first load. The handlers wrap every
   task in `event.waitUntil()` so iOS doesn't terminate the SW
