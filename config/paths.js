@@ -79,6 +79,17 @@ const CHAT_DIR = process.env.HEALTH_CHAT_DIR || path.join(HEALTH_HOME, 'chat');
 const CHAT_HISTORY_FILE = path.join(CHAT_DIR, 'history.json');
 const CONFIG_PATH = process.env.HEALTH_CONFIG_PATH || path.join(HEALTH_HOME, 'config.json');
 
+// Per-instance runtime state for notifications. Decoupled from manifests
+// so the per-card meta block stays clean (config) and last-fired / toggle
+// state lives in this opaque sidecar (runtime). Created lazily.
+const NOTIFICATIONS_STATE_FILE = process.env.HEALTH_NOTIFICATIONS_STATE_FILE
+  || path.join(HEALTH_HOME, 'notifications.state.json');
+
+// Per-instance user preferences (timezone today; future: device nicknames).
+// Single-user-per-instance, so this is one file - not a per-user store.
+const USER_FILE = process.env.HEALTH_USER_FILE
+  || path.join(HEALTH_HOME, 'user.json');
+
 // WebAuthn credentials + sessions. Historical installs may have stored these
 // inside DATA_DIR as `webauthn-credentials.json` / `webauthn-sessions.json`;
 // prefer those if found, otherwise use the modern subdir layout.
@@ -122,6 +133,8 @@ module.exports = {
   CHAT_DIR,
   CHAT_HISTORY_FILE,
   CONFIG_PATH,
+  NOTIFICATIONS_STATE_FILE,
+  USER_FILE,
   WEBAUTHN_CREDENTIALS_FILE,
   WEBAUTHN_SESSIONS_FILE,
   ensureWritableDirs,
