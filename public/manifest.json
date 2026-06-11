@@ -1,15 +1,20 @@
 {
+  "id": "/",
   "name": "Klebb",
   "short_name": "Klebb",
-  "start_url": "/",
+  "description": "Personal health dashboard.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0f0f1a",
-  "theme_color": "#00d4aa",
+  "theme_color": "#0f0f1a",
+  "categories": ["health", "lifestyle", "productivity"],
   "icons": [
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "/icons/icon-152.png", "sizes": "152x152", "type": "image/png" },
-    { "src": "/icons/icon-120.png", "sizes": "120x120", "type": "image/png" }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-152.png", "sizes": "152x152", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-120.png", "sizes": "120x120", "type": "image/png", "purpose": "any" }
   ]
 }
