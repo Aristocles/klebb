@@ -88,7 +88,48 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.webmanifest': 'application/manifest+json',
 };
+
+// Minimum CSP for /index.html. Push provider connect-src entries unblock
+// pushManager.subscribe + the SW's eventual push fetches; esm.sh stays in
+// script-src because Lit imports load directly from there at runtime.
+// 'unsafe-inline' for styles is required for Lit's render path; the
+// inline FOUC-prevention <script> in index.html is the only inline script
+// and is whitelisted by 'self' (not 'unsafe-inline').
+const CSP_INDEX = [
+  "default-src 'self'",
+  "worker-src 'self'",
+  "script-src 'self' https://esm.sh 'unsafe-inline'",
+  "connect-src 'self' https://*.googleapis.com https://*.push.services.mozilla.com https://web.push.apple.com",
+  "manifest-src 'self'",
+  "img-src 'self' data:",
+  "style-src 'self' 'unsafe-inline'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'self'",
+].join('; ');
+
+// Per-path header overrides applied on top of the static handler's
+// default Content-Type. Returns the headers object (possibly empty).
+// Exact-path match only — no substring or suffix logic, so a future
+// upload at /data/foo-sw.js cannot inherit SW-only policy.
+function staticHeadersFor(pathname) {
+  const headers = {};
+  if (pathname === '/sw.js' || pathname === '/manifest.json' || pathname === '/manifest.webmanifest') {
+    headers['Cache-Control'] = 'no-cache';
+  }
+  if (pathname === '/manifest.json') {
+    // Override the default application/json MIME so browsers parse the
+    // file with relaxed manifest-format expectations (some older Edge
+    // builds nag if Content-Type isn't application/manifest+json).
+    headers['Content-Type'] = 'application/manifest+json';
+  }
+  if (pathname === '/' || pathname === '/index.html') {
+    headers['Content-Security-Policy'] = CSP_INDEX;
+  }
+  return headers;
+}
 
 function sendJSON(res, data, status = 200) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -491,16 +532,16 @@ ${htmlContent}
 </body></html>`;
 }
 
-function serveStaticFile(res, filePath) {
+function serveStaticFile(res, filePath, extraHeaders = {}) {
   const ext = path.extname(filePath);
   const mime = MIME_TYPES[ext] || 'application/octet-stream';
 
   try {
     const content = fs.readFileSync(filePath);
-    res.writeHead(200, { 'Content-Type': mime });
+    const headers = { 'Content-Type': mime, ...extraHeaders };
+    res.writeHead(200, headers);
     res.end(content);
   } catch {
-    // For SPA routing, serve index.html for non-API, non-file paths
     return false;
   }
   return true;
@@ -1822,11 +1863,21 @@ Original system prompt follows:
     return send404(res);
   }
 
-  if (serveStaticFile(res, filePath)) return;
+  // Demo mode does not deliver Web Push: 404 the SW so registration on the
+  // public demo fails harmlessly instead of capturing a subscription that
+  // would later be ignored. Manifest stays served (the demo can install
+  // as a PWA, it just won't get push).
+  if (pathname === '/sw.js' && ENV.KLEBB_DEMO) {
+    return send404(res);
+  }
 
-  // SPA fallback: serve index.html for client-side routes
+  const extraHeaders = staticHeadersFor(pathname);
+  if (serveStaticFile(res, filePath, extraHeaders)) return;
+
+  // SPA fallback: serve index.html for client-side routes. Apply the
+  // index-only headers (CSP) so deep-linked routes get the same policy.
   const indexPath = path.join(PUBLIC_DIR, 'index.html');
-  serveStaticFile(res, indexPath);
+  serveStaticFile(res, indexPath, staticHeadersFor('/'));
 });
 
 server.listen(PORT, HOST, () => {

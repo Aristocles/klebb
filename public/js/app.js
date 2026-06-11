@@ -49,6 +49,7 @@ class HealthApp extends LitElement {
     applyTheme(this.theme);
     this._onThemeChanged = (e) => { this.theme = e.detail.theme; };
     window.addEventListener('klebb-theme-changed', this._onThemeChanged);
+    this._registerServiceWorker();
     this._handleRoute();
     this._loadInstance();
     this._loadBuildInfo();
@@ -66,6 +67,15 @@ class HealthApp extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('klebb-theme-changed', this._onThemeChanged);
+  }
+
+  _registerServiceWorker() {
+    // SW registration is fire-and-forget. /sw.js 404s in demo mode, so the
+    // registration just rejects there with no user-visible effect. Push
+    // delivery is wired up in the notifications PR (#387); for now the SW
+    // is registered so the browser keeps it alive once push lands.
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
   }
 
   async _loadInstance() {

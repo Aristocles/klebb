@@ -131,6 +131,7 @@ function isPublicPath(pathname) {
     '/js/',
     '/icons/',
     '/manifest.json',
+    '/sw.js',
     '/favicon.ico',
   ];
   return publicPaths.some(p => pathname === p || pathname.startsWith(p));
