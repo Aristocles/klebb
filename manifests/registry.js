@@ -19,6 +19,7 @@ const { mergePatch, isPlainObject } = require('./merge-patch');
 const { parsePath, resolvePath } = require('./path');
 
 const { isValidCategory } = require('../config/categories');
+const { validateNotifications } = require('./notifications-schema');
 
 const SUPPORTED_SCHEMAS = ['klebb.datafile.v1'];
 const RESERVED_DIR_PREFIX = '_';
@@ -34,6 +35,13 @@ const RESERVED_IDS = new Set([
 let _entries = new Map();   // id -> { meta, description, schema, data, source, version }
 let _errors = [];           // [{file, error}]
 let _watcher = null;
+const _deleteHooks = [];    // (id) => void; called after a manifest is deleted
+
+// Register a callback to fire after deleteManifest succeeds. Used by
+// notifications-state to prune sidecar entries for a removed card.
+function onDelete(fn) {
+  if (typeof fn === 'function') _deleteHooks.push(fn);
+}
 
 // Backup files created by scripts/migrate-* and scripts/reingest-hae
 // land beside the canonical manifest with a timestamped suffix before
@@ -75,7 +83,7 @@ function _scanDir(dir) {
 // names, length). Load-time validation is lenient about id format so legacy
 // files keep loading; the create path sets strictId:true.
 function validateManifestShape(parsed, opts = {}) {
-  const { strictId = false } = opts;
+  const { strictId = false, strictNotifications = strictId } = opts;
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error('missing $schema');
   }
@@ -110,6 +118,18 @@ function validateManifestShape(parsed, opts = {}) {
   if (parsed.meta.category !== undefined && !isValidCategory(parsed.meta.category)) {
     delete parsed.meta.category;
   }
+
+  // meta.notifications is optional. Lenient at load (drop bad items),
+  // strict at create/PATCH (throw "invalid notifications: ...").
+  if (parsed.meta.notifications !== undefined) {
+    const cleaned = validateNotifications(parsed.meta.notifications, { strict: strictNotifications });
+    if (cleaned === undefined) {
+      delete parsed.meta.notifications;
+    } else {
+      parsed.meta.notifications = cleaned;
+    }
+  }
+
   return parsed;
 }
 
@@ -697,8 +717,10 @@ function patchManifest(id, patch) {
   const merged = _buildEntryEnvelope(stagedEntry);
 
   // Re-validate. strictId:false so we don't reject legacy ids that already
-  // loaded; we already blocked id changes above.
-  validateManifestShape(merged, { strictId: false });
+  // loaded; we already blocked id changes above. Notifications get strict
+  // validation though - the agent shouldn't be able to patch in malformed
+  // items lenient-mode just because the manifest's id is grandfathered.
+  validateManifestShape(merged, { strictId: false, strictNotifications: true });
 
   _persistEnvelope(entry, merged);
   entry.meta = merged.meta;
@@ -721,6 +743,11 @@ function deleteManifest(id) {
     }
   }
   _entries.delete(id);
+  for (const fn of _deleteHooks) {
+    try { fn(id); } catch (e) {
+      console.warn(`[registry] onDelete hook error for ${id}: ${e.message}`);
+    }
+  }
   return { id, removed: entry.source };
 }
 
@@ -744,4 +771,5 @@ module.exports = {
   patchManifest,
   deleteManifest,
   validateManifestShape,
+  onDelete,
 };
