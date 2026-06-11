@@ -9,6 +9,68 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Web Push delivery: real notifications hit real devices.** New
+  `/api/push/*` endpoints (`vapid-public-key`, `subscribe`,
+  `subscribe/heartbeat`, `unsubscribe`) accept a browser
+  `pushManager` subscription and persist it to
+  `$HEALTH_HOME/push-subscriptions.json` (mode 0o600, atomic). Capped
+  at 20 active subs per instance, oldest evicted on overflow. The
+  scheduler from PR #385 now fires Web Push events through the
+  `web-push` npm package; private notifications carry generic
+  `Klebb / You have a reminder.` on the wire and the real text in a
+  separate field the SW substitutes after decryption. Tag is the
+  opaque `klebb-<sha256-prefix>` so the push provider can't infer
+  medical category from the collapse key. `Urgency: high` and
+  `TTL: 300` make late-fire batching unlikely on iOS Low Power Mode.
+  Refs #386.
+
+- **VAPID keypair: lazy generation + operator rotation.**
+  `$HEALTH_HOME/keys/vapid.json` is generated on first push API call
+  and stored mode 0o600 with atomic+fsynced writes. Operator
+  rotation is "delete the file and restart" - existing subs return
+  401/403 from the push provider on next send, are marked dead, and
+  re-subscribe on the client's next Settings open via the keyId
+  fingerprint comparison (lands in PR #387). The keys live under
+  `keys/`, not `sessions/`, because conflating long-lived asymmetric
+  identity with session ephemera invites accidental nuke during
+  session-troubleshooting resets. Refs #386.
+
+- **`/api/notifications/*` HTTP surface: state, global controls, test
+  fire, diagnostics.** `GET /api/notifications` aggregates every
+  declared item across every manifest plus its toggle/lastFired.
+  `POST /api/notifications/state` flips per-item `enabled` /
+  `privacy`. `POST /api/notifications/global-state` writes
+  `quiet_hours` and `paused_until`. `POST /api/notifications/test`
+  fires a configured payload right now to every live subscription
+  (rate-limited at 1/min per notification id, so a session-token
+  leak can't spam the operator's phone). `GET /api/diagnostics`
+  surfaces TZ, VAPID keyId fingerprint, subscription metadata
+  (truncated id + nickname + last_seen + last_status; never the
+  raw endpoint URLs), and the recent-fires ring buffer. Every
+  state-changing endpoint goes through an Origin-allowlist
+  middleware that rejects requests whose `Origin` header doesn't
+  match `ENV.WEBAUTHN_ORIGIN` - SameSite=Lax cookies don't block
+  cross-fetch from same-eTLD+1 subdomains, so this is the actual
+  CSRF defense. In `KLEBB_DEMO=1` every endpoint above 410s. Refs
+  #386.
+
+- **Recent-fires audit ring (100 entries) in
+  `notifications.state.json`.** Each scheduler tick that dispatches
+  appends `{ ts, id, sent, failed, statuses }` so the Diagnostics tab
+  (lands in PR #387) can answer "why didn't I get reminded at 8pm
+  yesterday". Refs #386.
+
+### Changed
+
+- **`web-push` npm package added.** Transitive deps: zero (a small
+  set of Node-builtin-equivalents). Justification: this is the
+  cryptographic surface (VAPID JWT signing per RFC 8292, content
+  encryption per RFC 8291). One audited package replaces ~250 lines
+  of from-scratch ECE and AES-128-GCM we'd otherwise own and is
+  widely exercised in production. Refs #386.
+
+### Added
+
 - **`meta.notifications` schema: declarative push reminders per card.**
   Cards may declare an `items[]` array of notifications inside their
   `meta.notifications` block. Each item has an `id`, `label`, `title`,
