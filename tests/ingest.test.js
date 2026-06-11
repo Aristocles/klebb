@@ -285,14 +285,21 @@ describe('ingest pipeline: end-to-end via spawnServer', () => {
     const src = path.join(inbox, 'evil.docx');
     fs.writeFileSync(src, 'binary doom');
 
-    const moved = await waitFor(() => {
-      return fs.existsSync(path.join(failed, 'evil.docx')) ? true : null;
-    });
-    assert.ok(moved, 'evil.docx never moved to _failed/');
-
+    // Poll the sidecar (the LAST artefact the pipeline writes), not the
+    // moved file (the first). The pipeline does renameSync then a
+    // separate writeFileSync for the .error; on Node 22 in CI the second
+    // write occasionally lags the rename, so polling for the moved file
+    // and then immediately reading the sidecar raced (#377).
     const errFile = path.join(failed, 'evil.docx.error');
-    assert.ok(fs.existsSync(errFile), 'no sibling .error written');
-    const errBody = fs.readFileSync(errFile, 'utf8');
+    const errBody = await waitFor(() => {
+      try {
+        const body = fs.readFileSync(errFile, 'utf8');
+        return body.length > 0 ? body : null;
+      } catch { return null; }
+    });
+    assert.ok(errBody, 'no sibling .error written for evil.docx');
+    assert.ok(fs.existsSync(path.join(failed, 'evil.docx')),
+      'source file never moved to _failed/');
     assert.match(errBody, /unsupported format/);
   });
 
@@ -302,12 +309,18 @@ describe('ingest pipeline: end-to-end via spawnServer', () => {
     const src = path.join(inbox, 'voice-note.mp3');
     fs.writeFileSync(src, 'not really mp3 bytes; ffmpeg+ASR will not run');
 
-    const moved = await waitFor(() => {
-      return fs.existsSync(path.join(failed, 'voice-note.mp3')) ? true : null;
+    // See note in 'unsupported extension' above: poll the sidecar, not
+    // the moved file.
+    const errFile = path.join(failed, 'voice-note.mp3.error');
+    const errBody = await waitFor(() => {
+      try {
+        const body = fs.readFileSync(errFile, 'utf8');
+        return body.length > 0 ? body : null;
+      } catch { return null; }
     });
-    assert.ok(moved, 'voice-note.mp3 never moved to _failed/');
-
-    const errBody = fs.readFileSync(path.join(failed, 'voice-note.mp3.error'), 'utf8');
+    assert.ok(errBody, 'no sibling .error written for voice-note.mp3');
+    assert.ok(fs.existsSync(path.join(failed, 'voice-note.mp3')),
+      'source file never moved to _failed/');
     assert.match(errBody, /audio ingest disabled|FISH_AUDIO_API_KEY/);
   });
 });
