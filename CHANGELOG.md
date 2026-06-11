@@ -9,6 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Ingest tests no longer race the `.error` sidecar write on Node
+  22.** Two end-to-end ingest tests (`unsupported extension lands in
+  _failed/` and `audio drop without FISH_AUDIO_API_KEY`) were
+  polling for the moved file in `_failed/` and then immediately
+  reading the sibling `.error` sidecar. The pipeline writes those in
+  two steps (rename, then a separate `writeFileSync`), and Node 22's
+  fs scheduler in CI occasionally landed the rename before the
+  sidecar write completed. Both tests now poll for the sidecar
+  itself (the LAST artefact written) with non-empty content, then
+  assert the moved file is also present. Removes intermittent
+  ENOENT failures on the Node 22 CI job. Closes #377.
+
 - **Chat widget no longer aborts in-flight replies when the tab is
   backgrounded.** A defensive `visibilitychange` watcher in
   `health-chat.js` was calling `AbortController.abort()` on the
