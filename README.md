@@ -1,7 +1,7 @@
 # Klebb
 
 [![tests](https://github.com/Aristocles/klebb/actions/workflows/test.yml/badge.svg)](https://github.com/Aristocles/klebb/actions/workflows/test.yml)
-[![license](https://img.shields.io/github/license/Aristocles/klebb.svg)](./LICENSE)
+[![license](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](./LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org/)
 
 <p align="center">
