@@ -9,6 +9,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Chat widget no longer aborts in-flight replies when the tab is
+  backgrounded.** A defensive `visibilitychange` watcher in
+  `health-chat.js` was calling `AbortController.abort()` on the
+  in-flight `/api/chat` fetch whenever the tab had been hidden for
+  more than three seconds, then pushing a "Tab was backgrounded:
+  reply was lost. Send again." error into the chat. Browsers do not
+  kill in-flight network requests in hidden tabs (they only throttle
+  timers), so the abort was self-inflicted: the fetch would have
+  completed cleanly if left alone. Cheap when chat turns took ~5s,
+  but tool-using turns now legitimately run 30 - 60s and routinely
+  straddle a quick tab switch. The watcher and its error copy are
+  removed entirely; the request rides through visibility changes and
+  the reply lands when the tab comes back. Closes #372.
+
 - **Schedule-card previous-dose hint no longer points at today's dose
   after logging.** When a `checkOffForm` declares `previousDoseFields`
   (the reactions-at-prior-site flow), the form surfaces a "Last:"
