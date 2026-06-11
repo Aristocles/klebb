@@ -400,3 +400,34 @@ crash the server — the offending file just doesn't produce a card.
 **Migrating from a legacy (v1) install.**
 Run `scripts/migrate-v1-to-v2.js` against your data directory. See the
 script's `--help` for options.
+
+## 6. Backup and sensitive files
+
+Everything an instance needs lives under `$HEALTH_HOME/`. A snapshot
+of that directory is a complete backup. The whole tree is sensitive,
+but a few files inside it are particularly so and should be treated
+with extra care if you ever build an export or share-debug-info
+feature on top of Klebb:
+
+| Path | What's in it |
+|---|---|
+| `$HEALTH_HOME/credentials/webauthn.json` | WebAuthn credential public keys + sign counters. |
+| `$HEALTH_HOME/sessions/webauthn.json` | Active session tokens. Long-lived. |
+| `$HEALTH_HOME/sessions/secret.key` | Session-cookie HMAC key. Rotate by deleting + restarting (forces re-login on every device). |
+| `$HEALTH_HOME/keys/vapid.json` | Web Push VAPID keypair. Operator rotation: delete the file and restart; every existing device re-subscribes via Settings > Notifications on its next visit. |
+| `$HEALTH_HOME/push-subscriptions.json` | Per-device push endpoints. Each row is a capability: anyone holding the endpoint URL + the configured VAPID private key can deliver a push to that device. |
+| `$HEALTH_HOME/notifications.state.json` | Per-item toggle state, last-fired timestamps, quiet-hours, pause deadline, recent-fires audit ring. |
+| `$HEALTH_HOME/user.json` | User preferences (currently the IANA timezone). |
+| `$HEALTH_HOME/data/*.json` | Health card manifests + their data. The whole point of the dashboard. |
+| `$HEALTH_HOME/reports/` | Markdown reports (rendered + ingested). |
+| `$HEALTH_HOME/chat/history.json` | Chat transcript with the agent. |
+
+**Back up the whole `$HEALTH_HOME/` tree.** Don't try to be clever
+about which files to skip; every one of them is needed to bring a new
+instance up identically to the old one.
+
+**Never include any of the credentials/sessions/keys/push-subscriptions
+files in a user-facing export.** If you build an "export my data"
+feature, it should walk `data/` and `reports/` only, never the
+sensitive files above. The `notifications.state.json` ring buffer
+also leaks subscription ids and recent fire metadata, so exclude it.
