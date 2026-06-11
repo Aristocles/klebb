@@ -7,7 +7,57 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **PWA shell: a real service worker.** `public/sw.js` registers at
+  scope `/` from the app shell on first load. The handlers wrap every
+  task in `event.waitUntil()` so iOS doesn't terminate the SW
+  mid-flight; the body is currently a stub that surfaces a generic
+  notification (the notifications PR fills in real payload handling).
+  `notificationclick` validates payload URLs are same-origin before
+  navigating. Refs #384.
+
+- **Klebb minimum Content-Security-Policy.** `/index.html` (and the
+  SPA fallback for client-side routes) sends a CSP that confines the
+  page to `'self'` plus `https://esm.sh` for scripts and the three
+  Web Push providers (Google FCM, Mozilla autopush, Apple's web push
+  relay) for `connect-src`. Style sources keep `'unsafe-inline'` for
+  Lit; image sources allow `data:` for inline icons. Adding push
+  without a baseline CSP would make any future XSS dramatically more
+  durable. Refs #384.
+
 ### Changed
+
+- **Web app manifest tightened for installability.** `public/manifest.json`
+  declares `id`, `scope`, `description`, `categories`, and a stable
+  `start_url` (`/?source=pwa`). The 192/512 icons now declare
+  `purpose: "any maskable"` so Android adaptive shapes don't clip the
+  glyph. `theme_color` matches `background_color` (`#0f0f1a`) so the
+  PWA's status bar reads dark. The stray `<meta name="theme-color">`
+  in `index.html` (which was a different colour) is gone; the
+  manifest is the sole source of truth. Refs #384.
+
+- **`/sw.js` and `/manifest.json` are served `Cache-Control: no-cache`.**
+  Without this, deployed service worker updates can take days to
+  propagate (especially on iOS Safari, where the HTTP cache is
+  conservative). The exact-path match on the static handler avoids
+  any future user-controlled path inheriting the policy. The manifest
+  is also served as `application/manifest+json` so older browsers
+  parse it with manifest-format expectations rather than as generic
+  JSON. Refs #384.
+
+- **Demo mode 404s `/sw.js`.** The public demo at `demo.klebb.app`
+  should not capture push subscriptions for a tenant that no one
+  owns. Service-worker registration on the demo now fails harmlessly
+  in the browser instead of installing a dead handler. The web app
+  manifest still serves on the demo so install metadata stays correct
+  for visitors who bookmark it. Refs #384.
+
+- **Theme bootstrap script in `index.html`.** A tiny inline IIFE
+  reads `klebb-theme` from localStorage and applies the `data-theme`
+  attribute on `<html>` before stylesheets evaluate. Removes the
+  dark-mode flash-of-light on reload that the previous module-load
+  timing made unavoidable. Refs #384.
 
 - **Settings is now a tabbed view: General / Notifications /
   Connections / Cards / Diagnostics.** The 1029-line monolithic
