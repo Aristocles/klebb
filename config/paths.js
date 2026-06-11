@@ -90,6 +90,16 @@ const NOTIFICATIONS_STATE_FILE = process.env.HEALTH_NOTIFICATIONS_STATE_FILE
 const USER_FILE = process.env.HEALTH_USER_FILE
   || path.join(HEALTH_HOME, 'user.json');
 
+// Long-lived asymmetric keys live under their own directory, separate
+// from sessions/ - operator backup-rotation policy is fundamentally
+// different from session ephemera.
+const KEYS_DIR = process.env.HEALTH_KEYS_DIR || path.join(HEALTH_HOME, 'keys');
+const VAPID_FILE = process.env.HEALTH_VAPID_FILE || path.join(KEYS_DIR, 'vapid.json');
+
+// Web Push subscriptions for the operator's devices.
+const PUSH_SUBSCRIPTIONS_FILE = process.env.HEALTH_PUSH_SUBSCRIPTIONS_FILE
+  || path.join(HEALTH_HOME, 'push-subscriptions.json');
+
 // WebAuthn credentials + sessions. Historical installs may have stored these
 // inside DATA_DIR as `webauthn-credentials.json` / `webauthn-sessions.json`;
 // prefer those if found, otherwise use the modern subdir layout.
@@ -135,6 +145,9 @@ module.exports = {
   CONFIG_PATH,
   NOTIFICATIONS_STATE_FILE,
   USER_FILE,
+  KEYS_DIR,
+  VAPID_FILE,
+  PUSH_SUBSCRIPTIONS_FILE,
   WEBAUTHN_CREDENTIALS_FILE,
   WEBAUTHN_SESSIONS_FILE,
   ensureWritableDirs,
