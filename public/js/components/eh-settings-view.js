@@ -1,1027 +1,140 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/components/eh-settings-view.js
-// Settings view (v2, post-Phase-0).
 //
-// Shows every card discovered in $HEALTH_HOME/data/ with a master enable/disable
-// toggle. Toggling flips meta.enabled inside the file — no moving files, no
-// archive dir. To remove a card entirely, delete the file (via chat/shell).
-// To add a card, drop a valid manifest file into $HEALTH_HOME/data/ — see CARDS.md.
+// Settings shell. Five tabs: General, Notifications, Connections, Cards,
+// Diagnostics. Active tab is component-local state. No router lib, no URL
+// hash, no history API: settings is a single page in the app shell, the
+// active tab does not need to be bookmarkable, and there is no second
+// consumer that would justify a reusable tabs primitive.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
-import { repeat } from 'https://esm.sh/lit@3/directives/repeat.js';
-import { errorFromResponse } from '../lib/save-error.js';
+import './eh-settings-general.js';
+import './eh-settings-notifications.js';
+import './eh-settings-connections.js';
+import './eh-settings-cards.js';
+import './eh-settings-diagnostics.js';
+
+const TABS = [
+  { id: 'general',       label: 'General' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'connections',   label: 'Connections' },
+  { id: 'cards',         label: 'Cards' },
+  { id: 'diagnostics',   label: 'Diagnostics' },
+];
 
 export class EhSettingsView extends LitElement {
   static properties = {
-    _cards: { state: true },
-    _loading: { state: true },
-    _error: { state: true },
-    _busyId: { state: true },
-    _filter: { state: true },
-    _hiddenDiscoveries: { state: true },
-    _busyMetric: { state: true },
-    _haeStatus: { state: true },
-    _haeLastPushExpanded: { state: true },
-    _haeCopied: { state: true },
-    _haeToken: { state: true },
-    _haeTokenLoaded: { state: true },
-    _haeTokenLastRegeneratedAt: { state: true },
-    _haeTokenReveal: { state: true },
-    _haeTokenCopied: { state: true },
-    _haeTokenBusy: { state: true },
-    _haeRegenConfirm: { state: true },
-    _haeTokenError: { state: true },
-    _demo: { state: true },
+    _activeTab: { state: true },
   };
 
   constructor() {
     super();
-    this._cards = [];
-    this._loading = true;
-    this._error = null;
-    this._busyId = null;
-    this._filter = '';
-    this._hiddenDiscoveries = [];
-    this._busyMetric = null;
-    this._haeStatus = null;
-    this._haeLastPushExpanded = false;
-    this._haeCopied = false;
-    this._haeToken = null;
-    this._haeTokenLoaded = false;
-    this._haeTokenLastRegeneratedAt = null;
-    this._haeTokenReveal = false;
-    this._haeTokenCopied = false;
-    this._haeTokenBusy = false;
-    this._haeRegenConfirm = false;
-    this._haeTokenError = null;
-    this._demo = false;
+    this._activeTab = 'general';
   }
 
-  connectedCallback() {
-    super.connectedCallback();
-    this._load();
-    this._loadHiddenDiscoveries();
-    this._loadHaeStatus();
-    this._loadHaeToken();
-    this._loadDemoFlag();
+  _onTabClick(id) {
+    this._activeTab = id;
   }
 
-  async _loadDemoFlag() {
-    try {
-      const r = await fetch('/api/instance');
-      if (!r.ok) return;
-      const j = await r.json();
-      this._demo = !!j.demo;
-    } catch {}
-  }
-
-  async _loadHaeStatus() {
-    try {
-      const r = await fetch('/api/health-auto-export/status');
-      if (!r.ok) return;
-      this._haeStatus = await r.json();
-    } catch {
-      // Silent — settings still works without this section.
-    }
-  }
-
-  async _writeClipboard(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); } catch {}
-      document.body.removeChild(ta);
-    }
-  }
-
-  async _copyEndpoint() {
-    if (!this._haeStatus?.endpointUrl) return;
-    await this._writeClipboard(this._haeStatus.endpointUrl);
-    this._haeCopied = true;
-    setTimeout(() => { this._haeCopied = false; }, 1800);
-  }
-
-  async _loadHaeToken() {
-    try {
-      const r = await fetch('/api/health-auto-export/token');
-      if (!r.ok) {
-        this._haeToken = null;
-        this._haeTokenLastRegeneratedAt = null;
-        this._haeTokenLoaded = true;
-        return;
-      }
-      const j = await r.json();
-      this._haeToken = j.token || null;
-      this._haeTokenLastRegeneratedAt = j.lastRegeneratedAt || null;
-      this._haeTokenLoaded = true;
-    } catch {
-      this._haeTokenLoaded = true;
-    }
-  }
-
-  async _generateHaeToken() {
-    if (this._haeTokenBusy) return;
-    this._haeTokenBusy = true;
-    this._haeTokenError = null;
-    try {
-      const r = await fetch('/api/health-auto-export/token', { method: 'POST' });
-      if (!r.ok) {
-        this._haeTokenError = await errorFromResponse(r, 'Could not generate token.');
-        return;
-      }
-      const j = await r.json();
-      this._haeToken = j.token;
-      this._haeTokenLastRegeneratedAt = j.lastRegeneratedAt || null;
-      this._haeTokenReveal = true;
-      // Refresh status panel so the green dot updates.
-      this._loadHaeStatus();
-      setTimeout(() => { this._haeTokenReveal = false; }, 8000);
-    } catch (e) {
-      this._haeTokenError = e?.message || 'Could not generate token.';
-    } finally {
-      this._haeTokenBusy = false;
-    }
-  }
-
-  _askRegenerateHae() {
-    this._haeRegenConfirm = true;
-    this._haeTokenError = null;
-  }
-
-  _cancelRegenerateHae() {
-    this._haeRegenConfirm = false;
-  }
-
-  async _confirmRegenerateHae() {
-    if (this._haeTokenBusy) return;
-    this._haeTokenBusy = true;
-    this._haeTokenError = null;
-    try {
-      const r = await fetch('/api/health-auto-export/token/regenerate', { method: 'POST' });
-      if (!r.ok) {
-        this._haeTokenError = await errorFromResponse(r, 'Could not regenerate token.');
-        return;
-      }
-      const j = await r.json();
-      this._haeToken = j.token;
-      this._haeTokenLastRegeneratedAt = j.lastRegeneratedAt || null;
-      this._haeRegenConfirm = false;
-      this._haeTokenReveal = true;
-      setTimeout(() => { this._haeTokenReveal = false; }, 8000);
-    } catch (e) {
-      this._haeTokenError = e?.message || 'Could not regenerate token.';
-    } finally {
-      this._haeTokenBusy = false;
-    }
-  }
-
-  async _copyHaeToken() {
-    if (!this._haeToken) return;
-    await this._writeClipboard(this._haeToken);
-    this._haeTokenCopied = true;
-    setTimeout(() => { this._haeTokenCopied = false; }, 1800);
-  }
-
-  _maskToken(token) {
-    if (!token) return '';
-    const tail = token.slice(-4);
-    return '•'.repeat(28) + tail;
-  }
-
-  _toggleLastPushDetail() {
-    this._haeLastPushExpanded = !this._haeLastPushExpanded;
-  }
-
-  async _loadHiddenDiscoveries() {
-    try {
-      const r = await fetch('/api/health-auto-export/discoveries');
-      if (!r.ok) return;
-      const body = await r.json();
-      this._hiddenDiscoveries = Array.isArray(body.dismissed) ? body.dismissed : [];
-    } catch {
-      // Silent — settings still works without this section.
-    }
-  }
-
-  async _unhideDiscovery(metric) {
-    this._busyMetric = metric;
-    try {
-      const r = await fetch(
-        `/api/health-auto-export/discoveries/${encodeURIComponent(metric)}/unhide`,
-        { method: 'POST' });
-      if (r.ok) {
-        this._hiddenDiscoveries = this._hiddenDiscoveries.filter(d => d.metric !== metric);
-      }
-    } finally {
-      this._busyMetric = null;
-    }
-  }
-
-  // Set `silent` when refreshing after a toggle: swapping the card
-  // list into "Loading…" for a moment collapses the page height and
-  // jerks the scroll position (see #194). On a refresh we have card
-  // state already — keep it on screen until the new data lands.
-  async _load({ silent = false } = {}) {
-    if (!silent) this._loading = true;
-    this._error = null;
-    try {
-      const r = await fetch('/api/settings/cards');
-      if (!r.ok) throw await errorFromResponse(r);
-      const { cards } = await r.json();
-      this._cards = Array.isArray(cards) ? cards : [];
-    } catch (e) {
-      this._error = e.message;
-    } finally {
-      if (!silent) this._loading = false;
-    }
-  }
-
-  async _toggle(card) {
-    this._busyId = card.id;
-    this._error = null;
-    try {
-      const action = card.enabled ? 'disable' : 'enable';
-      const r = await fetch(`/api/settings/cards/${encodeURIComponent(card.id)}/${action}`, { method: 'POST' });
-      if (!r.ok) throw await errorFromResponse(r);
-      await this._load({ silent: true });
-    } catch (e) {
-      this._error = e.message;
-    } finally {
-      this._busyId = null;
-    }
-  }
-
-  _filteredCards() {
-    const q = (this._filter || '').trim().toLowerCase();
-    if (!q) return this._cards;
-    return this._cards.filter(c => {
-      const hay = `${c.id} ${c.label || ''} ${c.description || ''}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }
-
-  // Returns the filtered card list sorted alphabetically by label
-  // (case-insensitive, fallback to id). Enabled/disabled grouping
-  // was removed in #194 — toggling a card used to reshuffle the list
-  // and scroll the page to the top, which was disorienting when
-  // flipping several cards in sequence. One flat list, sorted once,
-  // keyed Lit render below so toggles don't tear down DOM.
-  _sortedCards() {
-    return [...this._filteredCards()].sort((a, b) => {
-      const la = (a.label || a.id || '').toLowerCase();
-      const lb = (b.label || b.id || '').toLowerCase();
-      return la.localeCompare(lb);
-    });
+  // Arrow-key navigation across the tab strip. ArrowLeft/ArrowRight move
+  // selection; Home/End jump to the ends. Matches WAI-ARIA tabs pattern.
+  _onTabKey(e) {
+    const idx = TABS.findIndex(t => t.id === this._activeTab);
+    let next = idx;
+    if (e.key === 'ArrowRight') next = (idx + 1) % TABS.length;
+    else if (e.key === 'ArrowLeft') next = (idx - 1 + TABS.length) % TABS.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = TABS.length - 1;
+    else return;
+    e.preventDefault();
+    this._activeTab = TABS[next].id;
+    const btn = this.renderRoot.querySelector(`[data-tab="${TABS[next].id}"]`);
+    if (btn) btn.focus();
   }
 
   static styles = css`
     :host { display: block; max-width: 640px; margin: 0 auto; }
-    h2 {
-      font-size: 1.2rem;
-      color: var(--text-primary);
-      margin: 20px 0 6px;
-    }
-    .lede {
-      color: var(--text-secondary);
-      font-size: 13px;
-      margin-bottom: 14px;
-      line-height: 1.5;
-    }
-    .lede a {
-      color: var(--accent);
-      text-decoration: underline;
-    }
-    .controls {
+
+    .tabstrip {
       display: flex;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 14px;
+      gap: 4px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
     }
-    .filter-input {
-      flex: 1;
-      padding: 8px 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg-card);
-      color: var(--text-primary);
-      font-family: inherit;
-      /* 16px prevents iOS Safari auto-zoom on focus */
-      font-size: 16px;
-    }
-    .filter-input:focus {
-      outline: 2px solid var(--accent);
-      outline-offset: -1px;
-      border-color: var(--accent);
-    }
-    .count-summary {
-      font-size: 12px;
-      color: var(--text-secondary);
-      white-space: nowrap;
-    }
-    .group-header {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-muted, var(--text-secondary));
-      margin: 16px 0 6px;
-      padding: 0 4px;
-    }
-    .group-header:first-child { margin-top: 0; }
-    .card {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 12px 14px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 8px;
-      background: var(--bg-card);
-    }
-    .card.disabled { opacity: 0.55; }
-    .card-main { flex: 1; min-width: 0; }
-    .card-title {
+    .tabstrip::-webkit-scrollbar { display: none; }
+
+    .tab {
+      font: inherit;
       font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-    .card-sub {
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-top: 2px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .id {
-      font-family: ui-monospace, monospace;
-      font-size: 10px;
-      color: var(--text-muted, var(--text-secondary));
-      opacity: 0.6;
-      margin-left: 6px;
-    }
-    .toggle {
-      appearance: none;
-      width: 44px;
-      height: 24px;
-      border-radius: 12px;
-      background: var(--border);
-      position: relative;
-      cursor: pointer;
-      border: none;
-      transition: background 0.15s;
-      flex-shrink: 0;
-    }
-    .toggle::after {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: var(--bg-card);
-      transition: transform 0.15s;
-    }
-    .toggle[aria-pressed="true"] {
-      background: var(--accent);
-    }
-    .toggle[aria-pressed="true"]::after {
-      transform: translateX(20px);
-    }
-    .toggle:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-    .toggle[disabled] { opacity: 0.5; cursor: wait; }
-    .empty {
-      padding: 24px;
-      text-align: center;
-      color: var(--text-secondary);
-      font-size: 13px;
-      border: 1px dashed var(--border);
-      border-radius: 10px;
-    }
-    .empty code {
-      font-family: ui-monospace, monospace;
-      font-size: 12px;
-      background: var(--bg-muted, rgba(255,255,255,0.04));
-      padding: 1px 6px;
-      border-radius: 4px;
-    }
-    .no-matches {
-      padding: 24px;
-      text-align: center;
-      color: var(--text-muted, var(--text-secondary));
-      font-size: 13px;
-    }
-    .error { color: #ff4466; font-size: 12px; padding: 8px 0; }
-
-    /* Respect reduced-motion preference */
-    @media (prefers-reduced-motion: reduce) {
-      .toggle, .toggle::after { transition: none; }
-    }
-
-    .discovery-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 20px;
-    }
-    .discovery-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 8px 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg-card);
-    }
-    .discovery-label {
-      font-family: ui-monospace, Menlo, Consolas, monospace;
-      font-size: 13px;
-      color: var(--text-primary);
-    }
-    .unhide-btn {
-      font: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 6px 10px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text-primary);
-      cursor: pointer;
-    }
-    .unhide-btn:hover:not(:disabled) {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    .unhide-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    .hae-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 14px 16px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--bg-card);
-      margin-bottom: 20px;
-    }
-    .hae-row {
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-      font-size: 13px;
-      flex-wrap: wrap;
-    }
-    .hae-label {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-muted, var(--text-secondary));
-      min-width: 80px;
-    }
-    .hae-endpoint {
-      display: inline-flex;
-      gap: 8px;
-      align-items: center;
-      flex: 1;
-      min-width: 0;
-      flex-wrap: wrap;
-    }
-    .endpoint-code {
-      font-family: ui-monospace, Menlo, Consolas, monospace;
-      font-size: 12px;
-      background: var(--bg-input, rgba(0, 0, 0, 0.04));
-      padding: 4px 8px;
-      border-radius: 6px;
-      color: var(--text-primary);
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .copy-btn {
-      font: inherit;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 4px 8px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text-primary);
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-    .copy-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    .hae-token {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text-primary);
-    }
-    .hae-token .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-      flex-shrink: 0;
-    }
-    .hae-token.on .dot { background: var(--accent-green, #44ff88); }
-    .hae-token.off .dot { background: var(--accent-amber, #ffaa33); }
-    .hae-token code {
-      font-family: ui-monospace, Menlo, Consolas, monospace;
-      font-size: 11px;
-      padding: 1px 4px;
-      background: var(--bg-input, rgba(0, 0, 0, 0.04));
-      border-radius: 4px;
-    }
-    .hae-token-empty,
-    .hae-token-value {
-      display: inline-flex;
-      gap: 8px;
-      align-items: center;
-      flex: 1;
-      min-width: 0;
-      flex-wrap: wrap;
-    }
-    .hae-token-meta {
-      font-size: 11px;
-      color: var(--text-muted, var(--text-secondary));
-      flex-basis: 100%;
-    }
-    .hae-token-error {
-      font-size: 11px;
-      color: var(--accent-red, #ff5566);
-      flex-basis: 100%;
-    }
-    .copy-btn.primary {
-      background: var(--accent, #4488ff);
-      color: var(--accent-fg, #fff);
-      border-color: var(--accent, #4488ff);
-    }
-    .copy-btn.primary:hover {
-      filter: brightness(1.05);
-    }
-    .copy-btn.danger {
-      background: var(--accent-amber, #ffaa33);
-      color: #1a1a1a;
-      border-color: var(--accent-amber, #ffaa33);
-    }
-    .copy-btn.danger:hover {
-      filter: brightness(1.05);
-    }
-    .hae-regen-confirm {
-      display: inline-flex;
-      flex: 1;
-      min-width: 0;
-    }
-    .hae-regen-body {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 10px 12px;
-      border: 1px solid var(--accent-amber, #ffaa33);
-      border-radius: 8px;
-      background: var(--accent-amber-bg, rgba(255, 170, 51, 0.10));
-      flex: 1;
-    }
-    .hae-regen-warning {
-      font-size: 12px;
-      color: var(--text-primary);
-      line-height: 1.4;
-    }
-    .hae-regen-actions {
-      display: inline-flex;
-      gap: 8px;
-    }
-    .hae-lastpush {
-      display: inline-flex;
-      gap: 8px;
-      align-items: baseline;
-      flex-wrap: wrap;
-      color: var(--text-primary);
-    }
-    .muted { color: var(--text-muted, var(--text-secondary)); font-style: italic; }
-    .warn-pill {
-      font-size: 11px;
-      padding: 2px 6px;
-      border-radius: 10px;
-      background: var(--accent-amber-bg, rgba(255, 170, 51, 0.15));
-      color: var(--accent-amber, #ffaa33);
-      font-weight: 600;
-    }
-    .hae-detail-row {
-      margin-top: 2px;
-    }
-    .detail-toggle {
-      font: inherit;
-      font-size: 12px;
-      padding: 2px 0;
+      font-weight: 500;
+      padding: 10px 14px;
       background: transparent;
       border: none;
-      color: var(--accent);
+      border-bottom: 2px solid transparent;
+      color: var(--text-secondary);
       cursor: pointer;
+      white-space: nowrap;
+      scroll-snap-align: start;
+      transition: color 0.15s, border-color 0.15s;
     }
-    .detail-toggle:hover { text-decoration: underline; }
-    .hae-detail {
-      margin-top: 6px;
-      padding: 10px 12px;
-      background: var(--bg-input, rgba(0, 0, 0, 0.02));
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      font-size: 12px;
-    }
-    .detail-list {
-      display: grid;
-      grid-template-columns: 140px 1fr;
-      gap: 6px 12px;
-      margin: 0;
-    }
-    .detail-list dt {
-      font-weight: 600;
-      color: var(--text-muted, var(--text-secondary));
-    }
-    .detail-list dd {
-      margin: 0;
-      color: var(--text-primary);
-      min-width: 0;
-      overflow-wrap: anywhere;
-    }
-    .sub-list, .warn-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .sub-list code {
-      font-family: ui-monospace, Menlo, Consolas, monospace;
-      font-size: 11px;
-    }
-    .sub-note { color: var(--text-muted, var(--text-secondary)); margin-left: 4px; }
-    .metric-tag-list {
-      font-family: ui-monospace, Menlo, Consolas, monospace;
-      font-size: 11px;
+    .tab:hover {
       color: var(--text-primary);
     }
-    .warn-list li {
-      color: var(--accent-amber, #ffaa33);
-      font-family: ui-monospace, Menlo, Consolas, monospace;
+    .tab[aria-selected="true"] {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
     }
-    @media (max-width: 560px) {
-      .detail-list {
-        grid-template-columns: 1fr;
-        gap: 2px 0;
-      }
-      .detail-list dt { margin-top: 6px; }
+    .tab:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+      border-radius: 4px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .tab { transition: none; }
     }
   `;
 
-  _onFilterInput(e) {
-    this._filter = e.target.value;
-  }
-
-  _onToggleKeydown(e, card) {
-    // Space + Enter already toggle native <button>s, but the aria-pressed
-    // role means screen readers expect explicit keyboard support on both.
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault();
-      this._toggle(card);
-    }
-  }
-
   render() {
-    if (this._loading) return html`<div class="lede">Loading…</div>`;
-
-    const sorted = this._sortedCards();
-    const totalShown = sorted.length;
-    const totalAll = this._cards.length;
-
     return html`
-      ${this._renderHaePanel()}
-
-      ${this._hiddenDiscoveries.length > 0 ? html`
-        <h2>Hidden Apple Health metrics</h2>
-        <div class="lede">
-          Metrics you've dismissed from the discovery prompt. Un-hide to see
-          them again the next time a push arrives.
-        </div>
-        <div class="discovery-list">
-          ${this._hiddenDiscoveries.map(d => html`
-            <div class="discovery-row">
-              <span class="discovery-label">${d.metric}</span>
-              <button
-                class="unhide-btn"
-                ?disabled=${this._busyMetric === d.metric}
-                @click=${() => this._unhideDiscovery(d.metric)}
-              >Un-hide</button>
-            </div>
-          `)}
-        </div>
-      ` : ''}
-
-      <h2>Cards</h2>
-      <div class="lede">
-        ${this._demo ? html`
-          Card visibility is locked in the public demo. Run your own instance to
-          toggle, add, or delete cards.
-        ` : html`
-          Every card is a file in <code>$HEALTH_HOME/data/</code>. Toggle off to
-          hide a card (keeps the data); delete the file to remove it entirely.
-          <a href="https://github.com/Aristocles/klebb/blob/main/docs/CARDS.md" target="_blank" rel="noopener">How to add a card →</a>
-        `}
-      </div>
-
-      ${totalAll > 0 ? html`
-        <div class="controls">
-          <input
-            class="filter-input"
-            type="search"
-            placeholder="Filter by name or id…"
-            .value=${this._filter}
-            @input=${this._onFilterInput}
-            aria-label="Filter cards"
-          />
-          <span class="count-summary">
-            ${this._cards.filter(c => c.enabled !== false).length} on
-            · ${this._cards.filter(c => c.enabled === false).length} off
-          </span>
-        </div>
-      ` : ''}
-
-      ${this._cards.length === 0 ? html`
-        <div class="empty">
-          No cards yet. Drop a manifest file into <code>$HEALTH_HOME/data/</code>
-          or ask the chat agent to create one.
-        </div>
-      ` : totalShown === 0 ? html`
-        <div class="no-matches">
-          No cards match "${this._filter}".
-        </div>
-      ` : html`
-        ${repeat(sorted, c => c.id, c => this._renderCard(c))}
-      `}
-
-      ${this._error ? html`<div class="error">${this._error}</div>` : ''}
-    `;
-  }
-
-  _renderHaePanel() {
-    if (!this._haeStatus) return '';
-    const s = this._haeStatus;
-    const lp = s.lastPush;
-    return html`
-      <h2>Health Auto Export</h2>
-      <div class="lede">
-        Push iPhone health data into Klebb via the Health Auto Export app.
-        <a href="https://github.com/Aristocles/klebb/blob/main/docs/HEALTH-AUTO-EXPORT.md" target="_blank" rel="noopener">Setup guide →</a>
-      </div>
-      <div class="hae-panel">
-        <div class="hae-row">
-          <span class="hae-label">Endpoint</span>
-          <span class="hae-endpoint">
-            <code class="endpoint-code">${s.endpointUrl}</code>
-            <button
-              class="copy-btn"
-              @click=${this._copyEndpoint}
-              aria-label="Copy endpoint URL"
-            >${this._haeCopied ? 'Copied ✓' : 'Copy'}</button>
-          </span>
-        </div>
-        <div class="hae-row">
-          <span class="hae-label">Token</span>
-          ${this._renderHaeTokenRow()}
-        </div>
-        <div class="hae-row">
-          <span class="hae-label">Last push</span>
-          <span class="hae-lastpush">
-            ${this._renderLastPushSummary(lp)}
-          </span>
-        </div>
-        ${lp ? html`
-          <div class="hae-detail-row">
-            <button
-              class="detail-toggle"
-              @click=${this._toggleLastPushDetail}
-              aria-expanded=${this._haeLastPushExpanded}
-            >${this._haeLastPushExpanded ? 'Hide detail ▲' : 'Show detail ▼'}</button>
-          </div>
-          ${this._haeLastPushExpanded ? html`
-            <div class="hae-detail">${this._renderLastPushDetail(lp)}</div>
-          ` : ''}
-        ` : ''}
-      </div>
-    `;
-  }
-
-  _renderHaeTokenRow() {
-    if (!this._haeTokenLoaded) {
-      return html`<span class="muted">Loading…</span>`;
-    }
-
-    if (this._haeRegenConfirm) {
-      return html`
-        <span class="hae-regen-confirm">
-          <span class="hae-regen-body">
-            <span class="hae-regen-warning">
-              ⚠ Regenerating will invalidate the current token. You'll need
-              to update your iPhone Health Auto Export configuration with
-              the new token before the next push will be accepted.
-            </span>
-            <span class="hae-regen-actions">
-              <button
-                class="copy-btn"
-                @click=${this._cancelRegenerateHae}
-                ?disabled=${this._haeTokenBusy}
-              >Cancel</button>
-              <button
-                class="copy-btn danger"
-                @click=${this._confirmRegenerateHae}
-                ?disabled=${this._haeTokenBusy}
-              >Yes, regenerate</button>
-            </span>
-            ${this._haeTokenError ? html`<span class="hae-token-error">${this._haeTokenError}</span>` : ''}
-          </span>
-        </span>
-      `;
-    }
-
-    if (!this._haeToken) {
-      return html`
-        <span class="hae-token-empty">
+      <div class="tabstrip" role="tablist" @keydown=${this._onTabKey}>
+        ${TABS.map(t => html`
           <button
-            class="copy-btn primary"
-            @click=${this._generateHaeToken}
-            ?disabled=${this._haeTokenBusy}
-          >${this._haeTokenBusy ? 'Generating…' : 'Generate token'}</button>
-          <span class="hae-token-meta">
-            Klebb will generate a long random token. Paste it into your
-            iPhone Health Auto Export app's Authorization header.
-          </span>
-          ${this._haeTokenError ? html`<span class="hae-token-error">${this._haeTokenError}</span>` : ''}
-        </span>
-      `;
-    }
+            class="tab"
+            role="tab"
+            data-tab=${t.id}
+            id="tab-${t.id}"
+            aria-selected=${this._activeTab === t.id}
+            aria-controls="panel-${t.id}"
+            tabindex=${this._activeTab === t.id ? 0 : -1}
+            @click=${() => this._onTabClick(t.id)}
+          >${t.label}</button>
+        `)}
+      </div>
 
-    const display = this._haeTokenReveal
-      ? this._haeToken
-      : this._maskToken(this._haeToken);
-
-    return html`
-      <span class="hae-token-value">
-        <code class="endpoint-code">${display}</code>
-        <button
-          class="copy-btn"
-          @click=${this._copyHaeToken}
-          aria-label="Copy token"
-        >${this._haeTokenCopied ? 'Copied ✓' : 'Copy'}</button>
-        <button
-          class="copy-btn"
-          @click=${this._askRegenerateHae}
-          ?disabled=${this._haeTokenBusy}
-        >Regenerate</button>
-        ${this._haeTokenLastRegeneratedAt ? html`
-          <span class="hae-token-meta">
-            Last generated: ${this._formatTimestamp(this._haeTokenLastRegeneratedAt)}
-          </span>
-        ` : ''}
-        ${this._haeTokenError ? html`<span class="hae-token-error">${this._haeTokenError}</span>` : ''}
-      </span>
-    `;
-  }
-
-  _formatTimestamp(iso) {
-    try {
-      const d = new Date(iso);
-      if (Number.isNaN(d.getTime())) return iso;
-      const yr = d.getFullYear();
-      const mo = String(d.getMonth() + 1).padStart(2, '0');
-      const da = String(d.getDate()).padStart(2, '0');
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mm = String(d.getMinutes()).padStart(2, '0');
-      return `${yr}-${mo}-${da} ${hh}:${mm}`;
-    } catch {
-      return iso;
-    }
-  }
-
-  _renderLastPushSummary(lp) {
-    if (!lp) return html`<span class="muted">Nothing received yet</span>`;
-    const rowsTotal = (lp.subscribers || [])
-      .reduce((acc, s) => acc + (s.rowsWritten || 0), 0);
-    const subsWithRows = (lp.subscribers || [])
-      .filter(s => s.rowsWritten > 0).length;
-    const ago = this._relativeTime(lp.receivedAt);
-    const hasWarnings = Array.isArray(lp.warnings) && lp.warnings.length > 0;
-    return html`
-      <span>${rowsTotal} ${rowsTotal === 1 ? 'row' : 'rows'}
-             across ${subsWithRows} ${subsWithRows === 1 ? 'card' : 'cards'},
-             ${ago}</span>
-      ${hasWarnings ? html`<span class="warn-pill">${lp.warnings.length} warning${lp.warnings.length === 1 ? '' : 's'}</span>` : ''}
-    `;
-  }
-
-  _renderLastPushDetail(lp) {
-    return html`
-      <dl class="detail-list">
-        <dt>Received at</dt>
-        <dd>${lp.receivedAt}</dd>
-        <dt>Payload size</dt>
-        <dd>${this._formatBytes(lp.payloadBytes)}</dd>
-        <dt>Subscribers</dt>
-        <dd>
-          ${lp.subscribers && lp.subscribers.length
-            ? html`<ul class="sub-list">
-                ${lp.subscribers.map(s => html`
-                  <li>
-                    <code>${s.id}</code>
-                    <span class="muted"> ← ${s.metric}</span>:
-                    <strong>${s.rowsWritten} ${s.rowsWritten === 1 ? 'row' : 'rows'}</strong>
-                    ${s.note ? html`<span class="sub-note">(${s.note})</span>` : ''}
-                  </li>
-                `)}
-              </ul>`
-            : html`<span class="muted">none</span>`}
-        </dd>
-        <dt>Available but unsubscribed</dt>
-        <dd>
-          ${lp.availableUnsubscribed && lp.availableUnsubscribed.length
-            ? html`<code class="metric-tag-list">${lp.availableUnsubscribed.join(', ')}</code>`
-            : html`<span class="muted">none</span>`}
-        </dd>
-        ${lp.warnings && lp.warnings.length ? html`
-          <dt>Warnings</dt>
-          <dd>
-            <ul class="warn-list">
-              ${lp.warnings.map(w => html`<li>${w}</li>`)}
-            </ul>
-          </dd>
-        ` : ''}
-      </dl>
-    `;
-  }
-
-  _relativeTime(iso) {
-    try {
-      const then = new Date(iso).getTime();
-      if (!Number.isFinite(then)) return iso;
-      const diff = Date.now() - then;
-      const s = Math.round(diff / 1000);
-      if (s < 60) return 'just now';
-      const m = Math.round(s / 60);
-      if (m < 60) return `${m} minute${m === 1 ? '' : 's'} ago`;
-      const h = Math.round(m / 60);
-      if (h < 24) return `${h} hour${h === 1 ? '' : 's'} ago`;
-      const d = Math.round(h / 24);
-      return `${d} day${d === 1 ? '' : 's'} ago`;
-    } catch {
-      return iso;
-    }
-  }
-
-  _formatBytes(n) {
-    if (!Number.isFinite(n)) return '—';
-    if (n < 1024) return `${n} B`;
-    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-    return `${(n / (1024 * 1024)).toFixed(2)} MB`;
-  }
-
-  _renderCard(c) {
-    return html`
-      <div class="card ${c.enabled ? '' : 'disabled'}">
-        <div class="card-main">
-          <div class="card-title">
-            ${c.emoji || ''} ${c.label || c.id}
-            <span class="id">${c.id}</span>
-          </div>
-          ${c.description ? html`<div class="card-sub">${c.description}</div>` : ''}
-        </div>
-        <button
-          class="toggle"
-          role="switch"
-          aria-checked="${c.enabled}"
-          aria-pressed="${c.enabled}"
-          aria-label="${c.enabled ? 'Disable' : 'Enable'} ${c.label || c.id}"
-          ?disabled=${this._demo || this._busyId === c.id}
-          title="${this._demo ? 'Locked in demo mode' : ''}"
-          @click=${() => { if (!this._demo) this._toggle(c); }}
-          @keydown=${(e) => { if (!this._demo) this._onToggleKeydown(e, c); }}
-        ></button>
+      <div role="tabpanel" id="panel-general" aria-labelledby="tab-general"
+           ?hidden=${this._activeTab !== 'general'}>
+        ${this._activeTab === 'general' ? html`<eh-settings-general></eh-settings-general>` : ''}
+      </div>
+      <div role="tabpanel" id="panel-notifications" aria-labelledby="tab-notifications"
+           ?hidden=${this._activeTab !== 'notifications'}>
+        ${this._activeTab === 'notifications' ? html`<eh-settings-notifications></eh-settings-notifications>` : ''}
+      </div>
+      <div role="tabpanel" id="panel-connections" aria-labelledby="tab-connections"
+           ?hidden=${this._activeTab !== 'connections'}>
+        ${this._activeTab === 'connections' ? html`<eh-settings-connections></eh-settings-connections>` : ''}
+      </div>
+      <div role="tabpanel" id="panel-cards" aria-labelledby="tab-cards"
+           ?hidden=${this._activeTab !== 'cards'}>
+        ${this._activeTab === 'cards' ? html`<eh-settings-cards></eh-settings-cards>` : ''}
+      </div>
+      <div role="tabpanel" id="panel-diagnostics" aria-labelledby="tab-diagnostics"
+           ?hidden=${this._activeTab !== 'diagnostics'}>
+        ${this._activeTab === 'diagnostics' ? html`<eh-settings-diagnostics></eh-settings-diagnostics>` : ''}
       </div>
     `;
   }

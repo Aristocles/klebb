@@ -7,6 +7,29 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **Settings is now a tabbed view: General / Notifications /
+  Connections / Cards / Diagnostics.** The 1029-line monolithic
+  Settings page is broken into one component per pane, with the shell
+  hosting a tab strip (WAI-ARIA `role=tab`, arrow-key + Home/End
+  navigation, mobile horizontal scroll-snap). Health Auto Export
+  moves to Connections; the per-card master enable/disable list moves
+  to Cards. Notifications and Diagnostics are placeholders that get
+  populated when the notifications feature lands in a follow-up PR.
+  Refs #383.
+
+- **Dark/light theme toggle moved from the wordmark to Settings >
+  General.** Tapping the Klebb wordmark in the top-left no longer
+  flips the theme. The theme is now controlled exclusively by a
+  toggle in the new General tab. The underlying preference key
+  (`klebb-theme` in localStorage) and the `data-theme` attribute on
+  `<html>` are unchanged, so existing themed CSS keeps working. The
+  shared theme bootstrap lives in `public/js/lib/theme.js`. The
+  former settings dropdown collapses into a single ⚙️ button that
+  opens `/settings` directly; the "Reorder cards" item is now a
+  button at the top of the Cards tab. Refs #383.
+
 ### Fixed
 
 - **Ingest tests no longer race the `.error` sidecar write on Node
