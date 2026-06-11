@@ -28,6 +28,8 @@ const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-expor
 const userTz = require('./lib/user-tz');
 const notificationsState = require('./lib/notifications-state');
 const notificationsScheduler = require('./lib/notifications-scheduler');
+const webPushSend = require('./lib/web-push-send');
+const notificationRoutes = require('./routes/notifications');
 const { CATEGORIES: MANIFEST_CATEGORIES } = require('./config/categories');
 const ccSuggestions = require('./meta/cc-suggestions');
 const { describeCcSchema } = require('./chat/describe-cc-schema');
@@ -1630,6 +1632,12 @@ Original system prompt follows:
       return;
     }
 
+    // === Notifications + Web Push routes ===
+    if (notificationRoutes.ROUTE_PREFIXES.includes(parts[0])) {
+      const handled = await notificationRoutes.handle(req, res, parts, { registry });
+      if (handled) return;
+    }
+
     // === Voice endpoints ===
 
     // GET /api/instance — branding + runtime identity (for frontend)
@@ -1940,6 +1948,7 @@ server.listen(PORT, HOST, () => {
   if (!ENV.KLEBB_DEMO) {
     try {
       registry.onDelete((id) => notificationsState.pruneCard(id));
+      notificationsScheduler.setDispatch(webPushSend.dispatch);
       notificationsScheduler.start(registry);
       console.log('[notifications] scheduler started');
     } catch (e) {

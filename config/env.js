@@ -37,6 +37,12 @@ const TZ = process.env.TZ || 'UTC';
 // --- Branding ---
 const INSTANCE_NAME = process.env.HEALTH_INSTANCE_NAME || 'Klebb';
 
+// Web Push VAPID `sub` claim. Required by some push providers (FCM is
+// strict about it). Defaults to a no-reply mailto so the feature works
+// out of the box; operators can override with a real address.
+const HEALTH_OPERATOR_EMAIL = process.env.HEALTH_OPERATOR_EMAIL
+  || 'mailto:noreply@klebb.app';
+
 // --- Chat endpoint (optional — chat widget disabled if CHAT_API_KEY unset) ---
 //
 // Klebb speaks the OpenAI chat-completions shape. Point it at any endpoint
@@ -537,6 +543,7 @@ module.exports = {
   HOST,
   TZ,
   INSTANCE_NAME,
+  HEALTH_OPERATOR_EMAIL,
   CHAT_ENDPOINT_URL,
   CHAT_API_KEY,
   CHAT_MODEL,
