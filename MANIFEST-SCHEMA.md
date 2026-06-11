@@ -120,6 +120,87 @@ in `meta.order` ascending. Shown-today state is tracked in
 Dismissing still marks as shown. See `docs/CARDS.md` for the full
 behaviour notes.
 
+### Push notifications (`meta.notifications`)
+
+Declares Web Push reminders the dashboard delivers to the user's
+devices. Each item is a single notification with a recurring trigger,
+a label that surfaces in Settings, and a title + body for the OS
+banner. Unlike `meta.prompt` (in-app modal, fires when the user opens
+the app), notifications fire on a schedule whether the app is open or
+not - they're how the dashboard reminds the user to log mood, take a
+supplement, log a pain level, etc.
+
+```json
+"meta": {
+  "notifications": {
+    "enabled": true,
+    "items": [
+      {
+        "id": "evening-log",
+        "label": "Evening mood log",
+        "title": "Mood",
+        "body": "How are you feeling?",
+        "trigger": { "type": "daily", "time": "20:00" },
+        "action": { "type": "open-card", "card": "mood", "intent": "log" },
+        "privacy": "private",
+        "default": "on"
+      }
+    ]
+  }
+}
+```
+
+**Field rules:**
+
+- `enabled` (bool, default `true`): card-level kill switch. `false`
+  silences every item even if individually toggled on.
+- `items[]`: array of notification declarations. Capped at 10 per
+  manifest. Each item has:
+  - `id` — required, matches `^[a-z0-9][a-z0-9._-]{0,63}$`, unique
+    within the manifest's `items[]`. Globally unique runtime id is
+    `${meta.id}#${item.id}`.
+  - `label` — required, up to 80 chars. The string Settings shows.
+  - `title` — required, up to 30 chars. The notification title.
+  - `body` — required, up to 80 chars. The notification body.
+    Placeholders `{label}` (the card's `meta.label`) and `{emoji}`
+    (the card's `meta.emoji`) substitute on render.
+  - `trigger` — required object. v3.0.0 supports two types:
+    - `{ type: "daily", time: "HH:MM" }` — fires every day at the
+      configured local time.
+    - `{ type: "weekly", days: ["mon","wed","fri"], time: "HH:MM" }`
+      — fires on listed weekdays at the configured local time.
+    `interval`, `last_logged`, and `schedule_due` arrive in v3.1.
+  - `action` — optional, default `{ type: "open-card", card: meta.id }`.
+    Only `type: "open-card"` is supported. `intent` is one of
+    `"view" | "log"`.
+  - `privacy` — `"private"` (default) or `"public"`. When private,
+    the wire payload carries a generic title/body and the real text
+    is substituted on the device after decryption, so the lock
+    screen shows "Klebb: You have a reminder." instead of the real
+    string. The user can flip a per-notification toggle in Settings
+    to override.
+  - `default` — `"on"` (default) or `"off"`. Initial enabled state
+    the first time the user sees the toggle. Subsequent state is
+    user-controlled.
+
+**Local time:** triggers evaluate against the user's IANA timezone
+captured by the browser on each session boot (stored in
+`$HEALTH_HOME/user.json`). The server's `process.env.TZ` is the
+fallback when the browser hasn't reported one yet. This is what
+makes "remind me at 20:00" still mean 20:00 local when the user
+travels.
+
+**Validation:** lenient at load (a malformed item is dropped silently
+so a bad sidecar can't wedge the registry), strict at create / PATCH
+(returns 422 with the prefix `invalid notifications: ...`).
+
+**State separation:** the manifest declares which notifications
+exist. Whether the user has flipped a given one off, when each last
+fired, and the global quiet-hours / pause controls all live in
+`$HEALTH_HOME/notifications.state.json`, an opaque sidecar that the
+manifest registry doesn't watch. So the manifest stays clean and
+grep-able, and runtime state stays out of authored config.
+
 ### Ingest subscription (`meta.ingest`)
 
 Opts a manifest into receiving data from an external ingest source. Today

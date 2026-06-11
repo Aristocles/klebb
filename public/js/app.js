@@ -50,6 +50,7 @@ class HealthApp extends LitElement {
     this._onThemeChanged = (e) => { this.theme = e.detail.theme; };
     window.addEventListener('klebb-theme-changed', this._onThemeChanged);
     this._registerServiceWorker();
+    this._postUserTz();
     this._handleRoute();
     this._loadInstance();
     this._loadBuildInfo();
@@ -76,6 +77,31 @@ class HealthApp extends LitElement {
     // is registered so the browser keeps it alive once push lands.
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+  }
+
+  _postUserTz() {
+    // Tell the server which IANA timezone the browser is in, so the
+    // notifications scheduler fires reminders in the user's local time
+    // when they travel rather than in the server's TZ.
+    //
+    // Fire-and-forget; quiet on failure (the scheduler falls back to
+    // process.env.TZ on the server). Idempotent: skip the round-trip
+    // when the value hasn't changed since last boot.
+    let tz = null;
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch {}
+    if (!tz) return;
+    try {
+      if (localStorage.getItem('klebb-tz-last-posted') === tz) return;
+    } catch {}
+    fetch('/api/user/tz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tz }),
+    }).then(r => {
+      if (r.ok) {
+        try { localStorage.setItem('klebb-tz-last-posted', tz); } catch {}
+      }
+    }).catch(() => {});
   }
 
   async _loadInstance() {
