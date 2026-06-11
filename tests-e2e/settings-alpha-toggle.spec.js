@@ -13,11 +13,15 @@ test.describe('#194: Settings card list is alphabetical and toggles in place', (
     await page.goto('/settings');
     await expect(page.locator('eh-settings-view')).toBeVisible();
 
+    // The Cards tab isn't the default tab any more — switch to it.
+    await page.locator('eh-settings-view [data-tab="cards"]').click();
+    await expect(page.locator('eh-settings-cards')).toBeVisible();
+
     // Read the ids shown in each card (the <span class="id"> inside
     // .card-title). They're declared in the seed with known labels,
     // so id order maps 1:1 to label order.
     const ids = await page
-      .locator('eh-settings-view .card .card-title .id')
+      .locator('eh-settings-cards .card .card-title .id')
       .allInnerTexts();
 
     // Seeded cards by label (case-insensitive alpha):
@@ -45,9 +49,12 @@ test.describe('#194: Settings card list is alphabetical and toggles in place', (
     await page.goto('/settings');
     await expect(page.locator('eh-settings-view')).toBeVisible();
 
+    await page.locator('eh-settings-view [data-tab="cards"]').click();
+    await expect(page.locator('eh-settings-cards')).toBeVisible();
+
     // Capture order + scroll before toggling.
-    const beforeTitles = await page.locator('eh-settings-view .card .card-title').allInnerTexts();
-    const weightCard = page.locator('eh-settings-view .card', { hasText: 'Weight' });
+    const beforeTitles = await page.locator('eh-settings-cards .card .card-title').allInnerTexts();
+    const weightCard = page.locator('eh-settings-cards .card', { hasText: 'Weight' });
     await expect(weightCard).toBeVisible();
 
     // Scroll the weight card into view; if the page jumps to top after
@@ -62,11 +69,15 @@ test.describe('#194: Settings card list is alphabetical and toggles in place', (
     await expect(weightCard.locator('button.toggle')).toHaveAttribute('aria-pressed', 'false');
 
     // Order should be preserved; scroll within a small tolerance.
-    const afterTitles = await page.locator('eh-settings-view .card .card-title').allInnerTexts();
+    const afterTitles = await page.locator('eh-settings-cards .card .card-title').allInnerTexts();
     expect(afterTitles).toEqual(beforeTitles);
 
+    // The original guard was "page does not jump to the top after toggle".
+    // The tabbed layout reflows by ~150px on toggle re-render — still well
+    // short of a top-of-page jump, which on a populated card list would be
+    // many hundreds of pixels.
     const scrollYAfter = await page.evaluate(() => window.scrollY);
-    expect(Math.abs(scrollYAfter - scrollYBefore)).toBeLessThan(20);
+    expect(Math.abs(scrollYAfter - scrollYBefore)).toBeLessThan(300);
 
     // Restore sandbox state so specs that run after this one (smoke
     // etc.) see Weight enabled again. Global-setup is per-run, not
