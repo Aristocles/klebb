@@ -7,6 +7,54 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.0.3] - 2026-06-12
+
+### Fixed
+
+- **Notification click navigates the focused tab.** Reported on
+  Windows + Edge: clicking a notification in Action Center opened a
+  default-search-engine search for "Klebb" instead of taking the
+  user to the Klebb app. Two bugs combined: the SW's
+  `notificationclick` handler called `c.focus()` to bring the
+  existing Klebb tab forward but never actually navigated it, and
+  the page's `klebb-deep-link` listener gated on `event.source`
+  being the active SW controller, which Edge/Windows can deliver as
+  `null`. The deep-link `postMessage` was silently dropped, the tab
+  came forward without changing URL, and Edge fell back to its own
+  Action Center default (search the manifest's `name`). Fix: SW now
+  calls `WindowClient.navigate(absoluteTarget)` before `c.focus()`,
+  which always lands the tab on the intended URL regardless of
+  whether the message is delivered. The page listener relaxes its
+  source check to origin-only - the cross-frame attack we cared
+  about (a third-party iframe spoofing) is fully addressed by
+  `event.origin === location.origin`. Both `clients.openWindow` and
+  `WindowClient.navigate` receive an absolute URL now, since some
+  browsers treat path-only arguments as opaque address-bar strings
+  when called from a click delivered via Action Center. Refs #392.
+
+### Changed
+
+- **Settings > Notifications: Test button removed.** The per-row
+  Test button was scaffolding for early use and is no longer
+  needed. The redundant "On" caption next to the enabled toggle is
+  also gone (the switch position is the affordance; aria-label +
+  aria-checked carry semantics for AT). The "Show full text"
+  caption next to the privacy toggle stays - a bare switch can't
+  communicate lock-screen-privacy. The `/api/notifications/test`
+  endpoint and rate limiter are unchanged server-side; only the UI
+  affordance is removed. Refs #392.
+
+- **Notifications row wraps below 560px.** On iPhone 13 Mini
+  (375px viewport) the [time | label | toggles] row was overflowing
+  and the toggles visually overlapped the label. New `@media
+  (max-width: 560px)` rule (matching the breakpoint convention used
+  by Settings > Connections and Settings > Diagnostics) wraps the
+  toggles strip onto its own line, right-aligned under the label.
+  Adds `overflow-wrap: anywhere` on `.item-label` as defence
+  against pathological labels pushing the toggle strip off the row
+  on desktop, plus the project-standard `prefers-reduced-motion`
+  guard around the toggle transitions. Refs #392.
+
 ## [3.0.2] - 2026-06-12
 
 ### Fixed
