@@ -57,6 +57,10 @@ async function spawnServer(sandboxRoot, extraEnv = {}) {
     HEALTH_HOME: sandboxRoot,
     PORT: String(port),
     HOST: '127.0.0.1',
+    // Match the URL the test harness will actually hit, so Origin
+    // allowlist checks pass.
+    HEALTH_ORIGIN: `http://127.0.0.1:${port}`,
+    HEALTH_RP_ID: '127.0.0.1',
     // Disable external calls in tests
     CHAT_ENDPOINT_URL: 'http://127.0.0.1:1/v1/chat/completions',  // will fail; tests that touch chat override this
     CHAT_API_KEY: 'test-token',
