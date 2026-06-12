@@ -51,7 +51,9 @@ the tools are simply unused.
 |------|---------|
 | `create_manifest` / `delete_manifest` / `patch_manifest` | Author and edit cards |
 | `read_manifest` / `list_manifests` / `write_manifest_data` | Inspect and update card data |
+| `read_manifest_meta` / `read_manifest_rows` / `append_row` / `update_row` / `remove_row` | Targeted reads + row-level mutations |
 | `hide_card` / `show_card` | Master enable/disable |
+| `set_notification` / `remove_notification` | Add, update, or remove a Web Push reminder on a card. `set_notification` is idempotent by `(card_id, notification_id)`; `remove_notification` requires one-shot user confirmation. v1 trigger types: `daily` and `weekly`. The validator enforces title <= 30, body <= 80, label <= 80, items[] <= 10 per card; the system prompt forbids including numerical values or past-entry content in the body (notifications are reminders to act, not summaries). |
 | `read_doc` | Fetch any allowlisted in-repo doc (README, MANIFEST-SCHEMA, this file, etc.) |
 | `read_report` | Fetch any ingested report from `$HEALTH_HOME/reports/`. The agent gets the catalogue automatically in its system prompt; see [`REPORTS.md`](REPORTS.md) for how reports get there. |
 
