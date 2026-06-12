@@ -7,6 +7,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-06-12
+
+### Fixed
+
+- **Dockerfile now copies `lib/` and `routes/`.** v3.0.0 introduced
+  these top-level directories but the Dockerfile's explicit per-
+  directory `COPY` list missed them, so the container image crashed
+  on boot with `Cannot find module './lib/user-tz'`. Hotfix release;
+  no other v3.0.0 functionality changed.
+
 ## [3.0.0] - 2026-06-12
 
 Push notifications: cards declare reminders, the dashboard delivers
