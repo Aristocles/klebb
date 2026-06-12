@@ -7,6 +7,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-06-12
+
+Push notifications: cards declare reminders, the dashboard delivers
+them. The five PRs landing in this release (#388 / #389 / #390 /
+#391 / #392) ship the full feature: a tabbed Settings shell, the PWA
+service worker + manifest fixes that Web Push requires, the
+manifest-side schema for `meta.notifications`, the VAPID + push
+endpoints + send module, and finally the Notifications + Diagnostics
+tabs plus two new Klebbius tools (`set_notification` /
+`remove_notification`).
+
+The dark/light theme toggle moved out of the Klebb wordmark and into
+Settings > General. The settings dropdown collapsed into a direct
+gear-icon link.
+
 ### Added
 
 - **Settings > Notifications tab: per-card toggles, quiet hours, pause.**
