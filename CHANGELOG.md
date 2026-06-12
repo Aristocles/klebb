@@ -7,6 +7,33 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.0.2] - 2026-06-12
+
+### Fixed
+
+- **Test push from a foreground tab now surfaces the OS notification.**
+  The service worker's `push` handler was branching on
+  `visibleClients.length > 0`: when any Klebb tab was visible it
+  posted a `klebb-foreground-notification` message and skipped
+  `showNotification` entirely, on the theory that an in-app toast
+  would render the notification inline. The toast component never
+  shipped, so `klebb-foreground-notification` had no listener and the
+  banner silently dropped. The most visible symptom was test pushes
+  from the device the user was looking at: server logs showed `201`
+  back from the push provider but the user saw nothing. Foreground
+  branch is now additive: postMessage to visible clients (so a future
+  toast layer can opt in) AND call `showNotification` so the banner
+  always fires.
+
+### Added
+
+- **Push send logging on every dispatch.** `lib/web-push-send.js` now
+  emits a one-line summary per send (`[notifications] send ev=... recipients=...`)
+  plus a per-recipient line with the short id, UA hint, and provider
+  status code, plus a final `done` line with sent/failed counts. Lets
+  `docker logs` answer "did device X get the push" without parsing
+  `notifications.state.json`.
+
 ## [3.0.1] - 2026-06-12
 
 ### Fixed

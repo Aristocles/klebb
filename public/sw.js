@@ -82,15 +82,6 @@ async function handlePush(event) {
     return;
   }
 
-  // Foreground branch: if a Klebb tab is open and visible, post a
-  // message instead of (or in addition to) the banner. iOS suppresses
-  // banner display when the app is in the foreground, so showing only
-  // the toast keeps the budget intact.
-  const visibleClients = (await self.clients.matchAll({
-    type: 'window',
-    includeUncontrolled: true,
-  })).filter(c => c.visibilityState === 'visible');
-
   // Persist deep-link intent BEFORE showNotification so a cold-start
   // launch on iOS (which can strip query strings off openWindow URLs)
   // can read the intent on app boot.
@@ -101,21 +92,26 @@ async function handlePush(event) {
     cardId: primary.cardId || null,
   });
 
-  if (visibleClients.length > 0) {
-    for (const c of visibleClients) {
-      try {
-        c.postMessage({
-          type: 'klebb-foreground-notification',
-          title: _displayTitle(payload),
-          body: _displayBody(payload),
-          items,
-        });
-      } catch {}
-    }
-    // Skip showNotification entirely when foreground is open - iOS
-    // would suppress it anyway and APNs would count that as a budget
-    // violation.
-    return;
+  // Best-effort: tell every visible client about the incoming push so a
+  // future in-app toast layer can render an inline notification. This
+  // is purely additive - the OS notification still fires, so the user
+  // sees the banner whether they're focused on the app or not. If we
+  // skipped showNotification while a tab was visible, foreground-test
+  // pushes would silently disappear and the user would have no way to
+  // verify the feature worked.
+  const visibleClients = (await self.clients.matchAll({
+    type: 'window',
+    includeUncontrolled: true,
+  })).filter(c => c.visibilityState === 'visible');
+  for (const c of visibleClients) {
+    try {
+      c.postMessage({
+        type: 'klebb-foreground-notification',
+        title: _displayTitle(payload),
+        body: _displayBody(payload),
+        items,
+      });
+    } catch {}
   }
 
   await self.registration.showNotification(_displayTitle(payload), {
