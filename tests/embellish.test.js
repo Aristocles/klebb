@@ -49,6 +49,7 @@ describe('pickEmbellishments', () => {
         calendar: { enabled: true, component: 'day-marker' },
         trends: { enabled: true, component: 'line-chart' },
         prompt: { enabled: true, mode: 'modal' },
+        notifications: { enabled: true, items: [{ id: 'daily', label: 'Daily', title: 'Weight', body: 'Log it', trigger: { type: 'daily', time: '08:00' } }] },
         writeable: { inputs: [{ key: 'kg', type: 'number' }] },
       },
     };
@@ -149,21 +150,29 @@ describe('pickEmbellishments', () => {
   });
 
   test('list-card and markdown-doc only surface universal options', () => {
-    for (const component of ['list-card', 'markdown-doc']) {
-      const manifest = {
-        meta: {
-          id: 'thing',
-          label: 'Thing',
-          view: { enabled: true, component },
-        },
-      };
-      const ids = CATALOG.filter(e => e.eligible(manifest.meta)).map(e => e.id);
-      assert.deepStrictEqual(
-        ids.sort(),
-        ['add-calendar', 'add-category', 'add-emoji'].sort(),
-        `${component} should only surface universal options`,
-      );
-    }
+    // list-card is also eligible for the add-daily-reminder chip (the
+    // user might want a "log appointments" reminder); markdown-doc is
+    // not. So they don't share a fixed expected set any more - assert
+    // separately.
+    const listManifest = {
+      meta: { id: 'thing', label: 'Thing', view: { enabled: true, component: 'list-card' } },
+    };
+    const listIds = CATALOG.filter(e => e.eligible(listManifest.meta)).map(e => e.id);
+    assert.deepStrictEqual(
+      listIds.sort(),
+      ['add-calendar', 'add-category', 'add-daily-reminder', 'add-emoji'].sort(),
+      'list-card should surface universal options + add-daily-reminder',
+    );
+
+    const docManifest = {
+      meta: { id: 'doc', label: 'Doc', view: { enabled: true, component: 'markdown-doc' } },
+    };
+    const docIds = CATALOG.filter(e => e.eligible(docManifest.meta)).map(e => e.id);
+    assert.deepStrictEqual(
+      docIds.sort(),
+      ['add-calendar', 'add-category', 'add-emoji'].sort(),
+      'markdown-doc should only surface universal options',
+    );
   });
 
   test('daily-prompt only eligible when writeable.inputs is non-empty', () => {
