@@ -9,6 +9,72 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Settings > Notifications tab: per-card toggles, quiet hours, pause.**
+  Replaces the placeholder from PR #383. Renders a status banner that
+  walks through the permission states (default / denied / granted+
+  subscribed / granted-but-unsubscribed / iOS-needs-install), per-card
+  sections grouped by manifest with one row per declared item sorted
+  by trigger time, two toggles per row (enabled, "Show full text" =
+  privacy public/private), and an always-visible Test button. Global
+  controls: Quiet hours window (start/end times persisted to
+  `notifications.state.json`) and Pause-for chips (1h / 4h / 1 day,
+  with a persistent app-wide banner the operator can dismiss with
+  Resume). Empty state and a footer note: *"If a notification you want
+  is missing, ask Klebbius to add it."* Refs #387.
+
+- **Settings > Diagnostics tab: real surface.** Server timezone, VAPID
+  keyId, subscribed-devices table (truncated id, nickname, last-sent,
+  last-status, dead state), and the recent-fires audit ring back-to-
+  front. Reads from `/api/diagnostics`; demo-mode 410 surfaces as a
+  copy explaining the disable. Refs #387.
+
+- **Browser-side notifications client (`public/js/lib/notification-client.js`).**
+  Lazy enable: prompt for permission only when the user clicks Enable
+  or flips a toggle for the first time. Subscribe via `pushManager`,
+  POST the subscription, store the VAPID keyId in localStorage so we
+  can detect operator key rotation and silently force-resubscribe.
+  Foreground heartbeat fires on every `visibilitychange` to visible
+  and on app boot in standalone PWA mode, calling
+  `/api/push/subscribe/heartbeat`; on 404 the client transparently
+  resubscribes. Disable() unsubscribes both server and device. Refs
+  #387.
+
+- **Service worker now substitutes real text for `private`
+  notifications.** The wire payload from PR #386 already carries
+  `realTitle`/`realBody`; the SW reads them and surfaces the real
+  content on-device after decryption (lock screen still shows generic
+  "Klebb / You have a reminder." per the wire). Foreground branch:
+  when a Klebb tab is visible, the SW posts a
+  `klebb-foreground-notification` message and skips
+  `showNotification` entirely (iOS would suppress the banner anyway,
+  and skipping avoids a budget violation). Deep-link intent is
+  persisted to IndexedDB BEFORE `showNotification` so an iOS cold-
+  start launch (which can strip query strings off `clients.openWindow`
+  URLs) reads-and-clears it on app boot. Same-origin URL validation
+  on every `notificationclick` navigation. Refs #387.
+
+- **Klebbius gains `set_notification` + `remove_notification` tools.**
+  `set_notification` is idempotent by `(card_id, notification_id)`:
+  if an item with that id exists it's replaced, otherwise a new one
+  is appended. When `notification_id` is omitted, an id is auto-
+  generated as a snake-case slug from `label`. `remove_notification`
+  drops a named item; the system prompt requires one-shot user
+  confirmation before calling. The chat agent's system prompt gains
+  notification copy rules: titles up to 30 chars, bodies up to 80,
+  second person, no emoji unless the card has `meta.emoji`, never
+  include numerical values or content of past entries (notifications
+  are reminders TO ACT, not summaries of what happened). Refs #387.
+
+- **Embellishment chip: "Add a daily reminder?"** After the chat
+  agent creates a card with a renderer that supports logging
+  (`generic-card`, `schedule-card`, `checklist-card`, `list-card`)
+  and the card declares no notifications yet, the post-turn chip
+  panel offers a starter prompt the user can edit before sending:
+  *"Add a notification to remind me to log {label} every evening at
+  8pm."* Refs #387.
+
+### Added
+
 - **Web Push delivery: real notifications hit real devices.** New
   `/api/push/*` endpoints (`vapid-public-key`, `subscribe`,
   `subscribe/heartbeat`, `unsubscribe`) accept a browser

@@ -289,7 +289,68 @@ const TOOL_DEFS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'set_notification',
+      description:
+        "Add or update a notification on a card. Idempotent: if a notification with notification_id already exists on this card, update it; otherwise append a new one (auto-generating a snake-case id from `label` when notification_id is omitted). Use this when the user says things like 'remind me to log X every day at Y' or 'change the morning mood reminder to 9am'. Before calling, you SHOULD have read the card's existing meta.notifications.items[] (via read_manifest_meta) so you don't duplicate a similar reminder; if a similar item exists but is currently disabled, prefer offering the user a re-enable instead. Notification copy rules: title <=30 chars, body <=80 chars, second person ('How are you feeling?'), no emoji unless the card has meta.emoji set, NEVER include numerical values or content of past entries (notifications are reminders to act, not summaries). v1 trigger types are 'daily' (time:HH:MM) and 'weekly' (time:HH:MM, days:[mon|tue|wed|thu|fri|sat|sun]).",
+      parameters: {
+        type: 'object',
+        properties: {
+          card_id: { type: 'string', description: 'Existing card id.' },
+          notification_id: {
+            type: 'string',
+            description: "Item id within meta.notifications.items[]. Omit for an auto-generated slug from `label`. Must match /^[a-z0-9][a-z0-9._-]{0,63}$/.",
+          },
+          label: { type: 'string', description: 'Human label shown in Settings. e.g. "Evening mood log".' },
+          title: { type: 'string', description: 'Notification title (<=30 chars).' },
+          body: { type: 'string', description: 'Notification body (<=80 chars, second person).' },
+          trigger: {
+            type: 'object',
+            description: 'Daily: { type:"daily", time:"HH:MM" }. Weekly: { type:"weekly", time:"HH:MM", days:[...] }.',
+          },
+          privacy: {
+            type: 'string',
+            enum: ['private', 'public'],
+            description: "Default 'private'. When 'private', the wire payload says generic 'Klebb / You have a reminder.' on the lock screen and the real text appears only after the user opens Klebb.",
+          },
+        },
+        required: ['card_id', 'label', 'title', 'body', 'trigger'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'remove_notification',
+      description:
+        'Remove a notification from a card. Confirm with the user EXACTLY ONCE before calling: removal is destructive (the notification is gone, not just disabled). If the user is unsure, suggest toggling enabled:false in Settings instead.',
+      parameters: {
+        type: 'object',
+        properties: {
+          card_id: { type: 'string' },
+          notification_id: { type: 'string' },
+        },
+        required: ['card_id', 'notification_id'],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
+
+// Auto-generate a notification id from a human label when the agent
+// didn't supply one. Lowercase, ascii-only, drop anything that isn't
+// matching the id regex.
+function _slugifyNotificationId(label) {
+  const slug = String(label || 'reminder')
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64);
+  return slug || 'reminder';
+}
 
 // Execute a single tool_call from an assistant response. Always returns a
 // string (stringified JSON) — both success and failure paths. The string
@@ -424,6 +485,64 @@ function dispatchToolCall(tc, ctx) {
       }
       case 'read_report': {
         return JSON.stringify(readReport(args.name));
+      }
+      case 'set_notification': {
+        const entry = registry.get(args.card_id);
+        if (!entry) return JSON.stringify({ error: `unknown card: ${args.card_id}` });
+        const existingItems = (entry.meta && entry.meta.notifications && Array.isArray(entry.meta.notifications.items))
+          ? entry.meta.notifications.items
+          : [];
+        const itemId = args.notification_id || _slugifyNotificationId(args.label);
+        const newItem = {
+          id: itemId,
+          label: args.label,
+          title: args.title,
+          body: args.body,
+          trigger: args.trigger,
+        };
+        if (args.privacy) newItem.privacy = args.privacy;
+        const idx = existingItems.findIndex(i => i.id === itemId);
+        const nextItems = [...existingItems];
+        if (idx >= 0) nextItems[idx] = { ...existingItems[idx], ...newItem };
+        else nextItems.push(newItem);
+        try {
+          registry.patchManifest(args.card_id, {
+            meta: { notifications: { enabled: true, items: nextItems } },
+          });
+          recordTouch(ctx, { id: args.card_id, flow: 'edit' });
+          return JSON.stringify({
+            ok: true,
+            card_id: args.card_id,
+            notification_id: itemId,
+            created: idx < 0,
+          });
+        } catch (e) {
+          return JSON.stringify({ error: e.message || 'set_notification failed' });
+        }
+      }
+      case 'remove_notification': {
+        const entry = registry.get(args.card_id);
+        if (!entry) return JSON.stringify({ error: `unknown card: ${args.card_id}` });
+        const existingItems = (entry.meta && entry.meta.notifications && Array.isArray(entry.meta.notifications.items))
+          ? entry.meta.notifications.items
+          : [];
+        const idx = existingItems.findIndex(i => i.id === args.notification_id);
+        if (idx < 0) return JSON.stringify({ error: `unknown notification: ${args.notification_id}` });
+        const nextItems = existingItems.filter(i => i.id !== args.notification_id);
+        try {
+          registry.patchManifest(args.card_id, {
+            meta: { notifications: { enabled: entry.meta.notifications.enabled !== false, items: nextItems } },
+          });
+          recordTouch(ctx, { id: args.card_id, flow: 'edit' });
+          return JSON.stringify({
+            ok: true,
+            card_id: args.card_id,
+            notification_id: args.notification_id,
+            remaining: nextItems.length,
+          });
+        } catch (e) {
+          return JSON.stringify({ error: e.message || 'remove_notification failed' });
+        }
       }
       default:
         return JSON.stringify({ error: 'unknown tool: ' + name });

@@ -109,6 +109,23 @@ const CATALOG = [
       return !(meta.prompt && meta.prompt.enabled);
     },
   },
+  {
+    id: 'add-daily-reminder',
+    label: 'Add a daily reminder?',
+    buildPrompt: (label) =>
+      `Add a notification to remind me to log ${label} every evening at 8pm.`,
+    eligible: (meta) => {
+      const r = renderer(meta);
+      if (r !== 'generic-card' && r !== 'schedule-card'
+          && r !== 'checklist-card' && r !== 'list-card') return false;
+      // Suppress when the card already has a notifications block; we
+      // don't want to push the user to add a second similar reminder.
+      const items = meta.notifications && Array.isArray(meta.notifications.items)
+        ? meta.notifications.items
+        : null;
+      return !items || items.length === 0;
+    },
+  },
 ];
 
 function renderer(meta) {

@@ -21,6 +21,8 @@ import './components/eh-prompt-modal.js';
 import { checkPromptsForToday } from './lib/prompt-queue.js';
 import { localToday } from './lib/date-util.js';
 import { readTheme, applyTheme } from './lib/theme.js';
+import { heartbeat as pushHeartbeat, detectAndHandleKeyRotation } from './lib/notification-client.js';
+import { consumePendingDeepLink } from './lib/deep-link.js';
 
 class HealthApp extends LitElement {
   static properties = {
@@ -33,6 +35,7 @@ class HealthApp extends LitElement {
     _promptQueue: { state: true },
     _buildInfo: { state: true },
     _demo: { state: true },
+    _pausedUntil: { state: true },
   };
 
   constructor() {
@@ -46,15 +49,22 @@ class HealthApp extends LitElement {
     this._promptQueue = [];
     this._buildInfo = null;
     this._demo = false;
+    this._pausedUntil = null;
     applyTheme(this.theme);
     this._onThemeChanged = (e) => { this.theme = e.detail.theme; };
     window.addEventListener('klebb-theme-changed', this._onThemeChanged);
     this._registerServiceWorker();
     this._postUserTz();
+    this._wirePushHeartbeat();
     this._handleRoute();
     this._loadInstance();
     this._loadBuildInfo();
     this._loadPrompts();
+    this._loadPausedState();
+    this._onPauseChanged = () => this._loadPausedState();
+    window.addEventListener('klebb-notifications-pause-changed', this._onPauseChanged);
+    this._wireSwMessages();
+    this._consumePendingDeepLink();
     window.addEventListener('popstate', () => this._handleRoute());
     window.addEventListener('navigate', (e) => {
       history.pushState(null, '', e.detail.path);
@@ -68,6 +78,34 @@ class HealthApp extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('klebb-theme-changed', this._onThemeChanged);
+    window.removeEventListener('klebb-notifications-pause-changed', this._onPauseChanged);
+  }
+
+  async _loadPausedState() {
+    try {
+      const r = await fetch('/api/notifications', { credentials: 'same-origin' });
+      if (!r.ok) return;
+      const j = await r.json();
+      this._pausedUntil = j.paused_until || null;
+    } catch {}
+  }
+
+  async _resumeNotifications() {
+    await fetch('/api/notifications/global-state', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paused_until: null }),
+    });
+    this._pausedUntil = null;
+  }
+
+  _formatPauseUntil(iso) {
+    try {
+      return new Date(iso).toLocaleString('en-AU', {
+        weekday: 'short', hour: 'numeric', minute: '2-digit',
+      });
+    } catch { return iso; }
   }
 
   _registerServiceWorker() {
@@ -77,6 +115,70 @@ class HealthApp extends LitElement {
     // is registered so the browser keeps it alive once push lands.
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+  }
+
+  async _consumePendingDeepLink() {
+    // On iOS PWA cold-start, clients.openWindow may launch via the
+    // manifest's start_url and strip the query the SW set on the
+    // notification's data.url. Read-and-clear the stashed intent.
+    const pending = await consumePendingDeepLink();
+    if (!pending || !pending.url) return;
+    try {
+      const url = new URL(pending.url, location.origin);
+      if (url.origin !== location.origin) return;
+      const target = url.pathname + url.search + url.hash;
+      // Don't override an explicit deep-link the user already navigated
+      // to in the same boot.
+      if (location.pathname === '/' && !location.search) {
+        history.replaceState(null, '', target);
+        this._handleRoute();
+      }
+    } catch {}
+  }
+
+  _wireSwMessages() {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      // Validate the source: only accept messages whose source is our
+      // SW registration, never another tab or iframe.
+      if (event.source !== navigator.serviceWorker.controller
+        && (!event.source || !(event.source.scriptURL || '').endsWith('/sw.js'))) {
+        return;
+      }
+      if (event.origin && event.origin !== location.origin) return;
+      const msg = event.data || {};
+      if (msg.type === 'klebb-deep-link') {
+        try {
+          const url = new URL(msg.url, location.origin);
+          if (url.origin === location.origin) {
+            history.pushState(null, '', url.pathname + url.search + url.hash);
+            this._handleRoute();
+          }
+        } catch {}
+      } else if (msg.type === 'klebb-foreground-notification') {
+        // Render an in-app toast via a CustomEvent so the
+        // notifications tab and any future toast layer can pick it up.
+        window.dispatchEvent(new CustomEvent('klebb-foreground-notification', {
+          detail: { title: msg.title, body: msg.body, items: msg.items },
+        }));
+      }
+    });
+  }
+
+  _wirePushHeartbeat() {
+    // On every visibility-to-visible transition AND on app boot, ask
+    // the server whether it still has our push subscription. If it
+    // doesn't (404), the client lib silently resubscribes.
+    // Critical for iOS PWA reinstall flows where WebKit storage and
+    // server-side subscriptions can drift out of sync.
+    pushHeartbeat().catch(() => {});
+    detectAndHandleKeyRotation().catch(() => {});
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        pushHeartbeat().catch(() => {});
+        detectAndHandleKeyRotation().catch(() => {});
+      }
+    });
   }
 
   _postUserTz() {
@@ -284,6 +386,29 @@ class HealthApp extends LitElement {
       color: #fff;
       text-decoration: underline;
     }
+    .pause-banner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 6px 12px;
+      background: var(--accent-amber-bg, rgba(255, 170, 51, 0.15));
+      color: var(--accent-amber, #ffaa33);
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+    .pause-banner .resume-btn {
+      font: inherit;
+      font-size: 0.75rem;
+      padding: 2px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--accent-amber, #ffaa33);
+      background: transparent;
+      color: var(--accent-amber, #ffaa33);
+      cursor: pointer;
+    }
+    .pause-banner .resume-btn:hover { filter: brightness(1.1); }
     .nav-links {
       display: flex;
       gap: 4px;
@@ -351,6 +476,12 @@ class HealthApp extends LitElement {
             <div class="demo-banner" role="status">
               You're viewing the public Klebb demo. Data resets periodically. Run your own at
               <a href="https://klebb.app" target="_blank" rel="noopener">klebb.app</a>.
+            </div>
+          ` : ''}
+          ${this._pausedUntil && this._pausedUntil > new Date().toISOString() ? html`
+            <div class="pause-banner" role="status">
+              Notifications paused until ${this._formatPauseUntil(this._pausedUntil)}.
+              <button class="resume-btn" @click=${this._resumeNotifications}>Resume</button>
             </div>
           ` : ''}
           <div class="nav-main">
