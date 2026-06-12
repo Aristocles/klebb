@@ -139,14 +139,15 @@ class HealthApp extends LitElement {
   _wireSwMessages() {
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.addEventListener('message', (event) => {
-      // Validate the source: only accept messages whose source is our
-      // SW registration, never another tab or iframe.
-      if (event.source !== navigator.serviceWorker.controller
-        && (!event.source || !(event.source.scriptURL || '').endsWith('/sw.js'))) {
-        return;
-      }
+      // Origin check is the real cross-frame defence: a third-party
+      // iframe could postMessage to this window, but its event.origin
+      // would not match. event.source can legitimately be null for
+      // messages delivered from a ServiceWorker on Edge/Windows, so
+      // gating on it dropped real deep-link messages.
       if (event.origin && event.origin !== location.origin) return;
       const msg = event.data || {};
+      if (msg.type !== 'klebb-deep-link' && msg.type !== 'klebb-foreground-notification') return;
+
       if (msg.type === 'klebb-deep-link') {
         try {
           const url = new URL(msg.url, location.origin);
@@ -155,7 +156,7 @@ class HealthApp extends LitElement {
             this._handleRoute();
           }
         } catch {}
-      } else if (msg.type === 'klebb-foreground-notification') {
+      } else {
         // Render an in-app toast via a CustomEvent so the
         // notifications tab and any future toast layer can pick it up.
         window.dispatchEvent(new CustomEvent('klebb-foreground-notification', {
