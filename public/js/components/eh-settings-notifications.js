@@ -24,7 +24,6 @@ export class EhSettingsNotifications extends LitElement {
     _permission: { state: true },
     _subscribed: { state: true },
     _busyId: { state: true },
-    _testing: { state: true },
     _toast: { state: true },
     _iosNeedsInstall: { state: true },
   };
@@ -38,7 +37,6 @@ export class EhSettingsNotifications extends LitElement {
     this._permission = 'default';
     this._subscribed = false;
     this._busyId = null;
-    this._testing = null;
     this._toast = null;
     this._iosNeedsInstall = false;
   }
@@ -130,34 +128,6 @@ export class EhSettingsNotifications extends LitElement {
       }
     } finally {
       this._busyId = null;
-    }
-  }
-
-  async _onTest(item) {
-    this._testing = item.id;
-    try {
-      const r = await fetch('/api/notifications/test', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id }),
-      });
-      const json = await r.json().catch(() => ({}));
-      if (r.ok) {
-        const sent = json.sent || 0;
-        this._toast = sent === 0
-          ? 'No devices subscribed yet. Turn on notifications first.'
-          : `Test sent to ${sent} device${sent === 1 ? '' : 's'}.`;
-      } else if (r.status === 429) {
-        this._toast = 'Test rate-limited. Try again in a minute.';
-      } else {
-        this._toast = json.error || `Test failed (${r.status}).`;
-      }
-    } catch (e) {
-      this._toast = 'Test failed: ' + (e.message || e);
-    } finally {
-      this._testing = null;
-      setTimeout(() => { this._toast = null; }, 3500);
     }
   }
 
@@ -354,7 +324,7 @@ export class EhSettingsNotifications extends LitElement {
       color: var(--text-muted, var(--text-secondary));
       min-width: 48px;
     }
-    .item-label { flex: 1; min-width: 0; font-size: 14px; color: var(--text-primary); }
+    .item-label { flex: 1; min-width: 0; font-size: 14px; color: var(--text-primary); overflow-wrap: anywhere; }
     .item-toggles {
       display: flex;
       align-items: center;
@@ -394,18 +364,17 @@ export class EhSettingsNotifications extends LitElement {
     .toggle[aria-pressed="true"]::after { transform: translateX(16px); }
     .toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .toggle[disabled] { opacity: 0.5; cursor: wait; }
-    .test-btn {
-      font: inherit;
-      font-size: 12px;
-      padding: 4px 10px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text-primary);
-      cursor: pointer;
+    @media (prefers-reduced-motion: reduce) {
+      .toggle, .toggle::after { transition: none; }
     }
-    .test-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-    .test-btn:disabled { opacity: 0.5; cursor: wait; }
+    @media (max-width: 560px) {
+      .item-toggles {
+        flex-basis: 100%;
+        justify-content: flex-end;
+        gap: 18px;
+      }
+      .item-main { row-gap: 6px; }
+    }
     .item-meta {
       font-size: 11px;
       color: var(--text-muted, var(--text-secondary));
@@ -589,7 +558,6 @@ export class EhSettingsNotifications extends LitElement {
                 ?disabled=${enabledBusy}
                 @click=${() => this._onToggleEnabled(item)}
               ></button>
-              <span>On</span>
             </span>
             <span class="toggle-pair" title="When off, the lock screen says 'You have a reminder' and the real text is shown only when you open Klebb.">
               <button
@@ -603,10 +571,6 @@ export class EhSettingsNotifications extends LitElement {
               ></button>
               <span class="privacy-help">Show full text</span>
             </span>
-            <button class="test-btn"
-              ?disabled=${this._testing === item.id}
-              @click=${() => this._onTest(item)}
-            >${this._testing === item.id ? 'Sending...' : 'Test'}</button>
           </div>
         </div>
         ${(next || last) ? html`

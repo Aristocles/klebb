@@ -88,9 +88,6 @@ test.describe('#387: Notifications tab', () => {
     await expect(tab.locator('.item-time', { hasText: '20:00' })).toBeVisible();
     await expect(tab.locator('.item-label', { hasText: 'Evening mood log' })).toBeVisible();
 
-    // Test button is visible on the row, not hidden behind a kebab menu.
-    await expect(tab.locator('.test-btn').first()).toBeVisible();
-
     // Toggle the on/off switch and re-fetch /api/notifications to verify
     // persistence.
     const onOff = tab.locator('.toggle').first();
