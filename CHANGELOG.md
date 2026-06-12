@@ -7,6 +7,42 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.0.4] - 2026-06-12
+
+### Fixed
+
+- **Privacy toggle override now persists across page reloads and is
+  honoured at send time.** Reported behaviour: flipping "Show full
+  text" on for a notification appeared to work (toggle visually
+  flipped) but reverted to off after navigating away from the
+  Settings tab and back. Two bugs combined.
+
+  The POST handler at `/api/notifications/state` was correctly
+  writing `privacy` into `notifications.state.json`, but two read
+  paths were ignoring it:
+
+  1. `GET /api/notifications` returned `item.privacy` from the
+     manifest, so the next page load showed the toggle in its
+     manifest-default state regardless of what the state file said.
+
+  2. The scheduler's send-side built dispatch events from the raw
+     manifest item, so the actual push went out with the manifest's
+     privacy. The user could flip "Show full text" on, but the lock
+     screen still received the generic "Klebb / You have a
+     reminder." payload.
+
+  Fixed by resolving privacy with state-file-wins precedence
+  everywhere the value is read: `routes/notifications.js` GET
+  aggregate and `lib/notifications-scheduler.js` event builder both
+  do `itemState.privacy || item.privacy || 'private'`. Manifest
+  privacy stays the default; the user's per-notification toggle in
+  Settings overrides it.
+
+  New unit tests: `tests/notifications-routes.test.js` round-trips
+  privacy through POST + GET; `tests/notifications-scheduler.test.js`
+  asserts the dispatched event reflects the state file when set and
+  the manifest when not.
+
 ## [3.0.3] - 2026-06-12
 
 ### Fixed
