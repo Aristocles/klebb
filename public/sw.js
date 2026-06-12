@@ -157,19 +157,39 @@ async function handleNotificationClick(event) {
     }
   } catch {}
 
+  // Pass an absolute URL to clients.openWindow / WindowClient.navigate.
+  // Some browsers (notably Edge on Windows when the click comes from
+  // Action Center after the SW has been idle) treat a relative path
+  // as an opaque address-bar string and trigger the default search
+  // engine; an absolute same-origin URL is unambiguous.
+  const absoluteTarget = self.location.origin + target;
+
   const allClients = await self.clients.matchAll({
     type: 'window',
     includeUncontrolled: true,
   });
   for (const c of allClients) {
+    let sameOrigin = false;
     try {
-      if (new URL(c.url).origin === self.location.origin) {
-        c.postMessage({ type: 'klebb-deep-link', url: target });
-        return c.focus();
+      sameOrigin = new URL(c.url).origin === self.location.origin;
+    } catch {}
+    if (!sameOrigin) continue;
+
+    // postMessage so the SPA can do a soft route change. The page's
+    // listener may not always fire (Edge on Windows can deliver these
+    // with event.source === null and a strict source check would drop
+    // them), so we ALSO call WindowClient.navigate() as the robust
+    // path: a real navigation that always lands the tab on the
+    // intended URL.
+    try { c.postMessage({ type: 'klebb-deep-link', url: target }); } catch {}
+    try {
+      if (typeof c.navigate === 'function') {
+        await c.navigate(absoluteTarget);
       }
     } catch {}
+    return c.focus();
   }
-  return self.clients.openWindow(target);
+  return self.clients.openWindow(absoluteTarget);
 }
 
 // Tiny IndexedDB helper, no library. One object store keyed by 'pending'
