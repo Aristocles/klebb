@@ -158,6 +158,36 @@ test.describe('notifications routes (#386, authenticated)', () => {
     assert.equal(list.json.notifications[0].enabled, false);
   });
 
+  test('POST /api/notifications/state: privacy override persists across GET', async () => {
+    // The manifest declares privacy:"private" by default. A POST that
+    // sets privacy:"public" must round-trip through the GET aggregate
+    // so the client toggle reflects the user's choice on next page
+    // load. Regression for the "toggle resets after navigating away"
+    // bug: GET was reading manifest privacy and ignoring the state
+    // file override.
+    const post = await req(srv.baseUrl, '/api/notifications/state', {
+      method: 'POST', cookie, headers: { 'Origin': ALLOWED_ORIGIN },
+      body: { id: 'mood#evening-log', privacy: 'public' },
+    });
+    assert.equal(post.status, 200);
+    assert.equal(post.json.state.privacy, 'public');
+
+    const list = await req(srv.baseUrl, '/api/notifications', { cookie });
+    const item = list.json.notifications.find(n => n.id === 'mood#evening-log');
+    assert.equal(item.privacy, 'public', 'GET must reflect state-file privacy override, not manifest default');
+
+    // Flipping back to private also round-trips.
+    await req(srv.baseUrl, '/api/notifications/state', {
+      method: 'POST', cookie, headers: { 'Origin': ALLOWED_ORIGIN },
+      body: { id: 'mood#evening-log', privacy: 'private' },
+    });
+    const list2 = await req(srv.baseUrl, '/api/notifications', { cookie });
+    assert.equal(
+      list2.json.notifications.find(n => n.id === 'mood#evening-log').privacy,
+      'private',
+    );
+  });
+
   test('POST /api/notifications/state REJECTS bad id format with 400', async () => {
     const r = await req(srv.baseUrl, '/api/notifications/state', {
       method: 'POST', cookie, headers: { 'Origin': ALLOWED_ORIGIN },

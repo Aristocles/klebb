@@ -150,7 +150,9 @@ async function handle(req, res, parts, ctx) {
           title: item.title,
           body: item.body,
           trigger: item.trigger,
-          privacy: item.privacy || 'private',
+          // Runtime state wins: the user's per-notification privacy
+          // toggle in Settings overrides the manifest's declared default.
+          privacy: itemState.privacy || item.privacy || 'private',
           enabled: itemState.enabled !== false && (notifs.enabled !== false),
           last_fired: itemState.lastFired || null,
           last_fire_status: itemState.lastFireStatus || null,

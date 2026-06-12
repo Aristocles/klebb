@@ -144,4 +144,38 @@ test.describe('notifications-scheduler tick', () => {
     await scheduler._tick(new Date('2026-06-11T22:00:00Z'));
     assert.equal(events.length, 0);
   });
+
+  test('privacy override from state file wins over manifest default', async () => {
+    // Regression for the "Show full text toggle silently ignored at
+    // send time" bug: the manifest declared privacy:"private" but the
+    // user flipped it to "public" via /api/notifications/state. The
+    // dispatch event must reflect the runtime override so the wire
+    // payload carries the real title/body to the device.
+    freshState();
+    const scheduler = require('../lib/notifications-scheduler');
+    const stateMod = require('../lib/notifications-state');
+    const events = [];
+    scheduler.setDispatch(async (evs) => events.push(...evs));
+
+    stateMod.writeItem('mood#evening-log', { privacy: 'public' });
+    setupCard(scheduler, [VALID_DAILY]); // manifest privacy: 'private'
+
+    await scheduler._tick(new Date('2026-06-11T22:00:00Z'));
+    assert.equal(events.length, 1);
+    assert.equal(events[0].items[0].item.privacy, 'public',
+      'scheduler must resolve privacy from state file, not manifest');
+  });
+
+  test('manifest privacy is the default when state has no override', async () => {
+    freshState();
+    const scheduler = require('../lib/notifications-scheduler');
+    const events = [];
+    scheduler.setDispatch(async (evs) => events.push(...evs));
+
+    setupCard(scheduler, [{ ...VALID_DAILY, privacy: 'public' }]);
+
+    await scheduler._tick(new Date('2026-06-11T22:00:00Z'));
+    assert.equal(events.length, 1);
+    assert.equal(events[0].items[0].item.privacy, 'public');
+  });
 });
