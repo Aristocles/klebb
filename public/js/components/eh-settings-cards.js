@@ -107,7 +107,11 @@ export class EhSettingsCards extends LitElement {
   }
 
   _enterReorderMode() {
-    window.dispatchEvent(new CustomEvent('klebb-enter-reorder-mode'));
+    // Reorder is a visual task that happens on the Today page. Set a
+    // one-shot flag so the view renderer flips into reorder mode as
+    // soon as it mounts on / and finishes its first card fetch.
+    try { sessionStorage.setItem('klebb-pending-reorder', '1'); } catch {}
+    window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/' } }));
   }
 
   static styles = css`
@@ -154,21 +158,45 @@ export class EhSettingsCards extends LitElement {
       color: var(--text-secondary);
       white-space: nowrap;
     }
+    .reorder-section {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-card);
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .reorder-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .reorder-blurb {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
     .reorder-btn {
       font: inherit;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
-      padding: 6px 10px;
-      border-radius: 6px;
+      padding: 10px 14px;
+      border-radius: 8px;
       border: 1px solid var(--border);
-      background: var(--bg-card);
+      background: var(--bg-muted, rgba(255,255,255,0.04));
       color: var(--text-primary);
       cursor: pointer;
-      white-space: nowrap;
+      width: 100%;
+      text-align: center;
     }
     .reorder-btn:hover {
       border-color: var(--accent);
       color: var(--accent);
+    }
+    .reorder-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
     .card {
       display: flex;
@@ -286,6 +314,20 @@ export class EhSettingsCards extends LitElement {
         `}
       </div>
 
+      ${!this._demo && totalAll >= 2 ? html`
+        <section class="reorder-section">
+          <div class="reorder-title">⋮⋮ Reorder cards on Today</div>
+          <div class="reorder-blurb">
+            Tapping below takes you to the Today page so you can drag your
+            cards into a new order. Tap <strong>Done</strong> on the
+            reorder bar there when you're finished.
+          </div>
+          <button class="reorder-btn" @click=${this._enterReorderMode}>
+            Reorder cards on Today
+          </button>
+        </section>
+      ` : ''}
+
       ${totalAll > 0 ? html`
         <div class="controls">
           <input
@@ -297,9 +339,6 @@ export class EhSettingsCards extends LitElement {
             aria-label="Filter cards"
           />
           <span class="count-summary">${enabled} on · ${disabled} off</span>
-          ${this._demo ? '' : html`
-            <button class="reorder-btn" @click=${this._enterReorderMode}>⋮⋮ Reorder</button>
-          `}
         </div>
       ` : ''}
 

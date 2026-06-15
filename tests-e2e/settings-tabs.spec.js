@@ -74,7 +74,7 @@ test.describe('#383: tabbed settings shell', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   });
 
-  test('Cards tab Reorder button dispatches klebb-enter-reorder-mode', async ({ page }) => {
+  test('Cards tab Reorder button navigates to Today and enters reorder mode (#395)', async ({ page }) => {
     await page.goto('/settings');
     await expect(page.locator('eh-settings-view')).toBeVisible();
 
@@ -82,17 +82,17 @@ test.describe('#383: tabbed settings shell', () => {
     const reorderBtn = page.locator('eh-settings-cards .reorder-btn');
     await expect(reorderBtn).toBeVisible();
 
-    // Listen for the event before clicking.
-    await page.evaluate(() => {
-      window.__lastReorderEvent = null;
-      window.addEventListener('klebb-enter-reorder-mode', () => {
-        window.__lastReorderEvent = Date.now();
-      });
-    });
-
     await reorderBtn.click();
 
-    const fired = await page.evaluate(() => window.__lastReorderEvent);
-    expect(fired).toBeTruthy();
+    // URL flips to / and the Today renderer drops into reorder mode.
+    await expect(page).toHaveURL(/\/$/);
+    const reorderBar = page.locator('eh-view-renderer').first().locator('.reorder-bar');
+    await expect(reorderBar).toBeVisible();
+    await expect(reorderBar.locator('.reorder-bar-done')).toBeVisible();
+
+    // The one-shot flag is consumed, so a fresh reload of / does NOT
+    // re-enter reorder mode.
+    await page.goto('/');
+    await expect(page.locator('eh-view-renderer').first().locator('.reorder-bar')).toHaveCount(0);
   });
 });

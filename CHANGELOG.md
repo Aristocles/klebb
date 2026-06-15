@@ -7,6 +7,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **Settings > Cards: Reorder is now a top-of-page section that takes
+  you to Today.** The old inline button shared a flex row with the
+  filter input and the on/off summary, which clipped its right edge
+  on iPhone 13 mini. More importantly, the button silently did
+  nothing on `/settings` because reorder mode lives on the Today
+  view: dispatching the old `klebb-enter-reorder-mode` event went
+  unheard with no Today renderer mounted. The button now sits in its
+  own labelled section above the filter row, with a short blurb
+  explaining the navigation, and tapping it sets a one-shot
+  sessionStorage flag and routes to `/`. The Today view consumes the
+  flag once cards have loaded, drops into reorder mode, and the
+  existing Done button keeps the user on Today. Hidden when fewer
+  than 2 cards exist or in demo mode. Fixes #395.
+
 ## [3.0.4] - 2026-06-12
 
 ### Fixed
