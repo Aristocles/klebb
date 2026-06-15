@@ -312,11 +312,25 @@ export class EhViewRenderer extends LitElement {
           }
         } catch {}
       }
+      this._consumePendingReorder();
     } catch (e) {
       this._error = e.message || 'fetch failed';
     } finally {
       this._loading = false;
     }
+  }
+
+  // Settings > Cards "Reorder" sets sessionStorage 'klebb-pending-reorder'
+  // before navigating to /. Consume it once the cards land, but only on
+  // the live Today view — never on Trends, Reports, or a past-day view.
+  _consumePendingReorder() {
+    if (this.view !== 'view' || this.dateMode !== 'today') return;
+    let pending = false;
+    try {
+      pending = sessionStorage.getItem('klebb-pending-reorder') === '1';
+      if (pending) sessionStorage.removeItem('klebb-pending-reorder');
+    } catch {}
+    if (pending) this._enterReorderMode();
   }
 
   _renderCard(card) {
