@@ -18,7 +18,7 @@
 
 import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
-import { isScheduledOnDate, enumerateDates } from '../lib/schedule.js';
+import { isScheduledOnDate, enumerateDates } from '../../../lib/schedule.js';
 import { registerRenderer } from '../renderer-registry.js';
 
 function todayStr() {
