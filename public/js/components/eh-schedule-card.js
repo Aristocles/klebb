@@ -18,7 +18,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
-import { isScheduledOnDate, effectiveCycles } from '../../../lib/schedule.js';
+import { isScheduledOnDate, effectiveCycles } from '../../../lib/schedule.mjs';
 import { registerRenderer } from '../renderer-registry.js';
 import { chipsFor as todChipsFor } from '../lib/time-of-day.esm.js';
 import './eh-input-form.js';

@@ -38,7 +38,7 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { localToday } from '../lib/date-util.js';
 import { errorFromResponse } from '../lib/save-error.js';
-import { isScheduledOnDate } from '../../../lib/schedule.js';
+import { isScheduledOnDate } from '../../../lib/schedule.mjs';
 import './eh-input-form.js';
 
 export class EhPromptModal extends LitElement {

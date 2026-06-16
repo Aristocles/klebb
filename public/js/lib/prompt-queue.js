@@ -19,7 +19,7 @@
 //     eh-prompt-modal.
 
 import { localToday } from './date-util.js';
-import { isScheduledOnDate } from '../../../lib/schedule.js';
+import { isScheduledOnDate } from '../../../lib/schedule.mjs';
 
 const STORAGE_PREFIX = 'klebb-prompt-shown-';
 

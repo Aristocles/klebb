@@ -136,7 +136,7 @@ function isPublicPath(pathname) {
   ];
   // Exact-path public files. Kept separate from the prefix list so adding
   // an entry here cannot accidentally open a directory window.
-  const publicExact = ['/lib/schedule.js'];
+  const publicExact = ['/lib/schedule.mjs'];
   if (publicExact.includes(pathname)) return true;
   return publicPaths.some(p => pathname === p || pathname.startsWith(p));
 }
