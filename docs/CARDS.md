@@ -1112,6 +1112,13 @@ Read-only in those views.
 - `meta.schedule` (single card-level cadence) OR `data.items[]` and
   per-item `schedule` / `doses[]`.
 - `meta.reports.windowDays`, `.showPast`, `.showFuture`.
+- Per-item `schedule.time_of_day` (single token or array, drawn from
+  `morning | midday | evening | night`): when set, the renderer
+  paints a sun/sky/moon/zzz emoji chip next to the item label in
+  each cycle header (☀️ morning, 🌤️ midday, 🌙 evening, 💤 night).
+  Same shared helper as `schedule-card`, so the dot-grid view picks
+  up the chip on the same code path. Items without the field render
+  unchanged.
 
 **Writes:**
 - None.
@@ -1136,6 +1143,13 @@ Used in `meta.reports.component`. Read-only.
 - `data.items[].doses[]` and per-item `schedule` / `cycles[]` for the
   expected-vs-taken calculation.
 - `meta.reports.showCompliance`, `.showInventory`.
+- Per-item `schedule.time_of_day` (single token or array, drawn from
+  `morning | midday | evening | night`): when set, the renderer
+  paints a sun/sky/moon/zzz emoji chip next to the item name in
+  each cycle row (☀️ morning, 🌤️ midday, 🌙 evening, 💤 night).
+  Same shared helper as `schedule-card`. Items without the field
+  render unchanged. Per-slot adherence breakdown columns are not in
+  scope for this renderer yet.
 
 **Writes:**
 - None.
