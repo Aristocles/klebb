@@ -22,6 +22,7 @@ import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
 import { isScheduledOnDate, enumerateDates } from '../../../lib/schedule.js';
 import { registerRenderer } from '../renderer-registry.js';
+import { chipsFor as todChipsFor } from '../lib/time-of-day.esm.js';
 
 function todayStr() {
   const d = new Date();
@@ -166,6 +167,15 @@ export class EhScheduleTimeline extends EhBaseCard {
         font-weight: 700;
         color: var(--text-primary);
       }
+      .tod-chip {
+        display: inline-block;
+        margin-left: 6px;
+        font-size: 14px;
+        line-height: 1;
+        vertical-align: middle;
+        user-select: none;
+      }
+      .tod-chip + .tod-chip { margin-left: 2px; }
       .cycle-badge {
         font-size: 9px;
         font-weight: 600;
@@ -315,10 +325,11 @@ export class EhScheduleTimeline extends EhBaseCard {
   _renderCycleBlock(item, cycle, vocab = DEFAULT_VOCAB) {
     const dots = buildDotArray(item, cycle, vocab);
     const summary = cycleSummary(dots);
+    const todChips = todChipsFor(item.schedule?.time_of_day);
     return html`
       <div class="cycle-block">
         <div class="cycle-head">
-          <span class="cycle-name">${item.short_name || item.name}${cycle.cycle_number ? ' · C' + cycle.cycle_number : ''}</span>
+          <span class="cycle-name">${item.short_name || item.name}${cycle.cycle_number ? ' · C' + cycle.cycle_number : ''}${todChips.map(c => html`<span class="tod-chip" aria-label=${c.label} title=${c.label}>${c.emoji}</span>`)}</span>
           <span class="cycle-badge ${cycle.status}">${cycle.status}</span>
           <span class="cycle-dates">${fmtDate(cycle.start_date)} → ${fmtDate(cycle.end_date)}</span>
         </div>

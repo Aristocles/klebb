@@ -7,6 +7,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Time-of-day chips in Trends + Reports.** The same `schedule.time_of_day`
+  chip (☀️ / 🌤️ / 🌙 / 💤) that the schedule-card and checklist-card
+  surface now also renders next to the item label in `eh-schedule-timeline`
+  cycle headers and `eh-adherence-report` cycle rows. Items without
+  `schedule.time_of_day` render unchanged. Per-slot adherence breakdown
+  columns are deferred to a future change. Fixes #401.
+
 ## [3.1.0] - 2026-06-16
 
 ### Added
