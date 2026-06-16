@@ -7,6 +7,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-06-16
+
 ### Added
 
 - **`schedule_due` notification trigger.** A new trigger type that
