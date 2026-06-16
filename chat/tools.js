@@ -6,7 +6,9 @@
 // /api/manifests. Registry writes are sync atomic tmp+rename so this is
 // safe to do inline inside a chat request.
 
+const { isDeepStrictEqual } = require('util');
 const registry = require('../manifests/registry');
+const notificationsState = require('../lib/notifications-state');
 const { readDoc } = require('./docs');
 const { readReport } = require('./reports');
 
@@ -363,6 +365,15 @@ const TOOL_DEFS = [
   },
 ];
 
+// Did the trigger object change between the existing item and the
+// incoming one? RFC 7396 deep-equal semantics: type/time/days/card/
+// time_of_day all matter. Returns true only when the two triggers are
+// indistinguishable to the scheduler. Used by set_notification to
+// decide whether to invalidate cached lastFired.
+function _triggersEqual(a, b) {
+  return isDeepStrictEqual(a, b);
+}
+
 // Auto-generate a notification id from a human label when the agent
 // didn't supply one. Lowercase, ascii-only, drop anything that isn't
 // matching the id regex.
@@ -543,6 +554,18 @@ function dispatchToolCall(tc, ctx) {
           registry.patchManifest(args.card_id, {
             meta: { notifications: { enabled: true, items: nextItems } },
           });
+          // When an existing item's trigger object changed, the cached
+          // lastFired/lastFireStatus belong to a different trigger config
+          // and the scheduler must re-evaluate from scratch. Without this,
+          // the next slot under the new trigger can share an instant with
+          // the old lastFired (e.g. schedule_due that suppressed today
+          // -> daily at the same time) and silently skip. See #394.
+          if (idx >= 0) {
+            const before = existingItems[idx].trigger;
+            if (!_triggersEqual(before, args.trigger)) {
+              notificationsState.clearLastFired(`${args.card_id}#${itemId}`);
+            }
+          }
           recordTouch(ctx, { id: args.card_id, flow: 'edit' });
           return JSON.stringify({
             ok: true,
@@ -567,6 +590,12 @@ function dispatchToolCall(tc, ctx) {
           registry.patchManifest(args.card_id, {
             meta: { notifications: { enabled: entry.meta.notifications.enabled !== false, items: nextItems } },
           });
+          // The registry's onDelete hook only fires for whole-card deletes.
+          // A per-item removal needs to drop its runtime sidecar entry
+          // explicitly, otherwise lastFired + the toggle survive and a
+          // future item that reclaims the same id inherits stale state.
+          // See #394.
+          notificationsState.removeItem(`${args.card_id}#${args.notification_id}`);
           recordTouch(ctx, { id: args.card_id, flow: 'edit' });
           return JSON.stringify({
             ok: true,
