@@ -20,6 +20,7 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
 import { isScheduledOnDate, effectiveCycles } from '../../../lib/schedule.js';
 import { registerRenderer } from '../renderer-registry.js';
+import { chipsFor as todChipsFor } from '../lib/time-of-day.esm.js';
 import './eh-input-form.js';
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -153,6 +154,15 @@ export class EhScheduleCard extends EhBaseCard {
         color: var(--text-muted, var(--text-secondary));
         margin-top: 1px;
       }
+      .tod-chip {
+        display: inline-block;
+        margin-left: 6px;
+        font-size: 14px;
+        line-height: 1;
+        vertical-align: middle;
+        user-select: none;
+      }
+      .tod-chip + .tod-chip { margin-left: 2px; }
       /* Per-dose metadata summary for the viewed date — site, reactions
          the user logged via meta.view.checkOffForm. Hidden when the
          viewed date has no dose entry or the entry carries nothing
@@ -722,6 +732,7 @@ export class EhScheduleCard extends EhBaseCard {
                   ${isScheduledToday ? html`<div class="dose">${this._doseLabel(item)}${item.dose_units ? ' · ' + item.dose_units + 'u' : ''}</div>` : ''}
                   <div class="cycle-text">
                     ${cp.type === 'off' ? 'Off cycle' : 'Cycle'} · Day ${cp.day}${cp.total ? ' of ' + cp.total : ''}
+                    ${todChipsFor(item.schedule?.time_of_day).map(c => html`<span class="tod-chip" aria-label=${c.label} title=${c.label}>${c.emoji}</span>`)}
                   </div>
                   ${doseSummary ? html`<div class="dose-summary">${doseSummary}</div>` : ''}
                   ${this._renderWeekDots(item, colour)}

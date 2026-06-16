@@ -7,6 +7,44 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **`schedule_due` notification trigger.** A new trigger type that
+  reads another card's schedule and fires only when something is
+  actually due in the matching slot today. Previously every
+  notification was a dumb wall-clock fire: the user got buzzed at
+  08:00 every day even on rest days, even off-cycle, even when the
+  dose had already been logged. The new trigger walks the named
+  card's `data.items[]` and keeps an item only when today is inside
+  an "on" cycle, the weekday matches the schedule, the item's
+  `schedule.time_of_day` matches the trigger's slot, and no taken
+  dose is recorded for today. If nothing survives, the slot
+  suppresses silently. The first trigger type that consults card
+  data, not just the wall clock.
+- **`schedule.time_of_day` on schedule items.** Optional bound vocab
+  (`morning | midday | evening | night`), single token or array.
+  Acts as a join key between the trigger's slot and the item's
+  schedule; also surfaces as a chip (sun / partly-sunny / moon / zzz)
+  on the schedule-card and checklist-card next to each item. Chips
+  render in canonical slot order regardless of how the array was
+  authored. The presence of the field is the toggle: no view-config
+  option, no per-card emoji override.
+- **Same-day carry-forward of missed doses.** When a `schedule_due`
+  trigger fires, it additionally pulls in any item from the same
+  card whose `time_of_day` is "earlier" in the day's slot order
+  (`morning < midday < evening < night`), is scheduled today, and
+  has no taken dose yet. These appear in the new `{missed_earlier}`
+  body placeholder, prefixed with `". Also missed earlier: "` when
+  non-empty so the body reads cleanly in both states. Cross-day
+  reset is automatic. Missed-only-morning days do not get a follow-up
+  reminder: carry-forward is opportunistic, not nagging.
+- **`{schedule_due}` and `{missed_earlier}` body placeholders.**
+  Substitute on render with the surviving items' `short_name` (or
+  `name`). Backwards-compatible with `daily` / `weekly` triggers,
+  where both placeholders substitute to empty string. Privacy-private
+  items keep the generic wire body; substitution lands on `realBody`
+  / `realTitle` for after-decryption display. Fixes #397.
+
 ### Changed
 
 - **Schedule resolution helpers moved from `public/js/lib/schedule.js`

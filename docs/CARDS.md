@@ -991,6 +991,12 @@ of "I patched the manifest and nothing changed".
   route?, action_label?, dose_label?, schedule, cycles[], doses[] }] }`.
 - Per-item `schedule` and `cycles[]` for the dot-grid and "scheduled
   today / rest day / off cycle" status.
+- Per-item `schedule.time_of_day` (single token or array, drawn from
+  `morning | midday | evening | night`): when set, the renderer
+  paints a sun/sky/moon/zzz emoji chip next to the item row (☀️
+  morning, 🌤️ midday, 🌙 evening, 💤 night). Multiple tokens render
+  multiple chips. Presence of the field is the toggle; there is no
+  view-config opt-out. Items without the field render unchanged.
 - Per-item `doses[].{scheduledDate, takenAt, offSchedule?, ...}` for
   the check-off state. Additional per-dose keys are written when
   `checkOffForm` is set.
@@ -1030,6 +1036,13 @@ of "I patched the manifest and nothing changed".
   `{ current: [...] }`.
 - Per-item: `name`, `schedule` | `cycles`, `frequency`, `day`,
   `startDate`, `dose`, `timing`.
+- Per-item `schedule.time_of_day` (single token or array, drawn from
+  `morning | midday | evening | night`): when set, the renderer
+  paints a sun/sky/moon/zzz emoji chip next to the item row (☀️
+  morning, 🌤️ midday, 🌙 evening, 💤 night). Same shared helper as
+  `schedule-card`, so vitamin / supplement checklists pick up the
+  chip on the same code path. Multiple tokens render multiple chips;
+  presence is the toggle.
 - Check state: `item.doses[].{scheduledDate, takenAt}` OR
   `item.takenDates[]` (array of ISO dates).
 
@@ -1313,6 +1326,136 @@ the `previousDoseFields` keys:
 A schedule-card without `meta.view.checkOffForm` (or with an empty
 config) keeps the original one-tap check-off behaviour exactly as
 before. This is purely additive.
+
+---
+
+## Schedule-aware notifications: `schedule_due`
+
+The `meta.notifications` block on a schedule-card or checklist-card
+declares Web Push reminders. The full reference for trigger types,
+payload shape, privacy, and quiet-hours lives in
+[`MANIFEST-SCHEMA.md`](../MANIFEST-SCHEMA.md). This section walks
+through one worked example for the trigger type that pairs with the
+`schedule.time_of_day` chips above.
+
+A `schedule_due` trigger reads another card's items and only fires
+when at least one item is actually due in the matching slot today
+(or was missed earlier in the same day). Slot order is fixed:
+`morning < midday < evening < night`. Carry-forward is opportunistic:
+misses fold into the next slot's notification within the same local
+day, and reset at midnight in the user's IANA timezone.
+
+### Worked example: a peptide cycle with morning + evening jabs
+
+Two items, one of which is a twice-daily protocol that needs a
+nudge in both slots:
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "peptide-cycle",
+    "label": "Peptide Cycle",
+    "emoji": "💉",
+    "view": { "enabled": true, "component": "schedule-card" },
+    "notifications": {
+      "enabled": true,
+      "items": [
+        {
+          "id": "morning-jabs",
+          "label": "Morning peptides",
+          "title": "Peptides",
+          "body": "Time for {schedule_due}{missed_earlier}",
+          "trigger": {
+            "type": "schedule_due",
+            "card": "peptide-cycle",
+            "time_of_day": "morning",
+            "time": "08:00"
+          },
+          "action": { "type": "open-card", "card": "peptide-cycle", "intent": "log" }
+        },
+        {
+          "id": "evening-jabs",
+          "label": "Evening peptides",
+          "title": "Peptides",
+          "body": "Time for {schedule_due}{missed_earlier}",
+          "trigger": {
+            "type": "schedule_due",
+            "card": "peptide-cycle",
+            "time_of_day": "evening",
+            "time": "20:00"
+          },
+          "action": { "type": "open-card", "card": "peptide-cycle", "intent": "log" }
+        }
+      ]
+    }
+  },
+  "data": {
+    "items": [
+      {
+        "name": "BPC-157", "short_name": "BPC",
+        "schedule": {
+          "type": "weekly", "on_days": ["Mon","Wed","Fri"],
+          "time_of_day": ["morning","evening"]
+        },
+        "doses": []
+      },
+      {
+        "name": "Insulin", "short_name": "insulin",
+        "schedule": {
+          "type": "daily",
+          "time_of_day": "morning"
+        },
+        "doses": []
+      },
+      {
+        "name": "Ozempic",
+        "schedule": {
+          "type": "weekly", "on_days": ["Sun"],
+          "time_of_day": "evening"
+        },
+        "doses": []
+      }
+    ]
+  }
+}
+```
+
+### What fires when
+
+Walk through a Wednesday with this card:
+
+- **08:00 morning trigger.** Filter keeps every item that is in cycle
+  today, scheduled today, has a `time_of_day` containing `"morning"`,
+  and has no taken dose for today. BPC matches (Mon/Wed/Fri,
+  `["morning","evening"]`); Insulin matches (daily, `"morning"`);
+  Ozempic does not (Sunday only). Notification fires:
+  `"Time for BPC, insulin"`.
+- The user logs BPC at breakfast but forgets the insulin.
+- **20:00 evening trigger.** Filter keeps items whose `time_of_day`
+  contains `"evening"`. BPC matches again: the user already took
+  the morning dose, but BPC's evening slot is its own dose with no
+  `takenAt` yet, so it survives. Carry-forward then sweeps any
+  earlier-slot items that are scheduled today and have no taken
+  dose: insulin (morning, missed). Ozempic still doesn't match.
+  Notification fires:
+  `"Time for BPC. Also missed earlier: insulin"`.
+
+If the user had taken both BPC doses and the insulin during the day,
+the evening trigger would find nothing surviving and nothing missed,
+so it would suppress silently (the slot is still recorded as fired
+in `notifications.state.json` so the scheduler doesn't re-evaluate
+it every minute).
+
+If the user misses the morning insulin and the day has no later
+`schedule_due` slot to carry into (e.g. a card whose only
+`time_of_day` is `morning`), there is no follow-up reminder. That's
+intentional: carry-forward is opportunistic, not nagging.
+
+The same trigger shape works on a `checklist-card` for vitamins or
+supplements: declare `time_of_day` on the items you want chipped and
+filtered, point a `schedule_due` trigger at the card, and the
+shared helper handles both the chip rendering and the filter pass.
 
 ---
 

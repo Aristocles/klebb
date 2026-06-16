@@ -19,7 +19,49 @@ const { mergePatch, isPlainObject } = require('./merge-patch');
 const { parsePath, resolvePath } = require('./path');
 
 const { isValidCategory } = require('../config/categories');
-const { validateNotifications } = require('./notifications-schema');
+const { validateNotifications, TIME_OF_DAY_TOKENS } = require('./notifications-schema');
+
+const TIME_OF_DAY_SET = new Set(TIME_OF_DAY_TOKENS);
+
+// Validate / clean schedule.time_of_day on each data.items[] entry. Same
+// two-stage pattern as validateNotifications: lenient at load (drop the
+// bad field), strict at create/PATCH (throw with prefix the handler maps
+// to 422). Allowed: a single token from morning|midday|evening|night, or
+// a non-empty array of distinct such tokens. Anything else: drop or throw.
+function validateScheduleTimeOfDay(parsed, { strict = false } = {}) {
+  const items = parsed?.data?.items;
+  if (!Array.isArray(items)) return;
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (!it || typeof it !== 'object' || Array.isArray(it)) continue;
+    const sched = it.schedule;
+    if (!sched || typeof sched !== 'object' || Array.isArray(sched)) continue;
+    if (!('time_of_day' in sched)) continue;
+    const v = sched.time_of_day;
+    if (typeof v === 'string') {
+      if (!TIME_OF_DAY_SET.has(v)) {
+        if (strict) throw new Error(`invalid schedule.time_of_day on items[${i}]: must be one of morning|midday|evening|night`);
+        delete sched.time_of_day;
+      }
+      continue;
+    }
+    if (Array.isArray(v) && v.length > 0) {
+      const seen = new Set();
+      let ok = true;
+      for (const tok of v) {
+        if (typeof tok !== 'string' || !TIME_OF_DAY_SET.has(tok) || seen.has(tok)) { ok = false; break; }
+        seen.add(tok);
+      }
+      if (!ok) {
+        if (strict) throw new Error(`invalid schedule.time_of_day on items[${i}]: array entries must be distinct tokens from morning|midday|evening|night`);
+        delete sched.time_of_day;
+      }
+      continue;
+    }
+    if (strict) throw new Error(`invalid schedule.time_of_day on items[${i}]: must be a token or array of tokens`);
+    delete sched.time_of_day;
+  }
+}
 
 const SUPPORTED_SCHEMAS = ['klebb.datafile.v1'];
 const RESERVED_DIR_PREFIX = '_';
@@ -129,6 +171,9 @@ function validateManifestShape(parsed, opts = {}) {
       parsed.meta.notifications = cleaned;
     }
   }
+
+  // data.items[].schedule.time_of_day: same two-stage pattern.
+  validateScheduleTimeOfDay(parsed, { strict: strictNotifications });
 
   return parsed;
 }

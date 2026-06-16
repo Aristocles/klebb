@@ -152,3 +152,78 @@ test.describe('validateNotifications: strict mode (create / PATCH)', () => {
     assert.deepEqual(out.items[1].trigger.days, ['mon', 'wed', 'fri']);
   });
 });
+
+test.describe('validateNotifications: schedule_due trigger', () => {
+  const VALID_SCHED_DUE = {
+    id: 'morning-jab',
+    label: 'Morning injection',
+    title: 'Injection',
+    body: 'Time for {schedule_due}{missed_earlier}',
+    trigger: {
+      type: 'schedule_due',
+      card: 'peptide-cycle',
+      time_of_day: 'morning',
+      time: '08:00',
+    },
+  };
+
+  test('strict accepts a well-formed schedule_due item', () => {
+    const out = validateNotifications({ items: [VALID_SCHED_DUE] }, { strict: true });
+    assert.equal(out.items.length, 1);
+    assert.deepEqual(out.items[0].trigger, {
+      type: 'schedule_due',
+      card: 'peptide-cycle',
+      time_of_day: 'morning',
+      time: '08:00',
+    });
+  });
+
+  test('strict rejects missing trigger.card', () => {
+    const bad = { ...VALID_SCHED_DUE, trigger: { type: 'schedule_due', time_of_day: 'morning', time: '08:00' } };
+    assert.throws(
+      () => validateNotifications({ items: [bad] }, { strict: true }),
+      /trigger.card/,
+    );
+  });
+
+  test('strict rejects malformed trigger.card pattern', () => {
+    const bad = { ...VALID_SCHED_DUE, trigger: { ...VALID_SCHED_DUE.trigger, card: 'BAD!' } };
+    assert.throws(
+      () => validateNotifications({ items: [bad] }, { strict: true }),
+      /trigger.card/,
+    );
+  });
+
+  test('strict rejects unknown time_of_day token', () => {
+    const bad = { ...VALID_SCHED_DUE, trigger: { ...VALID_SCHED_DUE.trigger, time_of_day: 'dawn' } };
+    assert.throws(
+      () => validateNotifications({ items: [bad] }, { strict: true }),
+      /time_of_day/,
+    );
+  });
+
+  test('strict rejects time_of_day as an array (single token only on the trigger)', () => {
+    const bad = { ...VALID_SCHED_DUE, trigger: { ...VALID_SCHED_DUE.trigger, time_of_day: ['morning', 'evening'] } };
+    assert.throws(
+      () => validateNotifications({ items: [bad] }, { strict: true }),
+      /time_of_day/,
+    );
+  });
+
+  test('strict rejects bad trigger.time alongside schedule_due', () => {
+    const bad = { ...VALID_SCHED_DUE, trigger: { ...VALID_SCHED_DUE.trigger, time: '8:00' } };
+    assert.throws(
+      () => validateNotifications({ items: [bad] }, { strict: true }),
+      /trigger.time/,
+    );
+  });
+
+  test('lenient drops schedule_due item with bad time_of_day', () => {
+    const out = validateNotifications({
+      items: [
+        { ...VALID_SCHED_DUE, trigger: { ...VALID_SCHED_DUE.trigger, time_of_day: 'lunchtime' } },
+      ],
+    });
+    assert.equal(out.items.length, 0);
+  });
+});
