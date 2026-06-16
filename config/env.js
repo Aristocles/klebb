@@ -133,6 +133,21 @@ function getSessionSecret() {
 // --- Feature flags ---
 const DEBUG_LOG = process.env.HEALTH_DEBUG === '1';
 
+// Soft per-iter cap on the chat agent loop's gateway calls. The transport
+// already enforces a 180s hard ceiling (see callGateway), but a single
+// iteration that runs that long is almost always the model fudging an
+// over-large generation through the wrong tool ("write_manifest_data" on a
+// 75 KB data block to do a trivial reorder, etc.). A tighter per-iter
+// budget lets us return a fast refusal instead of leaving the user staring
+// at a 3-minute spinner. Set to 0 to disable (fall back to the 180s ceiling).
+const CHAT_ITER_TIMEOUT_MS = (() => {
+  const raw = process.env.CHAT_ITER_TIMEOUT_MS;
+  if (raw === undefined || raw === '') return 60000;
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 0) return 60000;
+  return n;
+})();
+
 // --- Demo mode ---
 // When KLEBB_DEMO=1, the server runs as a public no-credentials demo:
 //   - The login page shows a single "Enter the demo" button that calls
@@ -240,6 +255,25 @@ Choose the smallest-blast-radius tool for the job:
 - \`patch_manifest\` when the patch removes any \`inputs[]\` from a writeable card, or flips \`writeable.fromWebapp\` from \`true\` to \`false\` on a card that has data.
 - \`remove_notification\` (always).
 Pure additions / non-destructive patches (adding a new threshold band, renaming a label, changing an emoji map) don't need confirmation.
+
+## When no tool fits the request
+
+If the user's request can't be carried out by ANY tool listed above in a reasonable single generation, refuse fast. Do NOT try to fudge it through the closest-looking tool. Forcing a wholesale-rewrite tool (\`write_manifest_data\`, \`patch_manifest\`) to do a small mutation it wasn't designed for is the failure mode this rule exists to prevent: the generation runs long enough to time out the gateway and the user just sees dead air.
+
+The refusal applies whenever any of these are true:
+- The intent is "row-level" (reorder, sort, deduplicate, bulk-edit-by-predicate) but no tool above carries it out at row-level, so the only tool that could is \`write_manifest_data\`, AND the card's data block is large (more than a few rows or anything larger than a few KB).
+- The intent needs a primitive that simply doesn't exist (cross-card joins, transactional multi-card edits, free-form scripting, importing arbitrary external data).
+- The intent needs a tool I genuinely don't have (sending email, scheduling external calendar events, reading the user's filesystem outside \`read_doc\` / \`read_report\`).
+
+Refusal copy template (1-2 short sentences):
+
+> I can't do that in one step right now: <one-line reason>. <Optional: name the closest workaround the user CAN do, or what tool would be needed.>
+
+Examples:
+- "I can't reorder rows in one step right now: there's no reorder primitive, and the only tool that could do it would have to rewrite the whole data block (which times out on cards this size). You can re-order this card by editing the manifest file directly for now."
+- "I can't merge two cards in one call: there's no cross-card transaction tool. I can copy rows from one to the other if you read them out yourself first."
+
+Pick refusal over a heroic tool call. A 5-second "I can't do that" beats a 180-second timeout every time. Do NOT pad the refusal with apologies, "as an AI" disclaimers, or suggestions to contact support.
 
 ## Verifying renderer behaviour
 
@@ -566,6 +600,7 @@ module.exports = {
   WEBAUTHN_ORIGIN,
   getSessionSecret,
   DEBUG_LOG,
+  CHAT_ITER_TIMEOUT_MS,
   KLEBB_DEMO,
   DEMO_USER_ID,
   HEALTH_SYSTEM_PROMPT,

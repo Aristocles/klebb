@@ -7,6 +7,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Chat agent fails fast when no tool fits.** When the user asks for
+  something that no available tool can carry out (reorder rows, merge
+  cards, etc.), the model used to fudge it through the closest tool
+  (typically `write_manifest_data` regenerating the whole data block).
+  On a card with a 75 KB data block that generation routinely ran
+  past the 180s gateway ceiling, the request died with `gateway_timeout`,
+  and the user saw three minutes of dead air per attempt. The system
+  prompt now carries an explicit "When no tool fits" section that
+  steers the model to a fast plain-language refusal instead. As a
+  belt-and-braces backstop, `runAgentLoop` enforces a soft per-iter
+  budget (`CHAT_ITER_TIMEOUT_MS`, default 60000ms): if any single
+  gateway iteration runs past it, the agent loop aborts and replies
+  with the standard refusal copy at HTTP 200, not 504. Closes #399.
+
 ## [3.2.0] - 2026-06-16
 
 ### Added

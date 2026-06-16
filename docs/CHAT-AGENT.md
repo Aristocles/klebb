@@ -57,6 +57,45 @@ the tools are simply unused.
 | `read_doc` | Fetch any allowlisted in-repo doc (README, MANIFEST-SCHEMA, this file, etc.) |
 | `read_report` | Fetch any ingested report from `$HEALTH_HOME/reports/`. The agent gets the catalogue automatically in its system prompt; see [`REPORTS.md`](REPORTS.md) for how reports get there. |
 
+### Refusal when no tool fits
+
+The system prompt explicitly tells the model to refuse fast when the
+user's request can't be carried out by any of the available tools in a
+single generation. This is the answer to "the model tried to fudge a
+reorder through `write_manifest_data`, the gateway timed out at 180s,
+the user saw three minutes of dead air".
+
+The standard refusal copy is one or two short sentences:
+
+> I can't do that in one step right now: \<one-line reason\>. \<Optional:
+> name the closest workaround the user CAN do, or what tool would be needed.\>
+
+Examples:
+
+- "I can't reorder rows in one step right now: there's no reorder
+  primitive, and the only tool that could do it would have to rewrite
+  the whole data block (which times out on cards this size). You can
+  re-order this card by editing the manifest file directly for now."
+- "I can't merge two cards in one call: there's no cross-card
+  transaction tool. I can copy rows from one to the other if you read
+  them out yourself first."
+
+Any future tool addition should keep the refusal pattern and tighten
+it: when a new primitive lands (e.g. `reorder_rows`), the refusal text
+for that intent stops applying and the agent should reach for the new
+tool instead.
+
+### Belt-and-braces: per-iter gateway budget
+
+The transport layer's per-hop ceiling is a hard 180s and intentionally
+matches the client. On top of that, `runAgentLoop` enforces a soft
+per-iteration budget via `CHAT_ITER_TIMEOUT_MS` (default `60000`). If a
+single iteration runs past the soft cap, the agent loop aborts the
+in-flight gateway call, returns the standard refusal copy with HTTP
+200, and emits `[chat:<id>] iter=N gw=<ms>ms iter_timeout` in debug
+logs. Set `CHAT_ITER_TIMEOUT_MS=0` to disable and fall back to the
+180s ceiling.
+
 ### Legacy env vars
 
 Older deploys used `CHAT_GATEWAY_HOST` + `CHAT_GATEWAY_PORT` +

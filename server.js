@@ -42,6 +42,10 @@ const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
 const CHAT_API_KEY = ENV.CHAT_API_KEY;
 const CHAT_MODEL = ENV.CHAT_MODEL;
 const DEBUG_LOG = ENV.DEBUG_LOG;
+const CHAT_ITER_TIMEOUT_MS = ENV.CHAT_ITER_TIMEOUT_MS;
+const GATEWAY_HARD_TIMEOUT_MS = 180000;
+const NO_TOOL_FITS_REFUSAL =
+  "I can't do that in one step right now: it doesn't fit any of the tools I have, and the workaround would have to rewrite the whole card (which times out on cards this size). If you tell me which slice of the card you want changed, I can usually do that with a row-level edit.";
 
 // Forensic logging for the chat agent loop. Off by default; flip on with
 // HEALTH_DEBUG=1. Emits structural facts only (durations, counts, tool
@@ -300,7 +304,7 @@ function extractJsonReply(raw) {
 //   'gateway_parse: <msg>'        -> 500
 // Preserves the existing transport options (no keep-alive, self-signed TLS
 // tolerated, 180s per-hop timeout).
-function callGateway({ messages, tools }) {
+function callGateway({ messages, tools, timeoutMs }) {
   return new Promise((resolve, reject) => {
     if (!CHAT_ENDPOINT) return reject(new Error('gateway_unavailable: CHAT_ENDPOINT_URL not set'));
     const body = { model: CHAT_MODEL, messages };
@@ -332,9 +336,13 @@ function callGateway({ messages, tools }) {
       });
     });
     proxyReq.on('error', (e) => reject(new Error('gateway_unavailable: ' + e.message)));
-    proxyReq.setTimeout(180000, () => {
+    const effectiveTimeout = (typeof timeoutMs === 'number' && timeoutMs > 0)
+      ? Math.min(timeoutMs, GATEWAY_HARD_TIMEOUT_MS)
+      : GATEWAY_HARD_TIMEOUT_MS;
+    const isSoftCap = effectiveTimeout < GATEWAY_HARD_TIMEOUT_MS;
+    proxyReq.setTimeout(effectiveTimeout, () => {
       proxyReq.destroy();
-      reject(new Error('gateway_timeout'));
+      reject(new Error(isSoftCap ? 'gateway_iter_timeout' : 'gateway_timeout'));
     });
     proxyReq.write(payload);
     proxyReq.end();
@@ -355,7 +363,23 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-' }) {
   let lastAssistantText = '';
   for (let i = 0; i < MAX_ITERS; i++) {
     const gwStart = Date.now();
-    const gw = await callGateway({ messages, tools: TOOL_DEFS });
+    let gw;
+    try {
+      gw = await callGateway({ messages, tools: TOOL_DEFS, timeoutMs: CHAT_ITER_TIMEOUT_MS });
+    } catch (e) {
+      if (e && e.message === 'gateway_iter_timeout') {
+        const gwMs = Date.now() - gwStart;
+        chatLog(reqId, `iter=${i} gw=${gwMs}ms iter_timeout`);
+        return {
+          finalText: NO_TOOL_FITS_REFUSAL,
+          cappedOut: false,
+          iterTimedOut: true,
+          ctx,
+          iters: i + 1,
+        };
+      }
+      throw e;
+    }
     const gwMs = Date.now() - gwStart;
     const choice = gw.choices?.[0];
     const msg = choice?.message || {};
@@ -401,7 +425,7 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-' }) {
   }
   return {
     finalText: lastAssistantText ||
-      "I wasn't able to finish that in one turn — please re-ask or be more specific.",
+      "I wasn't able to finish that in one turn. Please re-ask or be more specific.",
     cappedOut: true,
     ctx,
     iters: MAX_ITERS,
@@ -1599,9 +1623,9 @@ Original system prompt follows:
           chatLog(reqId, `start turns=${messages.length} voice=${!!voiceMode}`);
 
           runAgentLoop({ systemPrompt, userMessages: messages, reqId })
-            .then(({ finalText, ctx, cappedOut, iters }) => {
+            .then(({ finalText, ctx, cappedOut, iterTimedOut, iters }) => {
               const followup = buildFollowup(ctx);
-              chatLog(reqId, `done total=${Date.now() - turnStart}ms iters=${iters} capped=${!!cappedOut}`);
+              chatLog(reqId, `done total=${Date.now() - turnStart}ms iters=${iters} capped=${!!cappedOut}${iterTimedOut ? ' iter_timeout' : ''}`);
               if (voiceMode) {
                 const parsedReply = extractJsonReply(finalText);
                 if (parsedReply && (parsedReply.speak || parsedReply.display)) {
