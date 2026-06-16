@@ -895,7 +895,8 @@ The canonical schema is:
   chip next to the row (☀️ morning, 🌤️ midday, 🌙 evening, 💤 night).
   Multiple tokens render multiple chips. The presence of the field is
   the toggle; there is no view-config option to hide it. Invalid tokens
-  are dropped at load time and rejected at create / PATCH time, same
+  are dropped at load time and rejected at create / PATCH time (returns
+  422 with the prefix `invalid schedule.time_of_day: ...`), same
   two-stage pattern as `meta.notifications`.
 
 **Migrating old cards:**
