@@ -430,6 +430,242 @@ describe('remove_row: dispatch', () => {
   });
 });
 
+describe('reorder_rows: dispatch', () => {
+  test('reorders top-level items array by name; persists; recordTouch fires', () => {
+    const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      const ctx = { touches: [] };
+      const res = JSON.parse(dispatchToolCall(makeToolCall('reorder_rows', {
+        id: 'peptides',
+        path: 'items',
+        key: 'name',
+        order: ['TB-500', 'BPC-157'],
+      }), ctx));
+      assert.equal(res.ok, true);
+      assert.equal(res.reordered, 2);
+
+      const onDisk = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8'));
+      assert.deepEqual(onDisk.data.items.map(i => i.name), ['TB-500', 'BPC-157']);
+      assert.deepEqual(ctx.touches, [{ id: 'peptides', flow: 'edit' }]);
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('preserves each row\'s full content (doses + nested fields untouched)', () => {
+    const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      JSON.parse(dispatchToolCall(makeToolCall('reorder_rows', {
+        id: 'peptides',
+        path: 'items',
+        key: 'name',
+        order: ['TB-500', 'BPC-157'],
+      })));
+      const onDisk = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8'));
+      const bpc = onDisk.data.items.find(x => x.name === 'BPC-157');
+      assert.equal(bpc.doses.length, 12);
+      assert.equal(bpc.doses[0].scheduledDate, '2026-03-25');
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('reorders nested doses array', () => {
+    const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      const original = PEPTIDES.data.items.find(i => i.name === 'BPC-157').doses
+        .map(d => d.scheduledDate);
+      const reversed = [...original].reverse();
+      const res = JSON.parse(dispatchToolCall(makeToolCall('reorder_rows', {
+        id: 'peptides',
+        path: 'items[name="BPC-157"].doses',
+        key: 'scheduledDate',
+        order: reversed,
+      })));
+      assert.equal(res.ok, true);
+      assert.equal(res.reordered, 12);
+      const onDisk = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8'));
+      const bpc = onDisk.data.items.find(x => x.name === 'BPC-157');
+      assert.deepEqual(bpc.doses.map(d => d.scheduledDate), reversed);
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('reorders an array-rooted card via empty path', () => {
+    const arrayRooted = {
+      $schema: 'klebb.datafile.v1',
+      meta: {
+        id: 'log',
+        label: 'Log',
+        view: { enabled: true, component: 'list-card' },
+        writeable: { fromWebapp: true, inputs: [] },
+      },
+      data: [
+        { date: '2026-05-01', note: 'a' },
+        { date: '2026-05-02', note: 'b' },
+        { date: '2026-05-03', note: 'c' },
+      ],
+    };
+    const sandbox = createSandbox({ seed: { 'log.json': arrayRooted } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      const res = JSON.parse(dispatchToolCall(makeToolCall('reorder_rows', {
+        id: 'log',
+        path: '',
+        key: 'date',
+        order: ['2026-05-03', '2026-05-01', '2026-05-02'],
+      })));
+      assert.equal(res.ok, true);
+      const onDisk = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'log.json'), 'utf8'));
+      assert.deepEqual(onDisk.data.map(r => r.date), ['2026-05-03', '2026-05-01', '2026-05-02']);
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('writeable gate: ingest-only card rejected with explanatory error', () => {
+    const sandbox = createSandbox({ seed: { 'steps.json': INGEST_ONLY } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      const res = call(dispatchToolCall, 'reorder_rows', {
+        id: 'steps',
+        path: '',
+        key: 'date',
+        order: ['2026-05-05'],
+      });
+      assert.match(res.error, /not writeable/);
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('ORDER_MISMATCH: order length does not match row count', () => {
+    const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      const before = fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8');
+      const res = call(dispatchToolCall, 'reorder_rows', {
+        id: 'peptides',
+        path: 'items',
+        key: 'name',
+        order: ['BPC-157'],
+      });
+      assert.equal(res.code, 'ORDER_MISMATCH');
+      const after = fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8');
+      assert.equal(before, after, 'on-disk untouched on mismatch');
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('ORDER_MISMATCH: order has a value that is not in the rows', () => {
+    const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      const res = call(dispatchToolCall, 'reorder_rows', {
+        id: 'peptides',
+        path: 'items',
+        key: 'name',
+        order: ['TB-500', 'GHOST-9'],
+      });
+      assert.equal(res.code, 'ORDER_MISMATCH');
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('ORDER_MISMATCH: order has a duplicate value', () => {
+    const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      const res = call(dispatchToolCall, 'reorder_rows', {
+        id: 'peptides',
+        path: 'items',
+        key: 'name',
+        order: ['BPC-157', 'BPC-157'],
+      });
+      assert.equal(res.code, 'ORDER_MISMATCH');
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('ORDER_MISMATCH: a row has no key property', () => {
+    const noKey = {
+      $schema: 'klebb.datafile.v1',
+      meta: {
+        id: 'odd',
+        label: 'Odd',
+        writeable: { fromWebapp: true, inputs: [] },
+      },
+      data: { rows: [{ name: 'a' }, { other: 'b' }] },
+    };
+    const sandbox = createSandbox({ seed: { 'odd.json': noKey } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      const res = call(dispatchToolCall, 'reorder_rows', {
+        id: 'odd',
+        path: 'rows',
+        key: 'name',
+        order: ['a', 'b'],
+      });
+      assert.equal(res.code, 'ORDER_MISMATCH');
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('WRONG_TYPE: target is not an array', () => {
+    const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      const res = call(dispatchToolCall, 'reorder_rows', {
+        id: 'peptides',
+        path: 'items[name="BPC-157"]',
+        key: 'name',
+        order: ['BPC-157'],
+      });
+      assert.equal(res.code, 'WRONG_TYPE');
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('WRONG_TYPE: missing key arg', () => {
+    const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      const res = call(dispatchToolCall, 'reorder_rows', {
+        id: 'peptides',
+        path: 'items',
+        order: ['BPC-157', 'TB-500'],
+      });
+      assert.equal(res.code, 'WRONG_TYPE');
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('WRONG_TYPE: order is not an array', () => {
+    const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      const res = call(dispatchToolCall, 'reorder_rows', {
+        id: 'peptides',
+        path: 'items',
+        key: 'name',
+        order: 'BPC-157',
+      });
+      assert.equal(res.code, 'WRONG_TYPE');
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('NO_MATCH bubbles when path resolves to nothing', () => {
+    const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
+    try {
+      const { dispatchToolCall } = freshTools(sandbox);
+      const res = call(dispatchToolCall, 'reorder_rows', {
+        id: 'peptides',
+        path: 'no_such_array',
+        key: 'name',
+        order: [],
+      });
+      assert.equal(res.code, 'NO_MATCH');
+    } finally { cleanupSandbox(sandbox); }
+  });
+
+  test('reorder_rows is in TOOL_DEFS', () => {
+    const sandbox = createSandbox();
+    try {
+      const { TOOL_DEFS } = freshTools(sandbox);
+      const names = TOOL_DEFS.map(t => t.function.name);
+      assert.ok(names.includes('reorder_rows'));
+    } finally { cleanupSandbox(sandbox); }
+  });
+});
+
 describe('row tools: invalid JSON arguments are caught at the outer parse', () => {
   test('malformed args return {error}', () => {
     const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
