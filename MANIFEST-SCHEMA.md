@@ -908,7 +908,7 @@ unification:
 node scripts/migrate-schedule-vocabulary.js /path/to/your/health/data
 ```
 
-Legacy keys supported transparently by `lib/schedule.js` (no migration
+Legacy keys supported transparently by `lib/schedule.mjs` (no migration
 required, but recommended for new work):
 
 | Legacy | Canonical |

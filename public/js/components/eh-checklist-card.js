@@ -11,7 +11,7 @@
 import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
 import { registerRenderer } from '../renderer-registry.js';
-import { isScheduledOnDate } from '../../../lib/schedule.js';
+import { isScheduledOnDate } from '../../../lib/schedule.mjs';
 import { chipsFor as todChipsFor } from '../lib/time-of-day.esm.js';
 
 export class EhChecklistCard extends EhBaseCard {
