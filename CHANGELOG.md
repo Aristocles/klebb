@@ -44,6 +44,26 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **`set_notification` clears `lastFired` when it changes a trigger.**
+  Cached `notifications.state.json#items[<id>].lastFired` is computed
+  under whatever trigger configuration was active at the time, so once
+  the chat agent mutates a notification's trigger (time, type,
+  weekly days, schedule_due slot) the cached slot belongs to a
+  different trigger config and the scheduler must re-evaluate from
+  scratch. Without this, the next slot under the new trigger could
+  share an instant with the old `lastFired` (the sharp case: a
+  `schedule_due` trigger that suppressed today, then mutated to plain
+  `daily` at the same time) and the scheduler would treat the slot as
+  already-fired and silently skip the reminder. `chat/tools.js`
+  `set_notification` now deep-equals the old vs new trigger and calls
+  through to a new `lib/notifications-state.clearLastFired` when they
+  differ; benign updates (label/title/body changes, same trigger)
+  preserve `lastFired`. `remove_notification` also drops the runtime
+  sidecar entry via a new `removeItem` helper, so a per-item delete
+  doesn't leave orphan toggle/`lastFired`/privacy state behind for a
+  future item that reclaims the same id. The registry's `onDelete`
+  hook still handles whole-card deletes. Closes #394.
+
 - **Chat agent fails fast when no tool fits.** When the user asks for
   something that no available tool can carry out (reorder rows, merge
   cards, etc.), the model used to fudge it through the closest tool
