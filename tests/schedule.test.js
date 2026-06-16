@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/schedule.test.js
-// Unit tests for lib/schedule.js: the canonical + legacy schedule
+// Unit tests for lib/schedule.mjs: the canonical + legacy schedule
 // evaluation rules.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { isScheduledOnDate, enumerateDates, effectiveCycles } from '../lib/schedule.js';
+import { isScheduledOnDate, enumerateDates, effectiveCycles } from '../lib/schedule.mjs';
 
 // --- Canonical schema tests ---
 

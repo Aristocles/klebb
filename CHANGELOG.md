@@ -16,6 +16,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `schedule.time_of_day` render unchanged. Per-slot adherence breakdown
   columns are deferred to a future change. Fixes #401.
 
+### Changed
+
+- Silenced the `MODULE_TYPELESS_PACKAGE_JSON` warning on boot by
+  renaming `lib/schedule.js` to `lib/schedule.mjs`. Pure rename, no
+  behaviour change. Fixes #405.
+
 ### Fixed
 
 - Manifest validator throws now map to HTTP 422 (not 500) on
