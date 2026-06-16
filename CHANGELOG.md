@@ -7,6 +7,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-06-16
+
 ### Added
 
 - **Time-of-day chips in Trends + Reports.** The same `schedule.time_of_day`
