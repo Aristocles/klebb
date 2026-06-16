@@ -68,7 +68,7 @@ const DOC_INDEX = [
   { kind: 'source', path: 'public/js/components/eh-prompt-modal.js',
     summary: 'prompt-modal — daily "log this now" full-screen modal. mode:"modal" routes through meta.writeable.inputs (same shape as eh-input-form). mode:"checklist" hardcodes per-item dose / takenDates writes. Once-per-day localStorage gate (klebb-prompt-shown-{cardId}-{YYYY-MM-DD}).' },
   { kind: 'source', path: 'public/js/components/eh-schedule-timeline.js',
-    summary: 'schedule-timeline renderer (read-only). Dot-grid per-cycle adherence. Dot states: solid accent (taken), solid red (missed), hollow grey (rest), solid amber (off-schedule), accent ring (today), dim hollow (future). One row per cycle (NOT per item).' },
+    summary: 'schedule-timeline renderer (read-only). Dot-grid per-cycle adherence. Dot states: solid accent (taken), solid red (missed), hollow grey (rest), solid amber (off-schedule), accent ring (today), dim hollow (future). One row per cycle (NOT per item). Renders a time-of-day chip (☀️/🌤️/🌙/💤) next to the item label in each cycle header when `schedule.time_of_day` is set, via the same shared helper as schedule-card.' },
   { kind: 'source', path: 'public/js/components/eh-cc-suggestion-card.js',
     summary: 'cc-suggestion-card — pinned suggestion surface. Fires when ≥3 enabled atomic cards share a meta.category. Read-only; "Ask klebbius" seeds a chat prompt that negotiates a combination-card manifest. Server-side clustering in meta/cc-suggestions.js.' },
   { kind: 'source', path: 'public/js/components/eh-hae-discovery-card.js',
