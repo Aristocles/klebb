@@ -292,6 +292,29 @@ const TOOL_DEFS = [
   {
     type: 'function',
     function: {
+      name: 'reorder_rows',
+      description:
+        "Reorder the rows in an array inside a card's data block (\"move L-Carnitine above Lipo-C\", \"sort these rows in this order\"). Use this INSTEAD of write_manifest_data whenever the user's intent is reorder-only and the rows already exist. Args are tiny (a list of primary-key values), so this works on cards where regenerating the whole data block would time out the gateway. Path resolves the SAME way read_manifest_rows resolves; the leaf must be an array of plain objects (e.g. items, items[name=\"X\"].doses). `key` names the primary-key property every row in that array shares (e.g. \"name\" for peptides.items, \"date\" for an array-rooted log). `order` is an array of values for that key, in the desired final order. The order MUST cover every row exactly once: missing, extra, or duplicated values are rejected with code:ORDER_MISMATCH so you can correct it. Honours meta.writeable.fromWebapp like the other mutators. Errors return {error, code} with codes BAD_PATH, NO_MATCH, AMBIGUOUS, WRONG_TYPE, ORDER_MISMATCH. ALWAYS call read_manifest_rows first so you have the actual list of keys to reorder.",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Manifest id.' },
+          path: { type: 'string', description: 'Path to the array of rows. May be empty for an array-rooted card.' },
+          key: { type: 'string', description: "Property name every row in the target array carries (e.g. 'name', 'date'). Used to match each order entry to a row." },
+          order: {
+            type: 'array',
+            description: "Values of `key` in the desired final row order. Length and contents must match the existing rows exactly.",
+            items: { type: ['string', 'number', 'boolean'] },
+          },
+        },
+        required: ['id', 'path', 'key', 'order'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'set_notification',
       description:
         "Add or update a notification on a card. Idempotent: if a notification with notification_id already exists on this card, update it; otherwise append a new one (auto-generating a snake-case id from `label` when notification_id is omitted). Use this when the user says things like 'remind me to log X every day at Y' or 'change the morning mood reminder to 9am'. Before calling, you SHOULD have read the card's existing meta.notifications.items[] (via read_manifest_meta) so you don't duplicate a similar reminder; if a similar item exists but is currently disabled, prefer offering the user a re-enable instead. Notification copy rules: title <=30 chars, body <=80 chars, second person ('How are you feeling?'), no emoji unless the card has meta.emoji set, NEVER include numerical values or content of past entries (notifications are reminders to act, not summaries). v1 trigger types are 'daily' (time:HH:MM) and 'weekly' (time:HH:MM, days:[mon|tue|wed|thu|fri|sat|sun]).",
@@ -476,6 +499,17 @@ function dispatchToolCall(tc, ctx) {
           const out = registry.removeRow(args.id, args.path || '');
           recordTouch(ctx, { id: args.id, flow: 'edit' });
           return JSON.stringify({ ok: true, id: args.id, removed: out.removed, totalAfter: out.totalAfter });
+        } catch (e) {
+          return _toolErrorPayload(e, args);
+        }
+      }
+      case 'reorder_rows': {
+        const gateErr = _writeableGate(args.id);
+        if (gateErr) return gateErr;
+        try {
+          const out = registry.reorderRows(args.id, args.path || '', args.key, args.order);
+          recordTouch(ctx, { id: args.id, flow: 'edit' });
+          return JSON.stringify({ ok: true, id: args.id, reordered: out.reordered });
         } catch (e) {
           return _toolErrorPayload(e, args);
         }
