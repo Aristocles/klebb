@@ -10,13 +10,14 @@
 // Strict-mode error prefixes (handler maps these):
 //   "invalid notifications: ..."  -> 422
 //
-// v1 supports two trigger types only: daily and weekly. interval,
-// last_logged, and schedule_due are deferred.
+// v3.1 supports three trigger types: daily, weekly, schedule_due.
+// interval and last_logged are still deferred.
 
 const ITEM_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const WEEKDAYS = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
-const TRIGGER_TYPES_V1 = new Set(['daily', 'weekly']);
+const TIME_OF_DAY_TOKENS = new Set(['morning', 'midday', 'evening', 'night']);
+const TRIGGER_TYPES = new Set(['daily', 'weekly', 'schedule_due']);
 
 const TITLE_MAX = 30;
 const BODY_MAX = 80;
@@ -71,8 +72,8 @@ function validateItem(item, strict, seenIds) {
   }
 
   const trig = item.trigger;
-  if (!isPlainObject(trig) || !TRIGGER_TYPES_V1.has(trig.type)) {
-    fail(strict, `item ${id}: trigger.type must be "daily" or "weekly" (other types arrive in v3.1)`);
+  if (!isPlainObject(trig) || !TRIGGER_TYPES.has(trig.type)) {
+    fail(strict, `item ${id}: trigger.type must be "daily", "weekly", or "schedule_due"`);
     return null;
   }
   if (typeof trig.time !== 'string' || !TIME_PATTERN.test(trig.time)) {
@@ -91,6 +92,16 @@ function validateItem(item, strict, seenIds) {
         return null;
       }
       seen.add(d);
+    }
+  }
+  if (trig.type === 'schedule_due') {
+    if (typeof trig.card !== 'string' || !CARD_ID_PATTERN.test(trig.card)) {
+      fail(strict, `item ${id}: schedule_due trigger.card must match ^[a-z0-9][a-z0-9._-]{0,63}$`);
+      return null;
+    }
+    if (typeof trig.time_of_day !== 'string' || !TIME_OF_DAY_TOKENS.has(trig.time_of_day)) {
+      fail(strict, `item ${id}: schedule_due trigger.time_of_day must be one of morning|midday|evening|night`);
+      return null;
     }
   }
 
@@ -121,14 +132,25 @@ function validateItem(item, strict, seenIds) {
   }
 
   // Normalise: surface the defaults so downstream code never has to repeat them.
+  let normalisedTrigger;
+  if (trig.type === 'daily') {
+    normalisedTrigger = { type: 'daily', time: trig.time };
+  } else if (trig.type === 'weekly') {
+    normalisedTrigger = { type: 'weekly', time: trig.time, days: [...trig.days] };
+  } else {
+    normalisedTrigger = {
+      type: 'schedule_due',
+      card: trig.card,
+      time_of_day: trig.time_of_day,
+      time: trig.time,
+    };
+  }
   return {
     id,
     label: item.label,
     title: item.title,
     body: item.body,
-    trigger: trig.type === 'daily'
-      ? { type: 'daily', time: trig.time }
-      : { type: 'weekly', time: trig.time, days: [...trig.days] },
+    trigger: normalisedTrigger,
     action: action ? { ...action } : undefined,
     privacy: item.privacy || 'private',
     default: item.default || 'on',
@@ -186,5 +208,6 @@ module.exports = {
   ITEM_ID_PATTERN,
   TIME_PATTERN,
   WEEKDAYS: [...WEEKDAYS],
-  TRIGGER_TYPES_V1: [...TRIGGER_TYPES_V1],
+  TIME_OF_DAY_TOKENS: [...TIME_OF_DAY_TOKENS],
+  TRIGGER_TYPES: [...TRIGGER_TYPES],
 };

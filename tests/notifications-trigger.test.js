@@ -89,6 +89,26 @@ test.describe('notification-trigger: weekly', () => {
   });
 });
 
+test.describe('notification-trigger: schedule_due', () => {
+  test('slot maths matches daily semantics (HH:MM in TZ, prev today, next tomorrow)', () => {
+    const now = new Date('2026-06-12T05:00:00Z'); // 15:00 +10
+    const out = trigger.evaluate(
+      { type: 'schedule_due', card: 'peptide-cycle', time_of_day: 'morning', time: '08:00' },
+      now, TZ,
+    );
+    assert.match(out.prev, /^2026-06-12T08:00:00\+10:00$/);
+    assert.match(out.next, /^2026-06-13T08:00:00\+10:00$/);
+  });
+
+  test('returns null on bad time even when other fields are valid', () => {
+    const out = trigger.evaluate(
+      { type: 'schedule_due', card: 'peptide-cycle', time_of_day: 'morning', time: '8am' },
+      new Date(), TZ,
+    );
+    assert.equal(out, null);
+  });
+});
+
 test.describe('notification-trigger: malformed input', () => {
   test('returns null for unknown trigger type', () => {
     const out = trigger.evaluate({ type: 'interval', time: '08:00' }, new Date(), TZ);
