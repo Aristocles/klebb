@@ -3,10 +3,10 @@
 // public/js/components/eh-settings-notifications.js
 //
 // Settings > Notifications pane. Per-card section list with two
-// toggles per row (enabled, show-full-text=privacy), Test button,
-// global Quiet hours + Pause-for chips, status banner across the
-// supported permission states (incl. iOS install instructions),
-// empty state and the "ask Klebbius" footer note.
+// toggles per row (enabled, show-full-text=privacy), global Quiet
+// hours + Pause-for chips, status banner across the supported
+// permission states (incl. iOS install instructions), empty state
+// and the "ask Klebbius" footer note.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import {
@@ -90,6 +90,7 @@ export class EhSettingsNotifications extends LitElement {
   }
 
   async _onToggleEnabled(item) {
+    if (this._busyId === item.id) return;
     this._busyId = item.id;
     try {
       const r = await fetch('/api/notifications/state', {
@@ -112,6 +113,7 @@ export class EhSettingsNotifications extends LitElement {
   }
 
   async _onTogglePrivacy(item) {
+    if (this._busyId === item.id + ':privacy') return;
     this._busyId = item.id + ':privacy';
     try {
       const next = item.privacy === 'public' ? 'private' : 'public';
@@ -330,27 +332,50 @@ export class EhSettingsNotifications extends LitElement {
       align-items: center;
       gap: 12px;
       flex-shrink: 0;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
     .toggle-pair {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       font-size: 11px;
       color: var(--text-muted, var(--text-secondary));
     }
+    /* Reserve a slot the busy-dots can occupy without shifting the
+       toggle when a saving indicator appears mid-tap. */
+    .toggle-pair .busy-slot {
+      width: 18px;
+      display: inline-flex;
+      justify-content: center;
+      flex-shrink: 0;
+    }
     .toggle {
       appearance: none;
+      background: transparent;
+      border: none;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      /* 44x44 hit target per WCAG 2.5.5 / Apple HIG. The visible
+         track is rendered inside as .toggle-track + .toggle-thumb. */
+      width: 44px;
+      height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .toggle-track {
       width: 36px;
       height: 20px;
       border-radius: 10px;
       background: var(--border);
       position: relative;
-      cursor: pointer;
-      border: none;
       transition: background 0.15s;
+      pointer-events: none;
     }
-    .toggle::after {
-      content: '';
+    .toggle-thumb {
       position: absolute;
       top: 2px;
       left: 2px;
@@ -360,12 +385,49 @@ export class EhSettingsNotifications extends LitElement {
       background: var(--bg-card);
       transition: transform 0.15s;
     }
-    .toggle[aria-pressed="true"] { background: var(--accent); }
-    .toggle[aria-pressed="true"]::after { transform: translateX(16px); }
-    .toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-    .toggle[disabled] { opacity: 0.5; cursor: wait; }
+    .toggle[aria-pressed="true"] .toggle-track { background: var(--accent); }
+    .toggle[aria-pressed="true"] .toggle-thumb { transform: translateX(16px); }
+    .toggle:focus-visible .toggle-track {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .toggle[aria-busy="true"] .toggle-track {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
     @media (prefers-reduced-motion: reduce) {
-      .toggle, .toggle::after { transition: none; }
+      .toggle-track, .toggle-thumb { transition: none; }
+    }
+    .busy-dots {
+      display: inline-flex;
+      gap: 2px;
+      font-size: 11px;
+      color: var(--text-muted, var(--text-secondary));
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .busy-dots span {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: busy-dot 1s ease-in-out infinite;
+    }
+    .busy-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .busy-dots span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes busy-dot {
+      0%, 80%, 100% { opacity: 0.2; }
+      40% { opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .busy-dots span { animation: none; opacity: 0.6; }
+    }
+    .privacy-hint {
+      display: none;
+      font-size: 12px;
+      color: var(--text-muted, var(--text-secondary));
+      margin-top: 6px;
+      text-align: right;
+      flex-basis: 100%;
     }
     @media (max-width: 560px) {
       .item-toggles {
@@ -374,6 +436,7 @@ export class EhSettingsNotifications extends LitElement {
         gap: 18px;
       }
       .item-main { row-gap: 6px; }
+      .privacy-hint { display: block; }
     }
     .item-meta {
       font-size: 11px;
@@ -411,9 +474,11 @@ export class EhSettingsNotifications extends LitElement {
       text-align: center;
     }
     .privacy-help {
-      cursor: help;
+      cursor: pointer;
       border-bottom: 1px dotted var(--text-muted, var(--text-secondary));
+      user-select: none;
     }
+    .privacy-help:hover { color: var(--text-primary); }
   `;
 
   render() {
@@ -542,6 +607,9 @@ export class EhSettingsNotifications extends LitElement {
     const last = this._formatLast(item.last_fired);
     const enabledBusy = this._busyId === item.id;
     const privacyBusy = this._busyId === item.id + ':privacy';
+    const privacyHint = item.privacy === 'public'
+      ? 'Lock screen shows the full reminder text.'
+      : 'Lock screen says "You have a reminder".';
     return html`
       <div class="item-row">
         <div class="item-main">
@@ -549,28 +617,36 @@ export class EhSettingsNotifications extends LitElement {
           <span class="item-label">${item.label}</span>
           <div class="item-toggles">
             <span class="toggle-pair">
+              <span class="busy-slot">${enabledBusy ? this._renderBusyDots() : ''}</span>
               <button
                 class="toggle"
+                data-role="enabled"
                 role="switch"
                 aria-checked=${item.enabled}
                 aria-pressed=${item.enabled}
+                aria-busy=${enabledBusy ? 'true' : 'false'}
                 aria-label="Toggle ${item.label}"
-                ?disabled=${enabledBusy}
                 @click=${() => this._onToggleEnabled(item)}
-              ></button>
+              ><span class="toggle-track"><span class="toggle-thumb"></span></span></button>
             </span>
             <span class="toggle-pair" title="When off, the lock screen says 'You have a reminder' and the real text is shown only when you open Klebb.">
+              <span class="busy-slot">${privacyBusy ? this._renderBusyDots() : ''}</span>
               <button
                 class="toggle"
+                data-role="privacy"
                 role="switch"
                 aria-checked=${item.privacy === 'public'}
                 aria-pressed=${item.privacy === 'public'}
+                aria-busy=${privacyBusy ? 'true' : 'false'}
                 aria-label="Show full text on the lock screen for ${item.label}"
-                ?disabled=${privacyBusy}
                 @click=${() => this._onTogglePrivacy(item)}
-              ></button>
-              <span class="privacy-help">Show full text</span>
+              ><span class="toggle-track"><span class="toggle-thumb"></span></span></button>
+              <span
+                class="privacy-help"
+                @click=${() => this._onTogglePrivacy(item)}
+              >Show full text</span>
             </span>
+            <span class="privacy-hint">${privacyHint}</span>
           </div>
         </div>
         ${(next || last) ? html`
@@ -582,6 +658,10 @@ export class EhSettingsNotifications extends LitElement {
         ` : ''}
       </div>
     `;
+  }
+
+  _renderBusyDots() {
+    return html`<span class="busy-dots" aria-hidden="true"><span></span><span></span><span></span></span>`;
   }
 }
 customElements.define('eh-settings-notifications', EhSettingsNotifications);

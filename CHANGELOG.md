@@ -23,6 +23,25 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   where applicable. Honours `meta.writeable.fromWebapp` like every
   other mutator. Closes #398.
 
+### Changed
+
+- **Notifications row mobile touch + a11y polish.** The Notifications
+  tab toggles in `eh-settings-notifications` now meet a 44×44 touch
+  target (WCAG 2.5.5 / Apple HIG): the visible 36×20 track is wrapped
+  in a 44×44 button so the hit area extends without changing the
+  visual geometry. On viewports ≤560px a one-line privacy hint
+  renders next to the privacy toggle ("Lock screen says 'You have a
+  reminder'." / "Lock screen shows the full reminder text."), driven
+  by `item.privacy`, so the explanation is reachable without a
+  hover-only `title` tooltip. The "Show full text" caption is now
+  tappable and flips the privacy toggle, matching its dotted-underline
+  affordance. Both toggles carry `aria-busy` while a state POST is in
+  flight, with a small animated dots indicator in a reserved slot
+  next to the toggle so a tap is visibly acknowledged before the
+  switch flips. The two toggles also carry stable `data-role="enabled"`
+  / `data-role="privacy"` selectors used by the e2e spec, replacing
+  the brittle `.toggle:first()` lookup. Fixes #393.
+
 ### Fixed
 
 - **Chat agent fails fast when no tool fits.** When the user asks for
