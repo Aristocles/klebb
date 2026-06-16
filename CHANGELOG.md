@@ -16,6 +16,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `schedule.time_of_day` render unchanged. Per-slot adherence breakdown
   columns are deferred to a future change. Fixes #401.
 
+### Fixed
+
+- Manifest validator throws now map to HTTP 422 (not 500) on
+  `POST /api/manifests` and `PATCH /api/manifests/:id`. Specifically
+  the `invalid notifications: ...` and `invalid schedule.time_of_day:
+  ...` prefixes from the strict-mode validators were falling through
+  to the generic 500 handler, so well-behaved clients (the chat agent
+  in particular) misread bad input as a server bug and retried. Closes
+  #404.
+
 ## [3.1.0] - 2026-06-16
 
 ### Added
