@@ -660,6 +660,8 @@ const server = http.createServer(async (req, res) => {
           const msg = e.message || 'create failed';
           const status = /^duplicate id/.test(msg) ? 409
             : /^invalid id/.test(msg) ? 422
+            : /^invalid notifications:/.test(msg) ? 422
+            : /^invalid schedule\.time_of_day/.test(msg) ? 422
             : /^(missing |unsupported \$schema)/.test(msg) ? 400
             : 500;
           return sendJSON(res, { error: msg }, status);
@@ -706,7 +708,9 @@ const server = http.createServer(async (req, res) => {
           const msg = e.message || 'patch failed';
           const status = /unknown manifest/.test(msg) ? 404
             : /protected field|patch must be|missing|description must/.test(msg) ? 400
-            : /invalid id/.test(msg) ? 422
+            : /^invalid id/.test(msg) ? 422
+            : /^invalid notifications:/.test(msg) ? 422
+            : /^invalid schedule\.time_of_day/.test(msg) ? 422
             : 500;
           return sendJSON(res, { error: msg }, status);
         }
