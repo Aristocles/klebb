@@ -7,6 +7,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **`reorder_rows` chat tool.** New row-level primitive in
+  `chat/tools.js` for reordering an array of rows inside a card's
+  data block. Args are tiny (`{id, path, key, order:[<value>, ...]}`),
+  so reordering a 20-item peptide card costs a few hundred bytes
+  instead of round-tripping the ~75 KB data block via
+  `write_manifest_data` (which would routinely time out the gateway).
+  The tool description and the system prompt's routing table both
+  steer the model to this tool for any reorder-only intent. Errors
+  return `{error, code}` with a new `ORDER_MISMATCH` code for
+  missing / extra / duplicate entries; the existing
+  `BAD_PATH / NO_MATCH / WRONG_TYPE / AMBIGUOUS` codes are reused
+  where applicable. Honours `meta.writeable.fromWebapp` like every
+  other mutator. Closes #398.
+
 ### Fixed
 
 - **Chat agent fails fast when no tool fits.** When the user asks for

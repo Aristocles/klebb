@@ -469,6 +469,98 @@ function updateRow(id, pathString, changes) {
   });
 }
 
+// Reorder the array at pathString according to the values listed in
+// `order`. Each row must have a `key` property; the new array order is
+// the rows sorted so row[key] === order[i] for each i. The path must
+// resolve to an array. `order` must cover every row exactly once: any
+// missing, extra, or duplicated value throws ORDER_MISMATCH; rows
+// without the `key` property throw ORDER_MISMATCH; `key` must be a
+// string and `order` an array of primitives.
+function reorderRows(id, pathString, key, order) {
+  if (typeof key !== 'string' || key.length === 0) {
+    const err = new Error('reorderRows key must be a non-empty string');
+    err.code = 'WRONG_TYPE';
+    throw err;
+  }
+  if (!Array.isArray(order)) {
+    const err = new Error('reorderRows order must be an array');
+    err.code = 'WRONG_TYPE';
+    throw err;
+  }
+  return _mutateData(id, (staged) => {
+    const segments = parsePath(pathString || '');
+    const r = resolvePath(staged, segments);
+    if (!Array.isArray(r.value)) {
+      const err = new Error(`reorderRows target at "${pathString}" is not an array`);
+      err.code = 'WRONG_TYPE';
+      throw err;
+    }
+    const rows = r.value;
+    if (order.length !== rows.length) {
+      const err = new Error(`order length ${order.length} does not match row count ${rows.length}`);
+      err.code = 'ORDER_MISMATCH';
+      err.expected = rows.length;
+      err.received = order.length;
+      throw err;
+    }
+    const seen = new Set();
+    for (const v of order) {
+      const t = typeof v;
+      if (t !== 'string' && t !== 'number' && t !== 'boolean') {
+        const err = new Error(`order entries must be primitives (string/number/boolean), got ${t}`);
+        err.code = 'WRONG_TYPE';
+        throw err;
+      }
+      if (seen.has(v)) {
+        const err = new Error(`order has duplicate value ${JSON.stringify(v)}`);
+        err.code = 'ORDER_MISMATCH';
+        throw err;
+      }
+      seen.add(v);
+    }
+    const byKey = new Map();
+    for (let n = 0; n < rows.length; n++) {
+      const row = rows[n];
+      if (row === null || typeof row !== 'object' || Array.isArray(row)) {
+        const err = new Error(`row at index ${n} is not a plain object`);
+        err.code = 'WRONG_TYPE';
+        throw err;
+      }
+      if (!Object.prototype.hasOwnProperty.call(row, key)) {
+        const err = new Error(`row at index ${n} has no '${key}' property`);
+        err.code = 'ORDER_MISMATCH';
+        throw err;
+      }
+      const v = row[key];
+      if (byKey.has(v)) {
+        const err = new Error(`rows have duplicate ${key}=${JSON.stringify(v)}`);
+        err.code = 'ORDER_MISMATCH';
+        throw err;
+      }
+      byKey.set(v, row);
+    }
+    const next = new Array(order.length);
+    for (let i = 0; i < order.length; i++) {
+      const v = order[i];
+      if (!byKey.has(v)) {
+        const err = new Error(`order entry ${JSON.stringify(v)} does not match any row's ${key}`);
+        err.code = 'ORDER_MISMATCH';
+        throw err;
+      }
+      next[i] = byKey.get(v);
+    }
+    if (r.container === null) {
+      // Root data IS the array. We can't reassign `staged` from inside
+      // the _mutateData callback, so swap the array contents in place.
+      rows.length = 0;
+      for (const row of next) rows.push(row);
+    } else {
+      r.container[r.key] = next;
+    }
+    return { reordered: next.length };
+  });
+}
+
 // Splice the single row at pathString out of its parent array. Path must
 // resolve unambiguously and the parent must be an array (i.e. the leaf
 // segment was a filter, or the parent is an items[] / rows[] container).
@@ -808,6 +900,7 @@ module.exports = {
   appendRow,
   updateRow,
   removeRow,
+  reorderRows,
   errors,
   isMasterEnabled,
   setMasterEnabled,
