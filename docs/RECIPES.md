@@ -829,6 +829,235 @@ one-tap check-off — the form-driven path is opt-in.
 
 ---
 
+## Recipe 14: schedule-card with time-of-day chips and `schedule_due` reminders
+
+For a peptide / injectable / scheduled-medication card where you
+want each item labelled with a slot (morning, midday, evening,
+night) and a Web Push reminder that only fires when something is
+actually due in that slot today. Quiet on rest days, off-cycle
+days, and after every dose for the slot has been logged.
+
+The two new pieces are `schedule.time_of_day` on each item (a join
+key plus a render hint for the emoji chip) and `meta.notifications`
+items with `trigger.type: "schedule_due"`. See `docs/CARDS.md`
+"Schedule-aware notifications" for the full firing semantics
+including carry-forward of earlier-slot misses.
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "peptide-cycle",
+    "label": "Peptide Cycle",
+    "emoji": "💉",
+    "order": 320,
+    "view": { "enabled": true, "component": "schedule-card" },
+    "reports": {
+      "enabled": true,
+      "component": "adherence-report",
+      "showCompliance": true
+    },
+    "notifications": {
+      "enabled": true,
+      "items": [
+        {
+          "id": "morning-jabs",
+          "label": "Morning peptides",
+          "title": "Peptides",
+          "body": "Time for {schedule_due}{missed_earlier}",
+          "trigger": {
+            "type": "schedule_due",
+            "card": "peptide-cycle",
+            "time_of_day": "morning",
+            "time": "08:00"
+          },
+          "action": { "type": "open-card", "card": "peptide-cycle", "intent": "log" }
+        },
+        {
+          "id": "evening-jabs",
+          "label": "Evening peptides",
+          "title": "Peptides",
+          "body": "Time for {schedule_due}{missed_earlier}",
+          "trigger": {
+            "type": "schedule_due",
+            "card": "peptide-cycle",
+            "time_of_day": "evening",
+            "time": "20:00"
+          },
+          "action": { "type": "open-card", "card": "peptide-cycle", "intent": "log" }
+        }
+      ]
+    }
+  },
+  "description": "Peptide cycle with time-of-day chips and schedule-aware morning + evening reminders.",
+  "data": {
+    "items": [
+      {
+        "name": "BPC-157", "short_name": "BPC",
+        "dose_mg": 0.25, "dose_units": "mg", "route": "subcutaneous",
+        "schedule": {
+          "type": "weekly", "on_days": ["Mon","Wed","Fri"],
+          "time_of_day": ["morning","evening"]
+        },
+        "doses": []
+      },
+      {
+        "name": "Insulin", "short_name": "insulin",
+        "dose_mg": 4, "dose_units": "U", "route": "subcutaneous",
+        "schedule": { "type": "daily", "time_of_day": "morning" },
+        "doses": []
+      },
+      {
+        "name": "Ozempic",
+        "schedule": {
+          "type": "weekly", "on_days": ["Sun"],
+          "time_of_day": "evening"
+        },
+        "doses": []
+      }
+    ]
+  }
+}
+```
+
+**Key bits:**
+- `schedule.time_of_day` accepts a single token or an array of
+  tokens drawn from `morning | midday | evening | night`. The chip
+  next to the row reflects every token (☀️ / 🌤️ / 🌙 / 💤); BPC
+  above gets two chips because it's logged morning AND evening.
+- One `schedule_due` trigger per slot. The trigger's `time_of_day`
+  is a single token; arrays only make sense on the items
+  themselves.
+- `body: "Time for {schedule_due}{missed_earlier}"` renders cleanly
+  whether or not anything was missed earlier in the day. The
+  `{missed_earlier}` placeholder carries its own
+  `". Also missed earlier: "` prefix when non-empty, empty string
+  otherwise.
+- Items already taken today are excluded by the filter, so a
+  reminder never fires for a dose the user already logged.
+
+**Variations:**
+- Add `meta.view.checkOffForm` (see Recipe 13) to combine
+  per-dose metadata with the `schedule_due` reminders. The two
+  features compose: the form captures site / reactions data, and
+  the trigger drives the buzz.
+- For a daily-only card, drop the weekly trigger and keep just the
+  `morning` one. For a four-times-a-day antibiotic course, declare
+  four triggers (`morning`, `midday`, `evening`, `night`); the
+  carry-forward logic will fold any missed earlier slots into the
+  next fire.
+
+---
+
+## Recipe 15: vitamin / supplement checklist with morning + evening reminders
+
+Same `time_of_day` chip and `schedule_due` trigger machinery as
+Recipe 14, but on a `checklist-card` instead of a `schedule-card`:
+the shared helper means the chip and the filter behave identically.
+
+```json
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "id": "supplements",
+    "label": "Supplements",
+    "emoji": "💊",
+    "order": 310,
+    "view": { "enabled": true, "component": "checklist-card" },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": "💊"
+    },
+    "prompt": {
+      "enabled": true,
+      "mode": "checklist",
+      "whenMissing": true
+    },
+    "notifications": {
+      "enabled": true,
+      "items": [
+        {
+          "id": "morning-stack",
+          "label": "Morning supplements",
+          "title": "Supplements",
+          "body": "Time for {schedule_due}{missed_earlier}",
+          "trigger": {
+            "type": "schedule_due",
+            "card": "supplements",
+            "time_of_day": "morning",
+            "time": "07:30"
+          },
+          "action": { "type": "open-card", "card": "supplements", "intent": "log" }
+        },
+        {
+          "id": "evening-stack",
+          "label": "Evening supplements",
+          "title": "Supplements",
+          "body": "Time for {schedule_due}{missed_earlier}",
+          "trigger": {
+            "type": "schedule_due",
+            "card": "supplements",
+            "time_of_day": "evening",
+            "time": "21:00"
+          },
+          "action": { "type": "open-card", "card": "supplements", "intent": "log" }
+        }
+      ]
+    }
+  },
+  "description": "Daily supplement checklist with time-of-day chips and slot-aware reminders.",
+  "data": {
+    "items": [
+      {
+        "name": "Vitamin D3", "short_name": "D3",
+        "schedule": { "type": "daily", "time_of_day": "morning" },
+        "doses": []
+      },
+      {
+        "name": "Creatine",
+        "schedule": { "type": "daily", "time_of_day": "morning" },
+        "doses": []
+      },
+      {
+        "name": "Magnesium glycinate", "short_name": "magnesium",
+        "schedule": { "type": "daily", "time_of_day": "evening" },
+        "doses": []
+      },
+      {
+        "name": "Fish oil",
+        "schedule": { "type": "daily", "time_of_day": ["morning","evening"] },
+        "doses": []
+      }
+    ]
+  }
+}
+```
+
+**Key bits:**
+- `checklist-card` accepts the same `data.items[].schedule` shape
+  as `schedule-card`, so `time_of_day` works identically on both
+  renderers: chip rendered via the shared helper, items filtered
+  by the same join.
+- `prompt.mode: "checklist"` plays nicely with `schedule_due`:
+  the prompt fires the in-app modal when the user opens the
+  dashboard with un-logged items, and the push trigger fires when
+  the app isn't open. Both stop nagging once today's slot is fully
+  logged.
+- An item with `time_of_day: ["morning","evening"]` (fish oil
+  above) appears under both reminders. Each slot has its own
+  scheduled dose; logging the morning one doesn't satisfy the
+  evening one.
+
+**Variations:**
+- Skip notifications for a stack you'll never forget by dropping
+  `meta.notifications` entirely; the chip still renders.
+- For a weekly supplement add `on_days: ["Mon"]` to the item's
+  schedule; the trigger filter checks weekday too, so the reminder
+  stays quiet on the off days.
+
+---
+
 ## Next steps
 
 - For the full manifest spec (every field, every input type, every

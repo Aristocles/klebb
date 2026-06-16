@@ -12,6 +12,7 @@ import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
 import { registerRenderer } from '../renderer-registry.js';
 import { isScheduledOnDate } from '../../../lib/schedule.js';
+import { chipsFor as todChipsFor } from '../lib/time-of-day.esm.js';
 
 export class EhChecklistCard extends EhBaseCard {
   static styles = [
@@ -46,6 +47,15 @@ export class EhChecklistCard extends EhBaseCard {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .tod-chip {
+        display: inline-block;
+        margin-left: 6px;
+        font-size: 14px;
+        line-height: 1;
+        vertical-align: middle;
+        user-select: none;
+      }
+      .tod-chip + .tod-chip { margin-left: 2px; }
       .item.done .item-name {
         color: var(--text-muted, var(--text-secondary));
         text-decoration: line-through;
@@ -233,7 +243,7 @@ export class EhChecklistCard extends EhBaseCard {
           return html`
             <li class="item ${done ? 'done' : ''}">
               <div class="item-body">
-                <div class="item-name">${item.name}</div>
+                <div class="item-name">${item.name}${todChipsFor(item.schedule?.time_of_day).map(c => html`<span class="tod-chip" aria-label=${c.label} title=${c.label}>${c.emoji}</span>`)}</div>
                 ${sub ? html`<div class="item-sub">${sub}</div>` : ''}
               </div>
               <div class="item-right">

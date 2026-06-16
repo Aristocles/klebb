@@ -163,13 +163,20 @@ supplement, log a pain level, etc.
   - `title` — required, up to 30 chars. The notification title.
   - `body` — required, up to 80 chars. The notification body.
     Placeholders `{label}` (the card's `meta.label`) and `{emoji}`
-    (the card's `meta.emoji`) substitute on render.
-  - `trigger` — required object. v3.0.0 supports two types:
+    (the card's `meta.emoji`) substitute on render. `schedule_due`
+    triggers additionally support `{schedule_due}` and
+    `{missed_earlier}` (see below).
+  - `trigger`: required object. Three types are supported:
     - `{ type: "daily", time: "HH:MM" }` — fires every day at the
       configured local time.
     - `{ type: "weekly", days: ["mon","wed","fri"], time: "HH:MM" }`
       — fires on listed weekdays at the configured local time.
-    `interval`, `last_logged`, and `schedule_due` arrive in v3.1.
+    - `{ type: "schedule_due", card: "...", time_of_day: "morning",
+      time: "HH:MM" }`. Reads another card's schedule and only fires
+      when at least one item is actually due in the matching slot
+      today (or was missed earlier in the same day). See the
+      "schedule_due trigger" section below for the full contract.
+    `interval` and `last_logged` are still deferred.
   - `action` — optional, default `{ type: "open-card", card: meta.id }`.
     Only `type: "open-card"` is supported. `intent` is one of
     `"view" | "log"`.
@@ -200,6 +207,100 @@ fired, and the global quiet-hours / pause controls all live in
 `$HEALTH_HOME/notifications.state.json`, an opaque sidecar that the
 manifest registry doesn't watch. So the manifest stays clean and
 grep-able, and runtime state stays out of authored config.
+
+#### `schedule_due` trigger
+
+Reads another card's schedule and fires only when something is
+actually due. The first trigger type that consults card data, not
+just the wall clock.
+
+```json
+{
+  "id": "morning-jab",
+  "label": "Morning injection",
+  "title": "Injection",
+  "body": "Time for {schedule_due}{missed_earlier}",
+  "trigger": {
+    "type": "schedule_due",
+    "card": "peptide-cycle",
+    "time_of_day": "morning",
+    "time": "08:00"
+  },
+  "action": { "type": "open-card", "card": "peptide-cycle", "intent": "log" }
+}
+```
+
+**Trigger fields:**
+
+- `type`: `"schedule_due"`.
+- `card`: required. The id of the schedule-card or checklist-card
+  whose `data.items[]` this trigger reads.
+- `time_of_day`: required. **Single token only**, drawn from
+  `morning | midday | evening | night`. A trigger fires for one slot;
+  the array form is only valid on the schedule item itself.
+- `time`: required `HH:MM` (24-hour, in the user's IANA timezone).
+  The wall-clock fire time.
+
+The `time_of_day` token on the trigger is a join key against each
+item's `schedule.time_of_day`. If an item declares an array (e.g.
+`["morning","evening"]`), the trigger's token must be one of the
+entries for the item to match.
+
+**Fire-time filter.** At `time` each day, the scheduler walks
+`data.items[]` of the named card and keeps an item only when ALL of:
+
+- Today is inside an "on" cycle for the item.
+- Today's weekday is on the item's schedule (or `as_needed` /
+  `daily` items always pass this check).
+- The item's `schedule.time_of_day` matches the trigger's
+  `time_of_day`.
+- No taken dose is recorded for the item today (i.e. no row in the
+  item's `doses[]` whose `scheduledDate` is today and whose
+  `takenAt` is non-null).
+
+If at least one item survives plus any items are pulled in by
+carry-forward (below), the notification fires. If nothing survives
+and nothing was missed earlier, the notification suppresses
+silently. The slot is still recorded as fired in state (status
+`suppressed`) so the scheduler doesn't re-evaluate it every minute.
+
+**Carry-forward of misses within the day.** Slot order is fixed:
+`morning < midday < evening < night`. When a `schedule_due` trigger
+fires, it additionally pulls in any item from the same card that:
+
+- Has a `time_of_day` earlier in the slot order than the firing
+  trigger's slot.
+- Is scheduled today (cycle + weekday checks pass).
+- Has no taken dose for today.
+
+These items appear in `{missed_earlier}` in the body. The lookup
+uses today's date only, so cross-day reset is automatic: yesterday's
+misses do not bleed into tomorrow. If the only doses for a day are
+morning ones and the user misses them, there is no later
+`schedule_due` slot to carry into and no follow-up reminder fires.
+Carry-forward is opportunistic, not nagging.
+
+**Body and title templating.** `schedule_due` triggers support two
+extra placeholders on top of `{label}` and `{emoji}`:
+
+- `{schedule_due}`: comma-joined list of `short_name` (falling back
+  to `name`) for the items the trigger filter kept.
+- `{missed_earlier}`: comma-joined list (same shape) for items
+  pulled in by carry-forward, OR the empty string when none. **When
+  non-empty, the substitution carries its own prefix
+  `". Also missed earlier: "`** so a body of
+  `"Time for {schedule_due}{missed_earlier}"` reads cleanly in
+  either state:
+  - Nothing missed: `"Time for BPC-157, insulin"`.
+  - Insulin missed from morning: `"Time for ozempic. Also missed earlier: insulin"`.
+
+For `daily` and `weekly` triggers, both placeholders substitute to
+the empty string; existing manifests are unaffected.
+
+For `privacy: "private"` items the substitution happens on the
+device side after decryption: the wire body remains the generic
+`"You have a reminder."` and `realBody` carries the substituted
+text (same for `realTitle`). The lock-screen summary stays generic.
 
 ### Ingest subscription (`meta.ingest`)
 
@@ -769,7 +870,8 @@ The canonical schema is:
   "times_per_day": 1,                       // optional, default 1
   "start_date": "2026-04-21",               // for every_n_days; falls back to cycle start
   "loading": { "days": ["Tue","Fri"], "duration_weeks": 4 },  // phased
-  "maintenance": { "days": ["Tue"] }         // phased
+  "maintenance": { "days": ["Tue"] },        // phased
+  "time_of_day": "morning"                  // optional; "morning" | "midday" | "evening" | "night", or array
 }
 ```
 
@@ -783,6 +885,18 @@ The canonical schema is:
 - `as_needed` (PRN) renders as "not scheduled" — use it for items that are
   always available but not on a fixed cadence. The UI can still offer a
   "log anyway" path.
+- `time_of_day` is optional. A single token, or an array of distinct
+  tokens, drawn from `morning | midday | evening | night`. The token is
+  a label, not a time range: the system has no opinion on which clock
+  hour counts as morning. It exists as a join key between the
+  schedule item and a `schedule_due` notification trigger (see
+  `meta.notifications` above), and as a renderer hint so the
+  `schedule-card` and `checklist-card` paint a sun/sky/moon/zzz emoji
+  chip next to the row (☀️ morning, 🌤️ midday, 🌙 evening, 💤 night).
+  Multiple tokens render multiple chips. The presence of the field is
+  the toggle; there is no view-config option to hide it. Invalid tokens
+  are dropped at load time and rejected at create / PATCH time, same
+  two-stage pattern as `meta.notifications`.
 
 **Migrating old cards:**
 `scripts/migrate-schedule-vocabulary.js` converts files in place with a
