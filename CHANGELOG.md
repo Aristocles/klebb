@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Schedule resolution helpers moved from `public/js/lib/schedule.js`
+  to `lib/schedule.js`** so the server can consume them too. The file
+  stays a single ESM source; the browser still fetches it via
+  `/lib/schedule.js` through a precise carve-out in the static handler
+  (no general `/lib/*` window). Pure relocation, no behaviour change.
+  Unblocks the upcoming `schedule_due` notification trigger (#397),
+  which needs `isScheduledOnDate` + `effectiveCycles` server-side
+  every minute. Fixes #396.
+
 - **Settings > Cards: Reorder is now a top-of-page section that takes
   you to Today.** The old inline button shared a flex row with the
   filter input and the on/off summary, which clipped its right edge

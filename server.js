@@ -1887,6 +1887,15 @@ Original system prompt follows:
     return;
   }
 
+  // schedule.js lives at the repo root so the server (CJS) and the
+  // browser can share one source file. Exact-path carve-out: only this
+  // file is served from outside PUBLIC_DIR; no general /lib/* window.
+  if (pathname === '/lib/schedule.js') {
+    const schedulePath = path.join(__dirname, 'lib', 'schedule.js');
+    if (serveStaticFile(res, schedulePath)) return;
+    return send404(res);
+  }
+
   // Static file serving
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
 
