@@ -575,20 +575,32 @@ card.
 ### `meta.view.display.trendArrow`
 
 Show an ↑ / ↓ / → arrow next to the headline, comparing the current
-entry's value to the most recent earlier entry on the same key.
+entry's value to the most recent earlier entry on the same key. The
+signed delta is printed alongside the arrow (e.g. `↑ +0.4`), so the
+meaning is carried by the number, not by colour alone.
 
 ```json
 "display": { "template": "{kg:round(1)}", "unit": "kg", "trendArrow": { "field": "kg" } }
 ```
 
-Arrow colours:
-- ↑ up — red (`#ff7755`)
-- ↓ down — green (`#55cc77`)
-- → flat — muted
+Arrow colour depends on which direction is "good" for the metric, set
+with `goodDirection`:
 
-Note the reverse: for weight, "up" is usually bad; for a rating card
-you might want the opposite. Card authors can future-invert via a
-`trendArrow.invert: true` flag (not implemented yet).
+```json
+"trendArrow": { "field": "hours", "goodDirection": "up" }
+```
+
+- `goodDirection: "down"` (the default when omitted): falling is good
+  (green), rising is bad (red). Correct for weight, resting heart rate,
+  body fat, where lower is better.
+- `goodDirection: "up"`: rising is good (green), falling is bad (red).
+  Use for sleep hours, steps, protein, HRV, where more is better.
+- `goodDirection: "neutral"`: both directions muted; the arrow shows
+  movement without a value judgement.
+- `→ flat` is always muted.
+
+(The legacy `lowerIsBetter: true` flag is still accepted as an alias for
+`goodDirection: "down"`.)
 
 ---
 

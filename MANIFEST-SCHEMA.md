@@ -423,8 +423,12 @@ always what you want on a card headline. If you need both branches
 First match wins. The card gets a side-bar in `colour` and an inline
 label pill.
 
-`trendArrow` shows ↑/↓/→ next to the headline, comparing the current
-row to the most recent earlier entry on `field`.
+`trendArrow` shows ↑/↓/→ next to the headline (with the signed delta,
+e.g. `↑ +0.4`), comparing the current row to the most recent earlier
+entry on `field`. `goodDirection` (`"up"` | `"down"` | `"neutral"`)
+sets the arrow colour: `"down"` is the default (falling is good, for
+weight/RHR), `"up"` flips it (more is better, for sleep/steps),
+`"neutral"` mutes both.
 
 ### `calendar` — month-grid marker config
 

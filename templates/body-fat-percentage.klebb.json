@@ -22,7 +22,7 @@
       "display": {
         "template": "{pct:round(1)}",
         "unit": "%",
-        "trendArrow": { "field": "pct" }
+        "trendArrow": { "field": "pct", "goodDirection": "down" }
       }
     },
     "trends": {
