@@ -38,9 +38,9 @@ export function chartTheme() {
     },
     color: [
       get('--accent') || '#00d4aa',
-      get('--accent-amber') || '#ffaa00',
-      get('--accent-red') || '#ff4444',
-      get('--accent-green') || '#44ff88',
+      get('--warning') || '#ffaa00',
+      get('--danger') || '#ff4444',
+      get('--success') || '#44ff88',
       '#8a7cff',
       '#4682b4',
     ],
