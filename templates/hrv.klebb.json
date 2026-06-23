@@ -22,7 +22,7 @@
       "display": {
         "template": "{ms}",
         "unit": "ms",
-        "trendArrow": { "field": "ms", "goodDirection": "up" }
+        "trendArrow": { "field": "ms" }
       }
     },
     "trends": {

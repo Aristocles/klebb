@@ -15,7 +15,7 @@
       "display": {
         "template": "{count}",
         "unit": "steps",
-        "trendArrow": { "field": "count", "goodDirection": "up" }
+        "trendArrow": { "field": "count" }
       }
     },
     "trends": {

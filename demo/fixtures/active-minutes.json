@@ -15,7 +15,7 @@
       "display": {
         "template": "{minutes}",
         "unit": "min",
-        "trendArrow": { "field": "minutes", "goodDirection": "up" }
+        "trendArrow": { "field": "minutes" }
       }
     },
     "trends": {

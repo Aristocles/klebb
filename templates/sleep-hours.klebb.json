@@ -22,7 +22,7 @@
       "display": {
         "template": "{hours:hm}",
         "secondary": "{deep:hm|} deep · {rem:hm|} REM",
-        "trendArrow": { "field": "hours", "goodDirection": "up" }
+        "trendArrow": { "field": "hours" }
       }
     },
     "trends": {

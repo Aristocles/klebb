@@ -22,7 +22,7 @@
       "display": {
         "template": "{systolic}",
         "unit": "mmHg",
-        "trendArrow": { "field": "systolic", "goodDirection": "down" }
+        "trendArrow": { "field": "systolic" }
       }
     },
     "trends": {
