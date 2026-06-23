@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
-// eh-welcome-card.js — onboarding card shown on a fresh install. Explains
-// the three ways to add cards. Hides itself when the user creates their
-// first card (server-side, in registry.createManifest). Visibility can be
-// restored from Settings.
+// eh-welcome-card.js: first-run empty state shown when no user cards exist.
+// Teaches how cards come to exist (drop a JSON manifest, or ask Klebbius) and
+// offers a primary CTA that seeds the chat to build the first card. Hides
+// itself when the user creates their first card (server-side, in
+// registry.createManifest). Visibility can be restored from Settings.
 
 import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
@@ -14,6 +15,57 @@ export class EhWelcomeCard extends EhBaseCard {
   static styles = [
     EhBaseCard.styles,
     css`
+      .intro {
+        margin: 0 0 16px;
+      }
+      .intro-lead {
+        font-size: 13.5px;
+        line-height: 1.5;
+        color: var(--text-primary);
+        margin: 0 0 14px;
+      }
+      .intro-lead code {
+        font-size: 12.5px;
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: var(--bg-input, rgba(0, 0, 0, 0.05));
+        border: 1px solid var(--border);
+      }
+      .cta {
+        font: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        padding: 11px 18px;
+        border-radius: 10px;
+        border: 1px solid var(--accent, #00d4aa);
+        background: var(--accent, #00d4aa);
+        color: #000;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: transform 0.12s ease, box-shadow 0.12s ease,
+                    filter 0.12s ease;
+      }
+      .cta:hover {
+        filter: brightness(1.06);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 14px rgba(0, 212, 170, 0.25);
+      }
+      .cta:active { transform: translateY(0); }
+      .cta:focus-visible {
+        outline: 2px solid var(--accent, #00d4aa);
+        outline-offset: 3px;
+      }
+      .cta-emoji { font-size: 16px; line-height: 1; }
+      .or {
+        margin: 14px 0 4px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        color: var(--text-muted, var(--text-secondary));
+      }
       .paths {
         display: grid;
         grid-template-columns: 1fr;
@@ -145,8 +197,31 @@ export class EhWelcomeCard extends EhBaseCard {
     window.dispatchEvent(new CustomEvent('klebb-open-chat'));
   }
 
+  _addFirstCard() {
+    // Forward-compat seam: a future card gallery can listen for this and
+    // open itself. Until that ships, the chat seed below is the working
+    // path: Klebbius proposes the manifest and creates it on approval.
+    window.dispatchEvent(new CustomEvent('klebb-open-card-gallery'));
+    window.dispatchEvent(new CustomEvent('klebb-paste-into-chat', {
+      detail: { text: 'Help me create my first card.' },
+    }));
+  }
+
   renderCard() {
     return html`
+      <div class="intro">
+        <p class="intro-lead">
+          Klebb has no cards yet. A card appears the moment you drop a
+          <code>.json</code> manifest into your data folder, or ask
+          Klebbius to make one for you. Each card tracks one thing:
+          weight, bloods, a supplement stack, mood, sleep, whatever you
+          like. Add your first one to get started.
+        </p>
+        <button type="button" class="cta" @click=${this._addFirstCard}>
+          <span class="cta-emoji">✨</span> Add your first card
+        </button>
+        <p class="or">Or pick a path</p>
+      </div>
       <div class="paths">
         <button type="button" class="path featured" @click=${this._openPrompts}>
           <span class="start-chip">★ Start here</span>
