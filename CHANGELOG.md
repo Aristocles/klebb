@@ -9,6 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **`numericSeries` + `adherenceSeries` series extractors.** Two pure
+  helpers that turn a card's rows into the arrays a future sparkline
+  will draw. `numericSeries(rows, field, {endDate, limit})` in
+  `public/js/lib/display-template.js` (and its ESM twin) pulls the last
+  N numeric values for a field in ascending date order, reusing
+  `getValue` and the same numeric predicate as `computeTrend`. The new
+  `public/js/lib/adherence-series.esm.js` adds `adherenceSeries` (a
+  per-day done/due ratio over a date window, `null` for no-due days so
+  rest days read as gaps rather than misses) plus a per-item
+  `itemAdherenceSeries`; both take schedule logic as callbacks so the
+  file stays decoupled from any engine. Refs #420.
+
 - **`reorder_rows` chat tool.** New row-level primitive in
   `chat/tools.js` for reordering an array of rows inside a card's
   data block. Args are tiny (`{id, path, key, order:[<value>, ...]}`),
