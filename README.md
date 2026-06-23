@@ -8,6 +8,10 @@
   <img src="docs/media/mobile/nav-tour.webp" alt="Klebb on iPhone, navigating between Today, Calendar, Trends, and Reports" width="320">
 </p>
 
+<p align="center">
+  <a href="https://klebb.app"><img src="https://img.shields.io/badge/klebb.app-Visit_the_website-2563eb?style=for-the-badge" alt="klebb.app"></a>
+</p>
+
 A **file-driven**, **manifest-based** personal health dashboard. You
 drop JSON files into a folder; cards appear. Delete a file; the card is
 gone. That's the whole model.
