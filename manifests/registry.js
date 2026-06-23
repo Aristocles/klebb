@@ -910,4 +910,11 @@ module.exports = {
   deleteManifest,
   validateManifestShape,
   onDelete,
+  // Canonical validator constants, exported so scripts/gen-manifest-schema.js
+  // can project the JSON-Schema artefact from the same source of truth the
+  // validator enforces (no duplicated values that could drift).
+  SUPPORTED_SCHEMAS,
+  ID_PATTERN,
+  ID_MAX_LENGTH,
+  RESERVED_IDS,
 };

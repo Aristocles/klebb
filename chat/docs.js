@@ -29,6 +29,7 @@ const DOC_INDEX = [
   // --- Documentation ---
   { kind: 'doc', path: 'README.md',                    summary: 'Quickstart, architecture overview, env vars, Docker section.' },
   { kind: 'doc', path: 'MANIFEST-SCHEMA.md',           summary: 'Full klebb.datafile.v1 reference. The authoritative schema doc.' },
+  { kind: 'doc', path: 'manifests/schema/klebb.datafile.v1.schema.json', summary: 'Machine-readable JSON-Schema for klebb.datafile.v1 (structural subset). Use to check required fields, id pattern, category + time-of-day enums before authoring a manifest.' },
   { kind: 'doc', path: 'CHANGELOG.md',                 summary: 'Per-release changelog; useful for "when did X land" questions.' },
   { kind: 'doc', path: 'CONTRIBUTING.md',              summary: 'Repo workflow, commit conventions, branch naming.' },
   { kind: 'doc', path: 'CONTRIBUTING-PROMPTS.md',      summary: 'Authoring starter prompts for the chat widget.' },
