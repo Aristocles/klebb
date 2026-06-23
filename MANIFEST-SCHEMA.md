@@ -348,6 +348,13 @@ All view configs share the same shape:
   "enabled":          true,           // required — opts card into this view
   "component":        "generic-card", // required — renderer name
   "order":            5,              // view-specific sort override
+  "priority":         1,              // Today view only; lower = higher up.
+                                      //   Any card with a numeric priority is
+                                      //   "pinned": it lifts into a full-width
+                                      //   hero band at the top of Today, above
+                                      //   the normal order-sorted cards. Keep
+                                      //   it to 2-4 cards. Ignored on every
+                                      //   other view. See #422.
   "slot":             "top",          // "top" spans the full row
   "fallbackToLatest": false,          // generic-card only; default false.
                                       //   true → on Today with no row for
