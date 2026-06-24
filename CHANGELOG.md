@@ -9,6 +9,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Chat resolves references against the card in focus.** When the user
+  expands a card and then asks Klebbius something vague ("change the
+  target to 80kg"), the client passes the opened card's id with the
+  chat request and the server injects a "Card in focus" block into the
+  system prompt so the agent resolves "this card"/"the target" against
+  it before asking a clarifying question. Only injected when the id
+  resolves to a real card. Refs #418.
+
 - **Anonymised feature-request log (`POST /api/feedback` +
   `note_feature_request` tool).** When a user asks for something Klebb
   genuinely cannot do, Klebbius states the boundary, offers the nearest

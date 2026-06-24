@@ -126,6 +126,12 @@ export class EhBaseCard extends LitElement {
   _toggleExpand() {
     if (!this._canExpand) return;
     this.expanded = !this.expanded;
+    // Broadcast the card the user just opened so the chat can resolve
+    // vague references ("change the target to 80kg") against it. Only on
+    // expand, not collapse: collapsing doesn't change what they're looking at.
+    if (this.expanded && this.card?.id) {
+      window.dispatchEvent(new CustomEvent('klebb-card-focused', { detail: { id: this.card.id } }));
+    }
   }
 
   static styles = css`

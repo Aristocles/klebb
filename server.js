@@ -1515,7 +1515,7 @@ const server = http.createServer(async (req, res) => {
       req.on('end', () => {
         try {
           const parsed = JSON.parse(body);
-          const { messages, voiceMode } = parsed;
+          const { messages, voiceMode, viewedCardId } = parsed;
           if (!Array.isArray(messages) || messages.length === 0) {
             return sendJSON(res, { error: 'messages required' }, 400);
           }
@@ -1536,6 +1536,19 @@ const server = http.createServer(async (req, res) => {
           const cardListBlock = cardList
             ? `\n\n## Currently available cards\n\n${cardList}\n`
             : '\n\n## Currently available cards\n\n(none yet)\n';
+
+          // If the client told us which card the user just opened, name it as
+          // privileged immediate context so vague references ("change the
+          // target to 80kg") resolve against it before the agent considers a
+          // clarifying question. Only when the id resolves to a real card.
+          let viewedCardBlock = '';
+          if (typeof viewedCardId === 'string' && viewedCardId) {
+            const vc = registry.get(viewedCardId);
+            if (vc) {
+              const vlabel = vc.meta?.label || viewedCardId;
+              viewedCardBlock = `\n\n## Card in focus\n\nThe user is currently looking at the "${vlabel}" card (id: ${viewedCardId}). Resolve vague references ("this card", "the target", "change it") against this card first.\n`;
+            }
+          }
 
           // Inject today's absolute date + a pre-computed weekday lookup
           // table in the server's TZ. Language models are unreliable at
@@ -1594,7 +1607,7 @@ const server = http.createServer(async (req, res) => {
             '',
           ].join('\n');
 
-          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + reportsCatalogueBlock + categoryBlock;
+          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + viewedCardBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + reportsCatalogueBlock + categoryBlock;
           if (voiceMode) {
             systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Chat'}, a health assistant.
 Voice mode is active: the user is speaking to you and will hear your reply aloud.
@@ -1627,7 +1640,7 @@ Return STRICTLY the JSON object. No leading/trailing text. No markdown fences.
 
 Original system prompt follows:
 
-` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + reportsCatalogueBlock + categoryBlock;
+` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + viewedCardBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + reportsCatalogueBlock + categoryBlock;
           }
 
           // Prepend system prompt
