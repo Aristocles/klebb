@@ -130,6 +130,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `lowerIsBetter: true` flag is accepted as an alias for `"down"`.
   (Annotating the shipped templates with per-metric `goodDirection` is
   tracked separately.) Fixes #423.
+- **Chart colours now follow the active theme.** `chartTheme()` in
+  `public/js/components/eh-chart-base.js` read three CSS custom
+  properties (`--accent-amber`, `--accent-red`, `--accent-green`) that
+  were never defined in `public/css/app.css`, so the amber/red/green
+  entries in the chart palette always fell through to their hardcoded
+  hex fallbacks and ignored both the light theme and any custom
+  accent. The palette now reads the real `--warning`, `--danger`, and
+  `--success` tokens, which resolve per theme. The hex fallbacks are
+  retained as a safety net. Fixes #425.
 
 - **`set_notification` clears `lastFired` when it changes a trigger.**
   Cached `notifications.state.json#items[<id>].lastFired` is computed
