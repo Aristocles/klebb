@@ -76,6 +76,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Welcome card is now a proper first-run empty state.** When a fresh
+  install has zero user cards, `eh-welcome-card` leads with a short
+  explanation of how cards come to exist (drop a `.json` manifest into
+  the data folder, or ask Klebbius to make one) and a primary "Add your
+  first card" CTA. The CTA seeds the chat via the existing
+  `klebb-paste-into-chat` event with a "Help me create my first card"
+  prompt, so it works today with no extra plumbing; it also dispatches a
+  `klebb-open-card-gallery` event as a forward-compat seam for a future
+  card gallery to listen on. The three existing add-a-card paths (starter
+  prompt, describe-it-yourself, hand-author JSON) are kept below as
+  secondary options. Server-side seed + auto-hide behaviour is unchanged.
+  Refs #424.
+
 - **Notifications row mobile touch + a11y polish.** The Notifications
   tab toggles in `eh-settings-notifications` now meet a 44×44 touch
   target (WCAG 2.5.5 / Apple HIG): the visible 36×20 track is wrapped
