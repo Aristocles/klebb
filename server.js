@@ -1608,12 +1608,6 @@ Original system prompt follows:
 ` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + reportsCatalogueBlock + categoryBlock;
           }
 
-          // Prepend system prompt
-          const fullMessages = [
-            { role: 'system', content: systemPrompt },
-            ...messages,
-          ];
-
           if (!CHAT_ENDPOINT) {
             return sendJSON(res, { error: 'Chat endpoint not configured' }, 503);
           }
