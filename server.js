@@ -27,6 +27,8 @@ const haeTokenStore = require('./health-auto-export/token-store');
 const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-export/describe');
 const userTz = require('./lib/user-tz');
 const feedback = require('./lib/feedback');
+const { ambientStaleness } = require('./chat/hygiene');
+const hygieneState = require('./lib/hygiene-state');
 const notificationsState = require('./lib/notifications-state');
 const notificationsScheduler = require('./lib/notifications-scheduler');
 const webPushSend = require('./lib/web-push-send');
@@ -1198,6 +1200,34 @@ const server = http.createServer(async (req, res) => {
           return sendJSON(res, { error: 'cardIds required' }, 400);
         }
         const ok = ccSuggestions.dismiss(category, cardIds);
+        if (!ok) return sendJSON(res, { error: 'dismiss failed' }, 400);
+        return sendJSON(res, { ok: true });
+      });
+      return;
+    }
+
+    // GET /api/hygiene — ambient, high-confidence staleness only, minus
+    // anything the user has dismissed. The full multi-kind scan is pull-only
+    // via the hygiene_scan chat tool; this surface is the quiet nudge.
+    if (parts[0] === 'hygiene' && parts.length === 1 && req.method === 'GET') {
+      const findings = hygieneState.filterDismissed(ambientStaleness(registry, todayIso()));
+      return sendJSON(res, { findings });
+    }
+
+    // POST /api/hygiene/:cardId/dismiss
+    // Body: { kind } — silence one finding kind for one card until its
+    // condition is re-raised. Mirrors the cc-suggestions dismissal model.
+    if (parts[0] === 'hygiene' && parts[2] === 'dismiss'
+        && parts.length === 3 && req.method === 'POST') {
+      const cardId = decodeURIComponent(parts[1]);
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        let parsed;
+        try { parsed = JSON.parse(body || '{}'); }
+        catch { return sendJSON(res, { error: 'invalid json' }, 400); }
+        const kind = typeof parsed.kind === 'string' ? parsed.kind : 'stale';
+        const ok = hygieneState.dismiss(cardId, kind);
         if (!ok) return sendJSON(res, { error: 'dismiss failed' }, 400);
         return sendJSON(res, { ok: true });
       });
