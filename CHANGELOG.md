@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **`hygiene_scan` chat tool.** On-demand dashboard health check
+  returning `{findings:[{cardId, kind, severity, detail}]}` so Klebbius
+  can answer "is anything stale?" or "tidy up my cards". Kinds: `stale`
+  (no entry well past the expected cadence, with a tighter window for
+  schedule-bearing cards), `growth` (a very large data block that wants
+  archiving or a rolling window), and `orphaned-input` (a capture field
+  no row ever uses). Findings are conservative (near-empty cards are
+  skipped) and are suggestions only: the tool never mutates anything.
+  Built on the shared staleness derivation from `get_recent_activity`.
+  Refs #439.
+
 - **Chat resolves references against the card in focus.** When the user
   expands a card and then asks Klebbius something vague ("change the
   target to 80kg"), the client passes the opened card's id with the
