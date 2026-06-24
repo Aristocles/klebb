@@ -26,6 +26,7 @@ const haeDiscoveries = require('./health-auto-export/discoveries');
 const haeTokenStore = require('./health-auto-export/token-store');
 const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-export/describe');
 const userTz = require('./lib/user-tz');
+const feedback = require('./lib/feedback');
 const notificationsState = require('./lib/notifications-state');
 const notificationsScheduler = require('./lib/notifications-scheduler');
 const webPushSend = require('./lib/web-push-send');
@@ -1199,6 +1200,27 @@ const server = http.createServer(async (req, res) => {
         const ok = ccSuggestions.dismiss(category, cardIds);
         if (!ok) return sendJSON(res, { error: 'dismiss failed' }, 400);
         return sendJSON(res, { ok: true });
+      });
+      return;
+    }
+
+    // POST /api/feedback — append an anonymised feature-request line.
+    // Body: { intent, context?, toolsConsidered? }. Fired by Klebbius (via
+    // the note_feature_request tool) when a request is genuinely unsupported,
+    // so the operator can review unmet needs. Anonymisation happens in
+    // lib/feedback; behind the same global auth gate as every other /api route.
+    if (parts[0] === 'feedback' && parts.length === 1 && req.method === 'POST') {
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        let parsed;
+        try { parsed = JSON.parse(body || '{}'); }
+        catch { return sendJSON(res, { error: 'invalid json' }, 400); }
+        if (!parsed.intent || typeof parsed.intent !== 'string') {
+          return sendJSON(res, { error: 'intent required' }, 400);
+        }
+        const result = feedback.appendFeedback(parsed);
+        return sendJSON(res, result, result.logged ? 200 : 400);
       });
       return;
     }
