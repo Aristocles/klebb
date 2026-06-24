@@ -59,6 +59,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   mode), so Trends/Calendar/Reports and past-day views are untouched.
   Manifests with no priority render in exactly their existing order.
   Refs #422.
+- **`validate_manifest` chat tool.** A no-write dry-run that runs the
+  exact structural validator the create/patch path enforces, plus
+  renderer-shape checks (combination-card needs `meta.view.combines[]`
+  with `sourceId`; `meta.view.display` must be an object), returning
+  `{ok}` or `{ok:false, errors:[{path, message}]}`. Klebbius is steered
+  to call it before any manifest write so it can self-correct shape
+  mistakes first. The renderer checks deliberately match real renderer
+  behaviour (line-chart `series` is optional, since the renderer
+  auto-detects a y-field) rather than inventing requirements. Refs #416.
+
 - **`get_recent_activity` chat tool.** A one-pass recency summary of
   every card (`{id, label, renderer, rowCount, lastEntryDate, ageDays,
   lastNDelta, staleSource}`) so Klebbius can answer "what's stale?" or
