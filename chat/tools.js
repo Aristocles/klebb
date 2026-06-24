@@ -12,6 +12,7 @@ const notificationsState = require('../lib/notifications-state');
 const { readDoc } = require('./docs');
 const { readReport } = require('./reports');
 const { buildRecentActivity } = require('./recent-activity');
+const { validateManifest } = require('./validate-manifest');
 
 // Server-local "today" (YYYY-MM-DD) in the configured TZ, matching the
 // server's todayIso(). Used for the ageDays maths in get_recent_activity.
@@ -174,6 +175,24 @@ const TOOL_DEFS = [
           },
         },
         required: ['name'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'validate_manifest',
+      description:
+        "Dry-run a candidate klebb.datafile.v1 manifest WITHOUT writing it. Returns {ok:true} or {ok:false, errors:[{path, message}]}. This runs the exact same structural validation the create/patch write path enforces (so 'ok' here means the write will not be rejected on shape grounds), plus a few renderer-specific checks (e.g. combination-card needs meta.view.combines[] with sourceId; meta.view.display must be an object). ALWAYS call this before create_manifest or patch_manifest and fix any reported errors first; each error names the JSON path and what to change. It does not catch every possible problem (it cannot know your data semantics), but it catches the shape mistakes that cause a write to fail.",
+      parameters: {
+        type: 'object',
+        properties: {
+          manifest: {
+            description: 'The full candidate klebb.datafile.v1 manifest object to check (same shape you would pass to create_manifest).',
+          },
+        },
+        required: ['manifest'],
         additionalProperties: false,
       },
     },
@@ -553,6 +572,9 @@ function dispatchToolCall(tc, ctx) {
       }
       case 'get_recent_activity': {
         return JSON.stringify({ cards: buildRecentActivity(registry, serverTodayIso()) });
+      }
+      case 'validate_manifest': {
+        return JSON.stringify(validateManifest(args.manifest));
       }
       case 'set_notification': {
         const entry = registry.get(args.card_id);
