@@ -59,6 +59,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   mode), so Trends/Calendar/Reports and past-day views are untouched.
   Manifests with no priority render in exactly their existing order.
   Refs #422.
+- **`get_recent_activity` chat tool.** A one-pass recency summary of
+  every card (`{id, label, renderer, rowCount, lastEntryDate, ageDays,
+  lastNDelta, staleSource}`) so Klebbius can answer "what's stale?" or
+  reuse a sibling card's conventions without reading each card. Staleness
+  is derived from per-row `date` fields (override with `meta.view.dateField`),
+  falling back to the manifest file's modification time when a card has no
+  dated rows. The derivation lives in `chat/recent-activity.js` and is the
+  shared freshness primitive the hygiene checks build on. Refs #415.
 
 - **`reorder_rows` chat tool.** New row-level primitive in
   `chat/tools.js` for reordering an array of rows inside a card's

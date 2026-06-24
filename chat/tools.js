@@ -11,6 +11,13 @@ const registry = require('../manifests/registry');
 const notificationsState = require('../lib/notifications-state');
 const { readDoc } = require('./docs');
 const { readReport } = require('./reports');
+const { buildRecentActivity } = require('./recent-activity');
+
+// Server-local "today" (YYYY-MM-DD) in the configured TZ, matching the
+// server's todayIso(). Used for the ageDays maths in get_recent_activity.
+function serverTodayIso() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: process.env.TZ || 'UTC' });
+}
 
 const TOOL_DEFS = [
   {
@@ -167,6 +174,19 @@ const TOOL_DEFS = [
           },
         },
         required: ['name'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_recent_activity',
+      description:
+        "Get a one-pass recency summary of EVERY card without reading each one. Returns {cards:[{id, label, renderer, rowCount, lastEntryDate, ageDays, lastNDelta, staleSource}]}. Use this FIRST when the user asks anything about how their tracking is going, what is stale or untouched, what changed recently, or before suggesting a new card (so you reuse the conventions of sibling cards). `ageDays` is days since the newest entry; when a card has no dated rows it falls back to the file modification time (staleSource:'mtime') so you still get a freshness hint. `lastNDelta` is a best-effort last-minus-previous value when a card has one obvious numeric field; treat it as a hint, not a computed trend. Cheaper and faster than calling read_manifest on each card.",
+      parameters: {
+        type: 'object',
+        properties: {},
         additionalProperties: false,
       },
     },
@@ -530,6 +550,9 @@ function dispatchToolCall(tc, ctx) {
       }
       case 'read_report': {
         return JSON.stringify(readReport(args.name));
+      }
+      case 'get_recent_activity': {
+        return JSON.stringify({ cards: buildRecentActivity(registry, serverTodayIso()) });
       }
       case 'set_notification': {
         const entry = registry.get(args.card_id);
