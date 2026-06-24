@@ -31,6 +31,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   rest days read as gaps rather than misses) plus a per-item
   `itemAdherenceSeries`; both take schedule logic as callbacks so the
   file stays decoupled from any engine. Refs #420.
+- **`<eh-sparkline>` trend-glyph component.** A standalone, dependency-free
+  Lit element (`public/js/components/eh-sparkline.js`) that maps a
+  `number[]` to an inline `<svg>` polyline. It is deliberately not an
+  `EhChartBase`/`EhBaseCard` subclass and never imports ECharts: a
+  64x22 glyph cannot justify a ~1MB chart library built for one ~240px
+  chart per card. Props: `values`, `mode` (`line`/`bar`/`adherence`),
+  `width`, `height`, `baseline`, `threshold`, `colour`. Renders nothing
+  below two non-null points (a single point is not a trend), guards the
+  flat-series divide-by-zero, and inverts SVG y so higher values sit
+  higher. Colours come from inherited CSS custom properties
+  (`--accent`, `--chart-grid`) so it tracks dark/light with no JS theme
+  code; the inner `<svg>` is `aria-hidden` while the host carries a
+  summarising `aria-label` (direction + latest value). The pure scaling
+  and path maths live in `public/js/lib/sparkline.js` (UMD) and its
+  `sparkline.esm.js` mirror so they are unit-testable under Node without
+  a DOM. Refs #421.
 
 - **`reorder_rows` chat tool.** New row-level primitive in
   `chat/tools.js` for reordering an array of rows inside a card's
