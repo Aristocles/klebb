@@ -77,6 +77,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   chat docs catalogue so the renderer source is the durable contract.
   Refs #441.
 
+- **`generic-card` trend arrow is metric-aware.** The arrow colour was
+  hardcoded to up=red / down=green, which is right for weight (rising
+  is bad) but inverted for "more is better" metrics like sleep hours,
+  steps, and protein, where a rising trend should read green. Card
+  authors can now set `meta.view.display.trendArrow.goodDirection` to
+  `"up"`, `"down"` (the default, unchanged behaviour), or `"neutral"`.
+  The signed delta (e.g. `+0.4`) is now printed next to the arrow so the
+  direction is carried by the number, not by colour alone (the prior
+  colour-only signal failed colour-blind readers). The legacy
+  `lowerIsBetter: true` flag is accepted as an alias for `"down"`.
+  (Annotating the shipped templates with per-metric `goodDirection` is
+  tracked separately.) Fixes #423.
+
 - **`set_notification` clears `lastFired` when it changes a trigger.**
   Cached `notifications.state.json#items[<id>].lastFired` is computed
   under whatever trigger configuration was active at the time, so once
