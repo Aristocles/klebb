@@ -14,6 +14,7 @@ const { readReport } = require('./reports');
 const { buildRecentActivity } = require('./recent-activity');
 const { validateManifest } = require('./validate-manifest');
 const { appendFeedback } = require('../lib/feedback');
+const { scanHygiene } = require('./hygiene');
 
 // Server-local "today" (YYYY-MM-DD) in the configured TZ, matching the
 // server's todayIso(). Used for the ageDays maths in get_recent_activity.
@@ -222,6 +223,19 @@ const TOOL_DEFS = [
           },
         },
         required: ['manifest'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'hygiene_scan',
+      description:
+        "Scan every card for hygiene problems and return {findings:[{cardId, kind, severity, detail}]}. Use this when the user asks to 'tidy up', 'what's stale/messy', 'is anything out of date', or wants a dashboard health check. Kinds: 'stale' (no entry well past the expected cadence), 'growth' (very large data block that wants archiving/a rolling window), 'orphaned-input' (a capture field no row ever uses). Findings are conservative (near-empty cards are skipped) and are SUGGESTIONS only: never act on them without the user's say-so, and surface them conversationally rather than dumping the raw list.",
+      parameters: {
+        type: 'object',
+        properties: {},
         additionalProperties: false,
       },
     },
@@ -601,6 +615,9 @@ function dispatchToolCall(tc, ctx) {
       }
       case 'get_recent_activity': {
         return JSON.stringify({ cards: buildRecentActivity(registry, serverTodayIso()) });
+      }
+      case 'hygiene_scan': {
+        return JSON.stringify(scanHygiene(registry, serverTodayIso()));
       }
       case 'validate_manifest': {
         return JSON.stringify(validateManifest(args.manifest));
