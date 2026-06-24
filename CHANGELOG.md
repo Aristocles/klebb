@@ -59,6 +59,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   mode), so Trends/Calendar/Reports and past-day views are untouched.
   Manifests with no priority render in exactly their existing order.
   Refs #422.
+- **Anonymised feature-request log (`POST /api/feedback` +
+  `note_feature_request` tool).** When a user asks for something Klebb
+  genuinely cannot do, Klebbius states the boundary, offers the nearest
+  supported alternative, and records the unmet need via the
+  `note_feature_request` tool, which appends one anonymised line to
+  `data/_meta/feedback.jsonl`. `lib/feedback.anonymise()` is the privacy
+  boundary: it keeps only a paraphrased capability intent, structural
+  context, considered tool names, and a timestamp; it never writes raw
+  values, labels, or the verbatim message. The operator reviews the file
+  to decide what to build next. Refs #417.
+
 - **`validate_manifest` chat tool.** A no-write dry-run that runs the
   exact structural validator the create/patch path enforces, plus
   renderer-shape checks (combination-card needs `meta.view.combines[]`
