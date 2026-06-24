@@ -169,3 +169,20 @@ export function computeTrend(row, key, allRows) {
   else if (delta < 0) dir = 'down';
   return { dir, delta, prev };
 }
+
+// --- Numeric series extractor ---
+// See display-template.js for detailed docs. Same numeric predicate as
+// computeTrend; ascending date order; tail-sliced to `limit`.
+export function numericSeries(rows, field, options) {
+  if (!Array.isArray(rows) || !field) return [];
+  const { endDate = null, limit = 30 } = options || {};
+  return rows
+    .filter(r => r && r.date && (!endDate || r.date <= endDate))
+    .filter(r => {
+      const v = getValue(r, field);
+      return v !== null && v !== undefined && !Number.isNaN(Number(v));
+    })
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+    .map(r => Number(getValue(r, field)))
+    .slice(-limit);
+}
