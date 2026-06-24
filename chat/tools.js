@@ -13,6 +13,7 @@ const { readDoc } = require('./docs');
 const { readReport } = require('./reports');
 const { buildRecentActivity } = require('./recent-activity');
 const { validateManifest } = require('./validate-manifest');
+const { appendFeedback } = require('../lib/feedback');
 
 // Server-local "today" (YYYY-MM-DD) in the configured TZ, matching the
 // server's todayIso(). Used for the ageDays maths in get_recent_activity.
@@ -175,6 +176,34 @@ const TOOL_DEFS = [
           },
         },
         required: ['name'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'note_feature_request',
+      description:
+        "Log an anonymised feature request when the user asks for something Klebb genuinely cannot do (no tool and no renderer can serve it, even with more detail). Call this ONLY after you have told the user plainly that it is unsupported and offered the nearest supported alternative; it is not for requests that just need a clarifying question or were phrased badly. Pass a PARAPHRASED capability intent, never the user's data: 'wants to chart sleep as a heatmap' is fine; the actual sleep values, card labels naming a condition, or the verbatim message are NOT. The operator reviews these to decide what to build next. Returns {logged:true}.",
+      parameters: {
+        type: 'object',
+        properties: {
+          intent: {
+            type: 'string',
+            description: 'A short paraphrased description of the capability the user wanted (no personal data, no logged values, no verbatim message).',
+          },
+          context: {
+            type: 'string',
+            description: 'Optional structural context: which renderers/tools exist and were considered, why none fit. No personal data.',
+          },
+          toolsConsidered: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Optional list of tool names you considered before concluding it is unsupported.',
+          },
+        },
+        required: ['intent'],
         additionalProperties: false,
       },
     },
@@ -575,6 +604,13 @@ function dispatchToolCall(tc, ctx) {
       }
       case 'validate_manifest': {
         return JSON.stringify(validateManifest(args.manifest));
+      }
+      case 'note_feature_request': {
+        return JSON.stringify(appendFeedback({
+          intent: args.intent,
+          context: args.context,
+          toolsConsidered: args.toolsConsidered,
+        }));
       }
       case 'set_notification': {
         const entry = registry.get(args.card_id);
