@@ -76,6 +76,8 @@ const DOC_INDEX = [
     summary: 'hae-discovery-card — pinned card surfacing HAE metrics not yet subscribed. Reads /api/health-auto-export/discoveries. Per-metric "Build a card" seeds a chat prompt; "Dismiss" persists a Settings-restorable hide.' },
   { kind: 'source', path: 'public/js/components/eh-welcome-card.js',
     summary: 'welcome-card — onboarding card on a fresh install. Auto-hidden by registry.createManifest on first user-card creation; can be restored from Settings.' },
+  { kind: 'source', path: 'public/js/components/eh-line-chart.js',
+    summary: 'line-chart renderer (also registered for area-chart/bar-chart). Read-only in Trends. Reads meta.trends/view xAxis (default "date"), series:[{field,label?,colour?}] (auto-detects a y-field when omitted: value/kg/ml/count/minutes/systolic then first non-date numeric key), title, yAxisLabel. Does NOT read xKey/yKey/unit.' },
 ];
 
 const ALLOWED_PATHS = new Set(DOC_INDEX.map(d => d.path));

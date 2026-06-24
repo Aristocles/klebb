@@ -55,6 +55,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Line-chart config docs now match the renderer.** The docs and the
+  chat system prompt described `line-chart`/`area-chart`/`bar-chart`
+  config as `xKey`/`yKey`/`unit`, but the renderer actually reads
+  `meta.trends.xAxis` (default `"date"`), `series:[{field, label?,
+  colour?}]` (auto-detecting a y-field when omitted), `title`, and
+  `yAxisLabel`. Corrected across `docs/CARDS.md` and the system-prompt
+  renderer line in `config/env.js`, and added `eh-line-chart.js` to the
+  chat docs catalogue so the renderer source is the durable contract.
+  Refs #441.
+
 - **`set_notification` clears `lastFired` when it changes a trigger.**
   Cached `notifications.state.json#items[<id>].lastFired` is computed
   under whatever trigger configuration was active at the time, so once

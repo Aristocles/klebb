@@ -30,7 +30,8 @@ Want to add a weight-tracking card right now? Create this file:
                  "display": { "template": "{kg:round(1)} kg",
                               "emptyHeadline": "No weight today" } },
     "trends":  { "enabled": true, "component": "line-chart",
-                 "xKey": "date", "yKey": "kg", "unit": "kg" },
+                 "xAxis": "date", "series": [{ "field": "kg", "label": "Weight (kg)" }],
+                 "yAxisLabel": "kg" },
     "writeable": {
       "fromWebapp": true,
       "todayAllowed": true,
@@ -201,8 +202,9 @@ Fields:
 
 ### `meta.trends` — the Trends view config
 
-Same shape as `meta.view`. Typical use: `component: "line-chart"` with `xKey`
-and `yKey` pointing into the data rows.
+Same shape as `meta.view`. Typical use: `component: "line-chart"` with `xAxis`
+(the date/category key, default `"date"`) and `series` (an array of
+`{ field, label?, colour? }`) pointing into the data rows.
 
 ### `meta.reports` — the Reports view config
 
@@ -1097,8 +1099,13 @@ Used in `meta.trends.component`, not `meta.view.component`. Read-only
 in the Trends view.
 
 **Reads:**
-- `meta.trends.xKey`, `.yKey`, `.field`, `.series[]`, `.unit`.
-- Data rows by date for the configured field(s).
+- `meta.trends.xAxis` — the x-axis key (default `"date"`).
+- `meta.trends.series` — array of `{ field, label?, colour? }`. When omitted,
+  the renderer auto-detects a y-field (tries `value`/`kg`/`ml`/`count`/
+  `minutes`/`systolic`, then the first non-date numeric key).
+- `meta.trends.title` — optional chart title.
+- `meta.trends.yAxisLabel` — optional y-axis label.
+- Data rows sorted by the `xAxis` key for the configured series field(s).
 
 **Writes:**
 - None.

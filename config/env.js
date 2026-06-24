@@ -382,7 +382,7 @@ For a workouts card specifically: use \`"template": "{trained:check} {type}"\` (
 - \`schedule-card\` — scheduled doses/events with recurrence; data is \`{items:[{name, dose_mg?, dose_units?, route?, schedule, doses?:[]}]}\`. Each item's \`schedule\` is a schedule-shape object (see below). **Items ALWAYS live in \`data.items[]\`; never in \`meta.schedule\`.** \`meta.schedule\` is only used by the \`schedule-timeline\` renderer for a single card-level cadence, and it's rare.
 - \`schedule-timeline\` — stacked timeline across a window; reads \`meta.schedule\`.
 - \`markdown-doc\` — renders markdown; data \`{markdown:"..."}\`.
-- \`line-chart\` — time-series chart (aliases: \`area-chart\`, \`bar-chart\`); data \`[{date,value}]\` or rows keyed via \`meta.trends.field\`/\`series\`.
+- \`line-chart\` — time-series chart (aliases: \`area-chart\`, \`bar-chart\`); reads \`meta.trends.xAxis\` (default \`"date"\`) and \`meta.trends.series:[{field,label?,colour?}]\` (auto-detects a y-field if omitted); data is \`[{date, <field>}]\` rows.
 - \`table-list\` — arbitrary rowset as a table; columns via \`meta.reports.columns\`.
 - \`adherence-report\` — % adherence report over a window.
 - \`greeting-banner\` — top-of-today banner; uses \`meta.view.slot:"top"\`.
