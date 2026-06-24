@@ -186,3 +186,32 @@ export function numericSeries(rows, field, options) {
     .map(r => Number(getValue(r, field)))
     .slice(-limit);
 }
+
+// --- Trend-arrow colour semantics ---
+// See display-template.js for detailed docs.
+const TREND_GOOD = '#55cc77';
+const TREND_BAD = '#ff7755';
+const TREND_NEUTRAL = 'var(--text-muted, var(--text-secondary))';
+
+export function resolveGoodDirection(trendArrow) {
+  if (!trendArrow || typeof trendArrow !== 'object') return null;
+  const gd = trendArrow.goodDirection;
+  if (gd === 'up' || gd === 'down' || gd === 'neutral') return gd;
+  if (trendArrow.lowerIsBetter === true) return 'down';
+  return null;
+}
+
+export function trendColour(dir, goodDirection) {
+  if (dir === 'flat') return TREND_NEUTRAL;
+  if (goodDirection === 'neutral') return TREND_NEUTRAL;
+  const goodDir = goodDirection === 'up' ? 'up' : 'down';
+  return dir === goodDir ? TREND_GOOD : TREND_BAD;
+}
+
+export function formatTrendDelta(delta) {
+  const n = Number(delta);
+  if (Number.isNaN(n)) return '';
+  const rounded = Math.round(n * 100) / 100;
+  const sign = rounded > 0 ? '+' : '';
+  return sign + String(rounded);
+}

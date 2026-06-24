@@ -31,13 +31,18 @@
 //                                          + shows the label pill
 //   meta.view.display.trendArrow          — { field: "kg" } enables ↑/↓/→ arrow
 //                                          next to the value, compared to the
-//                                          most recent prior entry
+//                                          most recent prior entry, with the
+//                                          signed delta printed alongside.
+//                                          Optional goodDirection: 'up'|'down'
+//                                          |'neutral' decides arrow colour
+//                                          (default down=good, the weight
+//                                          convention). See #423.
 //   meta.writeable.fromWebapp             — enables the ✏️/➕ input button
 //   meta.writeable.inputs                 — array of input specs for eh-input-form
 //   meta.writeable.maxReadingsPerDay      — default 1 (upsert behaviour)
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
-import { renderTemplate, evaluateThresholds, computeTrend } from '../lib/display-template.esm.js';
+import { renderTemplate, evaluateThresholds, computeTrend, trendColour, resolveGoodDirection, formatTrendDelta } from '../lib/display-template.esm.js';
 import { registerRenderer } from '../renderer-registry.js';
 import { EhBaseCard, invalidateManifestCache } from './eh-base-card.js';
 import { errorFromResponse } from '../lib/save-error.js';
@@ -251,14 +256,22 @@ export class EhGenericCard extends EhBaseCard {
         color: var(--text-secondary);
         font-weight: 500;
       }
+      /* Colour is set inline per-card because the "good" direction is
+         manifest-driven (trendArrow.goodDirection); see #423. The glyph
+         and the signed delta carry the meaning so colour is reinforcement,
+         not the sole signal. */
       .gen-trend {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 3px;
         font-size: 1.1rem;
         line-height: 1;
         font-weight: 600;
       }
-      .gen-trend.up   { color: #ff7755; }
-      .gen-trend.down { color: #55cc77; }
-      .gen-trend.flat { color: var(--text-muted, var(--text-secondary)); }
+      .gen-trend-delta {
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
       .gen-threshold-pill {
         display: inline-block;
         font-size: 10px;
@@ -512,10 +525,18 @@ export class EhGenericCard extends EhBaseCard {
       ? evaluateThresholds(entry, display.thresholds)
       : null;
 
-    // Trend arrow: compare to previous entry on the same field
+    // Trend arrow: compare to previous entry on the same field. Colour
+    // is metric-aware via trendArrow.goodDirection (default down=good);
+    // the signed delta is printed so meaning survives without colour. #423.
     let trend = null;
+    let trendColourValue = null;
+    let trendDelta = '';
     if (hasEntry && display.trendArrow && display.trendArrow.field) {
       trend = computeTrend(entry, display.trendArrow.field, this._entries());
+      if (trend) {
+        trendColourValue = trendColour(trend.dir, resolveGoodDirection(display.trendArrow));
+        trendDelta = formatTrendDelta(trend.delta);
+      }
     }
 
     return html`
@@ -547,8 +568,9 @@ export class EhGenericCard extends EhBaseCard {
             <span class="gen-headline ${isCarryOver ? 'carry-over' : ''}">${headline}</span>
             ${display.unit ? html`<span class="gen-unit">${display.unit}</span>` : ''}
             ${trend ? html`
-              <span class="gen-trend ${trend.dir}" title="vs ${trend.prev.date}">
-                ${trend.dir === 'up' ? '↑' : trend.dir === 'down' ? '↓' : '→'}
+              <span class="gen-trend" style="color: ${trendColourValue};" title="vs ${trend.prev.date}">
+                <span class="gen-trend-arrow">${trend.dir === 'up' ? '↑' : trend.dir === 'down' ? '↓' : '→'}</span>
+                ${trendDelta ? html`<span class="gen-trend-delta">${trendDelta}</span>` : ''}
               </span>` : ''}
             ${threshold && threshold.label ? html`
               <span class="gen-threshold-pill" style="background: ${threshold.colour || 'var(--accent)'};">
