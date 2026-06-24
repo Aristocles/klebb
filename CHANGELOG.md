@@ -59,6 +59,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   mode), so Trends/Calendar/Reports and past-day views are untouched.
   Manifests with no priority render in exactly their existing order.
   Refs #422.
+- **Ambient hygiene surface (`GET /api/hygiene`).** A quiet,
+  high-confidence staleness feed (only the `stale` finding kind; the
+  full multi-kind scan stays pull-only via `hygiene_scan`), mirroring
+  the cc-suggestions transport. `POST /api/hygiene/:cardId/dismiss`
+  silences one finding kind for one card, persisted whole-file-atomic at
+  `data/_meta/hygiene-dismissed.json` and keyed by `cardId::kind` so
+  dismissing one nudge never suppresses another. Refs #440.
+
 - **`hygiene_scan` chat tool.** On-demand dashboard health check
   returning `{findings:[{cardId, kind, severity, detail}]}` so Klebbius
   can answer "is anything stale?" or "tidy up my cards". Kinds: `stale`
