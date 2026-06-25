@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Adherence sparklines on checklist and schedule cards.** With
+  `meta.view.showSparkline: true`, a checklist-card draws a card-level
+  per-day done/due ratio strip and a schedule-card draws a per-item
+  taken/missed strip, both over the last 30 days (the 30-day
+  generalisation of the schedule week-dots). Rest/not-due days render as
+  gaps, never as misses. Default-off, Today-only, and only when there
+  are at least two days of signal. The checklist `_isDue`/`_isDone`
+  predicates were made date-parameterised (defaulting to the viewed
+  date) so the strip can evaluate any day. Refs #446.
+
 - **Inline sparklines on generic cards.** A generic-card with
   `meta.view.showSparkline: true` now draws a small inline trend line
   under its headline on the Today view, using the already-loaded card
