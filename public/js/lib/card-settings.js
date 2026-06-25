@@ -121,7 +121,7 @@ export function getAtPath(obj, path) {
   return cur;
 }
 
-function setAtPath(obj, path, value) {
+export function setAtPath(obj, path, value) {
   const keys = path.split('.');
   let cur = obj;
   for (let i = 0; i < keys.length - 1; i++) {

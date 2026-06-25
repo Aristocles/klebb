@@ -288,6 +288,66 @@ test.describe('#456: per-card settings gear', () => {
     await expect(notifRow.locator('.row-hint')).toContainText(/Klebbius/i);
   });
 
+  test('advanced feature: disabling parks the block, re-enabling restores it', async ({ page, sandboxState }) => {
+    const baseUrl = sandboxState.baseUrl;
+    const id = 'e2e_adv_456';
+    const checkOffForm = { currentDoseFields: ['site'], previousDoseFields: ['reactions'] };
+    const create = await page.request.post(`${baseUrl}/api/manifests`, {
+      data: {
+        $schema: 'klebb.datafile.v1',
+        meta: {
+          id, label: 'Adv 456', emoji: '🧬', order: 953,
+          view: { enabled: true, component: 'schedule-card', checkOffForm },
+          writeable: {
+            fromWebapp: true, todayAllowed: true,
+            inputs: [{ key: 'site', type: 'text' }, { key: 'reactions', type: 'text' }],
+          },
+        },
+        data: { items: [{ id: 'a', name: 'Item A', schedule: { type: 'daily_straight', days: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] } }] },
+      },
+    });
+    expect(create.status()).toBe(201);
+    try {
+      await page.goto('/');
+      await expect(page.locator('eh-date-view')).toBeVisible();
+      const card = page.locator('eh-schedule-card', { hasText: 'Adv 456' }).first();
+      await card.locator('.settings-gear').click();
+      const modal = page.locator('eh-card-settings-modal');
+      await expect(modal.locator('dialog')).toBeVisible();
+
+      // The added feature shows under "Added features", toggled on.
+      const row = modal.locator('.row', { hasText: 'Per-dose check-off form' });
+      const toggle = row.locator('.toggle');
+      await expect(toggle).toHaveAttribute('aria-checked', 'true');
+      await toggle.click(); // turn off
+      await modal.locator('.save-btn').click();
+      await expect(modal).toHaveCount(0);
+
+      // Parked: live block gone, parked copy intact byte-for-byte.
+      let m = (await (await page.request.get(`${baseUrl}/api/manifests/${id}`)).json()).meta;
+      expect(m.view.checkOffForm).toBeUndefined();
+      expect(m.view._disabled.checkOffForm).toEqual(checkOffForm);
+
+      // Re-open: feature shows OFF, toggle it back on.
+      await page.goto('/');
+      await expect(page.locator('eh-date-view')).toBeVisible();
+      await page.locator('eh-schedule-card', { hasText: 'Adv 456' }).first().locator('.settings-gear').click();
+      const modal2 = page.locator('eh-card-settings-modal');
+      await expect(modal2.locator('dialog')).toBeVisible();
+      const row2 = modal2.locator('.row', { hasText: 'Per-dose check-off form' });
+      await expect(row2.locator('.toggle')).toHaveAttribute('aria-checked', 'false');
+      await row2.locator('.toggle').click();
+      await modal2.locator('.save-btn').click();
+      await expect(modal2).toHaveCount(0);
+
+      // Restored exactly.
+      m = (await (await page.request.get(`${baseUrl}/api/manifests/${id}`)).json()).meta;
+      expect(m.view.checkOffForm).toEqual(checkOffForm);
+    } finally {
+      await page.request.delete(`${baseUrl}/api/manifests/${id}`);
+    }
+  });
+
   test('synthetic cards (e.g. unknown renderer) do not show a gear', async ({ page, sandboxState }) => {
     const baseUrl = sandboxState.baseUrl;
     const id = 'e2e_unknown_456';

@@ -29,14 +29,33 @@ import {
 import {
   notificationsState, notificationsEnabled, buildNotificationsPatch,
 } from '../lib/card-notifications.js';
+import { discoverAdvanced, buildAdvancedPatch } from '../lib/card-advanced.js';
+
+// Deep-merge src into dst (objects merge, everything else — including null,
+// the merge-patch delete sentinel, and arrays — replaces). Used to fold the
+// settings/notifications/advanced sub-patches into one PATCH body.
+function deepMerge(dst, src) {
+  for (const k of Object.keys(src)) {
+    const v = src[k];
+    if (v !== null && typeof v === 'object' && !Array.isArray(v)
+        && dst[k] !== null && typeof dst[k] === 'object' && !Array.isArray(dst[k])) {
+      deepMerge(dst[k], v);
+    } else {
+      dst[k] = v;
+    }
+  }
+  return dst;
+}
 
 export class EhCardSettingsModal extends LitElement {
   static properties = {
     card: { type: Object },
     schema: { type: Array },
     displayName: { type: String },
+    component: { type: String },
     _edited: { state: true },
     _notifEdit: { state: true },
+    _advEdit: { state: true },
     _data: { state: true },
     _busy: { state: true },
     _error: { state: true },
@@ -48,7 +67,10 @@ export class EhCardSettingsModal extends LitElement {
     this.card = null;
     this.schema = [];
     this.displayName = '';
+    this.component = null;
     this._edited = {};
+    // Advanced feature toggles (discover-and-park): key -> desired on/off.
+    this._advEdit = {};
     // Notifications is not a path descriptor (enabling can *create* an
     // item), so its toggle tracks a separate tri-state: null = untouched,
     // true/false = user's pending choice.
@@ -232,18 +254,33 @@ export class EhCardSettingsModal extends LitElement {
     this._notifEdit = !this._notifOn();
   }
 
-  // Deep-merge two meta-patches (each shaped { meta: {...} }) into one PATCH
-  // body. Both are produced by us and only ever set scalar booleans or the
-  // notifications block, so a shallow merge of meta sub-objects suffices —
-  // the only overlap would be meta.notifications, which only one source
-  // writes.
+  _advanced() {
+    return discoverAdvanced(this.card?.meta || {}, this.component);
+  }
+
+  _toggleAdvanced(feat) {
+    if (this._busy) return;
+    const cur = (feat.key in this._advEdit) ? this._advEdit[feat.key] : feat.on;
+    this._advEdit = { ...this._advEdit, [feat.key]: !cur };
+  }
+
+  // Combine the settings, notifications, and advanced patches (each shaped
+  // { meta: {...} }) into one PATCH body. The settings and advanced patches
+  // can both write under meta.view (e.g. view.showSparkline + a parked
+  // view._disabled.*), so a deep merge is required — a shallow spread would
+  // drop one view sub-tree. The advanced patch is always computed (even with
+  // no edits) so a stale parked copy is purged on save (live-wins).
   _combinedPatch() {
-    const settings = buildMetaPatch(this.schema, this.card?.meta || {}, this._edited);
-    const notif = this._notifEdit === null
-      ? null
-      : buildNotificationsPatch(this.card?.meta || {}, this._notifEdit);
-    if (!settings && !notif) return null;
-    return { meta: { ...(settings?.meta || {}), ...(notif?.meta || {}) } };
+    const meta = this.card?.meta || {};
+    const parts = [
+      buildMetaPatch(this.schema, meta, this._edited),
+      this._notifEdit === null ? null : buildNotificationsPatch(meta, this._notifEdit),
+      buildAdvancedPatch(meta, this._advanced(), this._advEdit),
+    ].filter(Boolean);
+    if (parts.length === 0) return null;
+    const merged = {};
+    for (const p of parts) deepMerge(merged, p.meta);
+    return { meta: merged };
   }
 
   async _save() {
@@ -316,6 +353,7 @@ export class EhCardSettingsModal extends LitElement {
                 `)}
 
             ${this._renderNotifications()}
+            ${this._renderAdvanced()}
 
             <div class="footer">
               <span class="note">More options? Ask Klebbius about this card.</span>
@@ -391,6 +429,35 @@ export class EhCardSettingsModal extends LitElement {
             ></button>
           </div>
         `}
+      </div>
+    `;
+  }
+
+  _renderAdvanced() {
+    const feats = this._advanced();
+    if (feats.length === 0) return '';
+    return html`
+      <div class="section-title">Added features</div>
+      <div class="rows">
+        ${feats.map(f => {
+          const on = (f.key in this._advEdit) ? this._advEdit[f.key] : f.on;
+          return html`
+            <div class="row">
+              <div class="row-info">
+                <div class="row-label">${f.label}</div>
+                ${f.help ? html`<div class="row-help">${f.help}</div>` : ''}
+              </div>
+              <button
+                class="toggle"
+                role="switch"
+                aria-checked=${on ? 'true' : 'false'}
+                aria-label=${f.label}
+                ?disabled=${this._busy}
+                @click=${() => this._toggleAdvanced(f)}
+              ></button>
+            </div>
+          `;
+        })}
       </div>
     `;
   }

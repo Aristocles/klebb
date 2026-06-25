@@ -53,7 +53,7 @@ const DOC_INDEX = [
   // meta.writeable.inputs vs hardcodes the write shape, primarily) so
   // the agent can usually answer without reading the file.
   { kind: 'source', path: 'public/js/components/eh-base-card.js',
-    summary: 'Base class for every card renderer. Owns the shell (header, expand/collapse, loading, error), data fetch + 20s cache, .card / .data / .date / .config / .writeable props passed down to subclass renderCard().' },
+    summary: 'Base class for every card renderer. Owns the shell (header, expand/collapse, loading, error), data fetch + 20s cache, .card / .data / .date / .config / .writeable props passed down to subclass renderCard(). The header also carries the per-card settings gear (a modal of safe toggles). RESERVED: meta.view._disabled is the gear\'s parking namespace for switched-off optional blocks (e.g. checkOffForm) — never author into it; live blocks always win over a parked copy.' },
   { kind: 'source', path: 'public/js/components/eh-input-form.js',
     summary: 'Manifest-driven form. Reads meta.writeable.inputs; renders one widget per input type (number, stepper, text, textarea, select, emoji-picker, colour, checkbox, date, time, rating). Used by generic-card, list-card, combination-card edit, prompt-modal modal mode.' },
   { kind: 'source', path: 'public/js/components/eh-generic-card.js',

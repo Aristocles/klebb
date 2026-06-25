@@ -23,9 +23,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   (custom times, wording, and multiple reminders stay with Klebbius); on a
   card that already has reminders it's a master on/off that leaves the
   individual ones untouched. Read-only composite cards have no gear.
-  Structured options (display templates, thresholds, colour maps) stay with
+  Optional extras a card already carries (a schedule card's per-dose
+  check-off form, a generic card's thresholds, trend arrow, emoji labels,
+  or custom colours) appear under "Added features" as on/off switches:
+  turning one off parks its config so nothing is lost, and turning it back
+  on restores it exactly. Authoring those extras still happens through
   Klebbius, and the panel links straight to the chat, pre-seeded with the
-  card's context, for anything it doesn't expose. Refs #456.
+  card's context, for anything it doesn't expose. Closes #456.
 
 - **Tap a notification to re-read what it was reminding you about.**
   When a `schedule_due` push notification fires, its structured items

@@ -119,4 +119,21 @@ describe('modal <-> app event contract', () => {
     assert.ok(/e\.detail\?\.changed[\s\S]{0,80}klebb-cards-changed/.test(APP),
       'dispatches klebb-cards-changed only when changed');
   });
+  test('app passes the renderer component to the modal (advanced discovery needs it)', () => {
+    assert.ok(/\.component=\$\{this\._cardSettings\.component\}/.test(APP), 'component bound on the modal');
+  });
+  test('modal renders an advanced (added features) section via discover-and-park', () => {
+    assert.ok(/_renderAdvanced\(\)/.test(MODAL), 'advanced section rendered');
+    assert.ok(/discoverAdvanced/.test(MODAL), 'uses the discovery helper');
+    assert.ok(/buildAdvancedPatch/.test(MODAL), 'uses the park/restore patch builder');
+  });
+  test('advanced patch is always computed so stale parked copies purge on save', () => {
+    // buildAdvancedPatch is called in _combinedPatch unconditionally (not
+    // guarded behind "only if edits"), enforcing live-wins.
+    assert.ok(/buildAdvancedPatch\(meta,\s*this\._advanced\(\),\s*this\._advEdit\)/.test(MODAL),
+      'advanced patch computed every save');
+  });
+  test('combined patch deep-merges so view sub-trees never clobber each other', () => {
+    assert.ok(/function deepMerge/.test(MODAL), 'deepMerge helper present');
+  });
 });

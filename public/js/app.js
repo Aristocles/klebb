@@ -110,6 +110,7 @@ class HealthApp extends LitElement {
       card: { id, meta },
       schema: mergeSchema(rendererSchema),
       displayName: (cls && cls.displayName) || 'Card',
+      component: component || meta.view?.component || null,
     };
   }
 
@@ -531,6 +532,7 @@ class HealthApp extends LitElement {
           .card=${this._cardSettings.card}
           .schema=${this._cardSettings.schema}
           .displayName=${this._cardSettings.displayName}
+          .component=${this._cardSettings.component}
           @eh-card-settings-done=${this._onCardSettingsDone}
         ></eh-card-settings-modal>
       ` : ''}
