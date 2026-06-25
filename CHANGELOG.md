@@ -9,6 +9,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Klebbius now reaches for the new tools.** The system prompt gained
+  three steering blocks so the agent actually uses the v3.3.0 tools
+  rather than just having them: (1) an intent block (act on the
+  best-supported interpretation, resolve "this card" against the card
+  in focus, ask at most one closed question and only when a request is
+  both destructive and ambiguous, pre-fill new cards from sibling-card
+  conventions via `get_recent_activity`, quote the values used); (2) a
+  validate-before-write gate (call `validate_manifest` before every
+  create/patch, bounded self-correction); (3) an unsupported-request
+  rubric (distinguish genuinely-unsupported from needs-a-question,
+  state the boundary, offer the nearest action, log the gap via
+  `note_feature_request`). The four new tools are now documented in the
+  prompt and in `docs/CHAT-AGENT.md`, and the stale "no reorder
+  primitive" refusal example (contradicted by `reorder_rows`) is gone.
+  Refs #450.
+
 - **Tap a sparkline card to expand its full trend chart.** When a
   generic-card shows a sparkline, its header becomes clickable and
   expands the full ECharts line trend inline. ECharts loads lazily on
