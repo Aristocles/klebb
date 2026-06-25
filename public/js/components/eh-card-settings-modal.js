@@ -26,6 +26,9 @@ import { errorFromResponse } from '../lib/save-error.js';
 import {
   resolveSettingValue, isSettingAvailable, buildMetaPatch,
 } from '../lib/card-settings.js';
+import {
+  notificationsState, notificationsEnabled, buildNotificationsPatch,
+} from '../lib/card-notifications.js';
 
 export class EhCardSettingsModal extends LitElement {
   static properties = {
@@ -33,6 +36,7 @@ export class EhCardSettingsModal extends LitElement {
     schema: { type: Array },
     displayName: { type: String },
     _edited: { state: true },
+    _notifEdit: { state: true },
     _data: { state: true },
     _busy: { state: true },
     _error: { state: true },
@@ -45,6 +49,10 @@ export class EhCardSettingsModal extends LitElement {
     this.schema = [];
     this.displayName = '';
     this._edited = {};
+    // Notifications is not a path descriptor (enabling can *create* an
+    // item), so its toggle tracks a separate tri-state: null = untouched,
+    // true/false = user's pending choice.
+    this._notifEdit = null;
     this._data = null;
     this._busy = false;
     this._error = null;
@@ -212,8 +220,34 @@ export class EhCardSettingsModal extends LitElement {
     this._edited = { ...this._edited, [d.path]: !this._valueOf(d) };
   }
 
+  // Notifications: the displayed value is the pending edit, else the
+  // manifest's current state.
+  _notifOn() {
+    if (this._notifEdit !== null) return this._notifEdit;
+    return notificationsEnabled(this.card?.meta || {});
+  }
+
+  _toggleNotifications() {
+    if (this._busy) return;
+    this._notifEdit = !this._notifOn();
+  }
+
+  // Deep-merge two meta-patches (each shaped { meta: {...} }) into one PATCH
+  // body. Both are produced by us and only ever set scalar booleans or the
+  // notifications block, so a shallow merge of meta sub-objects suffices —
+  // the only overlap would be meta.notifications, which only one source
+  // writes.
+  _combinedPatch() {
+    const settings = buildMetaPatch(this.schema, this.card?.meta || {}, this._edited);
+    const notif = this._notifEdit === null
+      ? null
+      : buildNotificationsPatch(this.card?.meta || {}, this._notifEdit);
+    if (!settings && !notif) return null;
+    return { meta: { ...(settings?.meta || {}), ...(notif?.meta || {}) } };
+  }
+
   async _save() {
-    const patch = buildMetaPatch(this.schema, this.card?.meta || {}, this._edited);
+    const patch = this._combinedPatch();
     if (!patch) { this._close(); return; }
     this._busy = true;
     this._error = null;
@@ -281,6 +315,8 @@ export class EhCardSettingsModal extends LitElement {
                   </div>
                 `)}
 
+            ${this._renderNotifications()}
+
             <div class="footer">
               <span class="note">More options? Ask Klebbius about this card.</span>
               <button class="save-btn" type="button" ?disabled=${this._busy} @click=${this._save}>
@@ -317,6 +353,44 @@ export class EhCardSettingsModal extends LitElement {
           ?disabled=${!available || this._busy}
           @click=${() => this._toggle(d)}
         ></button>
+      </div>
+    `;
+  }
+
+  _renderNotifications() {
+    const meta = this.card?.meta || {};
+    const state = notificationsState(meta);
+    const on = this._notifOn();
+    return html`
+      <div class="section-title">Notifications</div>
+      <div class="rows">
+        ${state === 'none' ? html`
+          <div class="row unavailable">
+            <div class="row-info">
+              <div class="row-label">Reminders</div>
+              <div class="row-hint">Ask Klebbius to set up reminders for this card.</div>
+            </div>
+          </div>
+        ` : html`
+          <div class="row">
+            <div class="row-info">
+              <div class="row-label">Reminders</div>
+              <div class="row-help">
+                ${state === 'can-create'
+                  ? 'A daily reminder at 9am. Ask Klebbius for custom times, wording, or multiple reminders.'
+                  : 'Turn all reminders for this card on or off. Fine-tune individual ones in Settings › Notifications.'}
+              </div>
+            </div>
+            <button
+              class="toggle"
+              role="switch"
+              aria-checked=${on ? 'true' : 'false'}
+              aria-label="Reminders"
+              ?disabled=${this._busy}
+              @click=${this._toggleNotifications}
+            ></button>
+          </div>
+        `}
       </div>
     `;
   }

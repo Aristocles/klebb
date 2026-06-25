@@ -18,10 +18,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   declares its own toggleable options through a static `settingsSchema`, so
   the panel only shows settings the card actually honours; data-dependent
   toggles (like the sparkline) appear disabled with a hint until there's
-  enough data. Read-only composite cards have no gear. Structured options
-  (display templates, thresholds, colour maps) stay with Klebbius, and the
-  panel links straight to the chat, pre-seeded with the card's context, for
-  anything it doesn't expose. Refs #456.
+  enough data. The panel also has a Reminders switch: on a loggable card
+  with none set up it creates a single private daily reminder at 9am
+  (custom times, wording, and multiple reminders stay with Klebbius); on a
+  card that already has reminders it's a master on/off that leaves the
+  individual ones untouched. Read-only composite cards have no gear.
+  Structured options (display templates, thresholds, colour maps) stay with
+  Klebbius, and the panel links straight to the chat, pre-seeded with the
+  card's context, for anything it doesn't expose. Refs #456.
 
 - **Tap a notification to re-read what it was reminding you about.**
   When a `schedule_due` push notification fires, its structured items

@@ -196,6 +196,98 @@ test.describe('#456: per-card settings gear', () => {
     await expect(combo.locator('.settings-gear')).toHaveCount(0);
   });
 
+  test('notifications: enabling on a loggable card with none creates a private daily reminder', async ({ page, sandboxState }) => {
+    const baseUrl = sandboxState.baseUrl;
+    // weight is loggable (fromWebapp) and has no notifications block.
+    const before = await (await page.request.get(`${baseUrl}/api/manifests/weight`)).json();
+    const hadNotifs = before.meta?.notifications !== undefined;
+
+    await page.goto('/');
+    await expect(page.locator('eh-date-view')).toBeVisible();
+    const weightCard = page.locator('eh-generic-card', { hasText: 'Weight' }).first();
+    await weightCard.locator('.settings-gear').click();
+    const modal = page.locator('eh-card-settings-modal');
+    await expect(modal.locator('dialog')).toBeVisible();
+
+    const notifRow = modal.locator('.row', { hasText: 'Reminders' });
+    const toggle = notifRow.locator('.toggle');
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await toggle.click();
+    await modal.locator('.save-btn').click();
+    await expect(modal).toHaveCount(0);
+
+    // The manifest gained a single private daily reminder.
+    const after = await (await page.request.get(`${baseUrl}/api/manifests/weight`)).json();
+    const n = after.meta.notifications;
+    expect(n.enabled).toBe(true);
+    expect(n.items).toHaveLength(1);
+    expect(n.items[0].trigger).toMatchObject({ type: 'daily', time: '09:00' });
+    expect(n.items[0].privacy).toBe('private');
+
+    // Restore: strip the notifications block we added (null removes it).
+    await page.request.fetch(`${baseUrl}/api/manifests/weight`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      data: { meta: { notifications: hadNotifs ? before.meta.notifications : null } },
+    });
+  });
+
+  test('notifications: master toggle on a card with items flips enabled without wiping items', async ({ page, sandboxState }) => {
+    const baseUrl = sandboxState.baseUrl;
+    const id = 'e2e_notif_456';
+    const create = await page.request.post(`${baseUrl}/api/manifests`, {
+      data: {
+        $schema: 'klebb.datafile.v1',
+        meta: {
+          id, label: 'Notif 456', emoji: '🔔', order: 952,
+          view: { enabled: true, component: 'generic-card', display: { template: '{n}' } },
+          writeable: { fromWebapp: true, todayAllowed: true, inputs: [{ key: 'n', type: 'number' }] },
+          notifications: {
+            enabled: true,
+            items: [{ id: 'morning', label: 'Morning ping', title: 'Notif 456', body: 'Log it.', trigger: { type: 'daily', time: '07:30' } }],
+          },
+        },
+        data: [],
+      },
+    });
+    expect(create.status()).toBe(201);
+    try {
+      await page.goto('/');
+      await expect(page.locator('eh-date-view')).toBeVisible();
+      const card = page.locator('eh-generic-card', { hasText: 'Notif 456' }).first();
+      await card.locator('.settings-gear').click();
+      const modal = page.locator('eh-card-settings-modal');
+      await expect(modal.locator('dialog')).toBeVisible();
+
+      const toggle = modal.locator('.row', { hasText: 'Reminders' }).locator('.toggle');
+      await expect(toggle).toHaveAttribute('aria-checked', 'true');
+      await toggle.click(); // turn master off
+      await modal.locator('.save-btn').click();
+      await expect(modal).toHaveCount(0);
+
+      const after = await (await page.request.get(`${baseUrl}/api/manifests/${id}`)).json();
+      expect(after.meta.notifications.enabled).toBe(false);
+      // Items are preserved (merge-patch never sent items[]).
+      expect(after.meta.notifications.items).toHaveLength(1);
+      expect(after.meta.notifications.items[0].id).toBe('morning');
+    } finally {
+      await page.request.delete(`${baseUrl}/api/manifests/${id}`);
+    }
+  });
+
+  test('notifications: a read-only card shows the hint, no toggle', async ({ page, sandboxState }) => {
+    await page.goto('/');
+    await expect(page.locator('eh-date-view')).toBeVisible();
+    // workouts is fromWebapp:false with no notifications -> 'none' state.
+    const card = page.locator('eh-generic-card', { hasText: 'Workouts' }).first();
+    await card.locator('.settings-gear').click();
+    const modal = page.locator('eh-card-settings-modal');
+    await expect(modal.locator('dialog')).toBeVisible();
+    const notifRow = modal.locator('.row', { hasText: 'Reminders' });
+    await expect(notifRow.locator('.toggle')).toHaveCount(0);
+    await expect(notifRow.locator('.row-hint')).toContainText(/Klebbius/i);
+  });
+
   test('synthetic cards (e.g. unknown renderer) do not show a gear', async ({ page, sandboxState }) => {
     const baseUrl = sandboxState.baseUrl;
     const id = 'e2e_unknown_456';

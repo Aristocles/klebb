@@ -104,6 +104,16 @@ describe('modal <-> app event contract', () => {
     assert.ok(/customElements\.get\(tag\)/.test(APP), 'resolves the renderer class via the registry tag');
     assert.ok(/mergeSchema\(/.test(APP), 'merges common + renderer schema');
   });
+  test('modal renders a notifications section and combines patches into one PATCH', () => {
+    assert.ok(/_renderNotifications\(\)/.test(MODAL), 'notifications section rendered');
+    assert.ok(/buildNotificationsPatch/.test(MODAL), 'uses the notifications patch builder');
+    assert.ok(/_combinedPatch\(\)/.test(MODAL), 'merges settings + notifications into one patch');
+    assert.ok(/notificationsState|notificationsEnabled/.test(MODAL), 'reads notification state from the helper');
+  });
+  test('notifications toggle is separate from path descriptors (can create an item)', () => {
+    assert.ok(/_notifEdit/.test(MODAL), 'notifications tracked as its own tri-state');
+    assert.ok(/_toggleNotifications/.test(MODAL), 'dedicated toggle handler');
+  });
   test('app refreshes the view only when a change was persisted', () => {
     assert.ok(/_onCardSettingsDone/.test(APP), 'done handler present');
     assert.ok(/e\.detail\?\.changed[\s\S]{0,80}klebb-cards-changed/.test(APP),
