@@ -9,6 +9,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **A settings gear on every card.** Each card header now carries a small
+  gear that opens a per-card settings panel: toggle which views the card
+  appears in, whether it accepts entries from the app (and for which
+  dates), the daily prompt, carry-forward, and the trend sparkline, all
+  pre-filled from the manifest and saved back via the existing
+  `PATCH /api/manifests/:id` path. Each renderer declares its own
+  toggleable options through a static `settingsSchema`, so the panel only
+  shows settings the card actually honours; data-dependent toggles (like
+  the sparkline) appear disabled with a hint until there's enough data.
+  Structured options (display templates, thresholds, colour maps) stay
+  with Klebbius, and the panel links straight to the chat, pre-seeded with
+  the card's context, for anything it doesn't expose. Refs #456.
+
 - **Tap a notification to re-read what it was reminding you about.**
   When a `schedule_due` push notification fires, its structured items
   (today's survivors plus same-day carry-forward of missed doses) now

@@ -53,6 +53,18 @@ Refresh the dashboard. The card appears. Tap ➕ to add an entry.
 
 ---
 
+## Editing without touching JSON
+
+Most of the common toggles below can be flipped from the app itself: every
+card header has a small gear (⚙️) that opens a settings panel. It exposes the
+safe, common-sense options for that card type, pre-filled from the manifest,
+view visibility, whether the app can log entries (and for which dates), the
+daily prompt, carry-forward, the trend sparkline, and saves them straight back
+to the manifest file. Options that need real authoring (display templates,
+thresholds, colour maps, notification text and timing) aren't in the panel;
+ask Klebbius for those, and the panel links to the chat for exactly that. Hand-
+editing the JSON below always works too; the gear is just the quick path.
+
 ## Anatomy of a manifest
 
 Every card file has the same top-level shape:

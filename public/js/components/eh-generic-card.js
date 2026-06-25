@@ -51,7 +51,56 @@ import './eh-input-form.js';
 import './eh-sparkline.js';
 import './eh-line-chart.js';
 
+// Resolve the field a sparkline would plot from a manifest's display
+// block + a data array, mirroring the instance _sparklineField order so
+// the settings-gate matches what the card actually renders. Static so the
+// settingsSchema availability predicate can use it without an instance.
+function resolveSparklineField(display, rows) {
+  if (display && display.trendArrow && display.trendArrow.field) return display.trendArrow.field;
+  const tpl = display && typeof display.template === 'string' ? display.template : '';
+  const m = tpl.match(/\{([^}]+)\}/);
+  if (m) return m[1].split(/[:|?]/)[0].trim();
+  const row = Array.isArray(rows) && rows.length ? rows[rows.length - 1] : null;
+  if (row) {
+    for (const c of ['value', 'kg', 'ml', 'count', 'minutes', 'systolic']) {
+      if (c in row) return c;
+    }
+    for (const k of Object.keys(row)) {
+      if (k === 'date' || k === 'time' || k === 'notes') continue;
+      if (typeof row[k] === 'number') return k;
+    }
+  }
+  return null;
+}
+
 export class EhGenericCard extends EhBaseCard {
+  static supportsSettingsGear = true;
+  static displayName = 'Metric';
+
+  static get settingsSchema() {
+    return [
+      {
+        path: 'view.fallbackToLatest', label: 'Carry forward last value on Today', kind: 'toggle',
+        section: 'Behaviour', default: false,
+        help: 'When today has no entry, show the most recent prior value instead of an empty state.',
+      },
+      {
+        path: 'view.showSparkline', label: 'Show trend sparkline', kind: 'toggle',
+        section: 'Behaviour', default: false,
+        help: 'A small 30-day trend line on Today. Tap the card to open the full chart.',
+        needsData: true,
+        availableWhen: ({ meta, data }) => {
+          const display = meta?.view?.display || {};
+          const rows = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+          const field = resolveSparklineField(display, rows);
+          if (!field) return false;
+          return numericSeries(rows, field, { limit: 30 }).length >= 2;
+        },
+        unavailableHint: 'Needs a few days of numeric data first.',
+      },
+    ];
+  }
+
   static properties = {
     ...EhBaseCard.properties,
     _editing: { state: true },
@@ -362,10 +411,11 @@ export class EhGenericCard extends EhBaseCard {
       }
       .edit-btn {
         position: absolute;
-        /* Sit in the card-header row, right-aligned. -32px lifts the
-           button above the card-inner container into the header space. */
+        /* Sit in the card-header row. -32px lifts the button above the
+           card-inner container into the header space; right offset clears
+           the base card's settings gear, which owns the top-right corner. */
         top: -32px;
-        right: 4px;
+        right: 40px;
         background: transparent;
         border: 1px solid var(--border);
         color: var(--text-secondary);
