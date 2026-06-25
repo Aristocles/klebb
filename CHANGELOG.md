@@ -7,6 +7,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-06-25
+
 ### Added
 
 - **Klebbius now reaches for the new tools.** The system prompt gained
@@ -2687,5 +2689,6 @@ version:
    `HEALTH_ORIGIN` to match your domain
 5. `systemctl restart klebb@<instance>` (or your own equivalent)
 
-[Unreleased]: https://github.com/Aristocles/klebb/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/Aristocles/klebb/compare/v3.3.0...HEAD
+[3.3.0]: https://github.com/Aristocles/klebb/compare/v3.2.0...v3.3.0
 [2.0.0]: https://github.com/Aristocles/klebb/releases/tag/v2.0.0
