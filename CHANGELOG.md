@@ -7,6 +7,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Tap a notification to re-read what it was reminding you about.**
+  When a `schedule_due` push notification fires, its structured items
+  (today's survivors plus same-day carry-forward of missed doses) now
+  travel through the encrypted payload and are stashed alongside the
+  deep-link in IndexedDB. Tapping the notification opens the app and
+  surfaces an `eh-reminder-modal` with two sections — *Due now* and
+  *Missed earlier* — each row tagged with its source card's emoji and
+  label, with an "Open card" link per row. Daily/weekly notifications
+  carry no item structure, so no modal opens. The Settings → Notifications
+  test-fire path goes through the same shape so you can verify the modal
+  without waiting on the wall clock. Foreground-arrival pushes still
+  dispatch their existing event but do not auto-open the modal: it's a
+  tap-response affordance, not a push-arrival one. Fixes #454.
+
 ## [3.3.0] - 2026-06-25
 
 ### Added

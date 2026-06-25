@@ -7,6 +7,18 @@
 // has stashed the pending deep-link intent in IndexedDB. This module
 // reads-and-clears that intent on app boot and dispatches a
 // 'klebb-deep-link' event the app shell already knows how to handle.
+//
+// Stashed shape:
+//   {
+//     ts:   number               // ms since epoch; >5min entries are dropped
+//     url:  string               // same-origin path the SPA should route to
+//     cardId?: string | null     // primary card extracted from the payload
+//     reminders?: Array<{
+//       cardId, cardLabel, cardEmoji,
+//       due_now: Array<{name, short_name}>,
+//       missed_earlier: Array<{name, short_name}>,
+//     }> | null                  // schedule_due carry-forward for the modal
+//   }
 
 const IDB_NAME = 'klebb-sw';
 const IDB_STORE = 'deep-links';

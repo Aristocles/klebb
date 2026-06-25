@@ -17,7 +17,7 @@
 //     instead of showing a banner (avoids iOS suppressing the
 //     showNotification call when the app is in the foreground anyway).
 
-const VERSION = 'klebb-sw-v2';
+const VERSION = 'klebb-sw-v3';
 const IDB_NAME = 'klebb-sw';
 const IDB_STORE = 'deep-links';
 
@@ -84,13 +84,18 @@ async function handlePush(event) {
 
   // Persist deep-link intent BEFORE showNotification so a cold-start
   // launch on iOS (which can strip query strings off openWindow URLs)
-  // can read the intent on app boot.
+  // can read the intent on app boot. Reminder groups ride along so the
+  // tap-response modal can render straight from the SW data without
+  // re-fetching the card.
   const primary = items[0];
-  await idbPutDeepLink({
+  const reminders = _mergeReminderGroups(items);
+  const stash = {
     ts: Date.now(),
     url: primary.url || '/',
     cardId: primary.cardId || null,
-  });
+  };
+  if (reminders) stash.reminders = reminders;
+  await idbPutDeepLink(stash);
 
   // Best-effort: tell every visible client about the incoming push so a
   // future in-app toast layer can render an inline notification. This
@@ -119,7 +124,7 @@ async function handlePush(event) {
     tag: primary.tag || VERSION,
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
-    data: { url: primary.url || '/', cardId: primary.cardId || null },
+    data: { url: primary.url || '/', cardId: primary.cardId || null, reminders },
     renotify: true,
     requireInteraction: false,
   });
@@ -141,6 +146,28 @@ function _displayBody(payload) {
   }
   const it = items[0];
   return it.realBody || it.body || 'You have a reminder.';
+}
+
+// Collapse per-item reminders into one array of source-card groups.
+// Returns null when no item carries any due_now / missed_earlier rows
+// (daily/weekly triggers, or schedule_due with nothing actually due).
+function _mergeReminderGroups(items) {
+  const groups = [];
+  for (const i of items) {
+    const r = i && i.reminders;
+    if (!r) continue;
+    const due = Array.isArray(r.due_now) ? r.due_now : [];
+    const miss = Array.isArray(r.missed_earlier) ? r.missed_earlier : [];
+    if (due.length === 0 && miss.length === 0) continue;
+    groups.push({
+      cardId: i.cardId || null,
+      cardLabel: i.cardLabel || null,
+      cardEmoji: i.cardEmoji || null,
+      due_now: due,
+      missed_earlier: miss,
+    });
+  }
+  return groups.length ? groups : null;
 }
 
 async function handleNotificationClick(event) {
@@ -181,7 +208,13 @@ async function handleNotificationClick(event) {
     // them), so we ALSO call WindowClient.navigate() as the robust
     // path: a real navigation that always lands the tab on the
     // intended URL.
-    try { c.postMessage({ type: 'klebb-deep-link', url: target }); } catch {}
+    try {
+      c.postMessage({
+        type: 'klebb-deep-link',
+        url: target,
+        reminders: data.reminders || null,
+      });
+    } catch {}
     try {
       if (typeof c.navigate === 'function') {
         await c.navigate(absoluteTarget);
