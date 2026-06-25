@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/hero-tier.test.js
-// Unit tests for public/js/lib/hero-tier.js: the pinned/hero tier sort
-// that lifts meta.view.priority cards to the top of the Today view.
+// Unit tests for public/js/lib/hero-tier.js. Contract: priority FLAGS a card
+// as pinned (styling only) but never re-sorts the list, so a manual reorder
+// (which rewrites meta.order, the server's sort key) always wins.
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,49 +21,44 @@ function card(id, { priority, order } = {}) {
 const ids = (rows) => rows.map(r => r.card.id);
 
 describe('orderCardsForView', () => {
-  test('lower priority sorts ahead among pinned cards', () => {
+  test('preserves the incoming order even when priorities differ', () => {
+    // Incoming order is the server meta.order sequence. priority must NOT
+    // re-sort it: this is what lets a manual drag stick.
     const cards = [card('a', { priority: 30 }), card('b', { priority: 10 }), card('c', { priority: 20 })];
     const out = orderCardsForView(cards, 'view');
-    assert.deepEqual(ids(out), ['b', 'c', 'a']);
+    assert.deepEqual(ids(out), ['a', 'b', 'c']);
     assert.ok(out.every(r => r.pinned === true));
   });
 
-  test('pinned cards precede unpinned cards', () => {
-    const cards = [
-      card('plain1'),
-      card('pinned', { priority: 5 }),
-      card('plain2'),
+  test('REGRESSION: a reordered priority card is NOT snapped back to the top', () => {
+    // Simulate the user dragging the high-priority "weight" card to the
+    // bottom: the server returns it last (its meta.order was rewritten).
+    // orderCardsForView must leave it last.
+    const reordered = [
+      card('steps', { priority: 20 }),
+      card('notes'),
+      card('weight', { priority: 10 }), // dragged to the end despite low priority
     ];
-    const out = orderCardsForView(cards, 'view');
-    assert.deepEqual(ids(out), ['pinned', 'plain1', 'plain2']);
-    assert.deepEqual(out.map(r => r.pinned), [true, false, false]);
+    const out = orderCardsForView(reordered, 'view');
+    assert.deepEqual(ids(out), ['steps', 'notes', 'weight']);
+    assert.equal(out[out.length - 1].card.id, 'weight');
   });
 
-  test('among unpinned cards the incoming order is preserved', () => {
-    // Incoming is already order-sorted; ties must stay stable.
-    const cards = [card('first'), card('second'), card('third')];
+  test('pinned flag is set by priority presence, order untouched', () => {
+    const cards = [card('plain1'), card('pinned', { priority: 5 }), card('plain2')];
     const out = orderCardsForView(cards, 'view');
-    assert.deepEqual(ids(out), ['first', 'second', 'third']);
+    assert.deepEqual(ids(out), ['plain1', 'pinned', 'plain2']);
+    assert.deepEqual(out.map(r => r.pinned), [false, true, false]);
   });
 
-  test('no priority anywhere yields the same order as input', () => {
+  test('no priority anywhere yields the same order, nothing pinned', () => {
     const cards = [card('a'), card('b'), card('c'), card('d')];
     const out = orderCardsForView(cards, 'view');
     assert.deepEqual(ids(out), ['a', 'b', 'c', 'd']);
     assert.ok(out.every(r => r.pinned === false));
   });
 
-  test('equal priorities keep their incoming relative order (stable)', () => {
-    const cards = [
-      card('p1', { priority: 10 }),
-      card('p2', { priority: 10 }),
-      card('p3', { priority: 5 }),
-    ];
-    const out = orderCardsForView(cards, 'view');
-    assert.deepEqual(ids(out), ['p3', 'p1', 'p2']);
-  });
-
-  test('hero treatment applies only to the today/default view', () => {
+  test('hero treatment (the pinned flag) applies only to the today view', () => {
     const cards = [card('plain'), card('pinned', { priority: 1 })];
     for (const view of ['trends', 'calendar', 'reports', 'dayDetail']) {
       const out = orderCardsForView(cards, view);
@@ -78,9 +74,8 @@ describe('orderCardsForView', () => {
       card('c', { priority: 0 }),
     ];
     const out = orderCardsForView(weird, 'view');
-    // Only c (priority 0, finite) is pinned; the rest keep input order.
-    assert.deepEqual(ids(out), ['c', 'a', 'b']);
-    assert.deepEqual(out.map(r => r.pinned), [true, false, false]);
+    assert.deepEqual(ids(out), ['a', 'b', 'c']); // order always preserved
+    assert.deepEqual(out.map(r => r.pinned), [false, false, true]); // only finite 0 is pinned
   });
 
   test('empty / non-array input is safe', () => {

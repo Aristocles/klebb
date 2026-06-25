@@ -9,17 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
-- **Hero / pinned tier on the Today view.** A card can declare
-  `meta.view.priority` (a number; lower = higher up). Any card with a
-  numeric priority is "pinned": it lifts into a full-width band at the
-  top of the Today view, above the normal `order`-sorted masonry, so
-  the 2-4 cards that matter most read as a distinct hero band under the
-  greeting banner. Pure presentation: the partition is a stable sort in
-  `public/js/lib/hero-tier.js` and a `.card-wrap.pinned` CSS class in
-  the view renderer; no server or data-shape change. Gated to the live
-  Today view only (`view` + `dateMode: "today"`, and never in reorder
-  mode), so Trends/Calendar/Reports and past-day views are untouched.
-  Manifests with no priority render in exactly their existing order.
+- **Pinned affordance for hero cards on the Today view.** A card can
+  declare `meta.view.priority` (a number) to mark itself "pinned",
+  which renders a subtle accent edge on the card. Seed a hero card near
+  the top by giving it a low `meta.order`; priority itself does NOT
+  re-sort, so a manual reorder (which rewrites `meta.order`) always
+  wins and a dragged card stays put. Pinned cards keep normal masonry
+  width (they do not span the row). Pure presentation: a `pinned` flag
+  in `public/js/lib/hero-tier.js` and a `.card-wrap.pinned` CSS class in
+  the view renderer; no server or data-shape change. The flag is set
+  only on the Today view; Trends/Calendar/Reports are untouched, and
+  manifests with no priority render in exactly their existing order.
   Refs #422.
 
 - **`reorder_rows` chat tool.** New row-level primitive in
