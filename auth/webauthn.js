@@ -133,6 +133,7 @@ function isPublicPath(pathname) {
     '/manifest.json',
     '/sw.js',
     '/favicon.ico',
+    '/api/instance',
   ];
   // Exact-path public files. Kept separate from the prefix list so adding
   // an entry here cannot accidentally open a directory window.
