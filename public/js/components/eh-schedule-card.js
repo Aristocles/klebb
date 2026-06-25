@@ -21,7 +21,9 @@ import { EhBaseCard } from './eh-base-card.js';
 import { isScheduledOnDate, effectiveCycles } from '../../../lib/schedule.mjs';
 import { registerRenderer } from '../renderer-registry.js';
 import { chipsFor as todChipsFor } from '../lib/time-of-day.esm.js';
+import { itemAdherenceSeries } from '../lib/adherence-series.esm.js';
 import './eh-input-form.js';
+import './eh-sparkline.js';
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -177,6 +179,11 @@ export class EhScheduleCard extends EhBaseCard {
       }
 
       /* Week dots */
+      .sc-spark {
+        margin-top: 6px;
+        line-height: 0;
+        max-width: 160px;
+      }
       .week {
         display: flex;
         gap: 4px;
@@ -612,6 +619,24 @@ export class EhScheduleCard extends EhBaseCard {
     `;
   }
 
+  // Opt-in per-item adherence strip (meta.view.showSparkline): 1 taken /
+  // 0 missed over scheduled days in the last 30, null on rest/off days. The
+  // 30-day generalisation of the 7-day week dots. Today-only; needs >= 2
+  // scheduled days of signal or it renders nothing.
+  _renderAdherenceSpark(item) {
+    if (!this._config.showSparkline) return '';
+    const isToday = this.dateMode === 'today' || !this.dateMode;
+    if (!isToday) return '';
+    const series = itemAdherenceSeries(item, {
+      endDate: this.date,
+      limit: 30,
+      isScheduled: (it, day) => isScheduledOnDate(it, day) === 'scheduled',
+      isTaken: (it, day) => this._isTakenOn(it, day),
+    });
+    if (series.filter(v => v !== null).length < 2) return '';
+    return html`<div class="sc-spark"><eh-sparkline mode="adherence" .values=${series}></eh-sparkline></div>`;
+  }
+
   _renderCheckOffForm(item, opts) {
     const cfg = this._checkOffFormConfig();
     if (!cfg) return '';
@@ -736,6 +761,7 @@ export class EhScheduleCard extends EhBaseCard {
                   </div>
                   ${doseSummary ? html`<div class="dose-summary">${doseSummary}</div>` : ''}
                   ${this._renderWeekDots(item, colour)}
+                  ${this._renderAdherenceSpark(item)}
                 </div>
                 <div class="right">
                   ${chip ? html`<span class="chip ${chip.cls}">${chip.text}</span>` : ''}

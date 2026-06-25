@@ -302,6 +302,19 @@ function data(id) {
   return e ? e.data : null;
 }
 
+// Last-modified time (epoch ms) of the manifest's backing file, or null
+// if the id is unknown or the file can't be stat'd. Used as a staleness
+// fallback when a card's rows carry no usable per-row date.
+function sourceMtime(id) {
+  const e = _entries.get(id);
+  if (!e || !e.source) return null;
+  try {
+    return fs.statSync(e.source).mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
 function errors() {
   return [..._errors];
 }
@@ -895,6 +908,7 @@ module.exports = {
   listForView,
   get,
   data,
+  sourceMtime,
   writeData,
   readRows,
   appendRow,
@@ -910,4 +924,11 @@ module.exports = {
   deleteManifest,
   validateManifestShape,
   onDelete,
+  // Canonical validator constants, exported so scripts/gen-manifest-schema.js
+  // can project the JSON-Schema artefact from the same source of truth the
+  // validator enforces (no duplicated values that could drift).
+  SUPPORTED_SCHEMAS,
+  ID_PATTERN,
+  ID_MAX_LENGTH,
+  RESERVED_IDS,
 };

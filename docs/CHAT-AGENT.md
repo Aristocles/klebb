@@ -56,6 +56,10 @@ the tools are simply unused.
 | `set_notification` / `remove_notification` | Add, update, or remove a Web Push reminder on a card. `set_notification` is idempotent by `(card_id, notification_id)`; `remove_notification` requires one-shot user confirmation. v1 trigger types: `daily` and `weekly`. The validator enforces title <= 30, body <= 80, label <= 80, items[] <= 10 per card; the system prompt forbids including numerical values or past-entry content in the body (notifications are reminders to act, not summaries). |
 | `read_doc` | Fetch any allowlisted in-repo doc (README, MANIFEST-SCHEMA, this file, etc.) |
 | `read_report` | Fetch any ingested report from `$HEALTH_HOME/reports/`. The agent gets the catalogue automatically in its system prompt; see [`REPORTS.md`](REPORTS.md) for how reports get there. |
+| `get_recent_activity` | One-pass recency summary of every card (`rowCount`, `lastEntryDate`, `ageDays`, `lastNDelta`). The agent calls it before answering "how's my tracking" questions and before authoring a card (to match sibling conventions). |
+| `hygiene_scan` | On-demand dashboard health check: stale / oversized / orphaned-input findings. Report-only; never mutates. |
+| `validate_manifest` | Dry-run a candidate manifest (no write). Returns `{ok}` or `{ok:false, errors:[{path,message}]}`. The system prompt directs the agent to call it before every create/patch. |
+| `note_feature_request` | Logs an anonymised unmet-capability intent to `data/_meta/feedback.jsonl` when a request is genuinely unsupported (paraphrased intent only, no user data). |
 
 ### Refusal when no tool fits
 

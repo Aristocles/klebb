@@ -13,12 +13,15 @@ import { EhBaseCard } from './eh-base-card.js';
 import { registerRenderer } from '../renderer-registry.js';
 import { isScheduledOnDate } from '../../../lib/schedule.mjs';
 import { chipsFor as todChipsFor } from '../lib/time-of-day.esm.js';
+import { adherenceSeries } from '../lib/adherence-series.esm.js';
+import './eh-sparkline.js';
 
 export class EhChecklistCard extends EhBaseCard {
   static styles = [
     EhBaseCard.styles,
     css`
       .list { list-style: none; padding: 0; margin: 0; }
+      .cl-spark { margin: 0 0 10px; line-height: 0; }
 
       .item {
         display: flex;
@@ -124,9 +127,9 @@ export class EhChecklistCard extends EhBaseCard {
     return [];
   }
 
-  _isDue(item) {
+  _isDue(item, date = this.date) {
     // If item explicitly has a schedule or cycle envelope, use schedule rules.
-    if (item.schedule || item.cycles) return !!isScheduledOnDate(item, this.date);
+    if (item.schedule || item.cycles) return !!isScheduledOnDate(item, date);
     // Legacy / supplement-style: 'frequency' string as a coarse hint.
     const freq = (item.frequency || '').toLowerCase();
     if (!freq) return true;             // no schedule info → always show
@@ -136,14 +139,14 @@ export class EhChecklistCard extends EhBaseCard {
       // Weekly on a specific day if declared; else Monday default
       const cfgDay = (item.day || 'Mon').toString().slice(0, 3).toLowerCase();
       const dayNames = ['sun','mon','tue','wed','thu','fri','sat'];
-      const todayName = dayNames[new Date(this.date + 'T00:00:00').getDay()];
+      const todayName = dayNames[new Date(date + 'T00:00:00').getDay()];
       return todayName === cfgDay;
     }
     if (/^every\s+(\d+)/.test(freq)) {
       const n = parseInt(freq.match(/^every\s+(\d+)/)[1], 10);
       if (item.startDate) {
         const start = new Date(item.startDate + 'T00:00:00');
-        const d = new Date(this.date + 'T00:00:00');
+        const d = new Date(date + 'T00:00:00');
         const diff = Math.round((d - start) / 86400000);
         return diff >= 0 && diff % n === 0;
       }
@@ -202,14 +205,14 @@ export class EhChecklistCard extends EhBaseCard {
     }
   }
 
-  _isDone(item) {
+  _isDone(item, date = this.date) {
     // Prefer doses[] if present (peptides)
     if (Array.isArray(item.doses)) {
-      const match = item.doses.find(d => d.scheduledDate === this.date);
+      const match = item.doses.find(d => d.scheduledDate === date);
       return !!(match && match.takenAt);
     }
     // Fallback: takenDates array (supplements / simple daily checklist)
-    if (Array.isArray(item.takenDates)) return item.takenDates.includes(this.date);
+    if (Array.isArray(item.takenDates)) return item.takenDates.includes(date);
     return item.taken === true;
   }
 
@@ -225,12 +228,33 @@ export class EhChecklistCard extends EhBaseCard {
     }
   }
 
+  // Opt-in card-level adherence strip (meta.view.showSparkline): a per-day
+  // done/due ratio over the last 30 days ending at this.date. null on no-due
+  // days so rest days read as gaps, not misses. Renders nothing unless the
+  // flag is set, it is Today, and there are at least 2 days of signal.
+  _renderAdherence() {
+    if (!this._config.showSparkline) return '';
+    const isToday = this.dateMode === 'today' || !this.dateMode;
+    if (!isToday) return '';
+    const items = this._items;
+    if (!items.length) return '';
+    const series = adherenceSeries(items, {
+      endDate: this.date,
+      limit: 30,
+      isDueOn: (item, day) => this._isDue(item, day),
+      isTakenOn: (item, day) => this._isDone(item, day),
+    });
+    if (series.filter(v => v !== null).length < 2) return '';
+    return html`<div class="cl-spark"><eh-sparkline mode="adherence" .values=${series}></eh-sparkline></div>`;
+  }
+
   renderCard() {
     const items = this._items.filter(i => this._isDue(i));
     if (items.length === 0) {
       return html`<div class="empty">Nothing scheduled.</div>`;
     }
     return html`
+      ${this._renderAdherence()}
       <ul class="list">
         ${items.map(item => {
           const done = this._isDone(item);
