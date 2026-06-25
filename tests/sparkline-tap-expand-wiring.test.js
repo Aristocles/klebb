@@ -23,10 +23,20 @@ describe('base card: headerless mode + aria-expanded', () => {
   });
   test('headerless render skips the header (body only)', () => {
     assert.ok(/if \(this\.headerless\)/.test(BASE), 'render branches on headerless');
-    // the headerless branch must not include the card-header markup
-    const branch = BASE.slice(BASE.indexOf('if (this.headerless)'), BASE.indexOf('if (this.headerless)') + 400);
-    assert.ok(!/card-header/.test(branch), 'headerless branch renders no card-header');
+    // Isolate exactly the headerless branch: from `if (this.headerless) {` to
+    // its matching close brace, so the assertion can't bleed into the normal
+    // render() branch (which legitimately contains card-header). Brace-matched
+    // rather than a fixed char window, so it's robust to line endings.
+    const start = BASE.indexOf('if (this.headerless)');
+    const open = BASE.indexOf('{', start);
+    let depth = 0, end = open;
+    for (let i = open; i < BASE.length; i += 1) {
+      if (BASE[i] === '{') depth += 1;
+      else if (BASE[i] === '}') { depth -= 1; if (depth === 0) { end = i; break; } }
+    }
+    const branch = BASE.slice(open, end + 1);
     assert.ok(/card-body/.test(branch), 'headerless branch renders the card body');
+    assert.ok(!/card-header/.test(branch), 'headerless branch renders no card-header');
   });
   test('clickable header carries aria-expanded', () => {
     assert.ok(/aria-expanded=\$\{this\._canExpand \? String\(this\.expanded\)/.test(BASE));
