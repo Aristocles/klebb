@@ -49,6 +49,7 @@ import { errorFromResponse } from '../lib/save-error.js';
 import { daysBetweenISO } from '../lib/date-util.js';
 import './eh-input-form.js';
 import './eh-sparkline.js';
+import './eh-line-chart.js';
 
 export class EhGenericCard extends EhBaseCard {
   static properties = {
@@ -140,6 +141,37 @@ export class EhGenericCard extends EhBaseCard {
       }
     }
     return null;
+  }
+
+  // A card is expandable when it shows a sparkline (tap the header to open the
+  // full trend), OR when it opts into expand the generic way (viewConfig.expanded).
+  get _canExpand() {
+    if (super._canExpand) return true;
+    const isToday = this.dateMode === 'today' || !this.dateMode;
+    if (!this._config.showSparkline || !isToday) return false;
+    const field = this._sparklineField(this._meta.view?.display || {});
+    if (!field) return false;
+    return numericSeries(this._entries(), field, { endDate: this.date, limit: 30 }).length >= 2;
+  }
+
+  // Expanded region: the full ECharts line trend, loaded lazily (the heavy
+  // chart payload only loads on first expand). Renders eh-line-chart headerless
+  // with a synthesised trends config pointing at the resolved sparkline field;
+  // the chart reuses this card's already-fetched data (same id -> cache hit).
+  renderExpanded() {
+    const display = this._meta.view?.display || {};
+    const field = this._sparklineField(display);
+    if (!field) return html`<div class="card-expanded">No trend available.</div>`;
+    const chartCard = {
+      id: this.card.id,
+      meta: this._meta,
+      viewConfig: {
+        component: 'line-chart',
+        series: [{ field, label: this._meta.label || field }],
+        yAxisLabel: display.unit || '',
+      },
+    };
+    return html`<eh-line-chart headerless .card=${chartCard} .date=${this.date} .dateMode=${this.dateMode}></eh-line-chart>`;
   }
 
   _currentEntry() {

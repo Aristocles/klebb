@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Tap a sparkline card to expand its full trend chart.** When a
+  generic-card shows a sparkline, its header becomes clickable and
+  expands the full ECharts line trend inline. ECharts loads lazily on
+  first expand only (never on normal Today render), via the existing
+  dynamic-import in the chart layer. The expanded chart reuses the
+  card's already-fetched data and a synthesised line-chart config keyed
+  to the resolved sparkline field. A new `headerless` mode on the card
+  base lets the chart mount inside the host card without a duplicate
+  header. The clickable header now exposes `aria-expanded`. Refs #448.
+
 - **Adherence sparklines on checklist and schedule cards.** With
   `meta.view.showSparkline: true`, a checklist-card draws a card-level
   per-day done/due ratio strip and a schedule-card draws a per-item
