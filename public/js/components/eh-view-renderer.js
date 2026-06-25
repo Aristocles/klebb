@@ -124,13 +124,12 @@ export class EhViewRenderer extends LitElement {
     .masonry > .slot-top {
       column-span: all;
     }
-    /* Hero / pinned tier: cards with meta.view.priority surface as a
-       full-width band at the top of the Today view (gated in render()).
-       column-span:all lifts them out of the column flow so they read as a
-       distinct band under the greeting banner rather than packing into the
-       masonry. */
-    .masonry > .card-wrap.pinned {
-      column-span: all;
+    /* Hero / pinned tier: cards with meta.view.priority sort to the top of
+       the Today view (gated in render()) but keep NORMAL masonry width. The
+       pinned class is a visual affordance only (a subtle accent edge); it
+       must NOT span the column, which would make small cards eat the row. */
+    .masonry > .card-wrap.pinned > * {
+      border-left: 2px solid var(--accent);
     }
     @media (min-width: 768px) {
       .masonry { column-count: 2; }
