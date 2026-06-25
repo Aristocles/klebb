@@ -214,22 +214,6 @@ export class EhReminderModal extends LitElement {
       flex-shrink: 0;
     }
     .open-btn:hover { filter: brightness(1.08); }
-
-    .footer {
-      display: flex;
-      justify-content: flex-end;
-      padding-top: 4px;
-    }
-    button.dismiss-btn {
-      background: transparent;
-      color: var(--text-secondary);
-      border: 1px solid var(--border);
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      cursor: pointer;
-    }
-    button.dismiss-btn:hover { color: var(--text-primary); border-color: var(--text-secondary); }
   `;
 
   firstUpdated() {
@@ -303,10 +287,6 @@ export class EhReminderModal extends LitElement {
             </div>
 
             ${groups.map(g => this._renderGroup(g))}
-
-            <div class="footer">
-              <button class="dismiss-btn" type="button" @click=${this._finish}>Close</button>
-            </div>
           </div>
         </div>
       </dialog>

@@ -72,8 +72,8 @@ test.describe('#454: reminder modal on notification tap', () => {
     // One Open card button per group, not per row.
     await expect(modal.locator('.open-btn')).toHaveCount(1);
 
-    // Close clears the modal.
-    await modal.locator('button.dismiss-btn').click();
+    // Top-right ✕ clears the modal.
+    await modal.locator('button.close-btn').click();
     await expect(modal).toHaveCount(0);
   });
 
