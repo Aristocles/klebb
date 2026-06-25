@@ -11,6 +11,16 @@ const registry = require('../manifests/registry');
 const notificationsState = require('../lib/notifications-state');
 const { readDoc } = require('./docs');
 const { readReport } = require('./reports');
+const { buildRecentActivity } = require('./recent-activity');
+const { validateManifest } = require('./validate-manifest');
+const { appendFeedback } = require('../lib/feedback');
+const { scanHygiene } = require('./hygiene');
+
+// Server-local "today" (YYYY-MM-DD) in the configured TZ, matching the
+// server's todayIso(). Used for the ageDays maths in get_recent_activity.
+function serverTodayIso() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: process.env.TZ || 'UTC' });
+}
 
 const TOOL_DEFS = [
   {
@@ -167,6 +177,78 @@ const TOOL_DEFS = [
           },
         },
         required: ['name'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'note_feature_request',
+      description:
+        "Log an anonymised feature request when the user asks for something Klebb genuinely cannot do (no tool and no renderer can serve it, even with more detail). Call this ONLY after you have told the user plainly that it is unsupported and offered the nearest supported alternative; it is not for requests that just need a clarifying question or were phrased badly. Pass a PARAPHRASED capability intent, never the user's data: 'wants to chart sleep as a heatmap' is fine; the actual sleep values, card labels naming a condition, or the verbatim message are NOT. The operator reviews these to decide what to build next. Returns {logged:true}.",
+      parameters: {
+        type: 'object',
+        properties: {
+          intent: {
+            type: 'string',
+            description: 'A short paraphrased description of the capability the user wanted (no personal data, no logged values, no verbatim message).',
+          },
+          context: {
+            type: 'string',
+            description: 'Optional structural context: which renderers/tools exist and were considered, why none fit. No personal data.',
+          },
+          toolsConsidered: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Optional list of tool names you considered before concluding it is unsupported.',
+          },
+        },
+        required: ['intent'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'validate_manifest',
+      description:
+        "Dry-run a candidate klebb.datafile.v1 manifest WITHOUT writing it. Returns {ok:true} or {ok:false, errors:[{path, message}]}. This runs the exact same structural validation the create/patch write path enforces (so 'ok' here means the write will not be rejected on shape grounds), plus a few renderer-specific checks (e.g. combination-card needs meta.view.combines[] with sourceId; meta.view.display must be an object). ALWAYS call this before create_manifest or patch_manifest and fix any reported errors first; each error names the JSON path and what to change. It does not catch every possible problem (it cannot know your data semantics), but it catches the shape mistakes that cause a write to fail.",
+      parameters: {
+        type: 'object',
+        properties: {
+          manifest: {
+            description: 'The full candidate klebb.datafile.v1 manifest object to check (same shape you would pass to create_manifest).',
+          },
+        },
+        required: ['manifest'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'hygiene_scan',
+      description:
+        "Scan every card for hygiene problems and return {findings:[{cardId, kind, severity, detail}]}. Use this when the user asks to 'tidy up', 'what's stale/messy', 'is anything out of date', or wants a dashboard health check. Kinds: 'stale' (no entry well past the expected cadence), 'growth' (very large data block that wants archiving/a rolling window), 'orphaned-input' (a capture field no row ever uses). Findings are conservative (near-empty cards are skipped) and are SUGGESTIONS only: never act on them without the user's say-so, and surface them conversationally rather than dumping the raw list.",
+      parameters: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_recent_activity',
+      description:
+        "Get a one-pass recency summary of EVERY card without reading each one. Returns {cards:[{id, label, renderer, rowCount, lastEntryDate, ageDays, lastNDelta, staleSource}]}. Use this FIRST when the user asks anything about how their tracking is going, what is stale or untouched, what changed recently, or before suggesting a new card (so you reuse the conventions of sibling cards). `ageDays` is days since the newest entry; when a card has no dated rows it falls back to the file modification time (staleSource:'mtime') so you still get a freshness hint. `lastNDelta` is a best-effort last-minus-previous value when a card has one obvious numeric field; treat it as a hint, not a computed trend. Cheaper and faster than calling read_manifest on each card.",
+      parameters: {
+        type: 'object',
+        properties: {},
         additionalProperties: false,
       },
     },
@@ -530,6 +612,22 @@ function dispatchToolCall(tc, ctx) {
       }
       case 'read_report': {
         return JSON.stringify(readReport(args.name));
+      }
+      case 'get_recent_activity': {
+        return JSON.stringify({ cards: buildRecentActivity(registry, serverTodayIso()) });
+      }
+      case 'hygiene_scan': {
+        return JSON.stringify(scanHygiene(registry, serverTodayIso()));
+      }
+      case 'validate_manifest': {
+        return JSON.stringify(validateManifest(args.manifest));
+      }
+      case 'note_feature_request': {
+        return JSON.stringify(appendFeedback({
+          intent: args.intent,
+          context: args.context,
+          toolsConsidered: args.toolsConsidered,
+        }));
       }
       case 'set_notification': {
         const entry = registry.get(args.card_id);

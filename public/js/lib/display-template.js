@@ -17,6 +17,9 @@
 // Also exports threshold + trend evaluators used by the generic card renderer:
 //   evaluateThresholds(row, thresholds)  → { colour, label, rule } | null
 //   computeTrend(row, key, allRows)      → { dir: 'up'|'down'|'flat', delta } | null
+//   trendColour(dir, goodDirection)      → CSS colour string for the arrow
+//   resolveGoodDirection(trendArrow)     → 'up'|'down'|'neutral'|null
+//   formatTrendDelta(delta)              → signed string, e.g. "+0.4" / "-0.6"
 //
 // Returns a plain string. The caller wraps it in whatever HTML they want.
 
@@ -234,6 +237,78 @@
     return { dir, delta, prev };
   }
 
+  // --- Numeric series extractor ---
+  //
+  // Pulls the numeric values for `field` over the last N dated rows, oldest
+  // to newest, ready to feed a sparkline. A row qualifies only when it has a
+  // truthy `date` and `Number(getValue(row, field))` is not NaN (the same
+  // predicate computeTrend uses, so the two stay consistent).
+  //
+  // Input:
+  //   rows     : the full data array from the manifest
+  //   field    : the field to extract (dotted paths allowed, via getValue)
+  //   endDate  : optional ISO date; rows with date > endDate are excluded
+  //   limit    : keep at most this many of the most recent qualifying rows
+  //
+  // Returns: number[] in ascending date order, or [] if nothing qualifies.
+  function numericSeries(rows, field, options) {
+    if (!Array.isArray(rows) || !field) return [];
+    const { endDate = null, limit = 30 } = options || {};
+    return rows
+      .filter(r => r && r.date && (!endDate || r.date <= endDate))
+      .filter(r => {
+        const v = getValue(r, field);
+        return v !== null && v !== undefined && !Number.isNaN(Number(v));
+      })
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      .map(r => Number(getValue(r, field)))
+      .slice(-limit);
+  }
+
+  // --- Trend-arrow colour semantics ---
+  //
+  // Colour palette (shared across both runtimes):
+  const TREND_GOOD = '#55cc77';
+  const TREND_BAD = '#ff7755';
+  const TREND_NEUTRAL = 'var(--text-muted, var(--text-secondary))';
+
+  // Normalise a trendArrow config into which direction is "good".
+  // Canonical key is `goodDirection` ∈ {'up','down','neutral'}. The
+  // `lowerIsBetter: true` alias (shipped in a demo fixture) maps to
+  // 'down'. Anything absent/unrecognised returns null, which the
+  // colour helper treats as the historical weight default (down=good).
+  function resolveGoodDirection(trendArrow) {
+    if (!trendArrow || typeof trendArrow !== 'object') return null;
+    const gd = trendArrow.goodDirection;
+    if (gd === 'up' || gd === 'down' || gd === 'neutral') return gd;
+    if (trendArrow.lowerIsBetter === true) return 'down';
+    return null;
+  }
+
+  // Pick the arrow colour for a trend direction given which direction is
+  // "good". `dir` ∈ {'up','down','flat'}; `goodDirection` ∈
+  // {'up','down','neutral'} or null/undefined. With no goodDirection the
+  // historical default holds: up=bad (red), down=good (green), correct
+  // for weight, where rising is bad. 'neutral' paints both directions a
+  // muted colour so it reads as movement, not judgement. See #423.
+  function trendColour(dir, goodDirection) {
+    if (dir === 'flat') return TREND_NEUTRAL;
+    if (goodDirection === 'neutral') return TREND_NEUTRAL;
+    const goodDir = goodDirection === 'up' ? 'up' : 'down';
+    return dir === goodDir ? TREND_GOOD : TREND_BAD;
+  }
+
+  // Render a trend delta as a signed string so the magnitude + direction
+  // are carried by the number, not by colour alone. Trailing zeros from
+  // float subtraction are trimmed (e.g. 0.40000000000000036 → "+0.4").
+  function formatTrendDelta(delta) {
+    const n = Number(delta);
+    if (Number.isNaN(n)) return '';
+    const rounded = Math.round(n * 100) / 100;
+    const sign = rounded > 0 ? '+' : '';
+    return sign + String(rounded);
+  }
+
   return {
     renderTemplate,
     getValue,
@@ -241,5 +316,9 @@
     applyRound,
     evaluateThresholds,
     computeTrend,
+    numericSeries,
+    trendColour,
+    resolveGoodDirection,
+    formatTrendDelta,
   };
 }));

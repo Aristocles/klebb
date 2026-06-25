@@ -1,0 +1,152 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://klebb.app/schema/klebb.datafile.v1.schema.json",
+  "title": "klebb.datafile.v1",
+  "description": "Structural contract for a Klebb data file (one card = one JSON file). Generated from the validator + shared enums by scripts/gen-manifest-schema.js; do not edit by hand. The server-side validator enforces additional cross-field rules (reserved/duplicate id, per-renderer data shape) this schema cannot express.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "meta"
+  ],
+  "properties": {
+    "$schema": {
+      "description": "Schema discriminator. Only klebb.datafile.v1 is supported.",
+      "const": "klebb.datafile.v1"
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "id",
+        "label"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable card id. Filename-safe; reserved names are rejected by the validator.",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "maxLength": 64
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-facing card title.",
+          "minLength": 1
+        },
+        "emoji": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "category": {
+          "description": "Optional grouping for clustering heuristics. Unknown values are dropped at load.",
+          "type": "string",
+          "enum": [
+            "sleep",
+            "recovery",
+            "activity",
+            "vitals",
+            "body",
+            "mindfulness",
+            "lifestyle",
+            "supplements",
+            "medication"
+          ]
+        },
+        "view": {
+          "type": "object"
+        },
+        "trends": {
+          "type": "object"
+        },
+        "calendar": {
+          "type": "object"
+        },
+        "reports": {
+          "type": "object"
+        },
+        "writeable": {
+          "type": "object"
+        },
+        "ingest": {
+          "type": "object"
+        },
+        "notifications": {
+          "type": "object"
+        },
+        "prompt": {
+          "type": "object"
+        },
+        "chat": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "description": {
+      "type": "string"
+    },
+    "schema": {
+      "type": "object"
+    },
+    "data": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "schedule": {
+                    "type": "object",
+                    "properties": {
+                      "time_of_day": {
+                        "description": "A single time-of-day token, or a non-empty array of distinct tokens.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "morning",
+                              "midday",
+                              "evening",
+                              "night"
+                            ]
+                          },
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "morning",
+                                "midday",
+                                "evening",
+                                "night"
+                              ]
+                            },
+                            "minItems": 1,
+                            "uniqueItems": true
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": true
+}

@@ -7,6 +7,7 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import Sortable from 'https://esm.sh/sortablejs@1.15.2';
 import { resolveRenderer } from '../renderer-registry.js';
+import { orderCardsForView } from '../lib/hero-tier.js';
 
 // Ensure all core renderers are loaded
 import './eh-unknown-card.js';
@@ -122,6 +123,13 @@ export class EhViewRenderer extends LitElement {
     }
     .masonry > .slot-top {
       column-span: all;
+    }
+    /* Hero / pinned tier: cards with meta.view.priority sort to the top of
+       the Today view (gated in render()) but keep NORMAL masonry width. The
+       pinned class is a visual affordance only (a subtle accent edge); it
+       must NOT span the column, which would make small cards eat the row. */
+    .masonry > .card-wrap.pinned > * {
+      border-left: 2px solid var(--accent);
     }
     @media (min-width: 768px) {
       .masonry { column-count: 2; }
@@ -333,7 +341,7 @@ export class EhViewRenderer extends LitElement {
     if (pending) this._enterReorderMode();
   }
 
-  _renderCard(card) {
+  _renderCard(card, pinned = false) {
     const tag = resolveRenderer(card.viewConfig?.component);
     const isTopSlot = card.viewConfig?.slot === 'top';
     const inner = document.createElement(tag);
@@ -344,7 +352,9 @@ export class EhViewRenderer extends LitElement {
     // Always wrap in a container so Sortable has a stable handle. The
     // wrapper carries the data-card-id attribute the reorder logic reads.
     const wrap = document.createElement('div');
-    wrap.className = 'card-wrap' + (isTopSlot ? ' slot-top' : '');
+    wrap.className = 'card-wrap'
+      + (isTopSlot ? ' slot-top' : '')
+      + (pinned ? ' pinned' : '');
     wrap.dataset.cardId = card.id;
     if (this._reorderMode) {
       const handle = document.createElement('button');
@@ -557,13 +567,20 @@ export class EhViewRenderer extends LitElement {
         </div>
       `;
     }
-    // Normal render
+    // Normal render. The hero/pinned tier is a presentation concern of the
+    // live Today view only; in reorder mode (or on a past-day view) we render
+    // the raw card order so the DOM child order Sortable reads back matches
+    // this.cards exactly and a past day isn't re-banded.
+    const heroEligible = !this._reorderMode && this.dateMode === 'today';
+    const ordered = heroEligible
+      ? orderCardsForView(this.cards, this.view)
+      : this.cards.map(card => ({ card, pinned: false }));
     return html`
       <div class="sr-live" aria-live="polite" aria-atomic="true">${this._ariaAnnouncement}</div>
       ${this._renderReorderBar()}
       ${this._renderErrorPill()}
       <div class=${this._reorderMode ? 'grid' : 'masonry'}>
-        ${this.cards.map(c => this._renderCard(c))}
+        ${ordered.map(({ card, pinned }) => this._renderCard(card, pinned))}
       </div>
     `;
   }

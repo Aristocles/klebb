@@ -847,6 +847,15 @@ class HealthChat extends LitElement {
       });
     };
     window.addEventListener('klebb-paste-into-chat', this._onPasteIntoChat);
+
+    // Remember the last card the user opened, so a question can be resolved
+    // against it server-side. Not reactive state: it only rides the next
+    // /api/chat request as immediate context.
+    this._onCardFocused = (e) => {
+      const id = e?.detail?.id;
+      if (typeof id === 'string' && id) this._viewedCardId = id;
+    };
+    window.addEventListener('klebb-card-focused', this._onCardFocused);
   }
 
   disconnectedCallback() {
@@ -859,6 +868,9 @@ class HealthChat extends LitElement {
     }
     if (this._onPasteIntoChat) {
       window.removeEventListener('klebb-paste-into-chat', this._onPasteIntoChat);
+    }
+    if (this._onCardFocused) {
+      window.removeEventListener('klebb-card-focused', this._onCardFocused);
     }
   }
 
@@ -876,10 +888,12 @@ class HealthChat extends LitElement {
     this._abortController = new AbortController();
     const timeoutId = setTimeout(() => this._abortController?.abort(), timeoutMs);
     try {
+      const body = { messages, voiceMode };
+      if (this._viewedCardId) body.viewedCardId = this._viewedCardId;
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Connection': 'close' },
-        body: JSON.stringify({ messages, voiceMode }),
+        body: JSON.stringify(body),
         signal: this._abortController.signal,
         cache: 'no-store',
       });

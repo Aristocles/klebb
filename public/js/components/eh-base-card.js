@@ -59,6 +59,10 @@ export class EhBaseCard extends LitElement {
     expanded: { state: true },
     loading: { state: true },
     error: { state: true },
+    // When true, render only the card body (no header). Used when a card is
+    // mounted as a sub-element inside another card's expanded region, so the
+    // host card's header isn't duplicated.
+    headerless: { type: Boolean },
   };
 
   constructor() {
@@ -67,6 +71,7 @@ export class EhBaseCard extends LitElement {
     this.data = null;
     this.date = null;
     this.dateMode = 'today';
+    this.headerless = false;
     this.expanded = false;
     this.loading = true;
     this.error = null;
@@ -126,6 +131,12 @@ export class EhBaseCard extends LitElement {
   _toggleExpand() {
     if (!this._canExpand) return;
     this.expanded = !this.expanded;
+    // Broadcast the card the user just opened so the chat can resolve
+    // vague references ("change the target to 80kg") against it. Only on
+    // expand, not collapse: collapsing doesn't change what they're looking at.
+    if (this.expanded && this.card?.id) {
+      window.dispatchEvent(new CustomEvent('klebb-card-focused', { detail: { id: this.card.id } }));
+    }
   }
 
   static styles = css`
@@ -203,10 +214,18 @@ export class EhBaseCard extends LitElement {
 
   render() {
     const m = this._meta;
+    if (this.headerless) {
+      return html`
+        ${this.loading ? html`<div class="loading">Loading…</div>` : ''}
+        ${this.error ? html`<div class="error-placeholder">⚠︎ ${this.error}</div>` : ''}
+        ${!this.loading && !this.error ? html`<div class="card-body">${this._safeRender(() => this.renderCard())}</div>` : ''}
+      `;
+    }
     return html`
       <div
         class="card-header ${this._canExpand ? 'clickable' : ''}"
         @click=${this._canExpand ? this._toggleExpand : undefined}
+        aria-expanded=${this._canExpand ? String(this.expanded) : undefined}
       >
         <div class="title">
           ${m.emoji ? html`<span class="emoji">${m.emoji}</span>` : ''}

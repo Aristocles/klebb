@@ -30,7 +30,8 @@ Want to add a weight-tracking card right now? Create this file:
                  "display": { "template": "{kg:round(1)} kg",
                               "emptyHeadline": "No weight today" } },
     "trends":  { "enabled": true, "component": "line-chart",
-                 "xKey": "date", "yKey": "kg", "unit": "kg" },
+                 "xAxis": "date", "series": [{ "field": "kg", "label": "Weight (kg)" }],
+                 "yAxisLabel": "kg" },
     "writeable": {
       "fromWebapp": true,
       "todayAllowed": true,
@@ -201,8 +202,9 @@ Fields:
 
 ### `meta.trends` — the Trends view config
 
-Same shape as `meta.view`. Typical use: `component: "line-chart"` with `xKey`
-and `yKey` pointing into the data rows.
+Same shape as `meta.view`. Typical use: `component: "line-chart"` with `xAxis`
+(the date/category key, default `"date"`) and `series` (an array of
+`{ field, label?, colour? }`) pointing into the data rows.
 
 ### `meta.reports` — the Reports view config
 
@@ -575,20 +577,32 @@ card.
 ### `meta.view.display.trendArrow`
 
 Show an ↑ / ↓ / → arrow next to the headline, comparing the current
-entry's value to the most recent earlier entry on the same key.
+entry's value to the most recent earlier entry on the same key. The
+signed delta is printed alongside the arrow (e.g. `↑ +0.4`), so the
+meaning is carried by the number, not by colour alone.
 
 ```json
 "display": { "template": "{kg:round(1)}", "unit": "kg", "trendArrow": { "field": "kg" } }
 ```
 
-Arrow colours:
-- ↑ up — red (`#ff7755`)
-- ↓ down — green (`#55cc77`)
-- → flat — muted
+Arrow colour depends on which direction is "good" for the metric, set
+with `goodDirection`:
 
-Note the reverse: for weight, "up" is usually bad; for a rating card
-you might want the opposite. Card authors can future-invert via a
-`trendArrow.invert: true` flag (not implemented yet).
+```json
+"trendArrow": { "field": "hours", "goodDirection": "up" }
+```
+
+- `goodDirection: "down"` (the default when omitted): falling is good
+  (green), rising is bad (red). Correct for weight, resting heart rate,
+  body fat, where lower is better.
+- `goodDirection: "up"`: rising is good (green), falling is bad (red).
+  Use for sleep hours, steps, protein, HRV, where more is better.
+- `goodDirection: "neutral"`: both directions muted; the arrow shows
+  movement without a value judgement.
+- `→ flat` is always muted.
+
+(The legacy `lowerIsBetter: true` flag is still accepted as an alias for
+`goodDirection: "down"`.)
 
 ---
 
@@ -1097,8 +1111,13 @@ Used in `meta.trends.component`, not `meta.view.component`. Read-only
 in the Trends view.
 
 **Reads:**
-- `meta.trends.xKey`, `.yKey`, `.field`, `.series[]`, `.unit`.
-- Data rows by date for the configured field(s).
+- `meta.trends.xAxis` — the x-axis key (default `"date"`).
+- `meta.trends.series` — array of `{ field, label?, colour? }`. When omitted,
+  the renderer auto-detects a y-field (tries `value`/`kg`/`ml`/`count`/
+  `minutes`/`systolic`, then the first non-date numeric key).
+- `meta.trends.title` — optional chart title.
+- `meta.trends.yAxisLabel` — optional y-axis label.
+- Data rows sorted by the `xAxis` key for the configured series field(s).
 
 **Writes:**
 - None.

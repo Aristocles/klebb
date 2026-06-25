@@ -1,0 +1,5 @@
+# Generated manifest schema artefact must stay LF on every platform so its
+# byte-stability test (tests/manifest-schema-artefact.test.js) matches the
+# generator output regardless of core.autocrlf.
+manifests/schema/*.json text eol=lf
+scripts/gen-manifest-schema.js text eol=lf
