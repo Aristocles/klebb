@@ -95,6 +95,22 @@ export function mergeSchema(rendererSchema) {
   return [...COMMON_SETTINGS, ...extra];
 }
 
+// Shared descriptor for the adherence sparkline toggle used by the
+// checklist + schedule renderers. Both render the same 30-day adherence
+// strip behind meta.view.showSparkline and gate it on the same signal, so
+// they declare it identically. `hasSignal(items)` and `itemsOf(data)` are
+// injected from lib/adherence-series.esm.js to keep this file dependency-free.
+export function adherenceSparklineDescriptor(hasSignal, itemsOf) {
+  return {
+    path: 'view.showSparkline', label: 'Show adherence sparkline', kind: 'toggle',
+    section: 'Behaviour', default: false,
+    help: 'A small 30-day done/scheduled trend on Today.',
+    needsData: true,
+    availableWhen: ({ data }) => hasSignal(itemsOf(data)),
+    unavailableHint: 'Needs a few days of check-offs first.',
+  };
+}
+
 export function getAtPath(obj, path) {
   if (!obj || typeof obj !== 'object') return undefined;
   let cur = obj;

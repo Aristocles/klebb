@@ -15,6 +15,10 @@ const path = require('path');
 const read = (...p) => fs.readFileSync(path.join(__dirname, '..', 'public', 'js', ...p), 'utf8');
 const BASE = read('components', 'eh-base-card.js');
 const GENERIC = read('components', 'eh-generic-card.js');
+const SCHEDULE = read('components', 'eh-schedule-card.js');
+const CHECKLIST = read('components', 'eh-checklist-card.js');
+const LIST = read('components', 'eh-list-card.js');
+const COMBINATION = read('components', 'eh-combination-card.js');
 const WELCOME = read('components', 'eh-welcome-card.js');
 const UNKNOWN = read('components', 'eh-unknown-card.js');
 const MODAL = read('components', 'eh-card-settings-modal.js');
@@ -54,6 +58,24 @@ describe('renderer opt-in', () => {
     assert.ok(/needsData:\s*true/.test(GENERIC), 'sparkline descriptor flags needsData');
     assert.ok(/availableWhen:/.test(GENERIC), 'sparkline descriptor has an availability predicate');
     assert.ok(/view\.fallbackToLatest/.test(GENERIC), 'carry-forward descriptor present');
+  });
+  test('schedule + checklist opt in and share the adherence sparkline descriptor', () => {
+    for (const [name, src] of [['schedule', SCHEDULE], ['checklist', CHECKLIST]]) {
+      assert.ok(/static\s+supportsSettingsGear\s*=\s*true/.test(src), `${name} opts in`);
+      assert.ok(/static\s+get\s+settingsSchema\(\)/.test(src), `${name} declares settingsSchema`);
+      assert.ok(/adherenceSparklineDescriptor\(hasAdherenceSignal,\s*adherenceItems\)/.test(src),
+        `${name} uses the shared adherence descriptor`);
+    }
+  });
+  test('list-card opts in (common toggles only, no renderer schema)', () => {
+    assert.ok(/static\s+supportsSettingsGear\s*=\s*true/.test(LIST), 'list-card opts in');
+    assert.ok(!/static\s+get\s+settingsSchema/.test(LIST), 'list-card declares no renderer-specific schema');
+  });
+  test('list-card edit toolbar shifted to clear the gear', () => {
+    assert.ok(/\.edit-toolbar[\s\S]*right:\s*40px/.test(LIST), 'edit-toolbar cleared from the top-right corner');
+  });
+  test('combination-card (read-only composite) does not opt into the gear', () => {
+    assert.ok(!/supportsSettingsGear\s*=\s*true/.test(COMBINATION), 'combination-card stays gearless');
   });
   test('synthetic cards do NOT opt into the gear', () => {
     assert.ok(!/supportsSettingsGear\s*=\s*true/.test(WELCOME), 'welcome card stays opted out');

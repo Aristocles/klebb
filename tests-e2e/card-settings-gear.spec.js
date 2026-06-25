@@ -154,6 +154,48 @@ test.describe('#456: per-card settings gear', () => {
     expect(seeded).toContain('weight');
   });
 
+  test('schedule-card gear offers the adherence sparkline toggle and persists it', async ({ page, sandboxState }) => {
+    const baseUrl = sandboxState.baseUrl;
+    const before = await (await page.request.get(`${baseUrl}/api/manifests/peptides`)).json();
+    const sparkWas = !!before.meta?.view?.showSparkline;
+
+    await page.goto('/');
+    await expect(page.locator('eh-date-view')).toBeVisible();
+
+    const scheduleCard = page.locator('eh-schedule-card').first();
+    await scheduleCard.locator('.settings-gear').click();
+    const modal = page.locator('eh-card-settings-modal');
+    await expect(modal.locator('dialog')).toBeVisible();
+
+    // The peptides seed has a scheduled item, so the adherence toggle is available.
+    const row = modal.locator('.row', { hasText: 'Show adherence sparkline' });
+    const toggle = row.locator('.toggle');
+    await expect(toggle).toBeEnabled();
+    if ((await toggle.getAttribute('aria-checked')) !== 'true') await toggle.click();
+    await modal.locator('.save-btn').click();
+    await expect(modal).toHaveCount(0);
+
+    await expect.poll(async () => {
+      const j = await (await page.request.get(`${baseUrl}/api/manifests/peptides`)).json();
+      return !!j.meta?.view?.showSparkline;
+    }).toBe(true);
+
+    // Restore.
+    await page.request.fetch(`${baseUrl}/api/manifests/peptides`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      data: { meta: { view: { showSparkline: sparkWas } } },
+    });
+  });
+
+  test('combination-card (read-only composite) shows no gear', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('eh-date-view')).toBeVisible();
+    const combo = page.locator('eh-combination-card').first();
+    await expect(combo).toBeVisible();
+    await expect(combo.locator('.settings-gear')).toHaveCount(0);
+  });
+
   test('synthetic cards (e.g. unknown renderer) do not show a gear', async ({ page, sandboxState }) => {
     const baseUrl = sandboxState.baseUrl;
     const id = 'e2e_unknown_456';

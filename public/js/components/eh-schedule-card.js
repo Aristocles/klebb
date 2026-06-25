@@ -21,7 +21,8 @@ import { EhBaseCard } from './eh-base-card.js';
 import { isScheduledOnDate, effectiveCycles } from '../../../lib/schedule.mjs';
 import { registerRenderer } from '../renderer-registry.js';
 import { chipsFor as todChipsFor } from '../lib/time-of-day.esm.js';
-import { itemAdherenceSeries } from '../lib/adherence-series.esm.js';
+import { itemAdherenceSeries, hasAdherenceSignal, adherenceItems } from '../lib/adherence-series.esm.js';
+import { adherenceSparklineDescriptor } from '../lib/card-settings.js';
 import './eh-input-form.js';
 import './eh-sparkline.js';
 
@@ -83,6 +84,13 @@ function cycleProgress(item, dateStr) {
 }
 
 export class EhScheduleCard extends EhBaseCard {
+  static supportsSettingsGear = true;
+  static displayName = 'Schedule';
+
+  static get settingsSchema() {
+    return [adherenceSparklineDescriptor(hasAdherenceSignal, adherenceItems)];
+  }
+
   // Extend the base reactive properties with one renderer-internal
   // bit of state: which scheduled item (if any) currently has the
   // check-off form expanded inline. The key is the item's `name` (or

@@ -36,6 +36,9 @@ import { errorFromResponse } from '../lib/save-error.js';
 import './eh-input-form.js';
 
 export class EhListCard extends EhBaseCard {
+  static supportsSettingsGear = true;
+  static displayName = 'List';
+
   static properties = {
     ...EhBaseCard.properties,
     _editing: { state: true },
@@ -259,9 +262,10 @@ export class EhListCard extends EhBaseCard {
         /* Position relative to the card-body (list-root is inside it).
            Pull up into the card-header area where users expect edit
            actions to live. Matches the 10-12px top-padding that the
-           header uses. */
+           header uses. The right offset clears the base card's settings
+           gear, which owns the top-right corner. */
         top: -32px;
-        right: 4px;
+        right: 40px;
         display: flex;
         gap: 6px;
         z-index: 3;
