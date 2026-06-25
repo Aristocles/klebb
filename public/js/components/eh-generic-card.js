@@ -42,12 +42,13 @@
 //   meta.writeable.maxReadingsPerDay      — default 1 (upsert behaviour)
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
-import { renderTemplate, evaluateThresholds, computeTrend, trendColour, resolveGoodDirection, formatTrendDelta } from '../lib/display-template.esm.js';
+import { renderTemplate, evaluateThresholds, computeTrend, trendColour, resolveGoodDirection, formatTrendDelta, numericSeries } from '../lib/display-template.esm.js';
 import { registerRenderer } from '../renderer-registry.js';
 import { EhBaseCard, invalidateManifestCache } from './eh-base-card.js';
 import { errorFromResponse } from '../lib/save-error.js';
 import { daysBetweenISO } from '../lib/date-util.js';
 import './eh-input-form.js';
+import './eh-sparkline.js';
 
 export class EhGenericCard extends EhBaseCard {
   static properties = {
@@ -116,6 +117,29 @@ export class EhGenericCard extends EhBaseCard {
     if (Array.isArray(d)) return d;
     if (d && Array.isArray(d.data)) return d.data; // defensive
     return [];
+  }
+
+  // Resolve which numeric field the sparkline plots. Order: the field the
+  // author already nominated for the trend arrow; else the first {token} in
+  // the display template (stripped at the first of : | ?); else a numeric-key
+  // heuristic over the newest row. Returns null when nothing numeric fits.
+  _sparklineField(display) {
+    if (display && display.trendArrow && display.trendArrow.field) return display.trendArrow.field;
+    const tpl = display && typeof display.template === 'string' ? display.template : '';
+    const m = tpl.match(/\{([^}]+)\}/);
+    if (m) return m[1].split(/[:|?]/)[0].trim();
+    const rows = this._entries();
+    const row = rows.length ? rows[rows.length - 1] : null;
+    if (row) {
+      for (const c of ['value', 'kg', 'ml', 'count', 'minutes', 'systolic']) {
+        if (c in row) return c;
+      }
+      for (const k of Object.keys(row)) {
+        if (k === 'date' || k === 'time' || k === 'notes') continue;
+        if (typeof row[k] === 'number') return k;
+      }
+    }
+    return null;
   }
 
   _currentEntry() {
@@ -281,6 +305,10 @@ export class EhGenericCard extends EhBaseCard {
         margin-left: 4px;
         vertical-align: middle;
         color: var(--text-inverse, #fff);
+      }
+      .gen-spark {
+        margin-top: 8px;
+        line-height: 0;
       }
       .gen-secondary {
         margin-top: 6px;
@@ -539,6 +567,20 @@ export class EhGenericCard extends EhBaseCard {
       }
     }
 
+    // Opt-in inline sparkline (meta.view.showSparkline). Today-only; needs a
+    // resolvable numeric field and >= 2 dated points, else renders nothing.
+    // When shown, it replaces the trend arrow so direction reads once (the
+    // sparkline + its own latest value), not as two redundant glyphs.
+    let sparkValues = null;
+    if (this._config.showSparkline && isToday) {
+      const field = this._sparklineField(display);
+      if (field) {
+        const s = numericSeries(this._entries(), field, { endDate: this.date, limit: 30 });
+        if (s.length >= 2) sparkValues = s;
+      }
+    }
+    const showTrendArrow = trend && !sparkValues;
+
     return html`
       <div class="card-inner">
         ${threshold && threshold.colour ? html`
@@ -567,7 +609,7 @@ export class EhGenericCard extends EhBaseCard {
           <div class="gen-row">
             <span class="gen-headline ${isCarryOver ? 'carry-over' : ''}">${headline}</span>
             ${display.unit ? html`<span class="gen-unit">${display.unit}</span>` : ''}
-            ${trend ? html`
+            ${showTrendArrow ? html`
               <span class="gen-trend" style="color: ${trendColourValue};" title="vs ${trend.prev.date}">
                 <span class="gen-trend-arrow">${trend.dir === 'up' ? '↑' : trend.dir === 'down' ? '↓' : '→'}</span>
                 ${trendDelta ? html`<span class="gen-trend-delta">${trendDelta}</span>` : ''}
@@ -577,6 +619,7 @@ export class EhGenericCard extends EhBaseCard {
                 ${threshold.label}
               </span>` : ''}
           </div>
+          ${sparkValues ? html`<div class="gen-spark"><eh-sparkline .values=${sparkValues}></eh-sparkline></div>` : ''}
           ${secondary ? html`<div class="gen-secondary">${secondary}</div>` : ''}
           ${carryOverLabel ? html`
             <div class="gen-carry-line">
