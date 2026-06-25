@@ -140,50 +140,66 @@ export class EhReminderModal extends LitElement {
     .close-btn:hover { background: var(--bg-hover, rgba(255, 255, 255, 0.05)); color: var(--text-primary); }
     .close-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-    .section { display: flex; flex-direction: column; gap: 8px; }
+    .group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--bg-hover, rgba(255, 255, 255, 0.03));
+      border: 1px solid var(--border);
+    }
+    .group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .group-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      min-width: 0;
+    }
+    .group-emoji { font-size: 18px; line-height: 1; flex-shrink: 0; }
+
+    .group-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .group-section.missed { opacity: 0.85; }
     .section-title {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       color: var(--text-muted, var(--text-secondary));
       margin: 0;
     }
-    .section.missed .section-title { color: var(--text-secondary); }
+    .group-section.missed .section-title { color: var(--text-secondary); }
 
     .row {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 12px;
-      align-items: center;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: var(--bg-hover, rgba(255, 255, 255, 0.03));
-      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 6px 0;
+      border-top: 1px solid var(--border);
     }
-    .section.missed .row { opacity: 0.85; }
-    .row-info { min-width: 0; }
+    .row:first-of-type { border-top: none; padding-top: 0; }
     .row-name {
       font-size: 14px;
       font-weight: 600;
       color: var(--text-primary);
       overflow-wrap: anywhere;
     }
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      margin-top: 4px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: var(--accent-bg, rgba(124, 92, 255, 0.12));
-      color: var(--accent);
-      font-size: 11px;
-      font-weight: 500;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .row-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      overflow-wrap: anywhere;
     }
 
     .open-btn {
@@ -217,8 +233,7 @@ export class EhReminderModal extends LitElement {
   `;
 
   firstUpdated() {
-    const sections = this._sections();
-    if (sections.dueNow.length === 0 && sections.missed.length === 0) {
+    if (!this._hasAnyRows()) {
       // Defensive: an empty reminders payload should never reach the
       // modal (the app shell gates on it), but if it does, close
       // immediately rather than render an empty dialog.
@@ -257,27 +272,18 @@ export class EhReminderModal extends LitElement {
     this._finish();
   }
 
-  // Flatten the per-group structured payload into two cross-card lists,
-  // each row tagged with its source card so the modal can chip them.
-  _sections() {
-    const groups = Array.isArray(this.reminders) ? this.reminders : [];
-    const dueNow = [];
-    const missed = [];
-    for (const g of groups) {
-      const tag = { cardId: g.cardId, cardLabel: g.cardLabel, cardEmoji: g.cardEmoji };
-      for (const it of (g.due_now || [])) {
-        if (it) dueNow.push({ ...it, ...tag });
-      }
-      for (const it of (g.missed_earlier || [])) {
-        if (it) missed.push({ ...it, ...tag });
-      }
-    }
-    return { dueNow, missed };
+  _groups() {
+    return (Array.isArray(this.reminders) ? this.reminders : [])
+      .filter(g => g && ((g.due_now || []).length || (g.missed_earlier || []).length));
+  }
+
+  _hasAnyRows() {
+    return this._groups().length > 0;
   }
 
   render() {
-    const { dueNow, missed } = this._sections();
-    if (dueNow.length === 0 && missed.length === 0) return html``;
+    const groups = this._groups();
+    if (groups.length === 0) return html``;
     return html`
       <dialog aria-modal="true" aria-label="Reminders">
         <div class="wrap">
@@ -296,19 +302,7 @@ export class EhReminderModal extends LitElement {
               >✕</button>
             </div>
 
-            ${dueNow.length > 0 ? html`
-              <div class="section" role="list" aria-label="Due now">
-                <h3 class="section-title">Due now</h3>
-                ${dueNow.map(row => this._renderRow(row))}
-              </div>
-            ` : ''}
-
-            ${missed.length > 0 ? html`
-              <div class="section missed" role="list" aria-label="Missed earlier">
-                <h3 class="section-title">Missed earlier</h3>
-                ${missed.map(row => this._renderRow(row))}
-              </div>
-            ` : ''}
+            ${groups.map(g => this._renderGroup(g))}
 
             <div class="footer">
               <button class="dismiss-btn" type="button" @click=${this._finish}>Close</button>
@@ -319,23 +313,50 @@ export class EhReminderModal extends LitElement {
     `;
   }
 
-  _renderRow(row) {
-    const display = row.short_name || row.name || '';
-    const chipText = [row.cardEmoji, row.cardLabel].filter(Boolean).join(' ');
+  _renderGroup(g) {
+    const due = Array.isArray(g.due_now) ? g.due_now : [];
+    const miss = Array.isArray(g.missed_earlier) ? g.missed_earlier : [];
+    return html`
+      <div class="group">
+        <div class="group-header">
+          <div class="group-label">
+            ${g.cardEmoji ? html`<span class="group-emoji" aria-hidden="true">${g.cardEmoji}</span>` : ''}
+            <span>${g.cardLabel || 'Card'}</span>
+          </div>
+          ${g.cardId ? html`
+            <button
+              class="open-btn"
+              type="button"
+              aria-label="Open ${g.cardLabel || 'card'}"
+              @click=${() => this._openCard(g.cardId)}
+            >Open card</button>
+          ` : ''}
+        </div>
+
+        ${due.length > 0 ? html`
+          <div class="group-section" role="list" aria-label="Due now">
+            <h3 class="section-title">Due now</h3>
+            ${due.map(it => this._renderRow(it))}
+          </div>
+        ` : ''}
+
+        ${miss.length > 0 ? html`
+          <div class="group-section missed" role="list" aria-label="Missed earlier">
+            <h3 class="section-title">Missed earlier</h3>
+            ${miss.map(it => this._renderRow(it))}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  _renderRow(it) {
+    const display = it.short_name || it.name || '';
+    const meta = [it.dose, it.timing].filter(Boolean).join(' · ');
     return html`
       <div class="row" role="listitem">
-        <div class="row-info">
-          <div class="row-name">${display}</div>
-          ${chipText ? html`<span class="chip">${chipText}</span>` : ''}
-        </div>
-        ${row.cardId ? html`
-          <button
-            class="open-btn"
-            type="button"
-            aria-label="Open ${row.cardLabel || 'card'}"
-            @click=${() => this._openCard(row.cardId)}
-          >Open card</button>
-        ` : ''}
+        <div class="row-name">${display}</div>
+        ${meta ? html`<div class="row-meta">${meta}</div>` : ''}
       </div>
     `;
   }

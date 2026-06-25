@@ -48,8 +48,8 @@ test.describe('#454: reminder modal on notification tap', () => {
           cardId: 'peptide-cycle',
           cardLabel: 'Injections',
           cardEmoji: '💉',
-          due_now: [{ name: 'Ozempic', short_name: 'Ozempic' }],
-          missed_earlier: [{ name: 'BPC-157', short_name: 'BPC-157' }],
+          due_now: [{ name: 'Ozempic', short_name: 'Ozempic', dose: '0.5mg · subQ', timing: 'morning' }],
+          missed_earlier: [{ name: 'BPC-157', short_name: 'BPC-157', dose: '0.5mg' }],
         },
       ],
     });
@@ -65,9 +65,12 @@ test.describe('#454: reminder modal on notification tap', () => {
     await expect(modal).toContainText('Ozempic');
     await expect(modal).toContainText('Missed earlier');
     await expect(modal).toContainText('BPC-157');
-    // Source-card chip is present in both rows.
-    const chips = modal.locator('.chip');
-    await expect(chips.first()).toContainText('Injections');
+    // Group header shows the card label + emoji once per group.
+    await expect(modal.locator('.group-label')).toContainText('Injections');
+    // Dose meta is rendered next to the row name.
+    await expect(modal).toContainText('0.5mg · subQ');
+    // One Open card button per group, not per row.
+    await expect(modal.locator('.open-btn')).toHaveCount(1);
 
     // Close clears the modal.
     await modal.locator('button.dismiss-btn').click();
@@ -96,7 +99,7 @@ test.describe('#454: reminder modal on notification tap', () => {
 
     const modal = page.locator('eh-reminder-modal');
     await expect(modal.locator('dialog')).toBeVisible();
-    await modal.locator('.open-btn').first().click();
+    await modal.locator('.open-btn').click();
     await expect(modal).toHaveCount(0);
     expect(new URL(page.url()).search).toContain('card=peptide-cycle');
   });
