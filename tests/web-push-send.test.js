@@ -113,6 +113,60 @@ test.describe('web-push-send.buildPayload', () => {
     const payload = send.buildPayload(fakeEvent(item));
     assert.equal(payload.items[0].url, '/?card=mood&action=log');
   });
+
+  test('reminders: structured items ride along when surviving/missed_earlier are present', () => {
+    freshHome();
+    const send = require('../lib/web-push-send');
+    const ev = fakeEvent(PRIVATE_ITEM);
+    ev.items[0].surviving = [{ name: 'BPC-157', short_name: 'BPC-157' }];
+    ev.items[0].missed_earlier = [{ name: 'Ozempic', short_name: 'Ozempic' }];
+    const payload = send.buildPayload(ev);
+    assert.deepEqual(payload.items[0].reminders, {
+      due_now: [{ name: 'BPC-157', short_name: 'BPC-157' }],
+      missed_earlier: [{ name: 'Ozempic', short_name: 'Ozempic' }],
+    });
+  });
+
+  test('reminders: null when both arrays are empty (daily/weekly trigger or empty schedule_due slot)', () => {
+    freshHome();
+    const send = require('../lib/web-push-send');
+    const payload = send.buildPayload(fakeEvent(PRIVATE_ITEM));
+    assert.equal(payload.items[0].reminders, null);
+  });
+
+  test('reminders: per-item attribution survives coalesced multi-item events', () => {
+    freshHome();
+    const send = require('../lib/web-push-send');
+    const ev = {
+      id: 'tick-2026-06-12T20:00',
+      slot: '2026-06-12T20:00:00+10:00',
+      items: [
+        {
+          id: 'pep#evening', slot: '2026-06-12T20:00:00+10:00',
+          item: { ...PRIVATE_ITEM, id: 'evening' },
+          manifest: { id: 'pep', label: 'Injections', emoji: '💉' },
+          surviving: [{ name: 'Ozempic', short_name: 'Ozempic' }],
+          missed_earlier: [],
+        },
+        {
+          id: 'mood#evening', slot: '2026-06-12T20:00:00+10:00',
+          item: { ...PRIVATE_ITEM, id: 'evening' },
+          manifest: { id: 'mood', label: 'Mood', emoji: '🙂' },
+          surviving: [],
+          missed_earlier: [],
+        },
+      ],
+    };
+    const payload = send.buildPayload(ev);
+    assert.equal(payload.items.length, 2);
+    assert.equal(payload.items[0].cardId, 'pep');
+    assert.deepEqual(payload.items[0].reminders, {
+      due_now: [{ name: 'Ozempic', short_name: 'Ozempic' }],
+      missed_earlier: [],
+    });
+    assert.equal(payload.items[1].cardId, 'mood');
+    assert.equal(payload.items[1].reminders, null);
+  });
 });
 
 test.describe('web-push-send.dispatch (mocked send)', () => {

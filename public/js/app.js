@@ -18,6 +18,7 @@ import './components/eh-settings-view.js';    // /settings
 // Shared widgets
 import './components/health-chat.js';
 import './components/eh-prompt-modal.js';
+import './components/eh-reminder-modal.js';
 import { checkPromptsForToday } from './lib/prompt-queue.js';
 import { localToday } from './lib/date-util.js';
 import { readTheme, applyTheme } from './lib/theme.js';
@@ -36,6 +37,7 @@ class HealthApp extends LitElement {
     _buildInfo: { state: true },
     _demo: { state: true },
     _pausedUntil: { state: true },
+    _pendingReminders: { state: true },
   };
 
   constructor() {
@@ -50,6 +52,7 @@ class HealthApp extends LitElement {
     this._buildInfo = null;
     this._demo = false;
     this._pausedUntil = null;
+    this._pendingReminders = null;
     applyTheme(this.theme);
     this._onThemeChanged = (e) => { this.theme = e.detail.theme; };
     window.addEventListener('klebb-theme-changed', this._onThemeChanged);
@@ -134,6 +137,9 @@ class HealthApp extends LitElement {
         this._handleRoute();
       }
     } catch {}
+    if (Array.isArray(pending.reminders) && pending.reminders.length > 0) {
+      this._pendingReminders = pending.reminders;
+    }
   }
 
   _wireSwMessages() {
@@ -156,6 +162,9 @@ class HealthApp extends LitElement {
             this._handleRoute();
           }
         } catch {}
+        if (Array.isArray(msg.reminders) && msg.reminders.length > 0) {
+          this._pendingReminders = msg.reminders;
+        }
       } else {
         // Render an in-app toast via a CustomEvent so the
         // notifications tab and any future toast layer can pick it up.
@@ -461,6 +470,10 @@ class HealthApp extends LitElement {
     }
   `;
 
+  _onReminderDone() {
+    this._pendingReminders = null;
+  }
+
   render() {
     const activePrompt = this._promptQueue[0];
     return html`
@@ -470,6 +483,12 @@ class HealthApp extends LitElement {
           .date=${localToday()}
           @eh-prompt-done=${this._onPromptDone}
         ></eh-prompt-modal>
+      ` : ''}
+      ${this._pendingReminders ? html`
+        <eh-reminder-modal
+          .reminders=${this._pendingReminders}
+          @eh-reminder-done=${this._onReminderDone}
+        ></eh-reminder-modal>
       ` : ''}
       ${this.showNav ? html`
         <nav>
