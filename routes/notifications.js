@@ -229,10 +229,19 @@ async function handle(req, res, parts, ctx) {
       return true;
     }
 
+    // For schedule_due triggers, look up the target card so testFire can
+    // compute carry-forward against its real items[]; the modal then has
+    // the same shape it would on a production fire.
+    let targetCard = null;
+    if (item.trigger?.type === 'schedule_due' && item.trigger.card) {
+      targetCard = ctx.registry.get(item.trigger.card) || null;
+    }
+
     try {
       const result = await webPushSend.testFire({
         manifest: { id: cardId, label: card.meta.label, emoji: card.meta.emoji || null },
         item,
+        targetCard,
       });
       _send(res, 200, { ok: true, sent: result.sent });
     } catch (e) {
