@@ -20,6 +20,7 @@ import './components/health-chat.js';
 import './components/eh-prompt-modal.js';
 import './components/eh-reminder-modal.js';
 import './components/eh-card-settings-modal.js';
+import './components/eh-card-gallery.js';
 import { checkPromptsForToday } from './lib/prompt-queue.js';
 import { localToday } from './lib/date-util.js';
 import { readTheme, applyTheme } from './lib/theme.js';
@@ -63,6 +64,10 @@ class HealthApp extends LitElement {
     window.addEventListener('klebb-theme-changed', this._onThemeChanged);
     this._onOpenCardSettings = (e) => this._openCardSettings(e.detail);
     window.addEventListener('eh-open-card-settings', this._onOpenCardSettings);
+    // The welcome card (and first-run empty state) dispatches this to open
+    // the add-a-card gallery; mount it on demand.
+    this._onOpenCardGallery = () => this._openCardGallery();
+    window.addEventListener('klebb-open-card-gallery', this._onOpenCardGallery);
     this._registerServiceWorker();
     this._postUserTz();
     this._wirePushHeartbeat();
@@ -90,6 +95,13 @@ class HealthApp extends LitElement {
     window.removeEventListener('klebb-theme-changed', this._onThemeChanged);
     window.removeEventListener('klebb-notifications-pause-changed', this._onPauseChanged);
     window.removeEventListener('eh-open-card-settings', this._onOpenCardSettings);
+    window.removeEventListener('klebb-open-card-gallery', this._onOpenCardGallery);
+  }
+
+  _openCardGallery() {
+    const m = document.createElement('eh-card-gallery');
+    document.body.appendChild(m);
+    requestAnimationFrame(() => m.open());
   }
 
   // Resolve the renderer class for a card's component to read its static

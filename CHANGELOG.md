@@ -9,6 +9,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Add a card from a template, in a tap.** Settings › Cards gains a
+  "Browse card templates" button (and the first-run welcome card's "add a
+  card" path now opens it too) that brings up a gallery of ready-made cards
+  — weight, blood pressure, mood, sleep, steps and more — mirroring the
+  starter-prompts gallery: search, a featured "start here" row, per-row
+  Preview of the manifest, and a one-tap **Add card**. Picking one fills
+  the template's placeholders (id derived and deduped, label from the
+  title, unit and the like from the template's `defaults`), writes a real
+  manifest via `POST /api/settings/cards/from-template`, and the new card
+  appears in the list and on Today straight away. Authoring templates is
+  unchanged (`templates/*.klebb.json`); `meta.template` gains optional
+  `featured` and `defaults`. Closes #451.
+
 - **A settings gear on your cards.** Data cards (generic, schedule, list,
   checklist) now carry a small header gear that opens a per-card settings
   panel: toggle whether the card accepts entries from the app (and for
