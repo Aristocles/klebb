@@ -323,6 +323,77 @@ test.describe('#456: per-card settings gear', () => {
     }
   });
 
+  // Regression guard for #460: a settings toggle dispatched klebb-cards-changed,
+  // which several listeners answer with a full-view refresh (the view reloads
+  // and every visible card re-fetches its /data). That fan-out — ~25-30
+  // requests per toggle on a busy dashboard — tripped the reverse proxy's
+  // rate limiter into 503s. The sandbox has no proxy/limiter, so we can't
+  // assert a literal 503; instead we assert the CAUSE is gone: a toggle hits
+  // only this card's endpoints, NOT the full-view refresh endpoints, and the
+  // single view refresh happens once, on close. This would fail on the
+  // pre-#460 code (which fired the full refresh per toggle).
+  test('#460: toggling does not fan out to a full-view refresh (per-toggle), only on close', async ({ page, sandboxState }) => {
+    const baseUrl = sandboxState.baseUrl;
+    const before = await (await page.request.get(`${baseUrl}/api/manifests/weight`)).json();
+    const promptWas = !!before.meta?.prompt?.enabled;
+
+    await page.goto('/');
+    await expect(page.locator('eh-date-view')).toBeVisible();
+
+    // Record every /api/ request the page makes from here on.
+    const calls = [];
+    page.on('request', (req) => {
+      const u = new URL(req.url());
+      if (u.pathname.startsWith('/api/')) calls.push(`${req.method()} ${u.pathname}`);
+    });
+    // Endpoints that only a full Today-view refresh hits (the #460 fan-out).
+    const isFullViewRefresh = (c) =>
+      c === 'GET /api/views/view'
+      || c === 'GET /api/settings/cards'
+      || c === 'GET /api/cc-suggestions'
+      || c === 'GET /api/health-auto-export/discoveries';
+
+    const weightCard = page.locator('eh-generic-card', { hasText: 'Weight' }).first();
+    await weightCard.locator('.settings-gear').click();
+    const modal = page.locator('eh-card-settings-modal');
+    await expect(modal.locator('dialog')).toBeVisible();
+
+    const toggle = modal.locator('.row', { hasText: 'Prompt me to log this daily' }).locator('.toggle');
+
+    // Toggle several times. The toggle serialises (it disables itself while a
+    // PATCH is in flight), so settle between clicks — wait for it to flip and
+    // re-enable — rather than firing overlapping clicks that would be dropped.
+    calls.length = 0;
+    for (let i = 0; i < 4; i++) {
+      const want = (await toggle.getAttribute('aria-checked')) !== 'true';
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-checked', String(want)); // applied + re-rendered
+      await expect(toggle).toBeEnabled();                                  // _busy cleared
+    }
+
+    // No toggle triggered a full-view refresh while the modal was open: the
+    // recorded calls are confined to the edited card's own endpoints.
+    const refreshesWhileOpen = calls.filter(isFullViewRefresh);
+    expect(refreshesWhileOpen, `unexpected full-view refresh during toggling: ${refreshesWhileOpen.join(', ')}`).toEqual([]);
+    const foreignCardData = calls.filter(c => /\/api\/manifests\/(?!weight\b)[^/]+\/data/.test(c));
+    expect(foreignCardData, `toggling re-fetched other cards' data: ${foreignCardData.join(', ')}`).toEqual([]);
+    // Sanity: the toggles WERE hitting the server (PATCHes happened), so the
+    // "no fan-out" result above isn't just because nothing fired.
+    expect(calls.filter(c => c === 'PATCH /api/manifests/weight').length).toBeGreaterThanOrEqual(1);
+
+    // Closing the modal triggers the single view refresh (the change was real).
+    calls.length = 0;
+    await modal.locator('.close-btn').click();
+    await expect(modal).toHaveCount(0);
+    await expect.poll(() => calls.filter(c => c === 'GET /api/views/view').length).toBeGreaterThanOrEqual(1);
+
+    await page.request.fetch(`${baseUrl}/api/manifests/weight`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      data: { meta: { prompt: { enabled: promptWas } } },
+    });
+  });
+
   test('synthetic cards (e.g. unknown renderer) do not show a gear', async ({ page, sandboxState }) => {
     const baseUrl = sandboxState.baseUrl;
     const id = 'e2e_unknown_456';
