@@ -22,6 +22,7 @@ const COMBINATION = read('components', 'eh-combination-card.js');
 const WELCOME = read('components', 'eh-welcome-card.js');
 const UNKNOWN = read('components', 'eh-unknown-card.js');
 const MODAL = read('components', 'eh-card-settings-modal.js');
+const COMMON = read('lib', 'card-settings.js');
 const APP = read('app.js');
 
 describe('gear opt-in on the base card', () => {
@@ -104,15 +105,21 @@ describe('modal <-> app event contract', () => {
     assert.ok(/customElements\.get\(tag\)/.test(APP), 'resolves the renderer class via the registry tag');
     assert.ok(/mergeSchema\(/.test(APP), 'merges common + renderer schema');
   });
-  test('modal renders a notifications section and combines patches into one PATCH', () => {
+  test('modal renders a notifications section driven by the helper', () => {
     assert.ok(/_renderNotifications\(\)/.test(MODAL), 'notifications section rendered');
     assert.ok(/buildNotificationsPatch/.test(MODAL), 'uses the notifications patch builder');
-    assert.ok(/_combinedPatch\(\)/.test(MODAL), 'merges settings + notifications into one patch');
     assert.ok(/notificationsState|notificationsEnabled/.test(MODAL), 'reads notification state from the helper');
   });
-  test('notifications toggle is separate from path descriptors (can create an item)', () => {
-    assert.ok(/_notifEdit/.test(MODAL), 'notifications tracked as its own tri-state');
-    assert.ok(/_toggleNotifications/.test(MODAL), 'dedicated toggle handler');
+  test('each toggle applies immediately — no Save button, no batched edit state', () => {
+    assert.ok(/async _apply\(/.test(MODAL), 'single-apply path present');
+    assert.ok(!/_combinedPatch/.test(MODAL), 'no batched combined-patch');
+    assert.ok(!/class="save-btn"/.test(MODAL), 'no Save button');
+    assert.ok(!/_edited|_notifEdit|_advEdit/.test(MODAL), 'no pending-edit state');
+  });
+  test('apply re-reads the manifest and live-refreshes the views behind the modal', () => {
+    assert.ok(/method:\s*'PATCH'[\s\S]{0,400}credentials:\s*'same-origin'/.test(MODAL), 'PATCHes the slice');
+    assert.ok(/this\.card\s*=\s*\{\s*\.\.\.this\.card,\s*meta:/.test(MODAL), 're-reads meta after the PATCH');
+    assert.ok(/new CustomEvent\('klebb-cards-changed'\)/.test(MODAL), 'refreshes views live per change');
   });
   test('app refreshes the view only when a change was persisted', () => {
     assert.ok(/_onCardSettingsDone/.test(APP), 'done handler present');
@@ -127,13 +134,17 @@ describe('modal <-> app event contract', () => {
     assert.ok(/discoverAdvanced/.test(MODAL), 'uses the discovery helper');
     assert.ok(/buildAdvancedPatch/.test(MODAL), 'uses the park/restore patch builder');
   });
-  test('advanced patch is always computed so stale parked copies purge on save', () => {
-    // buildAdvancedPatch is called in _combinedPatch unconditionally (not
-    // guarded behind "only if edits"), enforcing live-wins.
-    assert.ok(/buildAdvancedPatch\(meta,\s*this\._advanced\(\),\s*this\._advEdit\)/.test(MODAL),
-      'advanced patch computed every save');
+  test('visibility / whole-card enable is NOT in the gear (lives in Settings > Cards)', () => {
+    assert.ok(!/Show on Today|Show in Trends|Show in Calendar/.test(MODAL), 'no view-visibility labels in the modal');
+    // Only the descriptor `path:` declarations, not example paths in comments.
+    const paths = [...COMMON.matchAll(/path:\s*'([^']+)'/g)].map(m => m[1]);
+    for (const banned of ['enabled', 'view.enabled', 'trends.enabled', 'calendar.enabled', 'reports.enabled']) {
+      assert.ok(!paths.includes(banned), `COMMON_SETTINGS must not declare ${banned}`);
+    }
   });
-  test('combined patch deep-merges so view sub-trees never clobber each other', () => {
-    assert.ok(/function deepMerge/.test(MODAL), 'deepMerge helper present');
+  test('Ask Klebbius is a reusable inline link, not a standalone button', () => {
+    assert.ok(/_klebbiusLink\(/.test(MODAL), 'shared link helper present');
+    assert.ok(/klebb-paste-into-chat/.test(MODAL), 'seeds the chat');
+    assert.ok(/class="footer-note"/.test(MODAL), 'footer is a sentence with an inline link');
   });
 });

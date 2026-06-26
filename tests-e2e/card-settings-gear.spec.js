@@ -2,15 +2,25 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests-e2e/card-settings-gear.spec.js
 // Live coverage for the per-card settings gear (#456): the gear opens a
-// modal of safe toggles, flipping one persists via PATCH and the view
-// reflects it, the sparkline toggle is data-gated (disabled until there
-// are >=2 numeric points), and the Ask-Klebbius link seeds the chat with
-// card context. Mutates sandbox state, so runs serial + restores.
+// modal of behaviour toggles that APPLY IMMEDIATELY (no Save button), the
+// sparkline toggle is data-gated (disabled until >=2 points), reminders
+// can be turned on/off, advanced features park-and-restore, and every
+// "Ask Klebbius" is an inline link that seeds the chat. Mutates sandbox
+// state, so runs serial + restores.
 
 const { test, expect } = require('./helpers/auth-fixture');
 const { todayISO, shiftDays } = require('./helpers/seed-manifests');
 
 test.describe.configure({ mode: 'serial' });
+
+// Poll a manifest's meta until `pick` returns the expected value, proving
+// an apply-immediately toggle persisted without a Save step.
+async function expectMeta(page, baseUrl, id, pick, expected) {
+  await expect.poll(async () => {
+    const j = await (await page.request.get(`${baseUrl}/api/manifests/${id}`)).json();
+    return pick(j.meta);
+  }).toEqual(expected);
+}
 
 test.describe('#456: per-card settings gear', () => {
   // Keep the mood daily prompt from firing mid-spec and stealing clicks.
@@ -22,9 +32,8 @@ test.describe('#456: per-card settings gear', () => {
     });
   });
 
-  test('gear opens the modal and flipping a toggle persists + reflects', async ({ page, sandboxState }) => {
+  test('gear opens the modal and a toggle applies immediately (no Save)', async ({ page, sandboxState }) => {
     const baseUrl = sandboxState.baseUrl;
-    // Snapshot weight meta so we can restore prompt.enabled afterwards.
     const before = await (await page.request.get(`${baseUrl}/api/manifests/weight`)).json();
     const promptWasEnabled = !!before.meta?.prompt?.enabled;
 
@@ -38,25 +47,19 @@ test.describe('#456: per-card settings gear', () => {
 
     const modal = page.locator('eh-card-settings-modal');
     await expect(modal.locator('dialog')).toBeVisible();
-    // Title shows the card label; kicker shows the renderer display name.
     await expect(modal.locator('.title')).toHaveText('Weight');
+    // No Save button exists.
+    await expect(modal.locator('.save-btn')).toHaveCount(0);
 
-    // Flip "Prompt me to log this daily" (available: weight has inputs).
-    const promptRow = modal.locator('.row', { hasText: 'Prompt me to log this daily' });
-    const promptToggle = promptRow.locator('.toggle');
+    // Flip "Prompt me to log this daily" — applies on click, no Save.
+    const promptToggle = modal.locator('.row', { hasText: 'Prompt me to log this daily' }).locator('.toggle');
     const wasChecked = (await promptToggle.getAttribute('aria-checked')) === 'true';
     await promptToggle.click();
+    await expectMeta(page, baseUrl, 'weight', m => !!m.prompt?.enabled, !wasChecked);
+    // The modal stays open; the toggle reflects the new state.
+    await expect(modal.locator('dialog')).toBeVisible();
     await expect(promptToggle).toHaveAttribute('aria-checked', String(!wasChecked));
-    await modal.locator('.save-btn').click();
 
-    // Modal closes; the manifest reflects the change.
-    await expect(modal).toHaveCount(0);
-    await expect.poll(async () => {
-      const j = await (await page.request.get(`${baseUrl}/api/manifests/weight`)).json();
-      return !!j.meta?.prompt?.enabled;
-    }).toBe(!wasChecked);
-
-    // Restore original prompt.enabled.
     await page.request.fetch(`${baseUrl}/api/manifests/weight`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -64,7 +67,19 @@ test.describe('#456: per-card settings gear', () => {
     });
   });
 
-  test('sparkline toggle is available on a card with >=2 points and turns it on', async ({ page, sandboxState }) => {
+  test('there is no whole-card / view-visibility toggle in the gear', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('eh-date-view')).toBeVisible();
+    const weightCard = page.locator('eh-generic-card', { hasText: 'Weight' }).first();
+    await weightCard.locator('.settings-gear').click();
+    const modal = page.locator('eh-card-settings-modal');
+    await expect(modal.locator('dialog')).toBeVisible();
+    // Visibility lives in Settings > Cards, not here.
+    await expect(modal.locator('.row', { hasText: 'Show on Today' })).toHaveCount(0);
+    await expect(modal.locator('.row', { hasText: 'Show in Trends' })).toHaveCount(0);
+  });
+
+  test('sparkline toggle applies immediately and the card reflects it', async ({ page, sandboxState }) => {
     const baseUrl = sandboxState.baseUrl;
     const before = await (await page.request.get(`${baseUrl}/api/manifests/weight`)).json();
     const sparkWas = !!before.meta?.view?.showSparkline;
@@ -77,20 +92,16 @@ test.describe('#456: per-card settings gear', () => {
     const modal = page.locator('eh-card-settings-modal');
     await expect(modal.locator('dialog')).toBeVisible();
 
-    const sparkRow = modal.locator('.row', { hasText: 'Show trend sparkline' });
-    const sparkToggle = sparkRow.locator('.toggle');
-    // Weight has 4 numeric rows, so the toggle is interactive (not disabled).
+    const sparkToggle = modal.locator('.row', { hasText: 'Show trend sparkline' }).locator('.toggle');
     await expect(sparkToggle).toBeEnabled();
-    if ((await sparkToggle.getAttribute('aria-checked')) !== 'true') {
-      await sparkToggle.click();
-    }
-    await modal.locator('.save-btn').click();
-    await expect(modal).toHaveCount(0);
+    if ((await sparkToggle.getAttribute('aria-checked')) !== 'true') await sparkToggle.click();
+    await expectMeta(page, baseUrl, 'weight', m => !!m.view?.showSparkline, true);
 
-    // The sparkline now renders on the card (Today, >=2 points).
+    // Close the modal; the sparkline now renders on the card.
+    await modal.locator('.close-btn').click();
+    await expect(modal).toHaveCount(0);
     await expect(weightCard.locator('eh-sparkline')).toBeVisible();
 
-    // Restore.
     await page.request.fetch(`${baseUrl}/api/manifests/weight`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -101,8 +112,6 @@ test.describe('#456: per-card settings gear', () => {
   test('sparkline toggle is disabled with a hint on a card with too few points', async ({ page, sandboxState }) => {
     const baseUrl = sandboxState.baseUrl;
     const today = todayISO();
-    // Throwaway generic-card with a single numeric row — below the
-    // >=2-points bar the sparkline needs.
     const id = 'e2e_sparse_456';
     const create = await page.request.post(`${baseUrl}/api/manifests`, {
       data: {
@@ -116,7 +125,6 @@ test.describe('#456: per-card settings gear', () => {
       },
     });
     expect(create.status()).toBe(201);
-
     try {
       await page.goto('/');
       await expect(page.locator('eh-date-view')).toBeVisible();
@@ -133,11 +141,9 @@ test.describe('#456: per-card settings gear', () => {
     }
   });
 
-  test('Ask Klebbius seeds the chat with this card context', async ({ page }) => {
+  test('footer Ask-Klebbius link seeds the chat with this card context', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('eh-date-view')).toBeVisible();
-
-    // Capture the seed event payload.
     await page.evaluate(() => {
       window.__seeded = null;
       window.addEventListener('klebb-paste-into-chat', (e) => { window.__seeded = e.detail?.text || ''; });
@@ -147,14 +153,15 @@ test.describe('#456: per-card settings gear', () => {
     await weightCard.locator('.settings-gear').click();
     const modal = page.locator('eh-card-settings-modal');
     await expect(modal.locator('dialog')).toBeVisible();
-    await modal.getByRole('button', { name: 'Ask Klebbius →' }).click();
+    // The footer is a sentence with an inline "Ask Klebbius" link.
+    await modal.locator('.footer-note .klebbius-link').click();
 
     await expect(modal).toHaveCount(0);
     const seeded = await page.evaluate(() => window.__seeded);
     expect(seeded).toContain('weight');
   });
 
-  test('schedule-card gear offers the adherence sparkline toggle and persists it', async ({ page, sandboxState }) => {
+  test('schedule-card gear adherence sparkline toggle applies immediately', async ({ page, sandboxState }) => {
     const baseUrl = sandboxState.baseUrl;
     const before = await (await page.request.get(`${baseUrl}/api/manifests/peptides`)).json();
     const sparkWas = !!before.meta?.view?.showSparkline;
@@ -167,20 +174,11 @@ test.describe('#456: per-card settings gear', () => {
     const modal = page.locator('eh-card-settings-modal');
     await expect(modal.locator('dialog')).toBeVisible();
 
-    // The peptides seed has a scheduled item, so the adherence toggle is available.
-    const row = modal.locator('.row', { hasText: 'Show adherence sparkline' });
-    const toggle = row.locator('.toggle');
+    const toggle = modal.locator('.row', { hasText: 'Show adherence sparkline' }).locator('.toggle');
     await expect(toggle).toBeEnabled();
     if ((await toggle.getAttribute('aria-checked')) !== 'true') await toggle.click();
-    await modal.locator('.save-btn').click();
-    await expect(modal).toHaveCount(0);
+    await expectMeta(page, baseUrl, 'peptides', m => !!m.view?.showSparkline, true);
 
-    await expect.poll(async () => {
-      const j = await (await page.request.get(`${baseUrl}/api/manifests/peptides`)).json();
-      return !!j.meta?.view?.showSparkline;
-    }).toBe(true);
-
-    // Restore.
     await page.request.fetch(`${baseUrl}/api/manifests/peptides`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -198,7 +196,6 @@ test.describe('#456: per-card settings gear', () => {
 
   test('notifications: enabling on a loggable card with none creates a private daily reminder', async ({ page, sandboxState }) => {
     const baseUrl = sandboxState.baseUrl;
-    // weight is loggable (fromWebapp) and has no notifications block.
     const before = await (await page.request.get(`${baseUrl}/api/manifests/weight`)).json();
     const hadNotifs = before.meta?.notifications !== undefined;
 
@@ -209,22 +206,18 @@ test.describe('#456: per-card settings gear', () => {
     const modal = page.locator('eh-card-settings-modal');
     await expect(modal.locator('dialog')).toBeVisible();
 
-    const notifRow = modal.locator('.row', { hasText: 'Reminders' });
-    const toggle = notifRow.locator('.toggle');
+    const toggle = modal.locator('.row', { hasText: 'Reminders' }).locator('.toggle');
     await expect(toggle).toHaveAttribute('aria-checked', 'false');
     await toggle.click();
-    await modal.locator('.save-btn').click();
-    await expect(modal).toHaveCount(0);
 
-    // The manifest gained a single private daily reminder.
-    const after = await (await page.request.get(`${baseUrl}/api/manifests/weight`)).json();
-    const n = after.meta.notifications;
-    expect(n.enabled).toBe(true);
-    expect(n.items).toHaveLength(1);
-    expect(n.items[0].trigger).toMatchObject({ type: 'daily', time: '09:00' });
-    expect(n.items[0].privacy).toBe('private');
+    // Applied immediately: one private daily reminder now exists.
+    await expect.poll(async () => {
+      const m = (await (await page.request.get(`${baseUrl}/api/manifests/weight`)).json()).meta;
+      const n = m.notifications;
+      if (!n || !Array.isArray(n.items) || n.items.length !== 1) return null;
+      return { enabled: n.enabled, type: n.items[0].trigger.type, time: n.items[0].trigger.time, privacy: n.items[0].privacy };
+    }).toEqual({ enabled: true, type: 'daily', time: '09:00', privacy: 'private' });
 
-    // Restore: strip the notifications block we added (null removes it).
     await page.request.fetch(`${baseUrl}/api/manifests/weight`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -261,21 +254,18 @@ test.describe('#456: per-card settings gear', () => {
 
       const toggle = modal.locator('.row', { hasText: 'Reminders' }).locator('.toggle');
       await expect(toggle).toHaveAttribute('aria-checked', 'true');
-      await toggle.click(); // turn master off
-      await modal.locator('.save-btn').click();
-      await expect(modal).toHaveCount(0);
+      await toggle.click(); // master off, applies immediately
 
-      const after = await (await page.request.get(`${baseUrl}/api/manifests/${id}`)).json();
-      expect(after.meta.notifications.enabled).toBe(false);
-      // Items are preserved (merge-patch never sent items[]).
-      expect(after.meta.notifications.items).toHaveLength(1);
-      expect(after.meta.notifications.items[0].id).toBe('morning');
+      await expect.poll(async () => {
+        const n = (await (await page.request.get(`${baseUrl}/api/manifests/${id}`)).json()).meta.notifications;
+        return { enabled: n.enabled, items: n.items.length, id0: n.items[0]?.id };
+      }).toEqual({ enabled: false, items: 1, id0: 'morning' });
     } finally {
       await page.request.delete(`${baseUrl}/api/manifests/${id}`);
     }
   });
 
-  test('notifications: a read-only card shows the hint, no toggle', async ({ page, sandboxState }) => {
+  test('notifications: a read-only card shows a clickable hint, no toggle', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('eh-date-view')).toBeVisible();
     // workouts is fromWebapp:false with no notifications -> 'none' state.
@@ -285,7 +275,7 @@ test.describe('#456: per-card settings gear', () => {
     await expect(modal.locator('dialog')).toBeVisible();
     const notifRow = modal.locator('.row', { hasText: 'Reminders' });
     await expect(notifRow.locator('.toggle')).toHaveCount(0);
-    await expect(notifRow.locator('.row-hint')).toContainText(/Klebbius/i);
+    await expect(notifRow.locator('.klebbius-link')).toBeVisible();
   });
 
   test('advanced feature: disabling parks the block, re-enabling restores it', async ({ page, sandboxState }) => {
@@ -315,34 +305,19 @@ test.describe('#456: per-card settings gear', () => {
       const modal = page.locator('eh-card-settings-modal');
       await expect(modal.locator('dialog')).toBeVisible();
 
-      // The added feature shows under "Added features", toggled on.
-      const row = modal.locator('.row', { hasText: 'Per-dose check-off form' });
-      const toggle = row.locator('.toggle');
+      const toggle = modal.locator('.row', { hasText: 'Per-dose check-off form' }).locator('.toggle');
       await expect(toggle).toHaveAttribute('aria-checked', 'true');
-      await toggle.click(); // turn off
-      await modal.locator('.save-btn').click();
-      await expect(modal).toHaveCount(0);
+      await toggle.click(); // off, applies immediately -> parks the block
 
-      // Parked: live block gone, parked copy intact byte-for-byte.
-      let m = (await (await page.request.get(`${baseUrl}/api/manifests/${id}`)).json()).meta;
-      expect(m.view.checkOffForm).toBeUndefined();
-      expect(m.view._disabled.checkOffForm).toEqual(checkOffForm);
+      await expect.poll(async () => {
+        const m = (await (await page.request.get(`${baseUrl}/api/manifests/${id}`)).json()).meta;
+        return { live: m.view.checkOffForm, parked: m.view._disabled?.checkOffForm };
+      }).toEqual({ live: undefined, parked: checkOffForm });
 
-      // Re-open: feature shows OFF, toggle it back on.
-      await page.goto('/');
-      await expect(page.locator('eh-date-view')).toBeVisible();
-      await page.locator('eh-schedule-card', { hasText: 'Adv 456' }).first().locator('.settings-gear').click();
-      const modal2 = page.locator('eh-card-settings-modal');
-      await expect(modal2.locator('dialog')).toBeVisible();
-      const row2 = modal2.locator('.row', { hasText: 'Per-dose check-off form' });
-      await expect(row2.locator('.toggle')).toHaveAttribute('aria-checked', 'false');
-      await row2.locator('.toggle').click();
-      await modal2.locator('.save-btn').click();
-      await expect(modal2).toHaveCount(0);
-
-      // Restored exactly.
-      m = (await (await page.request.get(`${baseUrl}/api/manifests/${id}`)).json()).meta;
-      expect(m.view.checkOffForm).toEqual(checkOffForm);
+      // The same modal now shows it OFF; toggle back on -> restored exactly.
+      await expect(toggle).toHaveAttribute('aria-checked', 'false');
+      await toggle.click();
+      await expectMeta(page, baseUrl, id, m => m.view.checkOffForm, checkOffForm);
     } finally {
       await page.request.delete(`${baseUrl}/api/manifests/${id}`);
     }

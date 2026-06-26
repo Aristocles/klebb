@@ -128,4 +128,10 @@ describe('COMMON_SETTINGS shape', () => {
     const past = COMMON_SETTINGS.find(d => d.path === 'writeable.pastAllowed');
     assert.equal(past.default, false);
   });
+  test('no view-visibility / master-enable descriptors (those live in Settings > Cards)', () => {
+    const paths = COMMON_SETTINGS.map(d => d.path);
+    for (const banned of ['enabled', 'view.enabled', 'trends.enabled', 'calendar.enabled', 'reports.enabled']) {
+      assert.ok(!paths.includes(banned), `${banned} must not be a gear setting`);
+    }
+  });
 });

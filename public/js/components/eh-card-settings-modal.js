@@ -3,10 +3,12 @@
 // eh-card-settings-modal.js — per-card settings gear modal.
 //
 // Opened from a card's header gear. Renders the safe, common-sense
-// manifest toggles for the card (merged COMMON_SETTINGS + the renderer's
-// static settingsSchema) as switches pre-filled from the manifest. Saving
-// PATCHes meta via /api/manifests/:id. Structured/free-text options stay
-// with Klebbius; a footer points there.
+// behaviour toggles for the card (merged COMMON_SETTINGS + the renderer's
+// static settingsSchema) as switches pre-filled from the manifest. Each
+// toggle applies immediately (PATCH meta via /api/manifests/:id, then
+// re-read) — there is no Save button. Whole-card enable/disable lives in
+// Settings › Cards, not here. Structured/free-text options stay with
+// Klebbius; the footer + inline hints link straight into the chat.
 //
 // Public API:
 //   <eh-card-settings-modal
@@ -31,31 +33,12 @@ import {
 } from '../lib/card-notifications.js';
 import { discoverAdvanced, buildAdvancedPatch } from '../lib/card-advanced.js';
 
-// Deep-merge src into dst (objects merge, everything else — including null,
-// the merge-patch delete sentinel, and arrays — replaces). Used to fold the
-// settings/notifications/advanced sub-patches into one PATCH body.
-function deepMerge(dst, src) {
-  for (const k of Object.keys(src)) {
-    const v = src[k];
-    if (v !== null && typeof v === 'object' && !Array.isArray(v)
-        && dst[k] !== null && typeof dst[k] === 'object' && !Array.isArray(dst[k])) {
-      deepMerge(dst[k], v);
-    } else {
-      dst[k] = v;
-    }
-  }
-  return dst;
-}
-
 export class EhCardSettingsModal extends LitElement {
   static properties = {
     card: { type: Object },
     schema: { type: Array },
     displayName: { type: String },
     component: { type: String },
-    _edited: { state: true },
-    _notifEdit: { state: true },
-    _advEdit: { state: true },
     _data: { state: true },
     _busy: { state: true },
     _error: { state: true },
@@ -68,16 +51,13 @@ export class EhCardSettingsModal extends LitElement {
     this.schema = [];
     this.displayName = '';
     this.component = null;
-    this._edited = {};
-    // Advanced feature toggles (discover-and-park): key -> desired on/off.
-    this._advEdit = {};
-    // Notifications is not a path descriptor (enabling can *create* an
-    // item), so its toggle tracks a separate tri-state: null = untouched,
-    // true/false = user's pending choice.
-    this._notifEdit = null;
     this._data = null;
-    this._busy = false;
+    // Per-toggle saving indicator: the dotted path / key currently being
+    // PATCHed, so only that row shows busy. null when idle.
+    this._busy = null;
     this._error = null;
+    // Whether any change was persisted this session (drives the view
+    // refresh when the modal closes; individual saves also refresh live).
     this._changed = false;
   }
 
@@ -174,18 +154,19 @@ export class EhCardSettingsModal extends LitElement {
     .toggle[aria-checked="true"]::after { transform: translateX(20px); }
     .toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .toggle[disabled] { opacity: 0.4; cursor: not-allowed; }
-    .footer {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; padding-top: 8px;
+    /* Inline link styled as a button element (keeps it keyboard-focusable
+       and avoids an <a> with no href). Used in the footer + inline hints. */
+    .klebbius-link {
+      background: none; border: none; padding: 0; margin: 0;
+      font: inherit; color: var(--accent); cursor: pointer;
+      text-decoration: underline; text-underline-offset: 2px;
     }
-    .note { font-size: 12px; color: var(--text-muted, var(--text-secondary)); flex: 1; }
-    .save-btn {
-      background: var(--accent); color: white; border: none;
-      padding: 8px 18px; border-radius: 8px; font-size: 14px;
-      font-weight: 600; cursor: pointer; flex-shrink: 0;
+    .klebbius-link:hover { filter: brightness(1.1); }
+    .klebbius-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+    .footer-note {
+      margin: 4px 0 0; font-size: 13px; line-height: 1.4;
+      color: var(--text-secondary);
     }
-    .save-btn:hover { filter: brightness(1.08); }
-    .save-btn:disabled { opacity: 0.6; cursor: default; }
     .empty { font-size: 13px; color: var(--text-secondary); padding: 8px 0; }
     @media (prefers-reduced-motion: reduce) {
       .toggle, .toggle::after { transition: none; }
@@ -229,88 +210,85 @@ export class EhCardSettingsModal extends LitElement {
     return { meta: this.card?.meta || {}, data: this._data };
   }
 
-  // Current displayed value for a descriptor: an in-session edit wins,
-  // else the resolved manifest value.
   _valueOf(d) {
-    if (d.path in this._edited) return this._edited[d.path];
     return resolveSettingValue(this.card?.meta || {}, d);
   }
 
-  _toggle(d) {
-    if (this._busy) return;
-    if (!isSettingAvailable(d, this._ctx())) return;
-    this._edited = { ...this._edited, [d.path]: !this._valueOf(d) };
-  }
-
-  // Notifications: the displayed value is the pending edit, else the
-  // manifest's current state.
   _notifOn() {
-    if (this._notifEdit !== null) return this._notifEdit;
     return notificationsEnabled(this.card?.meta || {});
-  }
-
-  _toggleNotifications() {
-    if (this._busy) return;
-    this._notifEdit = !this._notifOn();
   }
 
   _advanced() {
     return discoverAdvanced(this.card?.meta || {}, this.component);
   }
 
-  _toggleAdvanced(feat) {
-    if (this._busy) return;
-    const cur = (feat.key in this._advEdit) ? this._advEdit[feat.key] : feat.on;
-    this._advEdit = { ...this._advEdit, [feat.key]: !cur };
-  }
-
-  // Combine the settings, notifications, and advanced patches (each shaped
-  // { meta: {...} }) into one PATCH body. The settings and advanced patches
-  // can both write under meta.view (e.g. view.showSparkline + a parked
-  // view._disabled.*), so a deep merge is required — a shallow spread would
-  // drop one view sub-tree. The advanced patch is always computed (even with
-  // no edits) so a stale parked copy is purged on save (live-wins).
-  _combinedPatch() {
-    const meta = this.card?.meta || {};
-    const parts = [
-      buildMetaPatch(this.schema, meta, this._edited),
-      this._notifEdit === null ? null : buildNotificationsPatch(meta, this._notifEdit),
-      buildAdvancedPatch(meta, this._advanced(), this._advEdit),
-    ].filter(Boolean);
-    if (parts.length === 0) return null;
-    const merged = {};
-    for (const p of parts) deepMerge(merged, p.meta);
-    return { meta: merged };
-  }
-
-  async _save() {
-    const patch = this._combinedPatch();
-    if (!patch) { this._close(); return; }
-    this._busy = true;
+  // Apply a single toggle immediately: PATCH the slice, then re-read the
+  // manifest so the modal + the page behind it reflect server truth. `id`
+  // names the row for the per-row busy indicator. No-op patches (already
+  // in the desired state) are skipped. Returns when settled.
+  async _apply(id, patch) {
+    if (this._busy) return;            // serialise: one toggle at a time
+    if (!patch) return;
+    this._busy = id;
     this._error = null;
     try {
-      const r = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}`, {
+      const res = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify(patch),
       });
-      if (!r.ok) throw await errorFromResponse(r);
+      if (!res.ok) throw await errorFromResponse(res);
+      // Re-read meta so subsequent toggles diff against current truth
+      // (availability predicates, advanced discovery, notif state).
+      const fresh = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}`, {
+        credentials: 'same-origin',
+      });
+      if (fresh.ok) this.card = { ...this.card, meta: (await fresh.json()).meta || this.card.meta };
       this._changed = true;
-      this._close();
+      // Refresh the views behind the modal live, so a change is visible
+      // immediately rather than only on close.
+      window.dispatchEvent(new CustomEvent('klebb-cards-changed'));
     } catch (err) {
       this._error = err.message || 'Could not save. Try again.';
     } finally {
-      this._busy = false;
+      this._busy = null;
     }
   }
 
-  _askKlebbius() {
+  _toggleSetting(d) {
+    if (!isSettingAvailable(d, this._ctx())) return;
+    const next = !this._valueOf(d);
+    const patch = buildMetaPatch([d], this.card?.meta || {}, { [d.path]: next });
+    this._apply(d.path, patch);
+  }
+
+  _toggleNotifications() {
+    const patch = buildNotificationsPatch(this.card?.meta || {}, !this._notifOn());
+    this._apply('__notifications', patch);
+  }
+
+  _toggleAdvanced(feat) {
+    const patch = buildAdvancedPatch(this.card?.meta || {}, this._advanced(), { [feat.key]: !feat.on });
+    this._apply(feat.key, patch);
+  }
+
+  // Pre-fill the chat with a context-aware prompt about this card. `topic`
+  // tailors the ask (general options, reminders, a specific feature). Does
+  // not close the modal — the user can keep tweaking after asking.
+  _askKlebbius(topic) {
     const meta = this.card?.meta || {};
     const name = meta.label || this.card?.id || 'this card';
-    const text = `What else can I configure on my "${name}" card `
-      + `(id: ${this.card?.id}, type: ${meta.view?.component || 'card'})? `
-      + `Show me options that aren't in the settings panel.`;
+    const ref = `my "${name}" card (id: ${this.card?.id}, type: ${meta.view?.component || 'card'})`;
+    let text;
+    if (topic === 'reminders') {
+      text = `What reminder options can I set up for ${ref}? `
+        + `I'd like to know about custom times, wording, weekly or dose-linked reminders, and multiple reminders.`;
+    } else if (topic) {
+      text = `Tell me about the "${topic}" option on ${ref}, and how to change it.`;
+    } else {
+      text = `What else can I configure on ${ref}? Show me options that aren't in the settings panel.`;
+    }
     window.dispatchEvent(new CustomEvent('klebb-paste-into-chat', { detail: { text } }));
     this._close();
   }
@@ -343,33 +321,35 @@ export class EhCardSettingsModal extends LitElement {
 
             ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : ''}
 
-            ${groups.length === 0
-              ? html`<div class="empty">No quick settings for this card yet. Ask Klebbius what you can change.</div>`
-              : groups.map(g => html`
-                  <div class="section-title">${g.section}</div>
-                  <div class="rows">
-                    ${g.items.map(d => this._renderRow(d, ctx))}
-                  </div>
-                `)}
+            ${groups.map(g => html`
+              <div class="section-title">${g.section}</div>
+              <div class="rows">
+                ${g.items.map(d => this._renderRow(d, ctx))}
+              </div>
+            `)}
 
             ${this._renderNotifications()}
             ${this._renderAdvanced()}
 
-            <div class="footer">
-              <span class="note">More options? Ask Klebbius about this card.</span>
-              <button class="save-btn" type="button" ?disabled=${this._busy} @click=${this._save}>
-                ${this._busy ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-            <div class="footer" style="padding-top:0">
-              <button class="close-btn" type="button"
-                style="font-size:13px;padding:4px 0;color:var(--accent)"
-                @click=${this._askKlebbius}>Ask Klebbius →</button>
-            </div>
+            <p class="footer-note">
+              There's a lot more you can do with this card.
+              ${this._klebbiusLink('Ask Klebbius', null)} about it.
+            </p>
           </div>
         </div>
       </dialog>
     `;
+  }
+
+  // A clickable "Ask Klebbius" link that seeds the chat with a prompt
+  // tailored to `topic` (null = general). Reused by the footer and by the
+  // inline hints on unavailable / structured options.
+  _klebbiusLink(label, topic) {
+    return html`<button
+      class="klebbius-link"
+      type="button"
+      @click=${() => this._askKlebbius(topic)}
+    >${label}</button>`;
   }
 
   _renderRow(d, ctx) {
@@ -381,15 +361,17 @@ export class EhCardSettingsModal extends LitElement {
           <div class="row-label">${d.label}</div>
           ${available
             ? (d.help ? html`<div class="row-help">${d.help}</div>` : '')
-            : (d.unavailableHint ? html`<div class="row-hint">${d.unavailableHint}</div>` : '')}
+            : (d.unavailableHint
+                ? html`<div class="row-hint">${d.unavailableHint} ${this._klebbiusLink('Ask Klebbius', d.label)}</div>`
+                : '')}
         </div>
         <button
           class="toggle"
           role="switch"
           aria-checked=${value ? 'true' : 'false'}
           aria-label=${d.label}
-          ?disabled=${!available || this._busy}
-          @click=${() => this._toggle(d)}
+          ?disabled=${!available || this._busy !== null}
+          @click=${() => this._toggleSetting(d)}
         ></button>
       </div>
     `;
@@ -406,7 +388,9 @@ export class EhCardSettingsModal extends LitElement {
           <div class="row unavailable">
             <div class="row-info">
               <div class="row-label">Reminders</div>
-              <div class="row-hint">Ask Klebbius to set up reminders for this card.</div>
+              <div class="row-hint">
+                ${this._klebbiusLink('Ask Klebbius', 'reminders')} to set up reminders for this card.
+              </div>
             </div>
           </div>
         ` : html`
@@ -415,8 +399,8 @@ export class EhCardSettingsModal extends LitElement {
               <div class="row-label">Reminders</div>
               <div class="row-help">
                 ${state === 'can-create'
-                  ? 'A daily reminder at 9am. Ask Klebbius for custom times, wording, or multiple reminders.'
-                  : 'Turn all reminders for this card on or off. Fine-tune individual ones in Settings › Notifications.'}
+                  ? html`A daily reminder at 9am. ${this._klebbiusLink('Ask Klebbius', 'reminders')} for custom times, wording, or multiple reminders.`
+                  : html`Turn all reminders for this card on or off. Fine-tune individual ones in Settings › Notifications.`}
               </div>
             </div>
             <button
@@ -424,7 +408,7 @@ export class EhCardSettingsModal extends LitElement {
               role="switch"
               aria-checked=${on ? 'true' : 'false'}
               aria-label="Reminders"
-              ?disabled=${this._busy}
+              ?disabled=${this._busy !== null}
               @click=${this._toggleNotifications}
             ></button>
           </div>
@@ -439,25 +423,22 @@ export class EhCardSettingsModal extends LitElement {
     return html`
       <div class="section-title">Added features</div>
       <div class="rows">
-        ${feats.map(f => {
-          const on = (f.key in this._advEdit) ? this._advEdit[f.key] : f.on;
-          return html`
-            <div class="row">
-              <div class="row-info">
-                <div class="row-label">${f.label}</div>
-                ${f.help ? html`<div class="row-help">${f.help}</div>` : ''}
-              </div>
-              <button
-                class="toggle"
-                role="switch"
-                aria-checked=${on ? 'true' : 'false'}
-                aria-label=${f.label}
-                ?disabled=${this._busy}
-                @click=${() => this._toggleAdvanced(f)}
-              ></button>
+        ${feats.map(f => html`
+          <div class="row">
+            <div class="row-info">
+              <div class="row-label">${f.label}</div>
+              ${f.help ? html`<div class="row-help">${f.help}</div>` : ''}
             </div>
-          `;
-        })}
+            <button
+              class="toggle"
+              role="switch"
+              aria-checked=${f.on ? 'true' : 'false'}
+              aria-label=${f.label}
+              ?disabled=${this._busy !== null}
+              @click=${() => this._toggleAdvanced(f)}
+            ></button>
+          </div>
+        `)}
       </div>
     `;
   }

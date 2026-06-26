@@ -55,19 +55,24 @@ Refresh the dashboard. The card appears. Tap ➕ to add an entry.
 
 ## Editing without touching JSON
 
-Most of the common toggles below can be flipped from the app itself: every
-card header has a small gear (⚙️) that opens a settings panel. It exposes the
-safe, common-sense options for that card type, pre-filled from the manifest,
-view visibility, whether the app can log entries (and for which dates), the
-daily prompt, carry-forward, the trend sparkline, reminders, and saves them
-straight back to the manifest file. Optional extras the card already has (a
-schedule card's per-dose check-off form, thresholds, a trend arrow, emoji
-labels, custom colours) show up under "Added features" as on/off switches:
-turning one off parks its config under `meta.view._disabled` so nothing is
-lost, and turning it back on restores it. Authoring those extras in the first
-place (and notification text/timing) still goes through Klebbius; the panel
-links to the chat for exactly that. Hand-editing the JSON below always works
-too; the gear is just the quick path.
+Most of the behaviour toggles below can be flipped from the app itself: data
+cards have a small gear (⚙️) in the header that opens a settings panel. It
+exposes the safe, common-sense options for that card type, pre-filled from the
+manifest: whether the app can log entries (and for which dates), the daily
+prompt, carry-forward, the trend sparkline, and reminders. Each toggle applies
+immediately (it's written straight back to the manifest file, no Save button).
+Optional extras the card already has (a schedule card's per-dose check-off
+form, thresholds, a trend arrow, emoji labels, custom colours) show up under
+"Added features" as on/off switches: turning one off parks its config under
+`meta.view._disabled` so nothing is lost, and turning it back on restores it.
+Authoring those extras in the first place (and notification text/timing) still
+goes through Klebbius; the panel links to the chat for exactly that.
+
+**Whole-card enable/disable is not in the gear** — it lives in Settings ›
+Cards (the `meta.enabled` master switch), which lists every card including
+ones that never appear on Today. The gear is about how a card *behaves*, not
+whether it exists. Hand-editing the JSON below always works too; the gear is
+just the quick path.
 
 ## Anatomy of a manifest
 

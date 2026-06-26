@@ -19,35 +19,13 @@
 // COMMON_SETTINGS apply to every card; each renderer contributes its own
 // via `static get settingsSchema()`. mergeSchema() combines the two.
 
+// NOTE: card presence (which views a card appears in, and the master
+// meta.enabled kill-switch) is deliberately NOT in here. Whole-card
+// enable/disable lives in Settings › Cards (it owns meta.enabled and lists
+// every card, including ones with no Today presence); per-view membership
+// is Klebbius/manifest territory. The gear is about how a card *behaves*,
+// not *where it shows up* — see #456 review feedback.
 export const COMMON_SETTINGS = [
-  {
-    path: 'view.enabled', label: 'Show on Today', kind: 'toggle',
-    section: 'Visibility', default: false,
-    help: 'Include this card in the Today view.',
-    availableWhen: ({ meta }) => !!meta?.view?.component,
-    unavailableHint: 'Ask Klebbius to set up the Today view for this card.',
-  },
-  {
-    path: 'trends.enabled', label: 'Show in Trends', kind: 'toggle',
-    section: 'Visibility', default: false,
-    help: 'Include this card in the Trends view.',
-    availableWhen: ({ meta }) => !!meta?.trends?.component,
-    unavailableHint: 'Ask Klebbius to set up the Trends view for this card.',
-  },
-  {
-    path: 'calendar.enabled', label: 'Show in Calendar', kind: 'toggle',
-    section: 'Visibility', default: false,
-    help: 'Include this card in the Calendar month-grid.',
-    availableWhen: ({ meta }) => !!meta?.calendar?.component,
-    unavailableHint: 'Ask Klebbius to set up the Calendar view for this card.',
-  },
-  {
-    path: 'reports.enabled', label: 'Show in Reports', kind: 'toggle',
-    section: 'Visibility', default: false,
-    help: 'Include this card in the Reports view.',
-    availableWhen: ({ meta }) => !!meta?.reports?.component,
-    unavailableHint: 'Ask Klebbius to set up the Reports view for this card.',
-  },
   {
     path: 'writeable.fromWebapp', label: 'Allow editing from the app', kind: 'toggle',
     section: 'Input', default: false,

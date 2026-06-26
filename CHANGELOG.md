@@ -11,14 +11,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 - **A settings gear on your cards.** Data cards (generic, schedule, list,
   checklist) now carry a small header gear that opens a per-card settings
-  panel: toggle which views the card appears in, whether it accepts entries
-  from the app (and for which dates), the daily prompt, carry-forward, and
-  the trend/adherence sparkline, all pre-filled from the manifest and saved
-  back via the existing `PATCH /api/manifests/:id` path. Each renderer
-  declares its own toggleable options through a static `settingsSchema`, so
-  the panel only shows settings the card actually honours; data-dependent
-  toggles (like the sparkline) appear disabled with a hint until there's
-  enough data. The panel also has a Reminders switch: on a loggable card
+  panel: toggle whether the card accepts entries from the app (and for
+  which dates), the daily prompt, carry-forward, and the trend/adherence
+  sparkline. Each toggle applies immediately and saves back via the
+  existing `PATCH /api/manifests/:id` path — there's no Save button.
+  Whole-card enable/disable stays in Settings › Cards (it lists every
+  card, including ones with no Today presence). Each renderer declares its
+  own toggleable options through a static `settingsSchema`, so the panel
+  only shows settings the card actually honours; data-dependent toggles
+  (like the sparkline) appear disabled with a hint until there's enough
+  data. The panel also has a Reminders switch: on a loggable card
   with none set up it creates a single private daily reminder at 9am
   (custom times, wording, and multiple reminders stay with Klebbius); on a
   card that already has reminders it's a master on/off that leaves the
