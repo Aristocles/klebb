@@ -34,18 +34,32 @@ const { test, expect } = require('./helpers/auth-fixture');
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Storyboard: card gallery / add-from-template in Settings > Cards', () => {
-  // The proposed shape of the templates source, mirrored on /api/prompts:
-  //   GET /api/card-templates -> { templates: [ {
-  //     id, title, summary, tags: [string], emoji,
-  //     featured?: boolean, manifest: <klebb.datafile.v1 object>
-  //   } ] }
-  // and a create endpoint:
-  //   POST /api/settings/cards/from-template { templateId }
-  //     -> { id: <newCardId> }  (writes a manifest file, idempotent on id)
-  // The custom element is proposed as <eh-card-gallery>, instantiated the
-  // same way eh-prompts-gallery is (createElement + appendChild +
-  // requestAnimationFrame(open)) so it lives outside the settings render
-  // tree as a top-layer modal dialog.
+  // This suite CREATES real cards (the whole point of the flow). The e2e
+  // sandbox is shared across every spec, so any card left behind pollutes
+  // the seeded state other specs assert against. Snapshot the baseline card
+  // ids once, and after each test delete anything that wasn't there before,
+  // so no created card can leak — regardless of which test created it.
+  let baselineIds = null;
+  test.beforeEach(async ({ page, sandboxState }) => {
+    if (baselineIds) return; // snapshot once, on the first test
+    const r = await page.request.get(`${sandboxState.baseUrl}/api/settings/cards`);
+    baselineIds = (await r.json()).cards.map(c => c.id);
+  });
+  test.afterEach(async ({ page, sandboxState }) => {
+    if (!baselineIds) return;
+    const r = await page.request.get(`${sandboxState.baseUrl}/api/settings/cards`);
+    const created = (await r.json()).cards.map(c => c.id).filter(id => !baselineIds.includes(id));
+    for (const id of created) {
+      await page.request.delete(`${sandboxState.baseUrl}/api/manifests/${id}`);
+    }
+  });
+
+  // /api/templates -> { templates: [ { id, title, summary, category, tags,
+  //   emoji, featured?, manifest } ] }; create via
+  //   POST /api/settings/cards/from-template { templateId } -> { id }.
+  // eh-card-gallery is instantiated like eh-prompts-gallery (createElement +
+  // appendChild + requestAnimationFrame(open)) so it lives outside the
+  // settings render tree as a top-layer modal dialog.
 
   test('Cards pane exposes a discoverable "Browse card templates" action', async ({ page }) => {
     //the entry affordance.
