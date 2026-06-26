@@ -37,12 +37,25 @@ A template is a valid `klebb.datafile.v1` manifest with two additions:
   "title": "Injection protocol",
   "summary": "Scheduled injectable with cycle start and end.",
   "category": "protocols",
-  "tags": ["injection", "schedule", "cycle"]
+  "tags": ["injection", "schedule", "cycle"],
+  "featured": false,
+  "defaults": { "unit": "mg" }
 }
 ```
 
-All five fields are required. `category` should be one of the gallery
-categories: `tracking`, `protocols`, `lifestyle`, `imported`.
+`id`, `title`, `summary`, `category`, `tags` are required. `category`
+should be one of the gallery categories: `tracking`, `protocols`,
+`lifestyle`, `imported`.
+
+Two optional fields drive the gallery's one-tap **Add card** flow:
+
+- `featured` (boolean): pins the template to the top of the gallery with a
+  "★ Start here" chip. Keep this to one or two templates.
+- `defaults` (object): values used to fill placeholders when the user adds
+  the card. The new card's `id` is always derived from `meta.template.id`
+  (deduped to `id-2`, `id-3`… if taken), and `label` falls back to
+  `title`, so most templates need no `defaults` at all — only add keys for
+  placeholders that have no sensible auto-default (e.g. a display `unit`).
 
 ### Placeholders
 
@@ -58,13 +71,16 @@ Supported types: `string`, `number`, `boolean`, `date`, `enum`.
 "order": 100
 ```
 
-The Add Card form uses the type to pick the input element: number gets
-a number input, date gets a date picker, enum gets a dropdown, etc.
-Substitution happens server-side when the user submits.
+Today the gallery is a one-tap **Add card**: it fills placeholders from
+`meta.template.defaults` (plus the auto-derived `id` and the `label`
+fallback) and writes the manifest server-side, no per-field form. So any
+placeholder a template relies on should have a `defaults` entry, or an
+auto-default (`id`, `label`). The typed-input form described here is the
+intended richer flow; until it lands, prefer `defaults` over placeholders
+that would otherwise resolve to an empty string.
 
 Keep placeholder names `snake_case` and semantic: `dose_mg`,
-`cycle_start`, not `field1`. The Add Card form uses the name as the
-default field label if one is not supplied elsewhere.
+`cycle_start`, not `field1`.
 
 ## Contribution checklist
 

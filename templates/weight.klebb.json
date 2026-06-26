@@ -6,7 +6,9 @@
       "title": "Weight",
       "summary": "Daily body weight with a line-chart trend.",
       "category": "tracking",
-      "tags": ["weight", "metric", "trend"]
+      "tags": ["weight", "metric", "trend"],
+      "featured": true,
+      "defaults": { "unit": "kg" }
     },
     "id": "{{string:id}}",
     "label": "{{string:label}}",

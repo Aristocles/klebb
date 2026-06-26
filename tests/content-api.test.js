@@ -40,6 +40,50 @@ describe('content API', () => {
     }
   });
 
+  test('POST /api/settings/cards/from-template creates a real card', async () => {
+    // Pick a known template and instantiate it.
+    const list = await req(server.baseUrl, '/api/templates');
+    const tmpl = list.json.templates.find(t => t.id === 'weight') || list.json.templates[0];
+
+    const before = await req(server.baseUrl, '/api/settings/cards');
+    const beforeIds = before.json.cards.map(c => c.id);
+
+    const create = await req(server.baseUrl, '/api/settings/cards/from-template', {
+      method: 'POST',
+      body: { templateId: tmpl.id },
+    });
+    assert.equal(create.status, 201);
+    assert.ok(create.json.id, 'returns the new card id');
+
+    const after = await req(server.baseUrl, '/api/settings/cards');
+    const newCard = after.json.cards.find(c => !beforeIds.includes(c.id));
+    assert.ok(newCard, 'a new card appeared');
+    assert.equal(newCard.id, create.json.id);
+  });
+
+  test('a second create from the same template gets a distinct, deduped id', async () => {
+    const first = await req(server.baseUrl, '/api/settings/cards/from-template', {
+      method: 'POST', body: { templateId: 'mood' },
+    });
+    assert.equal(first.status, 201);
+    const second = await req(server.baseUrl, '/api/settings/cards/from-template', {
+      method: 'POST', body: { templateId: 'mood' },
+    });
+    assert.equal(second.status, 201);
+    assert.notEqual(first.json.id, second.json.id);
+  });
+
+  test('from-template with a bad/missing templateId is a clean 4xx', async () => {
+    const noId = await req(server.baseUrl, '/api/settings/cards/from-template', {
+      method: 'POST', body: {},
+    });
+    assert.equal(noId.status, 400);
+    const unknown = await req(server.baseUrl, '/api/settings/cards/from-template', {
+      method: 'POST', body: { templateId: 'no-such-template' },
+    });
+    assert.equal(unknown.status, 404);
+  });
+
   test('GET /api/prompts returns the shipped prompt list', async () => {
     const res = await req(server.baseUrl, '/api/prompts');
     assert.equal(res.status, 200);
