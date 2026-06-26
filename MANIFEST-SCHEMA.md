@@ -380,6 +380,15 @@ All view configs share the same shape:
 > cycle. Run `scripts/migrate-dateContext-to-fallbackToLatest.js` against
 > your `$HEALTH_HOME/data/` to migrate live manifests.
 
+> **Reserved:** `meta.view._disabled` is managed by the per-card settings
+> gear. When you switch an optional feature off in the gear (e.g. a
+> schedule card's `checkOffForm`), its block is moved here verbatim so it
+> can be restored later; switching it back on moves it out again.
+> Renderers never read `_disabled`, so a parked block is inert. Don't
+> author into it by hand: if a live block and a parked copy of the same
+> feature both exist, the live one wins and the parked copy is discarded on
+> the next save.
+
 ### `display` (generic-card)
 
 Used by `component: "generic-card"` to render rows without custom code.

@@ -36,6 +36,9 @@ import { errorFromResponse } from '../lib/save-error.js';
 import './eh-input-form.js';
 
 export class EhListCard extends EhBaseCard {
+  static supportsSettingsGear = true;
+  static displayName = 'List';
+
   static properties = {
     ...EhBaseCard.properties,
     _editing: { state: true },
@@ -75,7 +78,12 @@ export class EhListCard extends EhBaseCard {
   }
   _primaryInput() {
     const inputs = this._inputs();
-    return inputs.find(i => i.key === this._primaryField()) || inputs[0] || null;
+    const found = inputs.find(i => i.key === this._primaryField()) || inputs[0];
+    if (found) return found;
+    // No declared inputs but the card is still writeable: synthesise a
+    // plain text input on the primary field so Add yields a typeable row
+    // rather than a dead read-only span (#457).
+    return { key: this._primaryField(), type: 'text', label: this._m().label || '' };
   }
   _secondaryInputs() {
     const inputs = this._inputs();
@@ -259,9 +267,10 @@ export class EhListCard extends EhBaseCard {
         /* Position relative to the card-body (list-root is inside it).
            Pull up into the card-header area where users expect edit
            actions to live. Matches the 10-12px top-padding that the
-           header uses. */
+           header uses. The right offset clears the base card's settings
+           gear, which owns the top-right corner. */
         top: -32px;
-        right: 4px;
+        right: 40px;
         display: flex;
         gap: 6px;
         z-index: 3;

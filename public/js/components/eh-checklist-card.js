@@ -13,10 +13,18 @@ import { EhBaseCard } from './eh-base-card.js';
 import { registerRenderer } from '../renderer-registry.js';
 import { isScheduledOnDate } from '../../../lib/schedule.mjs';
 import { chipsFor as todChipsFor } from '../lib/time-of-day.esm.js';
-import { adherenceSeries } from '../lib/adherence-series.esm.js';
+import { adherenceSeries, hasAdherenceSignal, adherenceItems } from '../lib/adherence-series.esm.js';
+import { adherenceSparklineDescriptor } from '../lib/card-settings.js';
 import './eh-sparkline.js';
 
 export class EhChecklistCard extends EhBaseCard {
+  static supportsSettingsGear = true;
+  static displayName = 'Checklist';
+
+  static get settingsSchema() {
+    return [adherenceSparklineDescriptor(hasAdherenceSignal, adherenceItems)];
+  }
+
   static styles = [
     EhBaseCard.styles,
     css`

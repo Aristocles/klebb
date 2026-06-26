@@ -9,6 +9,30 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **A settings gear on your cards.** Data cards (generic, schedule, list,
+  checklist) now carry a small header gear that opens a per-card settings
+  panel: toggle whether the card accepts entries from the app (and for
+  which dates), the daily prompt, carry-forward, and the trend/adherence
+  sparkline. Each toggle applies immediately and saves back via the
+  existing `PATCH /api/manifests/:id` path — there's no Save button.
+  Whole-card enable/disable stays in Settings › Cards (it lists every
+  card, including ones with no Today presence). Each renderer declares its
+  own toggleable options through a static `settingsSchema`, so the panel
+  only shows settings the card actually honours; data-dependent toggles
+  (like the sparkline) appear disabled with a hint until there's enough
+  data. The panel also has a Reminders switch: on a loggable card
+  with none set up it creates a single private daily reminder at 9am
+  (custom times, wording, and multiple reminders stay with Klebbius); on a
+  card that already has reminders it's a master on/off that leaves the
+  individual ones untouched. Read-only composite cards have no gear.
+  Optional extras a card already carries (a schedule card's per-dose
+  check-off form, a generic card's thresholds, trend arrow, emoji labels,
+  or custom colours) appear under "Added features" as on/off switches:
+  turning one off parks its config so nothing is lost, and turning it back
+  on restores it exactly. Authoring those extras still happens through
+  Klebbius, and the panel links straight to the chat, pre-seeded with the
+  card's context, for anything it doesn't expose. Closes #456.
+
 - **Tap a notification to re-read what it was reminding you about.**
   When a `schedule_due` push notification fires, its structured items
   (today's survivors plus same-day carry-forward of missed doses) now
@@ -22,6 +46,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   without waiting on the wall clock. Foreground-arrival pushes still
   dispatch their existing event but do not auto-open the modal: it's a
   tap-response affordance, not a push-arrival one. Fixes #454.
+
+### Fixed
+
+- **List cards with no declared input fields are editable again.** A
+  list-card whose manifest opted into webapp writes but didn't spell out
+  `writeable.inputs` (like the Appointments card) showed an Add button
+  that appended a blank, un-typeable row. The renderer now falls back to a
+  plain text field on the primary key, so Add yields a row you can fill in
+  and save. Fixes #457.
 
 ## [3.3.0] - 2026-06-25
 
