@@ -222,10 +222,17 @@ export class EhCardSettingsModal extends LitElement {
     return discoverAdvanced(this.card?.meta || {}, this.component);
   }
 
-  // Apply a single toggle immediately: PATCH the slice, then re-read the
-  // manifest so the modal + the page behind it reflect server truth. `id`
-  // names the row for the per-row busy indicator. No-op patches (already
-  // in the desired state) are skipped. Returns when settled.
+  // Apply a single toggle immediately: PATCH the slice, then re-read this
+  // card's meta so the modal's own toggles reflect server truth. `id` names
+  // the row for the per-row busy indicator. No-op patches (already in the
+  // desired state) are skipped. Returns when settled.
+  //
+  // NOTE: this deliberately does NOT broadcast klebb-cards-changed. That
+  // event triggers a full-view refresh (every visible card re-fetches its
+  // data) in several listeners; firing it per toggle floods the API and
+  // trips the nginx rate limiter into 503s when settings are toggled
+  // quickly (#460). The view behind the modal is refreshed once, on close,
+  // via eh-card-settings-done{changed} — see _close + app.js.
   async _apply(id, patch) {
     if (this._busy) return;            // serialise: one toggle at a time
     if (!patch) return;
@@ -246,9 +253,6 @@ export class EhCardSettingsModal extends LitElement {
       });
       if (fresh.ok) this.card = { ...this.card, meta: (await fresh.json()).meta || this.card.meta };
       this._changed = true;
-      // Refresh the views behind the modal live, so a change is visible
-      // immediately rather than only on close.
-      window.dispatchEvent(new CustomEvent('klebb-cards-changed'));
     } catch (err) {
       this._error = err.message || 'Could not save. Try again.';
     } finally {
