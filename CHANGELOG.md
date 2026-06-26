@@ -7,6 +7,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Card settings no longer flood the server when you toggle quickly.** The
+  per-card settings gear refreshed the whole Today view on every toggle,
+  which on a busy dashboard fired enough requests to trip the reverse
+  proxy's rate limit and return 503s mid-session. Toggles still save
+  instantly; the view now refreshes once when you close the panel. Fixes
+  #460.
+
 ### Added
 
 - **Add a card from a template, in a tap.** Settings › Cards gains a
