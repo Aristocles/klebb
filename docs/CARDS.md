@@ -897,10 +897,14 @@ file — nothing else.
 
 - **Hide a card temporarily:** toggle off in Settings (or edit the file).
 - **Remove a card permanently:** delete the file.
-- **Add a card:** drop a valid manifest file into `$HEALTH_HOME/data/`.
+- **Add a card:** three ways — drop a valid manifest file into
+  `$HEALTH_HOME/data/`; ask Klebbius to build one; or, in Settings › Cards,
+  tap **Browse card templates** and add a ready-made one (it writes the
+  manifest file for you, which you can then edit or delete like any other).
 
-There is **no install flow, no wizard, no catalog**. If the file is there,
-the card shows up.
+Whichever route you take, a card is still just a file. There is **no
+install flow and no catalog lock-in**: the template gallery is a
+convenience that writes the same kind of file you could drop in by hand.
 
 ## Reordering cards
 
