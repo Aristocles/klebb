@@ -6,7 +6,8 @@
       "title": "Waist measurement",
       "summary": "Single-number circumference measurement with a trend line.",
       "category": "tracking",
-      "tags": ["measurement", "trend"]
+      "tags": ["measurement", "trend"],
+      "defaults": { "unit": "cm" }
     },
     "id": "{{string:id}}",
     "label": "{{string:label}}",
