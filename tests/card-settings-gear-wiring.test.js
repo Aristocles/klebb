@@ -116,15 +116,19 @@ describe('modal <-> app event contract', () => {
     assert.ok(!/class="save-btn"/.test(MODAL), 'no Save button');
     assert.ok(!/_edited|_notifEdit|_advEdit/.test(MODAL), 'no pending-edit state');
   });
-  test('apply re-reads the manifest and live-refreshes the views behind the modal', () => {
+  test('apply PATCHes the slice and re-reads only THIS card (no per-toggle full-view refresh)', () => {
     assert.ok(/method:\s*'PATCH'[\s\S]{0,400}credentials:\s*'same-origin'/.test(MODAL), 'PATCHes the slice');
-    assert.ok(/this\.card\s*=\s*\{\s*\.\.\.this\.card,\s*meta:/.test(MODAL), 're-reads meta after the PATCH');
-    assert.ok(/new CustomEvent\('klebb-cards-changed'\)/.test(MODAL), 'refreshes views live per change');
+    assert.ok(/this\.card\s*=\s*\{\s*\.\.\.this\.card,\s*meta:/.test(MODAL), 're-reads this card meta after the PATCH');
+    // #460: per-toggle klebb-cards-changed floods the API into nginx 503s.
+    // The modal must NOT dispatch it; the view refreshes once on close.
+    assert.ok(!/dispatchEvent\(new CustomEvent\('klebb-cards-changed'/.test(MODAL),
+      'modal does not dispatch a full-view refresh per toggle');
   });
-  test('app refreshes the view only when a change was persisted', () => {
-    assert.ok(/_onCardSettingsDone/.test(APP), 'done handler present');
+  test('the view refresh happens once on close, only when something changed (#460)', () => {
+    assert.ok(/eh-card-settings-done/.test(MODAL), 'modal fires done on close with changed flag');
+    assert.ok(/_onCardSettingsDone/.test(APP), 'app handles done');
     assert.ok(/e\.detail\?\.changed[\s\S]{0,80}klebb-cards-changed/.test(APP),
-      'dispatches klebb-cards-changed only when changed');
+      'app dispatches klebb-cards-changed only when changed');
   });
   test('app passes the renderer component to the modal (advanced discovery needs it)', () => {
     assert.ok(/\.component=\$\{this\._cardSettings\.component\}/.test(APP), 'component bound on the modal');
