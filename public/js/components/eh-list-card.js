@@ -78,7 +78,12 @@ export class EhListCard extends EhBaseCard {
   }
   _primaryInput() {
     const inputs = this._inputs();
-    return inputs.find(i => i.key === this._primaryField()) || inputs[0] || null;
+    const found = inputs.find(i => i.key === this._primaryField()) || inputs[0];
+    if (found) return found;
+    // No declared inputs but the card is still writeable: synthesise a
+    // plain text input on the primary field so Add yields a typeable row
+    // rather than a dead read-only span (#457).
+    return { key: this._primaryField(), type: 'text', label: this._m().label || '' };
   }
   _secondaryInputs() {
     const inputs = this._inputs();

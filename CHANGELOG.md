@@ -45,6 +45,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   dispatch their existing event but do not auto-open the modal: it's a
   tap-response affordance, not a push-arrival one. Fixes #454.
 
+### Fixed
+
+- **List cards with no declared input fields are editable again.** A
+  list-card whose manifest opted into webapp writes but didn't spell out
+  `writeable.inputs` (like the Appointments card) showed an Add button
+  that appended a blank, un-typeable row. The renderer now falls back to a
+  plain text field on the primary key, so Add yields a row you can fill in
+  and save. Fixes #457.
+
 ## [3.3.0] - 2026-06-25
 
 ### Added
