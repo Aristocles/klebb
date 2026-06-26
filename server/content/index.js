@@ -51,6 +51,9 @@ function listTemplates({ log = console.warn } = {}) {
       summary: t.summary,
       category: t.category,
       tags: t.tags,
+      // Optional gallery presentation hints.
+      emoji: typeof parsed.meta.emoji === 'string' ? parsed.meta.emoji : (t.emoji || null),
+      featured: t.featured === true,
       manifest: parsed,
     });
   }
@@ -123,4 +126,61 @@ function listPrompts({ log = console.warn } = {}) {
   return out;
 }
 
-module.exports = { listTemplates, listPrompts };
+// Derive a unique manifest id from a base, avoiding collisions with the
+// ids already taken. "weight" -> "weight", then "weight-2", "weight-3"…
+function uniqueId(base, takenIds) {
+  const taken = new Set(takenIds || []);
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
+}
+
+// Recursively replace {{string:KEY}} placeholders in a manifest with the
+// resolved values. Only string leaves are touched. An unresolved
+// placeholder (no value supplied) collapses to '' so the result is always
+// a clean manifest, never a literal {{...}} left in the data.
+function fillPlaceholders(node, values) {
+  if (typeof node === 'string') {
+    return node.replace(/\{\{string:([a-z0-9_]+)\}\}/gi, (_, key) => {
+      const v = values[key];
+      return (v === undefined || v === null) ? '' : String(v);
+    });
+  }
+  if (Array.isArray(node)) return node.map(n => fillPlaceholders(n, values));
+  if (node && typeof node === 'object') {
+    const out = {};
+    for (const k of Object.keys(node)) out[k] = fillPlaceholders(node[k], values);
+    return out;
+  }
+  return node;
+}
+
+// Turn a template manifest into a ready-to-create manifest:
+//   - resolve {{string:id|label|unit|…}} from meta.template.defaults,
+//     overriding the id with a unique one derived from the template id;
+//   - strip the meta.template block (authoring metadata, never shipped on
+//     a real card).
+// `takenIds` is the set of manifest ids already in use, for dedup.
+// Returns { id, manifest } or throws if the template has no meta.template.
+function instantiateTemplate(templateManifest, takenIds = []) {
+  const tmpl = templateManifest && templateManifest.meta && templateManifest.meta.template;
+  if (!tmpl || !tmpl.id) {
+    throw new Error('not a template: missing meta.template.id');
+  }
+  const defaults = (tmpl.defaults && typeof tmpl.defaults === 'object') ? tmpl.defaults : {};
+  const id = uniqueId(tmpl.id, takenIds);
+  // Values for placeholder substitution: defaults provide label/unit/etc.,
+  // and the deduped id always wins for the `id` placeholder.
+  const values = { ...defaults, id, label: defaults.label || tmpl.title };
+
+  // Deep clone, fill, then drop the authoring block.
+  const filled = fillPlaceholders(JSON.parse(JSON.stringify(templateManifest)), values);
+  if (filled.meta) delete filled.meta.template;
+  // Hard-guarantee the id even if the template didn't placeholder it.
+  filled.meta.id = id;
+
+  return { id, manifest: filled };
+}
+
+module.exports = { listTemplates, listPrompts, instantiateTemplate, fillPlaceholders, uniqueId };

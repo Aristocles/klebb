@@ -8,6 +8,7 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { repeat } from 'https://esm.sh/lit@3/directives/repeat.js';
 import { errorFromResponse } from '../lib/save-error.js';
+import './eh-card-gallery.js';
 
 export class EhSettingsCards extends LitElement {
   static properties = {
@@ -33,6 +34,21 @@ export class EhSettingsCards extends LitElement {
     super.connectedCallback();
     this._load();
     this._loadDemoFlag();
+    // Re-fetch when a card is added (gallery) or otherwise changes, so the
+    // list reflects a template-created card without a manual reload.
+    this._onCardsChanged = () => this._load({ silent: true });
+    window.addEventListener('klebb-cards-changed', this._onCardsChanged);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('klebb-cards-changed', this._onCardsChanged);
+  }
+
+  _openGallery() {
+    const m = document.createElement('eh-card-gallery');
+    document.body.appendChild(m);
+    requestAnimationFrame(() => m.open());
   }
 
   async _loadDemoFlag() {
@@ -198,6 +214,45 @@ export class EhSettingsCards extends LitElement {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
+    .gallery-section {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-card);
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .gallery-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .gallery-blurb {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    /* Teal primary accent: this is a deliberate user action, not an amber
+       proactive nudge. */
+    .gallery-btn {
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--accent, #00d4aa);
+      background: var(--accent, #00d4aa);
+      color: #000;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+    }
+    .gallery-btn:hover { filter: brightness(1.08); }
+    .gallery-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
     .card {
       display: flex;
       align-items: center;
@@ -313,6 +368,19 @@ export class EhSettingsCards extends LitElement {
           <a href="https://github.com/Aristocles/klebb/blob/main/docs/CARDS.md" target="_blank" rel="noopener">How to add a card →</a>
         `}
       </div>
+
+      ${!this._demo ? html`
+        <section class="gallery-section">
+          <div class="gallery-title">✨ Add a card from a template</div>
+          <div class="gallery-blurb">
+            Browse ready-made cards (weight, blood pressure, mood, sleep and
+            more) and add one in a tap. You can rename or tweak it afterwards.
+          </div>
+          <button class="gallery-btn primary" @click=${this._openGallery}>
+            Browse card templates
+          </button>
+        </section>
+      ` : ''}
 
       ${!this._demo && totalAll >= 2 ? html`
         <section class="reorder-section">

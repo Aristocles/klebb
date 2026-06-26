@@ -12,7 +12,7 @@ const ENV = require('./config/env');
 const registry = require('./manifests/registry');
 const { convertDateKeyedToArray } = require('./scripts/migrate-date-keyed-to-array');
 const { runFirstBoot } = require('./server/first-boot');
-const { listTemplates, listPrompts } = require('./server/content');
+const { listTemplates, listPrompts, instantiateTemplate } = require('./server/content');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
 const { transcodeToWav } = require('./voice/transcode');
@@ -897,6 +897,45 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         return sendJSON(res, { error: e.message }, e.message.includes('unknown') ? 404 : 500);
       }
+    }
+
+    // POST /api/settings/cards/from-template — create a real card from a
+    // shipped template. Body: { templateId }. Fills the template's
+    // {{string:…}} placeholders from meta.template.defaults, derives a
+    // unique id, strips meta.template, and writes the manifest.
+    if (parts[0] === 'settings' && parts[1] === 'cards' && parts[2] === 'from-template' && parts.length === 3 && req.method === 'POST') {
+      if (ENV.KLEBB_DEMO) {
+        return sendJSON(res, { error: 'demo mode: cards cannot be created' }, 403);
+      }
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        let parsed;
+        try { parsed = JSON.parse(body || '{}'); }
+        catch { return sendJSON(res, { error: 'invalid JSON body' }, 400); }
+        const templateId = parsed && parsed.templateId;
+        if (typeof templateId !== 'string' || !templateId) {
+          return sendJSON(res, { error: 'templateId required' }, 400);
+        }
+        const tmpl = listTemplates().find(t => t.id === templateId);
+        if (!tmpl) return sendJSON(res, { error: 'unknown template' }, 404);
+        try {
+          const takenIds = registry.list().map(c => c.id);
+          const { manifest } = instantiateTemplate(tmpl.manifest, takenIds);
+          const result = registry.createManifest(manifest);
+          return sendJSON(res, { ok: true, id: result.id }, 201);
+        } catch (e) {
+          const msg = e.message || 'create failed';
+          const status = /^duplicate id/.test(msg) ? 409
+            : /^invalid id/.test(msg) ? 422
+            : /^invalid notifications:/.test(msg) ? 422
+            : /^invalid schedule\.time_of_day/.test(msg) ? 422
+            : /^(missing |unsupported \$schema|not a template)/.test(msg) ? 400
+            : 500;
+          return sendJSON(res, { error: msg }, status);
+        }
+      });
+      return;
     }
 
     // === End settings endpoints ===
