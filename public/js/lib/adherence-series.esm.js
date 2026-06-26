@@ -41,6 +41,35 @@ export function adherenceSeries(items, { endDate, limit = 30, isDueOn, isTakenOn
   });
 }
 
+// Cheap availability proxy for the adherence sparkline settings toggle.
+// The real strip needs >=2 due-days of signal, which depends on each
+// renderer's schedule logic; rather than replicate that statically, this
+// answers the weaker "could a strip ever have signal": there are items,
+// and either some item carries a schedule/cycle (so due-days exist) or
+// at least two distinct check-off dates have been recorded across items.
+export function hasAdherenceSignal(items) {
+  if (!Array.isArray(items) || items.length === 0) return false;
+  if (items.some(i => i && (i.schedule || i.cycles || i.frequency))) return true;
+  const dates = new Set();
+  for (const i of items) {
+    if (Array.isArray(i?.takenDates)) for (const d of i.takenDates) dates.add(d);
+    if (Array.isArray(i?.doses)) for (const dose of i.doses) {
+      if (dose && dose.takenAt && dose.scheduledDate) dates.add(dose.scheduledDate);
+    }
+    if (dates.size >= 2) return true;
+  }
+  return false;
+}
+
+// Resolve the items array out of the several data shapes the checklist +
+// schedule renderers accept (flat array, { items }, { current }).
+export function adherenceItems(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.current)) return data.current;
+  return [];
+}
+
 // Per-item variant: 1 when taken, 0 when scheduled-but-not-taken, null on
 // days the item isn't scheduled (rest/off days are gaps, not misses).
 export function itemAdherenceSeries(item, { endDate, limit = 30, isScheduled, isTaken } = {}) {

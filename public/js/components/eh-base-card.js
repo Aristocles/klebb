@@ -51,6 +51,12 @@ export function invalidateManifestCache(id) {
 }
 
 export class EhBaseCard extends LitElement {
+  // Opt-in: real data-card renderers set this true to show a settings
+  // gear in the header. Synthetic/system cards (welcome, unknown) leave
+  // it false so they never offer to PATCH a manifest that shouldn't be
+  // edited from a per-card gear.
+  static supportsSettingsGear = false;
+
   static properties = {
     card: { type: Object },          // { id, meta, viewConfig }
     data: { state: true },
@@ -128,6 +134,21 @@ export class EhBaseCard extends LitElement {
     return false;
   }
 
+  get _showSettingsGear() {
+    // headerless sub-cards never own the gear (the host card does).
+    return !this.headerless
+      && this.constructor.supportsSettingsGear === true
+      && !!this.card?.id;
+  }
+
+  _openSettings(e) {
+    // Don't let the click bubble to the header's expand handler.
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('eh-open-card-settings', {
+      detail: { id: this.card.id, component: this.card?.viewConfig?.component || null },
+    }));
+  }
+
   _toggleExpand() {
     if (!this._canExpand) return;
     this.expanded = !this.expanded;
@@ -169,12 +190,35 @@ export class EhBaseCard extends LitElement {
       gap: 8px;
     }
     .title .emoji { font-size: 14px; }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
     .expand-indicator {
       color: var(--text-muted, var(--text-secondary));
       font-size: 11px;
       transition: transform 0.15s;
     }
     .expand-indicator.open { transform: rotate(180deg); }
+    .settings-gear {
+      background: transparent;
+      border: none;
+      color: var(--text-muted, var(--text-secondary));
+      font-size: 13px;
+      line-height: 1;
+      padding: 2px 4px;
+      cursor: pointer;
+      border-radius: 6px;
+      opacity: 0.55;
+      transition: opacity 0.15s, color 0.15s;
+    }
+    .settings-gear:hover { opacity: 1; color: var(--text-primary); }
+    .settings-gear:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; opacity: 1; }
+    @media (prefers-reduced-motion: reduce) {
+      .expand-indicator, .settings-gear { transition: none; }
+    }
     .card-body { padding: 6px 16px 16px; }
     .card-expanded {
       padding: 12px 16px 16px;
@@ -233,9 +277,20 @@ export class EhBaseCard extends LitElement {
           ${this.dateMode === 'future' ? html`<span class="future-badge">🔮 Planned</span>` : ''}
           ${this.dateMode === 'past'   ? html`<span class="past-badge">Past</span>` : ''}
         </div>
-        ${this._canExpand ? html`
-          <span class="expand-indicator ${this.expanded ? 'open' : ''}">▼</span>
-        ` : ''}
+        <div class="header-right">
+          ${this._canExpand ? html`
+            <span class="expand-indicator ${this.expanded ? 'open' : ''}">▼</span>
+          ` : ''}
+          ${this._showSettingsGear ? html`
+            <button
+              class="settings-gear"
+              type="button"
+              aria-label="Card settings"
+              title="Card settings"
+              @click=${this._openSettings}
+            >⚙️</button>
+          ` : ''}
+        </div>
       </div>
       ${this.loading ? html`<div class="loading">Loading…</div>` : ''}
       ${this.error ? html`<div class="error-placeholder">⚠︎ ${this._meta.label || this.card?.id}: ${this.error}</div>` : ''}

@@ -19,11 +19,14 @@ import './components/eh-settings-view.js';    // /settings
 import './components/health-chat.js';
 import './components/eh-prompt-modal.js';
 import './components/eh-reminder-modal.js';
+import './components/eh-card-settings-modal.js';
 import { checkPromptsForToday } from './lib/prompt-queue.js';
 import { localToday } from './lib/date-util.js';
 import { readTheme, applyTheme } from './lib/theme.js';
 import { heartbeat as pushHeartbeat, detectAndHandleKeyRotation } from './lib/notification-client.js';
 import { consumePendingDeepLink } from './lib/deep-link.js';
+import { resolveRenderer } from './renderer-registry.js';
+import { mergeSchema } from './lib/card-settings.js';
 
 class HealthApp extends LitElement {
   static properties = {
@@ -38,6 +41,7 @@ class HealthApp extends LitElement {
     _demo: { state: true },
     _pausedUntil: { state: true },
     _pendingReminders: { state: true },
+    _cardSettings: { state: true },
   };
 
   constructor() {
@@ -53,9 +57,12 @@ class HealthApp extends LitElement {
     this._demo = false;
     this._pausedUntil = null;
     this._pendingReminders = null;
+    this._cardSettings = null;
     applyTheme(this.theme);
     this._onThemeChanged = (e) => { this.theme = e.detail.theme; };
     window.addEventListener('klebb-theme-changed', this._onThemeChanged);
+    this._onOpenCardSettings = (e) => this._openCardSettings(e.detail);
+    window.addEventListener('eh-open-card-settings', this._onOpenCardSettings);
     this._registerServiceWorker();
     this._postUserTz();
     this._wirePushHeartbeat();
@@ -82,6 +89,36 @@ class HealthApp extends LitElement {
     super.disconnectedCallback();
     window.removeEventListener('klebb-theme-changed', this._onThemeChanged);
     window.removeEventListener('klebb-notifications-pause-changed', this._onPauseChanged);
+    window.removeEventListener('eh-open-card-settings', this._onOpenCardSettings);
+  }
+
+  // Resolve the renderer class for a card's component to read its static
+  // settingsSchema + displayName, then open the modal. The card's meta is
+  // fetched fresh so the modal pre-fills against current truth.
+  async _openCardSettings({ id, component }) {
+    if (!id) return;
+    let meta = null;
+    try {
+      const r = await fetch(`/api/manifests/${encodeURIComponent(id)}`, { credentials: 'same-origin' });
+      if (r.ok) meta = (await r.json()).meta || null;
+    } catch { /* fall through to a minimal modal */ }
+    if (!meta) return;
+    const tag = resolveRenderer(component);
+    const cls = tag ? customElements.get(tag) : null;
+    const rendererSchema = (cls && typeof cls.settingsSchema !== 'undefined') ? cls.settingsSchema : [];
+    this._cardSettings = {
+      card: { id, meta },
+      schema: mergeSchema(rendererSchema),
+      displayName: (cls && cls.displayName) || 'Card',
+      component: component || meta.view?.component || null,
+    };
+  }
+
+  _onCardSettingsDone(e) {
+    this._cardSettings = null;
+    if (e.detail?.changed) {
+      window.dispatchEvent(new CustomEvent('klebb-cards-changed'));
+    }
   }
 
   async _loadPausedState() {
@@ -489,6 +526,15 @@ class HealthApp extends LitElement {
           .reminders=${this._pendingReminders}
           @eh-reminder-done=${this._onReminderDone}
         ></eh-reminder-modal>
+      ` : ''}
+      ${this._cardSettings ? html`
+        <eh-card-settings-modal
+          .card=${this._cardSettings.card}
+          .schema=${this._cardSettings.schema}
+          .displayName=${this._cardSettings.displayName}
+          .component=${this._cardSettings.component}
+          @eh-card-settings-done=${this._onCardSettingsDone}
+        ></eh-card-settings-modal>
       ` : ''}
       ${this.showNav ? html`
         <nav>
