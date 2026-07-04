@@ -34,8 +34,25 @@ function loadCredentials() {
   }
 }
 
+// Atomic write: tmp file + rename, mode 0600. The store is rewritten on every
+// login (counter bump), so a bare writeFileSync races concurrent writers and a
+// crash mid-write truncates it. Mirrors auth/invites.js:_writeConfig.
 function saveCredentials(data) {
-  fs.writeFileSync(CREDENTIALS_FILE, JSON.stringify(data, null, 2));
+  try { fs.mkdirSync(path.dirname(CREDENTIALS_FILE), { recursive: true }); } catch {}
+  const tmp = CREDENTIALS_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), { mode: 0o600 });
+  fs.renameSync(tmp, CREDENTIALS_FILE);
+}
+
+// Total credentials across all users. The last-credential guard uses this:
+// emptying the store flips isSetup() back to false, which re-opens the
+// instance to bootstrap registration by any visitor.
+function countCredentials(data) {
+  const users = (data && data.users) || {};
+  return Object.keys(users).reduce(
+    (n, u) => n + ((users[u].credentials || []).length),
+    0
+  );
 }
 
 function loadSessions() {
@@ -445,4 +462,7 @@ module.exports = {
   isPublicPath,
   handleAuthRoutes,
   isSetup,
+  loadCredentials,
+  saveCredentials,
+  countCredentials,
 };
