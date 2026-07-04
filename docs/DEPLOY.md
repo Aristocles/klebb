@@ -183,7 +183,11 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ### Managing passkeys
 
-List, name, and remove registered passkeys:
+Once you're signed in, **Settings → Security** lists your passkeys and
+lets you add another device or remove one, no shell required. Adding a
+passkey from a live session never needs an invite code.
+
+From the command line:
 
 - `npm run list` shows each passkey with its nickname, device type, and
   when it was registered / last used.

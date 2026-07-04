@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/components/eh-settings-view.js
 //
-// Settings shell. Five tabs: General, Notifications, Connections, Cards,
+// Settings shell. Five tabs: General, Notifications, Security, Cards,
 // Diagnostics. Active tab is component-local state. No router lib, no URL
 // hash, no history API: settings is a single page in the app shell, the
 // active tab does not need to be bookmarkable, and there is no second
@@ -11,14 +11,14 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import './eh-settings-general.js';
 import './eh-settings-notifications.js';
-import './eh-settings-connections.js';
+import './eh-settings-security.js';
 import './eh-settings-cards.js';
 import './eh-settings-diagnostics.js';
 
 const TABS = [
   { id: 'general',       label: 'General' },
   { id: 'notifications', label: 'Notifications' },
-  { id: 'connections',   label: 'Connections' },
+  { id: 'security',      label: 'Security' },
   { id: 'cards',         label: 'Cards' },
   { id: 'diagnostics',   label: 'Diagnostics' },
 ];
@@ -124,9 +124,9 @@ export class EhSettingsView extends LitElement {
            ?hidden=${this._activeTab !== 'notifications'}>
         ${this._activeTab === 'notifications' ? html`<eh-settings-notifications></eh-settings-notifications>` : ''}
       </div>
-      <div role="tabpanel" id="panel-connections" aria-labelledby="tab-connections"
-           ?hidden=${this._activeTab !== 'connections'}>
-        ${this._activeTab === 'connections' ? html`<eh-settings-connections></eh-settings-connections>` : ''}
+      <div role="tabpanel" id="panel-security" aria-labelledby="tab-security"
+           ?hidden=${this._activeTab !== 'security'}>
+        ${this._activeTab === 'security' ? html`<eh-settings-security></eh-settings-security>` : ''}
       </div>
       <div role="tabpanel" id="panel-cards" aria-labelledby="tab-cards"
            ?hidden=${this._activeTab !== 'cards'}>

@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Manage your passkeys in Settings.** The Settings *Connections* tab is
+  now *Security* and leads with a Passkeys section: it lists every device
+  that can unlock this instance (with a nickname, device type, and when it
+  was added / last used), flags the one you're on, and has an "Add a
+  passkey" button so you can enrol another phone or laptop without a shell
+  or an invite code (a live session can always add to its own account).
+  Removing a passkey is one tap, except your last one, which is blocked so
+  you can't lock yourself out. Health Auto Export moves under Security
+  unchanged, and the hidden-metrics list is now collapsed by default.
+  Refs #467, #471.
+
 - **Passkeys can now be named and managed over the API.** Each stored
   passkey gains a `nickname` (free text, set at registration) and a
   `lastUsedAt` timestamp (stamped on every login), so a device is

@@ -9,7 +9,7 @@
 const { test, expect } = require('./helpers/auth-fixture');
 
 test.describe('#383: tabbed settings shell', () => {
-  test('tab strip lists General/Notifications/Connections/Cards/Diagnostics and switches panes', async ({ page }) => {
+  test('tab strip lists General/Notifications/Security/Cards/Diagnostics and switches panes', async ({ page }) => {
     await page.goto('/settings');
     await expect(page.locator('eh-settings-view')).toBeVisible();
 
@@ -27,9 +27,10 @@ test.describe('#383: tabbed settings shell', () => {
       'If a notification you want is missing, ask Klebbius to add it.',
     );
 
-    // Connections: HAE panel mounts.
-    await page.locator('eh-settings-view [data-tab="connections"]').click();
-    await expect(page.locator('eh-settings-connections')).toBeVisible();
+    // Security: passkeys + HAE panel mount.
+    await page.locator('eh-settings-view [data-tab="security"]').click();
+    await expect(page.locator('eh-settings-security')).toBeVisible();
+    await expect(page.locator('eh-settings-security')).toContainText('Passkeys');
 
     // Cards: lists the seeded cards.
     await page.locator('eh-settings-view [data-tab="cards"]').click();

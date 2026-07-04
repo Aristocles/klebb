@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
-// public/js/components/eh-settings-connections.js
+// public/js/components/eh-settings-security.js
 //
-// Settings > Connections pane. External integrations: Health Auto Export
-// (endpoint, token, last push diagnostics) and the hidden-metric
-// discovery list. Future home for any other inbound-data integration.
+// Settings > Security pane. Three sections: passkeys (list / add / remove
+// the authenticators that can open this instance), Health Auto Export
+// (endpoint + token), and the collapsed-by-default hidden-metric list.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { errorFromResponse } from '../lib/save-error.js';
+import { registerCredential } from '../lib/webauthn-ceremony.js';
 
-export class EhSettingsConnections extends LitElement {
+export class EhSettingsSecurity extends LitElement {
   static properties = {
     _hiddenDiscoveries: { state: true },
     _busyMetric: { state: true },
@@ -24,6 +25,13 @@ export class EhSettingsConnections extends LitElement {
     _haeTokenBusy: { state: true },
     _haeRegenConfirm: { state: true },
     _haeTokenError: { state: true },
+    _passkeys: { state: true },
+    _passkeysLoaded: { state: true },
+    _passkeyBusy: { state: true },
+    _passkeyError: { state: true },
+    _passkeyAdding: { state: true },
+    _passkeyNickname: { state: true },
+    _removingId: { state: true },
   };
 
   constructor() {
@@ -41,13 +49,82 @@ export class EhSettingsConnections extends LitElement {
     this._haeTokenBusy = false;
     this._haeRegenConfirm = false;
     this._haeTokenError = null;
+    this._passkeys = [];
+    this._passkeysLoaded = false;
+    this._passkeyBusy = false;
+    this._passkeyError = null;
+    this._passkeyAdding = false;
+    this._passkeyNickname = '';
+    this._removingId = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
+    this._loadPasskeys();
     this._loadHiddenDiscoveries();
     this._loadHaeStatus();
     this._loadHaeToken();
+  }
+
+  async _loadPasskeys() {
+    try {
+      const r = await fetch('/api/credentials');
+      if (!r.ok) { this._passkeysLoaded = true; return; }
+      const j = await r.json();
+      this._passkeys = Array.isArray(j.credentials) ? j.credentials : [];
+      this._passkeysLoaded = true;
+    } catch {
+      this._passkeysLoaded = true;
+    }
+  }
+
+  _startAddPasskey() {
+    this._passkeyAdding = true;
+    this._passkeyNickname = '';
+    this._passkeyError = null;
+  }
+
+  _cancelAddPasskey() {
+    this._passkeyAdding = false;
+    this._passkeyNickname = '';
+  }
+
+  _onNicknameInput(e) {
+    this._passkeyNickname = e.target.value;
+  }
+
+  async _confirmAddPasskey() {
+    if (this._passkeyBusy) return;
+    this._passkeyBusy = true;
+    this._passkeyError = null;
+    try {
+      await registerCredential({ nickname: this._passkeyNickname.trim() || null });
+      this._passkeyAdding = false;
+      this._passkeyNickname = '';
+      await this._loadPasskeys();
+    } catch (e) {
+      this._passkeyError = e?.message || 'Could not add passkey.';
+    } finally {
+      this._passkeyBusy = false;
+    }
+  }
+
+  async _removePasskey(id) {
+    if (this._removingId) return;
+    this._removingId = id;
+    this._passkeyError = null;
+    try {
+      const r = await fetch(`/api/credentials/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!r.ok) {
+        this._passkeyError = await errorFromResponse(r, 'Could not remove passkey.');
+        return;
+      }
+      await this._loadPasskeys();
+    } catch (e) {
+      this._passkeyError = e?.message || 'Could not remove passkey.';
+    } finally {
+      this._removingId = null;
+    }
   }
 
   async _loadHaeStatus() {
@@ -199,6 +276,97 @@ export class EhSettingsConnections extends LitElement {
       margin: 0 0 6px;
     }
     h2.subsequent { margin-top: 24px; }
+
+    .sec-block { margin-bottom: 28px; }
+
+    .passkey-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .passkey-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-card);
+    }
+    .passkey-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .passkey-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .this-device {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      background: var(--accent-bg, rgba(0, 212, 170, 0.15));
+      color: var(--accent);
+    }
+    .passkey-sub {
+      font-size: 12px;
+      color: var(--text-muted, var(--text-secondary));
+    }
+    .add-passkey-btn { margin-top: 2px; }
+    .passkey-add {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      background: var(--bg-card);
+    }
+    .nick-input {
+      font: inherit;
+      font-size: 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-input, rgba(0, 0, 0, 0.04));
+      color: var(--text-primary);
+      width: 100%;
+    }
+    .passkey-add-actions { display: inline-flex; gap: 8px; }
+    .passkey-error {
+      font-size: 12px;
+      color: var(--accent-red, #ff5566);
+      margin-top: 8px;
+    }
+    .unhide-btn.danger { color: var(--accent-red, #ff5566); }
+    .unhide-btn.danger:hover:not(:disabled) {
+      border-color: var(--accent-red, #ff5566);
+      color: var(--accent-red, #ff5566);
+    }
+
+    .metrics-details {
+      margin-top: 24px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0 14px;
+      background: var(--bg-card);
+    }
+    .metrics-details > summary {
+      cursor: pointer;
+      padding: 12px 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      list-style-position: inside;
+    }
+    .metrics-details[open] > summary { border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    .metrics-details .discovery-list { margin-bottom: 14px; }
     .lede {
       color: var(--text-secondary);
       font-size: 13px;
@@ -454,27 +622,100 @@ export class EhSettingsConnections extends LitElement {
 
   render() {
     return html`
+      ${this._renderPasskeys()}
       ${this._renderHaePanel()}
       ${this._hiddenDiscoveries.length > 0 ? html`
-        <h2 class="subsequent">Hidden Apple Health metrics</h2>
-        <div class="lede">
-          Metrics you've dismissed from the discovery prompt. Un-hide to see
-          them again the next time a push arrives.
-        </div>
-        <div class="discovery-list">
-          ${this._hiddenDiscoveries.map(d => html`
-            <div class="discovery-row">
-              <span class="discovery-label">${d.metric}</span>
-              <button
-                class="unhide-btn"
-                ?disabled=${this._busyMetric === d.metric}
-                @click=${() => this._unhideDiscovery(d.metric)}
-              >Un-hide</button>
-            </div>
-          `)}
-        </div>
+        <details class="metrics-details">
+          <summary>Hidden Apple Health metrics (${this._hiddenDiscoveries.length})</summary>
+          <div class="lede">
+            Metrics you've dismissed from the discovery prompt. Un-hide to see
+            them again the next time a push arrives.
+          </div>
+          <div class="discovery-list">
+            ${this._hiddenDiscoveries.map(d => html`
+              <div class="discovery-row">
+                <span class="discovery-label">${d.metric}</span>
+                <button
+                  class="unhide-btn"
+                  ?disabled=${this._busyMetric === d.metric}
+                  @click=${() => this._unhideDiscovery(d.metric)}
+                >Un-hide</button>
+              </div>
+            `)}
+          </div>
+        </details>
       ` : ''}
     `;
+  }
+
+  _renderPasskeys() {
+    const canRemove = this._passkeys.length > 1;
+    return html`
+      <section class="sec-block">
+        <h2>Passkeys</h2>
+        <div class="lede">
+          The devices that can unlock this instance. Add one for each phone or
+          laptop you sign in from.
+        </div>
+        ${!this._passkeysLoaded ? html`<span class="muted">Loading…</span>` : html`
+          <div class="passkey-list">
+            ${this._passkeys.map(p => this._renderPasskeyRow(p, canRemove))}
+          </div>
+        `}
+        ${this._passkeyAdding ? html`
+          <div class="passkey-add">
+            <input
+              class="nick-input"
+              type="text"
+              maxlength="60"
+              placeholder="Name this device (e.g. Work laptop)"
+              .value=${this._passkeyNickname}
+              @input=${this._onNicknameInput}
+              ?disabled=${this._passkeyBusy}
+            >
+            <div class="passkey-add-actions">
+              <button class="copy-btn" @click=${this._cancelAddPasskey} ?disabled=${this._passkeyBusy}>Cancel</button>
+              <button class="copy-btn primary" @click=${this._confirmAddPasskey} ?disabled=${this._passkeyBusy}>
+                ${this._passkeyBusy ? 'Waiting for device…' : 'Continue'}
+              </button>
+            </div>
+          </div>
+        ` : html`
+          <button class="copy-btn primary add-passkey-btn" @click=${this._startAddPasskey}>Add a passkey</button>
+        `}
+        ${this._passkeyError ? html`<div class="passkey-error">${this._passkeyError}</div>` : ''}
+      </section>
+    `;
+  }
+
+  _renderPasskeyRow(p, canRemove) {
+    const name = p.nickname || this._deviceLabel(p.deviceType);
+    const removing = this._removingId === p.id;
+    return html`
+      <div class="passkey-row">
+        <div class="passkey-meta">
+          <span class="passkey-name">
+            ${name}
+            ${p.isCurrentDevice ? html`<span class="this-device">This device</span>` : ''}
+          </span>
+          <span class="passkey-sub">
+            ${p.deviceType && !p.nickname ? '' : this._deviceLabel(p.deviceType) + ' · '}added ${this._relativeTime(p.registeredAt)}${p.lastUsedAt ? ` · last used ${this._relativeTime(p.lastUsedAt)}` : ''}
+          </span>
+        </div>
+        <button
+          class="unhide-btn danger"
+          title=${canRemove ? 'Remove this passkey' : 'You cannot remove your only passkey'}
+          ?disabled=${!canRemove || removing}
+          @click=${() => this._removePasskey(p.id)}
+        >${removing ? 'Removing…' : 'Remove'}</button>
+      </div>
+    `;
+  }
+
+  _deviceLabel(deviceType) {
+    if (deviceType === 'platform') return 'Built-in (Face ID / Touch ID / Windows Hello)';
+    if (deviceType === 'cross-platform') return 'Security key';
+    return 'Passkey';
   }
 
   _renderHaePanel() {
@@ -697,4 +938,4 @@ export class EhSettingsConnections extends LitElement {
     return `${(n / (1024 * 1024)).toFixed(2)} MB`;
   }
 }
-customElements.define('eh-settings-connections', EhSettingsConnections);
+customElements.define('eh-settings-security', EhSettingsSecurity);
