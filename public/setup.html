@@ -135,6 +135,8 @@
         btn.textContent = 'Registration closed';
         if (j.reason === 'invalid-invite') {
           error.textContent = 'This invite link is invalid or expired. Ask the admin for a new one.';
+        } else if (j.reason === 'awaiting-invite') {
+          error.textContent = 'This instance is waiting for its setup link. Check the email from klebb.app to register your first passkey.';
         } else {
           error.textContent = 'Registration is closed. An invite code is required.';
         }
