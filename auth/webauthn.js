@@ -55,6 +55,52 @@ function countCredentials(data) {
   );
 }
 
+// A user-supplied passkey nickname. Trimmed, capped, control chars stripped;
+// empty becomes null. Free text (unlike the label): display-only, never used
+// as a key, so it can hold spaces and mixed case like "Work laptop".
+function sanitizeNickname(raw) {
+  if (typeof raw !== 'string') return null;
+  const clean = Array.from(raw)
+    .filter(ch => { const c = ch.codePointAt(0); return c >= 32 && c !== 127; })
+    .join("").trim().slice(0, 60);
+  return clean || null;
+}
+
+// Public (non-sensitive) view of one user's credentials for the management
+// UI. Never leaks publicKey or counter. currentCredentialId (from the caller's
+// session) flags which entry is the device making the request.
+function listCredentialsForUser(userId, currentCredentialId = null) {
+  const creds = loadCredentials();
+  const list = (creds.users[userId]?.credentials) || [];
+  return list.map(c => ({
+    id: c.id,
+    nickname: c.nickname || null,
+    deviceType: c.deviceType || 'unknown',
+    registeredAt: c.registeredAt || null,
+    lastUsedAt: c.lastUsedAt || null,
+    isCurrentDevice: !!currentCredentialId && c.id === currentCredentialId,
+  }));
+}
+
+// Delete one credential by id from a given user. Refuses to remove the last
+// remaining credential across the whole store (see countCredentials). Returns
+// { ok, reason?, deletedId? }; on success also invalidates sessions bound to
+// that credential so a removed device is logged out.
+function deleteCredentialForUser(userId, credentialId) {
+  const creds = loadCredentials();
+  const list = creds.users[userId]?.credentials;
+  if (!list) return { ok: false, reason: 'not-found' };
+  const idx = list.findIndex(c => c.id === credentialId);
+  if (idx < 0) return { ok: false, reason: 'not-found' };
+  if (countCredentials(creds) <= 1) return { ok: false, reason: 'last-credential' };
+
+  list.splice(idx, 1);
+  if (list.length === 0) delete creds.users[userId];
+  saveCredentials(creds);
+  invalidateSessionsForCredential(credentialId);
+  return { ok: true, deletedId: credentialId };
+}
+
 function loadSessions() {
   try {
     return JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
@@ -72,27 +118,57 @@ function isSetup() {
   return Object.keys(creds.users).length > 0;
 }
 
-function createSession(userId) {
+function createSession(userId, credentialId) {
   const token = crypto.randomBytes(32).toString('hex');
   const sessions = loadSessions();
-  sessions[token] = { created: Date.now(), lastSeen: Date.now(), userId: userId || null };
+  sessions[token] = {
+    created: Date.now(),
+    lastSeen: Date.now(),
+    userId: userId || null,
+    credentialId: credentialId || null,
+  };
   saveSessions(sessions);
   return token;
 }
 
-function validateSession(token) {
-  if (!token) return false;
+// Returns the session record (touching lastSeen) if the token is valid and
+// unexpired, else null. validateSession is the boolean wrapper.
+function readSession(token) {
+  if (!token) return null;
   const sessions = loadSessions();
   const session = sessions[token];
-  if (!session) return false;
+  if (!session) return null;
   if (Date.now() - session.created > SESSION_MAX_AGE) {
     delete sessions[token];
     saveSessions(sessions);
-    return false;
+    return null;
   }
   session.lastSeen = Date.now();
   saveSessions(sessions);
-  return true;
+  return session;
+}
+
+function validateSession(token) {
+  return !!readSession(token);
+}
+
+// The current request's session record ({ userId, credentialId }), or null.
+function getSessionRecord(req) {
+  return readSession(getSessionToken(req));
+}
+
+// Drop any sessions bound to a credential id. Called when a credential is
+// deleted so the removed authenticator's live sessions die with it.
+function invalidateSessionsForCredential(credentialId) {
+  const sessions = loadSessions();
+  let changed = false;
+  for (const token of Object.keys(sessions)) {
+    if (sessions[token].credentialId === credentialId) {
+      delete sessions[token];
+      changed = true;
+    }
+  }
+  if (changed) saveSessions(sessions);
 }
 
 function getSessionToken(req) {
@@ -326,12 +402,16 @@ async function handleAuthRoutes(req, res, pathname) {
         if (!creds.users[userId]) {
           creds.users[userId] = { credentials: [] };
         }
+        const nickname = sanitizeNickname(body.nickname);
+        const now = new Date().toISOString();
         creds.users[userId].credentials.push({
           id: credential.id,
           publicKey: Buffer.from(credential.publicKey).toString('base64'),
           counter: credential.counter,
           deviceType: body.authenticatorAttachment || 'unknown',
-          registeredAt: new Date().toISOString(),
+          nickname: nickname || null,
+          registeredAt: now,
+          lastUsedAt: now,
         });
         saveCredentials(creds);
         pendingChallenges.delete(key);
@@ -344,7 +424,7 @@ async function handleAuthRoutes(req, res, pathname) {
           invites.recordAuthEvent({ kind: 'register.success', label: userId, bootstrap: true });
         }
 
-        const token = createSession(userId);
+        const token = createSession(userId, credential.id);
         setSessionCookie(res, token);
         return sendJSON(res, { verified: true, label: userId });
       }
@@ -423,13 +503,14 @@ async function handleAuthRoutes(req, res, pathname) {
       });
 
       if (verification.verified) {
-        // Update counter
+        // Update counter + last-used stamp
         credential.counter = verification.authenticationInfo.newCounter;
+        credential.lastUsedAt = new Date().toISOString();
         saveCredentials(creds);
         pendingChallenges.delete('__login');
         invites.recordAuthEvent({ kind: 'login.success', label: matchedUser });
 
-        const token = createSession(matchedUser);
+        const token = createSession(matchedUser, credential.id);
         setSessionCookie(res, token);
         return sendJSON(res, { verified: true, label: matchedUser });
       }
@@ -465,4 +546,8 @@ module.exports = {
   loadCredentials,
   saveCredentials,
   countCredentials,
+  sanitizeNickname,
+  listCredentialsForUser,
+  deleteCredentialForUser,
+  getSessionRecord,
 };

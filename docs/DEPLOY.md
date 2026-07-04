@@ -181,6 +181,24 @@ sudo nginx -t && sudo systemctl reload nginx
 2. Tap "Register Passkey", authenticate with Face ID / Touch ID
 3. You're logged in; future visits go straight to the dashboard
 
+### Managing passkeys
+
+List, name, and remove registered passkeys:
+
+- `npm run list` shows each passkey with its nickname, device type, and
+  when it was registered / last used.
+- `npm run revoke -- --label <name>` removes a whole label's passkeys.
+  It refuses to remove the last remaining credential (that would empty
+  the store and re-open first-run registration to any visitor).
+- From an authenticated session the app exposes `GET /api/credentials`
+  (list) and `DELETE /api/credentials/:id` (remove one by id, same
+  last-credential guard). Deleting a passkey also ends any live session
+  bound to that device.
+
+Upgrading an existing install: run `npm run migrate-credential-fields`
+once to backfill the per-passkey `nickname` and `lastUsedAt` fields
+(idempotent; takes a timestamped backup first).
+
 ### Voice chat (optional)
 
 Voice input and voice replies are supported via Fish Audio. See

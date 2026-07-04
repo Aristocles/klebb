@@ -145,17 +145,22 @@ function sessionCookie(token) {
 // and sessions are valid. Returns { credentials, sessions, token }.
 function fakeAuthState(label = 'testuser') {
   const token = crypto.randomBytes(32).toString('hex');
+  const credentialId = 'fake-' + crypto.randomBytes(8).toString('hex');
+  const now = new Date().toISOString();
   return {
+    credentialId,
     credentials: {
       users: {
         [label]: {
           credentials: [
             {
-              id: 'fake-' + crypto.randomBytes(8).toString('hex'),
+              id: credentialId,
               publicKey: 'fake',
               counter: 0,
               deviceType: 'test',
-              registeredAt: new Date().toISOString(),
+              nickname: null,
+              registeredAt: now,
+              lastUsedAt: now,
             },
           ],
         },
@@ -166,6 +171,7 @@ function fakeAuthState(label = 'testuser') {
         created: Date.now(),
         lastSeen: Date.now(),
         userId: label,
+        credentialId,
       },
     },
     token,

@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { marked } = require('marked');
-const { isAuthenticated, isAgentRequest, isPublicPath, handleAuthRoutes, isSetup } = require('./auth/webauthn');
+const { isAuthenticated, isAgentRequest, isPublicPath, handleAuthRoutes, isSetup, listCredentialsForUser, deleteCredentialForUser, getSessionRecord } = require('./auth/webauthn');
 const PATHS = require('./config/paths');
 const ENV = require('./config/env');
 const registry = require('./manifests/registry');
@@ -1188,6 +1188,36 @@ const server = http.createServer(async (req, res) => {
         && parts.length === 2 && req.method === 'DELETE') {
       haeTokenStore.clearToken();
       return sendJSON(res, { ok: true });
+    }
+
+    // === Passkey (WebAuthn credential) management ===
+    // Behind the global auth gate: a valid passkey session is required. The
+    // session's userId scopes which credentials are visible/removable, so a
+    // request can only ever see and manage its own account's passkeys.
+
+    // GET /api/credentials — list the current user's passkeys (non-sensitive
+    // fields only; never publicKey/counter). Flags the current device.
+    if (parts[0] === 'credentials' && parts.length === 1 && req.method === 'GET') {
+      const session = getSessionRecord(req);
+      if (!session || !session.userId) return sendJSON(res, { error: 'Unauthorized' }, 401);
+      return sendJSON(res, {
+        credentials: listCredentialsForUser(session.userId, session.credentialId),
+      });
+    }
+
+    // DELETE /api/credentials/:id — remove one passkey by id. Refuses to
+    // remove the last remaining credential (would re-open the instance to
+    // bootstrap). Sessions bound to the removed credential are invalidated.
+    if (parts[0] === 'credentials' && parts.length === 2 && req.method === 'DELETE') {
+      const session = getSessionRecord(req);
+      if (!session || !session.userId) return sendJSON(res, { error: 'Unauthorized' }, 401);
+      const id = decodeURIComponent(parts[1]);
+      const result = deleteCredentialForUser(session.userId, id);
+      if (result.ok) return sendJSON(res, { ok: true, id: result.deletedId });
+      if (result.reason === 'last-credential') {
+        return sendJSON(res, { error: 'Cannot remove your only passkey' }, 409);
+      }
+      return sendJSON(res, { error: 'Passkey not found' }, 404);
     }
 
     // GET /api/health-auto-export/discoveries — list metrics present in
