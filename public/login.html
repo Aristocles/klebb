@@ -76,7 +76,7 @@
   </div>
 
   <script type="module">
-    import { startAuthentication } from 'https://esm.sh/@simplewebauthn/browser@13';
+    import { authenticate } from '/js/lib/webauthn-ceremony.js';
 
     window.login = async function() {
       const btn = document.getElementById('login-btn');
@@ -86,27 +86,8 @@
       btn.textContent = 'Authenticating...';
 
       try {
-        // Get options from server
-        const optRes = await fetch('/auth/login/options', { method: 'POST' });
-        const options = await optRes.json();
-        if (options.error) throw new Error(options.error);
-
-        // Start WebAuthn authentication (triggers Face ID / biometric)
-        const authResponse = await startAuthentication({ optionsJSON: options });
-
-        // Verify with server
-        const verifyRes = await fetch('/auth/login/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(authResponse),
-        });
-        const result = await verifyRes.json();
-
-        if (result.verified) {
-          window.location.href = '/';
-        } else {
-          throw new Error(result.error || 'Verification failed');
-        }
+        await authenticate();
+        window.location.href = '/';
       } catch (e) {
         error.textContent = e.message || 'Authentication failed';
         error.classList.add('show');
