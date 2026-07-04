@@ -7,6 +7,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Passkeys can now be named and managed over the API.** Each stored
+  passkey gains a `nickname` (free text, set at registration) and a
+  `lastUsedAt` timestamp (stamped on every login), so a device is
+  recognisable as "Work laptop, last used today" rather than an opaque
+  id. Two new authenticated endpoints back the upcoming Security settings
+  pane: `GET /api/credentials` lists your passkeys (never exposing the
+  public key or counter, and flagging the device you're on) and `DELETE
+  /api/credentials/:id` removes one by id. Deleting a passkey also ends
+  any live session tied to that device, and the last remaining passkey
+  can't be removed. Existing installs run `npm run migrate-credential-fields`
+  once to backfill the new fields. Refs #467, #469.
+
 ### Fixed
 
 - **Passkey credential store now writes atomically and won't lock itself
