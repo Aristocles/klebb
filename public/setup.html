@@ -120,7 +120,7 @@
   </div>
 
   <script type="module">
-    import { startRegistration } from 'https://esm.sh/@simplewebauthn/browser@13';
+    import { registerCredential, checkRegisterAvailable } from '/js/lib/webauthn-ceremony.js';
 
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
@@ -129,23 +129,20 @@
     (async () => {
       const error = document.getElementById('error');
       const btn = document.getElementById('register-btn');
-      try {
-        const r = await fetch('/auth/register/available' + (code ? `?code=${encodeURIComponent(code)}` : ''));
-        const j = await r.json();
-        if (!j.available) {
-          btn.disabled = true;
-          btn.textContent = 'Registration closed';
-          if (j.reason === 'invalid-invite') {
-            error.textContent = 'This invite link is invalid or expired. Ask the admin for a new one.';
-          } else {
-            error.textContent = 'Registration is closed. An invite code is required.';
-          }
-          error.classList.add('show');
-        } else if (j.label) {
-          const subtitle = document.querySelector('.subtitle');
-          if (subtitle) subtitle.textContent = `Register a passkey for ${j.label}`;
+      const j = await checkRegisterAvailable(code);
+      if (!j.available) {
+        btn.disabled = true;
+        btn.textContent = 'Registration closed';
+        if (j.reason === 'invalid-invite') {
+          error.textContent = 'This invite link is invalid or expired. Ask the admin for a new one.';
+        } else {
+          error.textContent = 'Registration is closed. An invite code is required.';
         }
-      } catch {}
+        error.classList.add('show');
+      } else if (j.label) {
+        const subtitle = document.querySelector('.subtitle');
+        if (subtitle) subtitle.textContent = `Register a passkey for ${j.label}`;
+      }
     })();
 
     window.register = async function() {
@@ -158,39 +155,9 @@
       btn.textContent = 'Registering...';
 
       try {
-        // Get registration options from server (include invite code if present)
-        const optRes = await fetch('/auth/register/options', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(code ? { code } : {}),
-        });
-        const options = await optRes.json();
-        if (options.error) throw new Error(options.error);
-
-        // Track which label the server decided to use (from options response or by looking it up)
-        // Simplest: include label via the availability endpoint result, or rely on server-side mapping.
-        // The verify endpoint finds the pending challenge by label.
-        const avRes = await fetch('/auth/register/available' + (code ? `?code=${encodeURIComponent(code)}` : ''));
-        const av = await avRes.json();
-        const label = av.label || '';
-
-        // Start WebAuthn registration (triggers Face ID / biometric)
-        const regResponse = await startRegistration({ optionsJSON: options });
-
-        // Verify with server (include label so server matches the pending challenge)
-        const verifyRes = await fetch('/auth/register/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...regResponse, label, code }),
-        });
-        const result = await verifyRes.json();
-
-        if (result.verified) {
-          success.classList.add('show');
-          setTimeout(() => { window.location.href = '/'; }, 1500);
-        } else {
-          throw new Error(result.error || 'Registration failed');
-        }
+        await registerCredential({ code });
+        success.classList.add('show');
+        setTimeout(() => { window.location.href = '/'; }, 1500);
       } catch (e) {
         error.textContent = e.message || 'Registration failed';
         error.classList.add('show');
