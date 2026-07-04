@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Passkey credential store now writes atomically and won't lock itself
+  open.** The credentials file is rewritten on every login (to bump the
+  signature counter), but writes were a plain overwrite with no temp-file
+  swap, so a crash or a concurrent write could truncate it. Writes now go
+  through a temp file and atomic rename with `0600` permissions. Revoking
+  a passkey also now refuses to remove the last remaining credential:
+  emptying the store previously flipped the instance back into open
+  first-run registration, letting any visitor claim it. Fixes #468.
+
 - **Card settings no longer flood the server when you toggle quickly.** The
   per-card settings gear refreshed the whole Today view on every toggle,
   which on a busy dashboard fired enough requests to trip the reverse

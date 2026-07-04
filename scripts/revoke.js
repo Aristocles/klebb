@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const PATHS = require('../config/paths');
+const webauthn = require('../auth/webauthn');
 
 function parseArgs(argv) {
   const args = {};
@@ -36,12 +37,24 @@ if (args.help || !args.label) { usage(); process.exit(args.help ? 0 : 1); }
 let credsRemoved = 0;
 try {
   if (fs.existsSync(PATHS.WEBAUTHN_CREDENTIALS_FILE)) {
-    const raw = fs.readFileSync(PATHS.WEBAUTHN_CREDENTIALS_FILE, 'utf8');
-    const creds = JSON.parse(raw);
+    const creds = webauthn.loadCredentials();
     if (creds.users && creds.users[args.label]) {
-      credsRemoved = (creds.users[args.label].credentials || []).length;
+      const inLabel = (creds.users[args.label].credentials || []).length;
+      // Guard: refuse to empty the store. isSetup() flips to false when no
+      // credentials remain, re-opening the instance to bootstrap registration
+      // by any visitor. Revoking the last label would lock the instance open.
+      if (inLabel > 0 && webauthn.countCredentials(creds) - inLabel === 0) {
+        console.error(
+          `Refusing to revoke "${args.label}": it holds the only remaining ` +
+          `credential(s). Emptying the store would re-open the instance to ` +
+          `bootstrap registration. Register another passkey first, or delete ` +
+          `${PATHS.WEBAUTHN_CREDENTIALS_FILE} by hand to intentionally reset.`
+        );
+        process.exit(3);
+      }
+      credsRemoved = inLabel;
       delete creds.users[args.label];
-      fs.writeFileSync(PATHS.WEBAUTHN_CREDENTIALS_FILE, JSON.stringify(creds, null, 2));
+      webauthn.saveCredentials(creds);
     }
   }
 } catch (e) {
