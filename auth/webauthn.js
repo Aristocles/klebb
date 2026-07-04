@@ -293,7 +293,10 @@ async function handleAuthRoutes(req, res, pathname) {
       return sendJSON(res, { available: false, reason: 'invalid-invite' });
     }
     if (!isSetup()) return sendJSON(res, { available: true, reason: 'bootstrap' });
-    if (validateSession(getSessionToken(req)) && !invites.requireInviteForRegistration()) {
+    // An authenticated session can always add a passkey to its own account.
+    // requireInviteForRegistration gates UNAUTHENTICATED registration only; a
+    // live session with a fresh biometric is the strongest actor in the system.
+    if (validateSession(getSessionToken(req))) {
       return sendJSON(res, { available: true, reason: 'add-device' });
     }
     return sendJSON(res, { available: false, reason: 'closed' });
@@ -304,7 +307,9 @@ async function handleAuthRoutes(req, res, pathname) {
   // Registration is gated by:
   //   (a) a valid unused invite code, OR
   //   (b) no credentials exist yet (bootstrap first user), OR
-  //   (c) already authenticated AND requireInviteForRegistration === false (legacy)
+  //   (c) already authenticated — adding a passkey to your own account.
+  //       Allowed regardless of requireInviteForRegistration: that flag
+  //       gates unauthenticated registration, not self-service add-device.
   if (pathname === '/auth/register/options' && req.method === 'POST') {
     const rawBody = await readBody(req);
     let body = {};
@@ -327,13 +332,12 @@ async function handleAuthRoutes(req, res, pathname) {
     else if (!isSetup()) {
       if (!label) label = 'user';
     }
-    // Path C: authenticated + legacy mode — adding device to existing account
-    else if (validateSession(getSessionToken(req))) {
-      if (invites.requireInviteForRegistration()) {
-        return sendJSON(res, { error: 'Invite required' }, 403);
-      }
-      // Use the existing primary label if present; fall back to 'user'.
-      if (!label) label = Object.keys(loadCredentials().users || {})[0] || 'user';
+    // Path C: authenticated — adding a passkey to your own account. Bind to
+    // the session's own userId so a device is added under the caller's label,
+    // not whichever label happens to be first in the store.
+    else if (getSessionRecord(req)) {
+      const session = getSessionRecord(req);
+      label = session.userId || Object.keys(loadCredentials().users || {})[0] || 'user';
     }
     else {
       // No code, no session, already set up → reject
