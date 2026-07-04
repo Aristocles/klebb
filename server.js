@@ -7,6 +7,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { marked } = require('marked');
 const { isAuthenticated, isAgentRequest, isPublicPath, handleAuthRoutes, isSetup, listCredentialsForUser, deleteCredentialForUser, getSessionRecord } = require('./auth/webauthn');
+const { handleAdminRoutes } = require('./auth/admin-api');
 const PATHS = require('./config/paths');
 const ENV = require('./config/env');
 const registry = require('./manifests/registry');
@@ -611,6 +612,13 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('/auth/')) {
     const result = await handleAuthRoutes(req, res, pathname);
     if (result !== null) return;
+  }
+
+  // Control-plane admin API (Klebb Cloud). Carries its own KLEBB_ADMIN_TOKEN
+  // bearer and is server-to-server (no browser session), so it runs before
+  // the session gate. The handler enforces the token itself (401 without it).
+  if (pathname.startsWith('/api/admin/')) {
+    if (await handleAdminRoutes(req, res, pathname)) return;
   }
 
   // The HAE webhook carries its own token (managed in Settings; see
@@ -2080,6 +2088,21 @@ Original system prompt follows:
 
 server.listen(PORT, HOST, () => {
   console.log(`Health dashboard running at http://${HOST}:${PORT} (TZ=${ENV.TZ})`);
+
+  // First-boot passkey bootstrap. When the credential store is empty:
+  //   - self-hosted: print the /register URL so the operator (reading the
+  //     logs) can claim the instance. First-visitor bootstrap is open.
+  //   - Cloud (KLEBB_CLOUD=1): don't print; the control plane mints an
+  //     invite and emails the claim link to the customer's own subdomain.
+  try {
+    if (!isSetup() && !ENV.KLEBB_DEMO) {
+      if (ENV.KLEBB_CLOUD) {
+        console.log('[bootstrap] no passkeys yet; awaiting a control-plane invite (Cloud mode).');
+      } else {
+        console.log(`[bootstrap] no passkeys yet. Register the first one at ${ENV.WEBAUTHN_ORIGIN}/register`);
+      }
+    }
+  } catch {}
 
   // First-boot welcome card. Only seeds when HEALTH_HOME/data is empty.
   try {

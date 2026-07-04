@@ -9,6 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Control-plane API and hardened bootstrap for hosted instances.** A
+  hosted instance can opt into two env vars: `KLEBB_ADMIN_TOKEN` enables a
+  narrow server-to-server API (`GET /api/admin/credentials` to list
+  passkeys, `POST /api/admin/invites` to mint a register link on the
+  instance's own origin) for onboarding and lockout recovery, and
+  `KLEBB_CLOUD=1` closes open first-run registration so a public instance
+  can't be claimed by the first visitor (it waits for an emailed setup
+  link instead). The admin API can add but never delete a passkey, so it
+  can't lock anyone out; removal stays in-app. Self-hosted installs are
+  unchanged: with neither var set, the first-boot register URL is printed
+  to the logs and the first visitor claims the instance. Refs #467, #472.
+
 - **Manage your passkeys in Settings.** The Settings *Connections* tab is
   now *Security* and leads with a Passkeys section: it lists every device
   that can unlock this instance (with a nickname, device type, and when it

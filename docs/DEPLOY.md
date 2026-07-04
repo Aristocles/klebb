@@ -283,6 +283,38 @@ instance, each pointing at its unique port.
 - Keep `AGENT_API_TOKEN` and `CHAT_API_KEY` in the env file (0600, root)
 - Run each instance as its own system user (no shell)
 
+### Hosted instances and the control-plane API
+
+For hosted deployments (one instance per customer, each on its own
+subdomain) a separate control plane can help onboard and recover users
+over HTTP, without touching the credential file directly. Two env vars
+opt an instance into this:
+
+- `KLEBB_CLOUD=1` closes open first-run bootstrap. A fresh instance on a
+  public subdomain will **not** let the first visitor claim it; instead
+  `/register` reports it is awaiting an emailed setup link. Self-hosted
+  installs leave this unset and keep first-visitor bootstrap (the
+  register URL is printed to the logs on first boot).
+- `KLEBB_ADMIN_TOKEN=<secret>` enables the control-plane API. Keep it in
+  the env file (0600), distinct from `AGENT_API_TOKEN` (least privilege:
+  that token writes cards; this one manages access). Unset = the admin
+  endpoints are disabled.
+
+The control plane calls these server-to-server with
+`Authorization: Bearer $KLEBB_ADMIN_TOKEN`:
+
+- `GET /api/admin/credentials` lists the instance's passkeys (read-only,
+  no public keys).
+- `POST /api/admin/invites` (body `{ "label": "...", "expiresInDays": 3 }`)
+  mints a single-use invite and returns a `registerUrl` on the
+  instance's own origin (`HEALTH_ORIGIN`). Email that link to the user;
+  the endpoint does not send mail itself. This covers both first-run
+  onboarding and recovery when a user has lost every device.
+
+There is deliberately **no admin delete**: removing a passkey stays
+in-app (Settings → Security), so a compromised control plane can enrol a
+visible new device but can never lock a user out.
+
 ---
 
 ## 3. Automated deploys with scripts/deploy.sh

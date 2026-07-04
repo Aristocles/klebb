@@ -118,6 +118,15 @@ function isSetup() {
   return Object.keys(creds.users).length > 0;
 }
 
+// Whether a fresh instance may be claimed by the first visitor with no invite
+// code. True for self-hosted (the operator reads the printed /register URL
+// from the logs). False on Klebb Cloud: a public <name>.klebb.app subdomain
+// must not be claimable by whoever finds the URL first, so the control plane
+// mints an invite and emails the link instead.
+function openBootstrapAllowed() {
+  return !ENV.KLEBB_CLOUD;
+}
+
 function createSession(userId, credentialId) {
   const token = crypto.randomBytes(32).toString('hex');
   const sessions = loadSessions();
@@ -292,13 +301,15 @@ async function handleAuthRoutes(req, res, pathname) {
       if (inv) return sendJSON(res, { available: true, reason: 'invite', label: inv.label });
       return sendJSON(res, { available: false, reason: 'invalid-invite' });
     }
-    if (!isSetup()) return sendJSON(res, { available: true, reason: 'bootstrap' });
+    if (!isSetup() && openBootstrapAllowed()) return sendJSON(res, { available: true, reason: 'bootstrap' });
     // An authenticated session can always add a passkey to its own account.
     // requireInviteForRegistration gates UNAUTHENTICATED registration only; a
     // live session with a fresh biometric is the strongest actor in the system.
     if (validateSession(getSessionToken(req))) {
       return sendJSON(res, { available: true, reason: 'add-device' });
     }
+    // A not-yet-set-up Cloud instance is awaiting its emailed claim link.
+    if (!isSetup()) return sendJSON(res, { available: false, reason: 'awaiting-invite' });
     return sendJSON(res, { available: false, reason: 'closed' });
   }
 
@@ -328,8 +339,10 @@ async function handleAuthRoutes(req, res, pathname) {
       label = inv.label;
       usedInvite = inv;
     }
-    // Path B: bootstrap — no credentials exist yet; first registration wins
-    else if (!isSetup()) {
+    // Path B: bootstrap — no credentials exist yet; first registration wins.
+    // Disabled on Cloud: an empty instance there must be claimed via an
+    // emailed invite (Path A), not by the first visitor.
+    else if (!isSetup() && openBootstrapAllowed()) {
       if (!label) label = 'user';
     }
     // Path C: authenticated — adding a passkey to your own account. Bind to
