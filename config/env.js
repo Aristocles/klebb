@@ -163,6 +163,21 @@ const CHAT_ITER_TIMEOUT_MS = (() => {
 const KLEBB_DEMO = process.env.KLEBB_DEMO === '1';
 const DEMO_USER_ID = 'demo';
 
+// --- Klebb Cloud ---
+// KLEBB_CLOUD=1 marks a hosted instance (one container + one <name>.klebb.app
+// subdomain per customer, provisioned by the klebb.app control plane). It
+// closes the open-bootstrap window: a fresh Cloud instance on a public
+// subdomain must NOT let the first visitor claim it, so registration always
+// requires a control-plane-minted invite (the control plane emails the link).
+// Self-hosted installs leave this unset and keep first-visitor bootstrap.
+const KLEBB_CLOUD = process.env.KLEBB_CLOUD === '1';
+
+// KLEBB_ADMIN_TOKEN gates the control-plane admin API (list passkeys, mint a
+// register invite). Deliberately separate from AGENT_API_TOKEN (least
+// privilege: that token writes cards, this one manages access). Unset by
+// default, which disables the admin endpoints entirely (self-host default).
+const KLEBB_ADMIN_TOKEN = process.env.KLEBB_ADMIN_TOKEN || null;
+
 // --- Health system prompt (used by chat proxy) ---
 //
 // Default prompt is generic and references whatever cards the registry
@@ -627,5 +642,7 @@ module.exports = {
   CHAT_ITER_TIMEOUT_MS,
   KLEBB_DEMO,
   DEMO_USER_ID,
+  KLEBB_CLOUD,
+  KLEBB_ADMIN_TOKEN,
   HEALTH_SYSTEM_PROMPT,
 };
