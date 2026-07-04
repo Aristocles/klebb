@@ -33,8 +33,10 @@ if (users.length === 0) {
     const list = creds.users[u].credentials || [];
     console.log(`  ${u}: ${list.length} credential(s)`);
     list.forEach((c, i) => {
-      const when = c.registeredAt ? ` ${ageDays(c.registeredAt)}d ago (${isoLocal(c.registeredAt)})` : '';
-      console.log(`    [${i}] ${c.deviceType || 'unknown'}${when}`);
+      const name = c.nickname ? `"${c.nickname}" ` : '';
+      const when = c.registeredAt ? ` registered ${ageDays(c.registeredAt)}d ago` : '';
+      const used = c.lastUsedAt ? `, last used ${ageDays(c.lastUsedAt)}d ago` : '';
+      console.log(`    [${i}] ${name}${c.deviceType || 'unknown'}${when}${used}`);
     });
   }
 }
