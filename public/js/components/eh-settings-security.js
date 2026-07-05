@@ -7,8 +7,10 @@
 // (endpoint + token), and the collapsed-by-default hidden-metric list.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { unsafeSVG } from 'https://esm.sh/lit@3/directives/unsafe-svg.js';
 import { errorFromResponse } from '../lib/save-error.js';
 import { registerCredential } from '../lib/webauthn-ceremony.js';
+import { qrSvg } from '../lib/qr.js';
 
 export class EhSettingsSecurity extends LitElement {
   static properties = {
@@ -32,6 +34,10 @@ export class EhSettingsSecurity extends LitElement {
     _passkeyAdding: { state: true },
     _passkeyNickname: { state: true },
     _removingId: { state: true },
+    _invite: { state: true },
+    _inviteBusy: { state: true },
+    _inviteCopied: { state: true },
+    _isCloud: { state: true },
   };
 
   constructor() {
@@ -56,14 +62,28 @@ export class EhSettingsSecurity extends LitElement {
     this._passkeyAdding = false;
     this._passkeyNickname = '';
     this._removingId = null;
+    this._invite = null;
+    this._inviteBusy = false;
+    this._inviteCopied = false;
+    this._isCloud = false;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this._loadPasskeys();
+    this._loadInstanceFlags();
     this._loadHiddenDiscoveries();
     this._loadHaeStatus();
     this._loadHaeToken();
+  }
+
+  async _loadInstanceFlags() {
+    try {
+      const r = await fetch('/api/instance');
+      if (!r.ok) return;
+      const j = await r.json();
+      this._isCloud = !!j.cloud;
+    } catch {}
   }
 
   async _loadPasskeys() {
@@ -76,6 +96,43 @@ export class EhSettingsSecurity extends LitElement {
     } catch {
       this._passkeysLoaded = true;
     }
+  }
+
+  // The add-a-device default: mint a single-use invite for this account and
+  // show it as a QR + copyable link. The device holding the session usually
+  // already has a passkey; enrolment nearly always targets a DIFFERENT
+  // device, and the invite link is the primitive that reaches all of them.
+  async _mintInvite() {
+    if (this._inviteBusy) return;
+    this._inviteBusy = true;
+    this._passkeyError = null;
+    try {
+      const r = await fetch('/api/invites', { method: 'POST' });
+      if (!r.ok) {
+        this._passkeyError = await errorFromResponse(r, 'Could not create an invite link.');
+        return;
+      }
+      this._invite = await r.json();
+    } catch (e) {
+      this._passkeyError = e?.message || 'Could not create an invite link.';
+    } finally {
+      this._inviteBusy = false;
+    }
+  }
+
+  _dismissInvite() {
+    this._invite = null;
+    this._inviteCopied = false;
+    // The passkey may have landed from the other device while the panel was
+    // open; refresh so the new row appears as soon as the panel closes.
+    this._loadPasskeys();
+  }
+
+  async _copyInviteUrl() {
+    if (!this._invite?.registerUrl) return;
+    await this._writeClipboard(this._invite.registerUrl);
+    this._inviteCopied = true;
+    setTimeout(() => { this._inviteCopied = false; }, 1800);
   }
 
   _startAddPasskey() {
@@ -318,7 +375,34 @@ export class EhSettingsSecurity extends LitElement {
       font-size: 12px;
       color: var(--text-muted, var(--text-secondary));
     }
-    .add-passkey-btn { margin-top: 2px; }
+    .add-device-btn { margin-top: 2px; }
+    .on-this-device { margin-left: 10px; }
+    .invite-panel { align-items: flex-start; }
+    .invite-lede {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .invite-qr {
+      width: 200px;
+      max-width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+      align-self: center;
+    }
+    .invite-qr svg { display: block; width: 100%; height: auto; }
+    .invite-url-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+      min-width: 0;
+    }
+    .invite-cloud-hint {
+      font-size: 12px;
+      color: var(--text-muted, var(--text-secondary));
+    }
     .passkey-add {
       display: flex;
       flex-direction: column;
@@ -662,7 +746,7 @@ export class EhSettingsSecurity extends LitElement {
             ${this._passkeys.map(p => this._renderPasskeyRow(p, canRemove))}
           </div>
         `}
-        ${this._passkeyAdding ? html`
+        ${this._invite ? this._renderInvitePanel() : this._passkeyAdding ? html`
           <div class="passkey-add">
             <input
               class="nick-input"
@@ -681,10 +765,44 @@ export class EhSettingsSecurity extends LitElement {
             </div>
           </div>
         ` : html`
-          <button class="copy-btn primary add-passkey-btn" @click=${this._startAddPasskey}>Add a passkey</button>
+          <button class="copy-btn primary add-device-btn" @click=${this._mintInvite} ?disabled=${this._inviteBusy}>
+            ${this._inviteBusy ? 'Creating link…' : 'Add a device'}
+          </button>
+          <button class="detail-toggle on-this-device" @click=${this._startAddPasskey}>
+            or register a passkey on this device
+          </button>
         `}
         ${this._passkeyError ? html`<div class="passkey-error">${this._passkeyError}</div>` : ''}
       </section>
+    `;
+  }
+
+  _renderInvitePanel() {
+    const inv = this._invite;
+    const expires = this._formatTimestamp(inv.expiresAt);
+    return html`
+      <div class="passkey-add invite-panel">
+        <div class="invite-lede">
+          Scan this with the device you're adding, or copy the link into any
+          message to yourself. It works once and expires ${expires}.
+        </div>
+        <div class="invite-qr">${unsafeSVG(qrSvg(inv.registerUrl))}</div>
+        <div class="invite-url-row">
+          <code class="endpoint-code">${inv.registerUrl}</code>
+          <button class="copy-btn" @click=${this._copyInviteUrl}>
+            ${this._inviteCopied ? 'Copied ✓' : 'Copy link'}
+          </button>
+        </div>
+        ${this._isCloud ? html`
+          <div class="invite-cloud-hint">
+            You can also have a sign-in link emailed to you from your
+            klebb.app dashboard.
+          </div>
+        ` : ''}
+        <div class="passkey-add-actions">
+          <button class="copy-btn" @click=${this._dismissInvite}>Done</button>
+        </div>
+      </div>
     `;
   }
 

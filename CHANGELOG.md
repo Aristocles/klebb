@@ -9,6 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Add a device via QR / link invite.** Settings > Security's "Add a
+  device" now mints a single-use register invite for your own account and
+  shows it as a QR code plus a copyable link, because the device you're
+  enrolling is almost never the one you're logged in on. Scan it with the
+  new phone or paste the link into any message to yourself; registering
+  through it lands the passkey under your account and honours the standard
+  invite expiry. Registering on the current device remains as a secondary
+  action (useful for synced passkeys), and Cloud instances add a hint that
+  the klebb.app dashboard can email a sign-in link. The QR encoder is a
+  small vendored module (`public/js/lib/qr.js`); no new dependency.
+  Refs #482.
+
 - **Control-plane readiness endpoint.** `GET /api/admin/health` (behind
   the same `KLEBB_ADMIN_TOKEN` gate as the rest of the admin API) returns
   `{ ok, setup, cloud, rpId, origin, credentialCount }` so a hosting
