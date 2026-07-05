@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const { marked } = require('marked');
 const { isAuthenticated, isAgentRequest, isPublicPath, handleAuthRoutes, isSetup, listCredentialsForUser, deleteCredentialForUser, getSessionRecord } = require('./auth/webauthn');
 const { handleAdminRoutes } = require('./auth/admin-api');
+const invites = require('./auth/invites');
 const PATHS = require('./config/paths');
 const ENV = require('./config/env');
 const registry = require('./manifests/registry');
@@ -1213,6 +1214,26 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // POST /api/invites — mint a single-use register invite for the caller's
+    // OWN account: the Settings > Security "add a device" flow. The label is
+    // always the session's userId (never client input), so a passkey
+    // registered on another device via the QR/link lands under the caller's
+    // account. Same machinery the admin API and CLI use; standard single-use
+    // + expiry rules apply. Closed in demo mode, where /register is hidden.
+    if (parts[0] === 'invites' && parts.length === 1 && req.method === 'POST') {
+      if (ENV.KLEBB_DEMO) return sendJSON(res, { error: 'Not available in demo mode' }, 403);
+      const session = getSessionRecord(req);
+      if (!session || !session.userId) return sendJSON(res, { error: 'Unauthorized' }, 401);
+      const invite = invites.createInvite({ label: session.userId });
+      invites.recordAuthEvent({ kind: 'self.invite.created', label: invite.label, code: invite.code });
+      return sendJSON(res, {
+        code: invite.code,
+        label: invite.label,
+        expiresAt: invite.expiresAt,
+        registerUrl: `${ENV.WEBAUTHN_ORIGIN}/register?code=${encodeURIComponent(invite.code)}`,
+      }, 201);
+    }
+
     // DELETE /api/credentials/:id — remove one passkey by id. Refuses to
     // remove the last remaining credential (would re-open the instance to
     // bootstrap). Sessions bound to the removed credential are invalidated.
@@ -1814,6 +1835,7 @@ Original system prompt follows:
           emoji: ENV.CHAT_AGENT_EMOJI,
         },
         demo: !!ENV.KLEBB_DEMO,
+        cloud: !!ENV.KLEBB_CLOUD,
       });
     }
 
