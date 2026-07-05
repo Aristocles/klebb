@@ -5,6 +5,7 @@
 // The Klebb Cloud control-plane API. klebb.app calls these server-to-server
 // with the per-instance KLEBB_ADMIN_TOKEN bearer to help a customer's own
 // instance. Scope is deliberately narrow (least privilege):
+//   - GET  /api/admin/health       — readiness + effective config snapshot
 //   - GET  /api/admin/credentials  — list passkeys (read-only)
 //   - POST /api/admin/invites      — mint a register invite; returns the
 //                                     /register?code= URL to email
@@ -51,6 +52,23 @@ async function handleAdminRoutes(req, res, pathname) {
 
   if (!isAdminRequest(req)) {
     sendJSON({ error: 'Unauthorized' }, 401);
+    return true;
+  }
+
+  // GET /api/admin/health — readiness snapshot for the provisioner. Lets the
+  // control plane confirm an instance is up, in the hardened-bootstrap
+  // posture, and bound to the subdomain it thinks it is (a wrong RP_ID
+  // silently produces unusable passkeys) before it emails a register link.
+  if (pathname === '/api/admin/health' && req.method === 'GET') {
+    const creds = webauthn.loadCredentials();
+    sendJSON({
+      ok: true,
+      setup: webauthn.isSetup(),
+      cloud: !!ENV.KLEBB_CLOUD,
+      rpId: ENV.WEBAUTHN_RP_ID,
+      origin: ENV.WEBAUTHN_ORIGIN,
+      credentialCount: webauthn.countCredentials(creds),
+    });
     return true;
   }
 

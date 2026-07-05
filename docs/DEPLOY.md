@@ -303,6 +303,12 @@ opt an instance into this:
 The control plane calls these server-to-server with
 `Authorization: Bearer $KLEBB_ADMIN_TOKEN`:
 
+- `GET /api/admin/health` returns a readiness snapshot:
+  `{ ok, setup, cloud, rpId, origin, credentialCount }`. A provisioner
+  should poll this after starting a container and check `rpId`/`origin`
+  match the customer's subdomain before emailing a register link (a
+  wrong RP_ID silently produces unusable passkeys); `setup` flips to
+  true once the first passkey is registered.
 - `GET /api/admin/credentials` lists the instance's passkeys (read-only,
   no public keys).
 - `POST /api/admin/invites` (body `{ "label": "...", "expiresInDays": 3 }`)

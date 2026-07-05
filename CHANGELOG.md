@@ -9,6 +9,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Control-plane readiness endpoint.** `GET /api/admin/health` (behind
+  the same `KLEBB_ADMIN_TOKEN` gate as the rest of the admin API) returns
+  `{ ok, setup, cloud, rpId, origin, credentialCount }` so a hosting
+  control plane can poll a freshly provisioned instance, confirm it came
+  up in the hardened-bootstrap posture and is bound to the right
+  subdomain, and see when the first passkey lands. No key material or
+  session data is exposed. Refs #478.
+
 - **Control-plane API and hardened bootstrap for hosted instances.** A
   hosted instance can opt into two env vars: `KLEBB_ADMIN_TOKEN` enables a
   narrow server-to-server API (`GET /api/admin/credentials` to list
