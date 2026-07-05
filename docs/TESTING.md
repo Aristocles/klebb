@@ -140,6 +140,22 @@ GitHub Actions runs all three layers on every PR:
   On failure, uploads screenshots, traces, and the HTML report as
   build artefacts.
 
+### Downstream consumers of the published image
+
+Hosting infrastructure (a control plane provisioning one container per
+user from `ghcr.io/aristocles/klebb`) runs its own contract tests
+against a digest-pinned copy of this image, asserting the seams it
+depends on: the `KLEBB_CLOUD` bootstrap posture, the `/api/admin/*`
+response shapes, and the per-instance env contract
+(`HEALTH_RP_ID`/`HEALTH_ORIGIN` binding). Weekly canary jobs there also
+test floating `:main`. Practical consequence for this repo: **treat the
+admin API and the auth bootstrap gating as a versioned contract**;
+response-shape changes to `/api/admin/*` or behaviour changes to
+`KLEBB_CLOUD`/invite gating are breaking changes for the hosting stack
+even when this repo's own tests stay green. The API-layer tests here pin
+those shapes (`tests/api/issue-478-admin-health.test.js` asserts exact
+keys) so a drift fails here first, where the fix belongs.
+
 ## PR expectations
 
 Every non-trivial PR ships with regression coverage at the right
