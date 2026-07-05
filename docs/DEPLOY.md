@@ -321,6 +321,12 @@ There is deliberately **no admin delete**: removing a passkey stays
 in-app (Settings → Security), so a compromised control plane can enrol a
 visible new device but can never lock a user out.
 
+Treat this section as a **versioned contract**: hosting stacks consume
+the published container image and pin these endpoints with their own
+contract tests (including weekly runs against `:main`). Changing an
+`/api/admin/*` response shape or the `KLEBB_CLOUD` gating behaviour is a
+breaking change for them; see `docs/TESTING.md` ("Downstream consumers").
+
 ---
 
 ## 3. Automated deploys with scripts/deploy.sh
