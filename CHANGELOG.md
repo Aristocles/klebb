@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+### Security
+
+- **Auth-surface hardening.** Admin and agent bearer tokens are compared
+  in constant time (hash-then-`timingSafeEqual`); invite codes carry 64
+  bits of randomness (up from 32); the admin invite endpoint shapes
+  `label` and clamps `expiresInDays` to 1-30 at the boundary; and
+  `/api/build` (branch/commit metadata) now requires a session or the
+  agent bearer instead of answering anonymously.
+
 - **Lost-passkey recovery affordance on the login page.** A failed
   passkey ceremony now shows how to get back in: registration reopens
   with a fresh single-use invite, worded for the deployment (hosted
