@@ -596,8 +596,15 @@ const server = http.createServer(async (req, res) => {
 
   // Build-info probe — populated at container build time from env vars.
   // Lets the browser show which branch / commit is running so testers can
-  // verify they're hitting the right build. No auth: read-only metadata.
+  // verify they're hitting the right build. Session-gated: branch/commit
+  // metadata is mild reconnaissance value on a public subdomain, and every
+  // consumer (the app shell, the Settings pane) already holds a session.
   if (pathname === '/api/build') {
+    if (!isAuthenticated(req) && !isAgentRequest(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Authentication required' }));
+      return;
+    }
     const commit = process.env.BUILD_COMMIT || null;
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify({

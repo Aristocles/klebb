@@ -59,7 +59,10 @@ function _writeConfig(cfg) {
 }
 
 function generateCode(label) {
-  const random = crypto.randomBytes(4).toString('hex');
+  // 8 bytes = 64 bits: the code travels in emailed links and answers an
+  // unauthenticated availability probe, so entropy is the primary defence
+  // alongside single-use + expiry + edge rate limiting.
+  const random = crypto.randomBytes(8).toString('hex');
   const safeLabel = String(label || 'user').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 16) || 'user';
   return `${safeLabel}-${random}`;
 }
