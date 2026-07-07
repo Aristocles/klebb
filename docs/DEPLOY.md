@@ -317,6 +317,13 @@ The control plane calls these server-to-server with
   the endpoint does not send mail itself. This covers both first-run
   onboarding and recovery when a user has lost every device.
 
+  **Label contract:** credentials are stored per label, and a
+  registration appends to the entry whose label matches the invite's.
+  Recovery invites MUST reuse the original registration's label (both
+  sides default to `user`); minting under a different label creates a
+  separate user entry with its own credential list instead of restoring
+  access to the existing one.
+
 There is deliberately **no admin delete**: removing a passkey stays
 in-app (Settings → Security), so a compromised control plane can enrol a
 visible new device but can never lock a user out.

@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Lost-passkey recovery affordance on the login page.** A failed
+  passkey ceremony now shows how to get back in: registration reopens
+  with a fresh single-use invite, worded for the deployment (hosted
+  instances point at the hosting account's recovery flow, self-hosted at
+  `scripts/invite.js`). `/auth/status` gained a `cloud` field so the page
+  can tell which it is. The expired-invite copy on the setup page covers
+  both shapes too, and the invite label contract (recovery invites must
+  reuse the original label or credentials split into a separate entry) is
+  now documented in `docs/DEPLOY.md` and pinned by tests.
+
 - **Add a device via QR / link invite.** Settings > Security's "Add a
   device" now mints a single-use register invite for your own account and
   shows it as a QR code plus a copyable link, because the device you're
