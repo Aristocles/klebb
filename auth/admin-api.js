@@ -31,7 +31,7 @@ function isAdminRequest(req) {
   const token = ENV.KLEBB_ADMIN_TOKEN;
   if (!token) return false;
   const auth = req.headers['authorization'];
-  return !!(auth && auth.startsWith('Bearer ') && auth.slice(7).trim() === token);
+  return !!(auth && auth.startsWith('Bearer ') && webauthn.bearerMatches(auth.slice(7).trim(), token));
 }
 
 // The instance's own canonical origin (e.g. https://alice.klebb.app). Register
@@ -92,8 +92,13 @@ async function handleAdminRoutes(req, res, pathname) {
   if (pathname === '/api/admin/invites' && req.method === 'POST') {
     let body = {};
     try { const raw = await readBody(req); body = raw ? JSON.parse(raw) : {}; } catch {}
-    const label = body.label || 'user';
-    const expiresInDays = Number.isFinite(body.expiresInDays) ? body.expiresInDays : 3;
+    // The label becomes the credential-store userId at registration; shape
+    // it at the boundary (same charset/length rule as registration itself).
+    // expiresInDays is clamped: zero/negative would mint dead invites,
+    // enormous values would leave codes brute-forceable for months.
+    const label = String(body.label || 'user').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 32) || 'user';
+    const expiresInDays = Math.min(30, Math.max(1,
+      Number.isFinite(body.expiresInDays) ? Math.trunc(body.expiresInDays) : 3));
     const invite = invites.createInvite({ label, expiresInDays });
     invites.recordAuthEvent({ kind: 'admin.invite.created', label: invite.label, code: invite.code });
     sendJSON({
