@@ -283,11 +283,13 @@ async function handleAuthRoutes(req, res, pathname) {
     }
   }
 
-  // GET /auth/status — check if setup + authenticated
+  // GET /auth/status — check if setup + authenticated. cloud lets the login
+  // page tailor its lost-passkey recovery hint (hosted instances recover via
+  // their provider account; self-hosted via a locally minted invite).
   if (pathname === '/auth/status') {
     const setup = isSetup();
     const authenticated = validateSession(getSessionToken(req));
-    return sendJSON(res, { setup, authenticated });
+    return sendJSON(res, { setup, authenticated, cloud: ENV.KLEBB_CLOUD });
   }
 
   // GET /auth/register/available?code=X — tell the client whether /register

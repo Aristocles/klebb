@@ -55,6 +55,16 @@
       display: none;
     }
     .error.show { display: block; }
+    .recovery {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      display: none;
+    }
+    .recovery.show { display: block; }
+    .recovery a { color: var(--accent); }
     .face-id-icon {
       font-size: 64px;
       margin-bottom: 20px;
@@ -73,10 +83,29 @@
       Sign in with Passkey
     </button>
     <div class="error" id="error"></div>
+    <div class="recovery" id="recovery"></div>
   </div>
 
   <script type="module">
     import { authenticate } from '/js/lib/webauthn-ceremony.js';
+
+    // Filled from /auth/status; used to word the recovery hint.
+    let isCloud = false;
+
+    // Lost all passkeys? Recovery is always the same mechanism: a fresh
+    // single-use invite opens /setup. Where that invite comes from depends
+    // on the deployment, so the copy branches on the hosting mode.
+    function showRecovery() {
+      const recovery = document.getElementById('recovery');
+      recovery.innerHTML = isCloud
+        ? 'Lost access to your passkeys? Recover from your hosting account: '
+          + 'sign in to the service you subscribed through and request a new '
+          + 'sign-in link. It emails you a fresh setup link for this dashboard.'
+        : 'Lost access to your passkeys? Registration reopens with a fresh '
+          + 'single-use invite: run <code>node scripts/invite.js</code> where '
+          + 'this instance is installed and open the printed link.';
+      recovery.classList.add('show');
+    }
 
     window.login = async function() {
       const btn = document.getElementById('login-btn');
@@ -93,6 +122,7 @@
         error.classList.add('show');
         btn.disabled = false;
         btn.textContent = 'Sign in with Passkey';
+        showRecovery();
       }
     };
 
@@ -121,6 +151,7 @@
       try {
         const r = await fetch('/auth/status');
         const s = await r.json();
+        isCloud = !!s.cloud;
         if (s.demo) {
           document.getElementById('subtitle').textContent = 'Public demo. No account needed.';
           document.getElementById('face-id-icon').textContent = '👋';
