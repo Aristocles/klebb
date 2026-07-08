@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **HAE raw-archive writes are now atomic.** The webhook's raw payload
+  archive (`data/auto-export/raw/<stamp>.json`) is written via tmp+rename,
+  closing the last non-atomic write in the app: a crash mid-write can no
+  longer leave a torn archive file for replay to trip over. Refs #494.
+
+- **`scripts/reingest-hae.js` backups re-embed current data.** Manifest
+  files are meta-only now, so a verbatim file copy would back up nothing.
+  The pre-reingest backup re-embeds the card's stored rows; restoring the
+  backup over `<id>.json` restores the rows via the import inbox on the
+  next reload. Refs #494.
+
 - **Card data moved out of manifest files into an embedded datastore.**
   Each card's logged data now lives in a per-instance SQLite store at
   `$HEALTH_HOME/db/klebb.db` (`node:sqlite`, WAL); the manifest file
