@@ -148,25 +148,25 @@ describe('POST /api/health-auto-export', () => {
       const files = fs.readdirSync(rawDir).filter(f => f.endsWith('.json'));
       assert.ok(files.length >= 1, 'raw file was archived');
 
-      const sleepMan = JSON.parse(fs.readFileSync(
-        path.join(sandbox, 'data', 'sleep-hours.json'), 'utf8'));
-      assert.equal(sleepMan.data[0].date, '2026-05-04');
-      assert.equal(sleepMan.data[0].hours, 7.8);
+      // Ingest writes card data to the datastore now, not the manifest file;
+      // read it back over the API.
+      const dataFor = async (id) => (await req(server.baseUrl, `/api/manifests/${id}/data`)).json.data;
 
-      const stepsMan = JSON.parse(fs.readFileSync(
-        path.join(sandbox, 'data', 'steps.json'), 'utf8'));
-      assert.equal(stepsMan.data[0].date, '2026-05-04');
-      assert.equal(stepsMan.data[0].count, 7700);
+      const sleep = await dataFor('sleep-hours');
+      assert.equal(sleep[0].date, '2026-05-04');
+      assert.equal(sleep[0].hours, 7.8);
 
-      const activeMan = JSON.parse(fs.readFileSync(
-        path.join(sandbox, 'data', 'active-minutes.json'), 'utf8'));
-      assert.equal(activeMan.data[0].date, '2026-05-04');
-      assert.equal(activeMan.data[0].minutes, 3);
+      const steps = await dataFor('steps');
+      assert.equal(steps[0].date, '2026-05-04');
+      assert.equal(steps[0].count, 7700);
 
-      const workoutsMan = JSON.parse(fs.readFileSync(
-        path.join(sandbox, 'data', 'workouts.json'), 'utf8'));
-      assert.equal(workoutsMan.data[0].date, '2026-05-04');
-      assert.equal(workoutsMan.data[0].trained, true);
+      const active = await dataFor('active-minutes');
+      assert.equal(active[0].date, '2026-05-04');
+      assert.equal(active[0].minutes, 3);
+
+      const workouts = await dataFor('workouts');
+      assert.equal(workouts[0].date, '2026-05-04');
+      assert.equal(workouts[0].trained, true);
     });
 
     test('re-POSTing same date overwrites only that date', async () => {
@@ -188,9 +188,8 @@ describe('POST /api/health-auto-export', () => {
 
       await new Promise(r => setTimeout(r, 200));
 
-      const stepsMan = JSON.parse(fs.readFileSync(
-        path.join(sandbox, 'data', 'steps.json'), 'utf8'));
-      const byDate = Object.fromEntries(stepsMan.data.map(r => [r.date, r.count]));
+      const steps = (await req(server.baseUrl, '/api/manifests/steps/data')).json.data;
+      const byDate = Object.fromEntries(steps.map(r => [r.date, r.count]));
       assert.equal(byDate['2026-05-04'], 7700, 'prior date row preserved');
       assert.equal(byDate['2026-05-05'], 9001, 'new date row appended');
     });

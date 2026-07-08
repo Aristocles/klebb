@@ -21,7 +21,9 @@ see [DEMO.md](DEMO.md).
 ### Prerequisites
 
 - Linux host (Debian/Ubuntu tested)
-- Node.js 20 or 22
+- Node.js 22.13 or newer (the embedded card-data store uses the built-in
+  `node:sqlite` module, unflagged from 22.13; the server refuses to start
+  on anything older)
 - nginx (or any reverse proxy; optional if binding directly)
 - A DNS record pointing at your host, with TLS (recommended: Let's Encrypt
   via certbot)
@@ -491,13 +493,24 @@ feature on top of Klebb:
 | `$HEALTH_HOME/push-subscriptions.json` | Per-device push endpoints. Each row is a capability: anyone holding the endpoint URL + the configured VAPID private key can deliver a push to that device. |
 | `$HEALTH_HOME/notifications.state.json` | Per-item toggle state, last-fired timestamps, quiet-hours, pause deadline, recent-fires audit ring. |
 | `$HEALTH_HOME/user.json` | User preferences (currently the IANA timezone). |
-| `$HEALTH_HOME/data/*.json` | Health card manifests + their data. The whole point of the dashboard. |
+| `$HEALTH_HOME/data/*.json` | Health card manifests (meta only). Each file describes a card; the logged data lives in the datastore below. |
+| `$HEALTH_HOME/db/klebb.db` | Embedded SQLite store holding every card's logged data rows (plus `-wal`/`-shm` sidecars while the server runs). This is where the numbers live now, not the manifest files. |
 | `$HEALTH_HOME/reports/` | Markdown reports (rendered + ingested). |
 | `$HEALTH_HOME/chat/history.json` | Chat transcript with the agent. |
 
 **Back up the whole `$HEALTH_HOME/` tree.** Don't try to be clever
 about which files to skip; every one of them is needed to bring a new
-instance up identically to the old one.
+instance up identically to the old one. A snapshot of the directory is
+still a complete backup: the card-data store lives inside it at `db/`.
+
+**Backing up `db/` while the server runs:** the store runs in WAL mode,
+so recent writes may sit in the `klebb.db-wal` sidecar rather than the
+main `klebb.db` file. A raw copy of `klebb.db` alone can miss them. Copy
+the whole `db/` directory together (main file plus `-wal`/`-shm`), or
+stop the server / take the snapshot at rest. The blessed portable path
+is `scripts/export-embed.js` (added later in this migration), which
+materialises card files with their data re-embedded so a copy round-trips
+cleanly regardless of WAL state.
 
 **Never include any of the credentials/sessions/keys/push-subscriptions
 files in a user-facing export.** If you build an "export my data"

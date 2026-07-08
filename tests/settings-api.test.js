@@ -98,8 +98,11 @@ describe('settings API', () => {
     assert.equal(res.status, 404);
   });
 
-  test('toggle preserves description and data block', async () => {
-    // Write a card with a description and data, toggle it twice, confirm integrity
+  test('toggle preserves description and card data', async () => {
+    // Write a card with a description and data, toggle it twice, confirm
+    // integrity. The data is imported into the datastore on load and stripped
+    // from the file; the description lives in the (meta-only) file. Toggles
+    // rewrite meta and must touch neither.
     const file = path.join(sandbox, 'data', 'preserve-test.json');
     fs.writeFileSync(file, JSON.stringify({
       $schema: 'klebb.datafile.v1',
@@ -107,7 +110,7 @@ describe('settings API', () => {
       description: 'this must survive toggles',
       data: [{ date: '2026-04-20', note: 'keep me' }],
     }));
-    // Give fs.watch a chance to pick it up
+    // Give fs.watch a chance to pick it up (and import + strip the data key)
     await new Promise(r => setTimeout(r, 300));
 
     const disable = await req(server.baseUrl, '/api/settings/cards/preserve-test/disable', { method: 'POST' });
@@ -117,9 +120,12 @@ describe('settings API', () => {
 
     const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
     assert.equal(raw.description, 'this must survive toggles');
-    assert.equal(raw.data.length, 1);
-    assert.equal(raw.data[0].note, 'keep me');
+    assert.equal('data' in raw, false, 'data was imported and stripped from the file');
     assert.equal(raw.meta.enabled, true);
+
+    const data = (await req(server.baseUrl, '/api/manifests/preserve-test/data')).json.data;
+    assert.equal(data.length, 1);
+    assert.equal(data[0].note, 'keep me');
   });
 
   test('deprecated /api/setup endpoints are gone', async () => {
