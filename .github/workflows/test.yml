@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22]
+        node-version: [22, 24]
 
     steps:
       - name: Checkout
@@ -25,11 +25,41 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      - name: Print resolved Node version
+        run: node --version
+
       - name: Install dependencies
         run: npm ci
 
       - name: Run tests
         run: npm test
+
+  # SPIKE (do not merge): prove node:sqlite works unflagged inside the
+  # runtime image (node:22-slim), the exact base prod pulls. Captures
+  # node --version and fails if node:sqlite emits ExperimentalWarning on
+  # stderr, so #494's clean-stderr assumption is verified before we build
+  # on it.
+  sqlite-in-runtime-image:
+    name: node:sqlite in node:22-slim
+    runs-on: ubuntu-latest
+    container: node:22-slim
+    timeout-minutes: 5
+    steps:
+      # No checkout: node:22-slim has no git, and this leg only needs to
+      # prove the built-in module loads and behaves in the runtime image.
+      # The smoke script is inlined so the leg has zero repo dependencies.
+      - name: Print resolved Node version
+        run: node --version
+
+      - name: node:sqlite smoke (fail on ExperimentalWarning)
+        run: |
+          node -e "const{DatabaseSync}=require('node:sqlite');const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE rows (card_id TEXT, seq INTEGER, doc TEXT)');db.exec('PRAGMA journal_mode = WAL;');const ins=db.prepare('INSERT INTO rows VALUES (?,?,?)');db.prepare('BEGIN').run();for(let i=0;i<3;i++)ins.run('weight',i,JSON.stringify({kg:80+i}));db.prepare('COMMIT').run();const out=db.prepare('SELECT card_id, seq, doc FROM rows ORDER BY seq').all();if(out.length!==3||JSON.parse(out[2].doc).kg!==82){console.error('unexpected rows',JSON.stringify(out));process.exit(2)}db.close();console.log('node:sqlite OK on',process.version)" 2>stderr.log
+          echo '--- captured stderr ---'
+          cat stderr.log
+          if grep -qi 'ExperimentalWarning' stderr.log; then
+            echo 'node:sqlite emitted an ExperimentalWarning on stderr'
+            exit 1
+          fi
 
   docker-build:
     name: Docker image builds
