@@ -20,7 +20,7 @@
       "display": {
         "template": "{kg:round(1)}",
         "unit": "{{string:unit}}",
-        "trendArrow": { "field": "kg" }
+        "trendArrow": { "field": "kg", "goodDirection": "down" }
       }
     },
     "trends": {

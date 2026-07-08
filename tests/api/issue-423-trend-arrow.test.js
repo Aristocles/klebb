@@ -80,7 +80,7 @@ describe('#423 resolveGoodDirection normalises config', () => {
     assert.equal(resolveGoodDirection(null), null);
   });
 
-  test('lowerIsBetter:true alias (shipped in a demo fixture) maps to down', () => {
+  test('lowerIsBetter:true alias (legacy, may exist on user instances) maps to down', () => {
     assert.equal(resolveGoodDirection({ field: 'bpm', lowerIsBetter: true }), 'down');
   });
 });

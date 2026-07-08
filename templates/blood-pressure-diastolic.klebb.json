@@ -22,7 +22,7 @@
       "display": {
         "template": "{diastolic}",
         "unit": "mmHg",
-        "trendArrow": { "field": "diastolic" }
+        "trendArrow": { "field": "diastolic", "goodDirection": "down" }
       }
     },
     "trends": {
