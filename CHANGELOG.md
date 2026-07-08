@@ -9,6 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Klebbius eval harness** (`evals/`). Simulated user conversations
+  driven against a running instance with a real model: each scenario
+  scripts chat turns (including "clicking" the offered follow-up chips),
+  captures the reply, chips, tool calls (via the `HEALTH_DEBUG=1`
+  forensic lines) and a full before/after manifest-store diff, then
+  asserts deterministic properties (required/forbidden tools, state
+  changes scoped to expectation, registry stays clean, chip presence).
+  Scenarios run N times and report pass rates: evaluations, not CI
+  tests. `npm run eval`; corpus covers create/edit/log/chip-chain happy
+  paths plus adversarial cases (off-topic asks, invented view
+  components, blind bulk deletes, prompt injection in card data).
+
 - **Body-temperature and fasting-glucose templates.** Two new
   threshold-banded vitals for the template gallery:
   `body-temperature.klebb.json` (celsius, hypothermia through high
