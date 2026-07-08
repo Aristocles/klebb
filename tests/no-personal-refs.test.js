@@ -20,10 +20,9 @@ const REPO_ROOT = path.join(__dirname, '..');
 // Top-level directory prefixes to skip. The scanner is driven off
 // git ls-files so node_modules / .git are already excluded; this list
 // covers tracked paths whose contents legitimately mention names
-// (test fixtures, legacy UI).
+// (test fixtures).
 const SKIP_PREFIXES = [
   'tests/',
-  '_legacy-v1/',
 ];
 
 // File suffixes to scan.
