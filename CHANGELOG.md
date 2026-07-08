@@ -38,6 +38,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Datastore shape kernel** (`lib/datastore/shape.js`). Pure, lossless
+  decompose/reconstruct mapping between any card data value and flat
+  row containers: arrays become one `rows` container, objects split
+  their array-valued keys into named containers with the remaining keys
+  as a single rest document, and anything else is a single-row doc. The
+  shape record preserves key order and empty containers, so
+  `reconstruct(decompose(x))` deep-equals `x` for every shipped
+  template and demo fixture plus adversarial shapes (bare-string
+  arrays, duplicate and empty-string dates, unicode and `__proto__`
+  keys, mixed rosters), verified both directly and after each stored
+  piece passes through JSON text. Groundwork for the embedded
+  datastore; nothing consumes it yet. Refs #494.
+
 - **Klebbius eval harness** (`evals/`). Simulated user conversations
   driven against a running instance with a real model: each scenario
   scripts chat turns (including "clicking" the offered follow-up chips),
