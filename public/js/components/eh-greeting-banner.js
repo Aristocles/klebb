@@ -2,13 +2,16 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-greeting-banner.js — top-slot card showing the day context + a rotating motd.
 // Data: array of short message strings (pre-seeded at install time).
-// Rotation: on load, if today > meta.lastRotatedDate, pop messages[0], push to end,
-//           stamp lastRotatedDate, POST back. Guarded to run at most once per day.
+// Rotation: once per day, on the first today-view render, pop messages[0], push it
+//           to the end, and POST the new order back. A bare YYYY-MM-DD stamp in
+//           localStorage guards it to at most one rotation per day. Rotation only
+//           happens when the card is writeable (meta.writeable.fromWebapp); a
+//           read-only greeting shows the message but never writes.
 //
 // When rendered on a non-today date, shows just the date context (no message rotation).
 
 import { html, css } from 'https://esm.sh/lit@3';
-import { EhBaseCard } from './eh-base-card.js';
+import { EhBaseCard, invalidateManifestCache } from './eh-base-card.js';
 import { registerRenderer } from '../renderer-registry.js';
 
 function _today() {
@@ -88,28 +91,47 @@ export class EhGreetingBanner extends EhBaseCard {
     return this.data[0];
   }
 
+  _rotationStampKey() {
+    return `eh:${this.card.id}:lastRot`;
+  }
+
+  // Claim today's rotation atomically. localStorage is synchronous, so the
+  // read-then-write here runs to completion before any other greeting
+  // instance can interleave — the view renderer recreates the element on
+  // every view re-render, so two instances can both reach _maybeRotate in
+  // the same tick before the first POST resolves. The stamp is the
+  // cross-instance guard; the bare YYYY-MM-DD clears itself at day rollover.
+  _claimRotationToday() {
+    try {
+      if (localStorage.getItem(this._rotationStampKey()) === _today()) return false;
+      localStorage.setItem(this._rotationStampKey(), _today());
+      return true;
+    } catch {
+      // No localStorage (private mode / disabled) — fall back to the
+      // per-instance guard only, accepting a possible extra POST.
+      return true;
+    }
+  }
+
   async _maybeRotate() {
     if (this._rotating || !Array.isArray(this.data) || this.data.length < 2) return;
-    const lastRot = this._meta._state?.lastRotatedDate;
-    if (lastRot === _today()) return;
+    // Read-only greeting cards render the message but never write it back.
+    if (!this._meta.writeable?.fromWebapp) return;
+    if (!this._claimRotationToday()) return;
     this._rotating = true;
     // Rotate: shift first -> push at end
     const rotated = this.data.slice();
     const first = rotated.shift();
     rotated.push(first);
     try {
-      await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
+      const r = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: rotated }),
       });
-      // Also stamp the rotation date. Currently we use meta._state via a separate call;
-      // to keep scope tight, rely on the server-side registry to preserve meta and
-      // have the client re-fetch data only. For strictness, the registry write only
-      // touches data — so we persist lastRotatedDate in a localStorage guard too.
-      try {
-        localStorage.setItem(`eh:${this.card.id}:lastRot`, _today());
-      } catch {}
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      invalidateManifestCache(this.card.id);
+      this.data = rotated;
     } catch (e) {
       console.warn('[greeting] rotation failed:', e.message);
     } finally {
