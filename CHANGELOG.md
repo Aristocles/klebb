@@ -38,6 +38,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Datastore import inbox** (`lib/datastore/import.js`). A manifest
+  file carrying a `data` key gets that block imported into the
+  datastore and stripped from the file, with a timestamped
+  `<name>.json.pre-import-<ts>.json` backup beside it (a name the
+  loader's backup filter already ignores). Ordering is crash-safe:
+  backup copy, then the DB transaction, then the file rewrite via
+  tmp+rename, so a crash at any point either leaves the file as a
+  candidate for an idempotent re-import (full replace of the same
+  value) or completes cleanly; the flow converges because a stripped
+  file is never a candidate again, and a double import of one card in
+  a boot logs loudly. `data: null` imports as no-data with the key
+  stripped and null-ness recorded, preserving the null-vs-absent
+  `hasData` distinction. The file rewrite touches only the data key:
+  everything else stays byte-identical. Not yet called by the
+  registry; the wiring lands with the data-plane swap. Refs #494.
+
 - **Embedded datastore module** (`lib/datastore/index.js`). Memory-first,
   SQLite-durable store for card data rows at `$HEALTH_HOME/db/klebb.db`
   via `node:sqlite` (WAL, `synchronous=NORMAL`, fully synchronous API).
