@@ -29,6 +29,7 @@ const haeTokenStore = require('./health-auto-export/token-store');
 const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-export/describe');
 const userTz = require('./lib/user-tz');
 const feedback = require('./lib/feedback');
+const { originAllowed } = require('./lib/origin-check');
 const { ambientStaleness } = require('./chat/hygiene');
 const hygieneState = require('./lib/hygiene-state');
 const notificationsState = require('./lib/notifications-state');
@@ -1344,7 +1345,12 @@ const server = http.createServer(async (req, res) => {
     // the note_feature_request tool) when a request is genuinely unsupported,
     // so the operator can review unmet needs. Anonymisation happens in
     // lib/feedback; behind the same global auth gate as every other /api route.
+    // Origin-allowlisted like the notification POSTs: SameSite=Lax doesn't
+    // stop a sibling subdomain writing junk lines under a rider session.
     if (parts[0] === 'feedback' && parts.length === 1 && req.method === 'POST') {
+      if (!originAllowed(req)) {
+        return sendJSON(res, { error: 'origin not allowed' }, 403);
+      }
       let body = '';
       req.on('data', c => body += c);
       req.on('end', () => {
