@@ -19,7 +19,7 @@
       "display": {
         "template": "{cm:round(1)}",
         "unit": "{{string:unit}}",
-        "trendArrow": { "field": "cm" }
+        "trendArrow": { "field": "cm", "goodDirection": "down" }
       }
     },
     "trends": {

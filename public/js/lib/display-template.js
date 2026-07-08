@@ -274,8 +274,9 @@
 
   // Normalise a trendArrow config into which direction is "good".
   // Canonical key is `goodDirection` ∈ {'up','down','neutral'}. The
-  // `lowerIsBetter: true` alias (shipped in a demo fixture) maps to
-  // 'down'. Anything absent/unrecognised returns null, which the
+  // `lowerIsBetter: true` alias maps to 'down'; the shipped manifests
+  // all use the canonical key now, but user instances may still carry
+  // the alias. Anything absent/unrecognised returns null, which the
   // colour helper treats as the historical weight default (down=good).
   function resolveGoodDirection(trendArrow) {
     if (!trendArrow || typeof trendArrow !== 'object') return null;

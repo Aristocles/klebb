@@ -15,7 +15,7 @@
       "display": {
         "template": "{bpm}",
         "unit": "bpm",
-        "trendArrow": { "field": "bpm", "lowerIsBetter": true },
+        "trendArrow": { "field": "bpm", "goodDirection": "down" },
         "thresholds": [
           { "ifField": "bpm", "max": 60, "colour": "#44ff88", "label": "Athletic" },
           { "ifField": "bpm", "max": 70, "colour": "#aaff66", "label": "Healthy" },
