@@ -27,6 +27,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Greeting banner no longer POSTs its data on every render.** The
+  once-a-day rotation guard read a `meta._state.lastRotatedDate` stamp
+  that nothing ever wrote, and the `localStorage` day-stamp it did write
+  was never read back, so a today-dated greeting card fired a full-array
+  `POST /api/manifests/:id/data` on effectively every render (silently
+  403ing on read-only cards, where nothing checked the response). The
+  guard now reads a bare `YYYY-MM-DD` stamp and claims the day
+  synchronously before the write, so concurrently mounted banners
+  rotate at most once per day; read-only greetings (no
+  `writeable.fromWebapp`) never POST; and a successful rotate now checks
+  `response.ok`, invalidates the data cache, and updates the card in
+  place. Fixes #495.
+
 - **Shipped templates now colour their trend arrows per metric.** The
   trend-arrow renderer went metric-aware in v3.3.0
   (`trendArrow.goodDirection`), but the shipped templates and demo
