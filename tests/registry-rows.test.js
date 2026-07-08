@@ -3,13 +3,16 @@
 // tests/registry-rows.test.js
 // Integration tests for registry.readRows / appendRow / updateRow /
 // removeRow against a real sandbox HEALTH_HOME. Atomicity, error codes,
-// and that on-disk state and the in-memory cache stay aligned.
+// and that the durable datastore and the served value stay aligned.
+// Card data lives in the datastore now, not the manifest file, so writes
+// are asserted via a throwaway datastore handle (readStored) rather than
+// re-parsing the file off disk.
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
-const fs = require('fs');
 const path = require('path');
 const { createSandbox, cleanupSandbox } = require('./helpers/sandbox');
+const { readStored } = require('./helpers/datastore-readback');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const MANIFESTS_DIR = path.resolve(REPO_ROOT, 'manifests') + path.sep;
@@ -25,9 +28,6 @@ function freshRegistry(sandboxRoot) {
   return require(path.join(REPO_ROOT, 'manifests', 'registry.js'));
 }
 
-function readBack(sandbox, file) {
-  return JSON.parse(fs.readFileSync(path.join(sandbox, 'data', file), 'utf8'));
-}
 
 // Object-shaped data block (matches the schedule-card peptides shape).
 const PEPTIDES = {
@@ -171,9 +171,9 @@ describe('registry.appendRow', () => {
       assert.equal(out.added, 1);
       assert.equal(out.totalAfter, 3);
 
-      const onDisk = readBack(sandbox, 'peptides.json');
-      assert.equal(onDisk.data.items[0].doses.length, 3);
-      assert.equal(onDisk.data.items[0].doses[2].scheduledDate, '2026-03-27');
+      const stored = readStored(sandbox, 'peptides');
+      assert.equal(stored.items[0].doses.length, 3);
+      assert.equal(stored.items[0].doses[2].scheduledDate, '2026-03-27');
 
       const cached = registry.get('peptides').data;
       assert.equal(cached.items[0].doses.length, 3);
@@ -188,9 +188,9 @@ describe('registry.appendRow', () => {
       registry.init();
       const klow = { name: 'Klow Stack', doses: [] };
       registry.appendRow('peptides', 'items', klow);
-      const onDisk = readBack(sandbox, 'peptides.json');
-      assert.equal(onDisk.data.items.length, 3);
-      assert.equal(onDisk.data.items[2].name, 'Klow Stack');
+      const stored = readStored(sandbox, 'peptides');
+      assert.equal(stored.items.length, 3);
+      assert.equal(stored.items[2].name, 'Klow Stack');
     } finally { cleanupSandbox(sandbox); }
   });
 
@@ -200,9 +200,9 @@ describe('registry.appendRow', () => {
       const registry = freshRegistry(sandbox);
       registry.init();
       registry.appendRow('mood', '', { date: '2026-05-06', mood: 3 });
-      const onDisk = readBack(sandbox, 'mood.json');
-      assert.equal(onDisk.data.length, 3);
-      assert.equal(onDisk.data[2].mood, 3);
+      const stored = readStored(sandbox, 'mood');
+      assert.equal(stored.length, 3);
+      assert.equal(stored[2].mood, 3);
     } finally { cleanupSandbox(sandbox); }
   });
 
@@ -230,16 +230,16 @@ describe('registry.appendRow', () => {
     } finally { cleanupSandbox(sandbox); }
   });
 
-  test('mid-mutation throw leaves on-disk file unchanged', () => {
+  test('mid-mutation throw leaves durable data and served value unchanged', () => {
     const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
     try {
       const registry = freshRegistry(sandbox);
       registry.init();
-      const beforeRaw = fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8');
+      const beforeStored = JSON.stringify(readStored(sandbox, 'peptides'));
       assert.throws(() => registry.appendRow('peptides', 'items[name="NOPE"]', {}), e => e.code === 'NO_MATCH');
-      const afterRaw = fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8');
-      assert.equal(beforeRaw, afterRaw);
-      // Cache is also untouched.
+      // Datastore rows unchanged (the write never committed).
+      assert.equal(JSON.stringify(readStored(sandbox, 'peptides')), beforeStored);
+      // Served value is also untouched.
       assert.equal(registry.get('peptides').data.items.length, 2);
     } finally { cleanupSandbox(sandbox); }
   });
@@ -262,9 +262,9 @@ describe('registry.updateRow', () => {
       // scheduledDate preserved via merge
       assert.equal(out.after.scheduledDate, '2026-03-25');
 
-      const onDisk = readBack(sandbox, 'peptides.json');
-      assert.equal(onDisk.data.items[0].doses[0].site, 'belly');
-      assert.equal(onDisk.data.items[0].doses[0].scheduledDate, '2026-03-25');
+      const stored = readStored(sandbox, 'peptides');
+      assert.equal(stored.items[0].doses[0].site, 'belly');
+      assert.equal(stored.items[0].doses[0].scheduledDate, '2026-03-25');
     } finally { cleanupSandbox(sandbox); }
   });
 
@@ -278,8 +278,8 @@ describe('registry.updateRow', () => {
         'items[name="BPC-157"].doses[scheduledDate="2026-03-25"]',
         { scheduledDate: null, takenAt: '2026-03-25T03:25:00Z' },
       );
-      const onDisk = readBack(sandbox, 'peptides.json');
-      const dose = onDisk.data.items[0].doses[0];
+      const stored = readStored(sandbox, 'peptides');
+      const dose = stored.items[0].doses[0];
       assert.equal('scheduledDate' in dose, false);
       assert.equal(dose.takenAt, '2026-03-25T03:25:00Z');
     } finally { cleanupSandbox(sandbox); }
@@ -357,9 +357,9 @@ describe('registry.removeRow', () => {
       );
       assert.equal(out.removed.scheduledDate, '2026-03-25');
       assert.equal(out.totalAfter, 1);
-      const onDisk = readBack(sandbox, 'peptides.json');
-      assert.equal(onDisk.data.items[0].doses.length, 1);
-      assert.equal(onDisk.data.items[0].doses[0].scheduledDate, '2026-03-26');
+      const stored = readStored(sandbox, 'peptides');
+      assert.equal(stored.items[0].doses.length, 1);
+      assert.equal(stored.items[0].doses[0].scheduledDate, '2026-03-26');
     } finally { cleanupSandbox(sandbox); }
   });
 
@@ -369,9 +369,9 @@ describe('registry.removeRow', () => {
       const registry = freshRegistry(sandbox);
       registry.init();
       registry.removeRow('peptides', 'items[name="TB-500"]');
-      const onDisk = readBack(sandbox, 'peptides.json');
-      assert.equal(onDisk.data.items.length, 1);
-      assert.equal(onDisk.data.items[0].name, 'BPC-157');
+      const stored = readStored(sandbox, 'peptides');
+      assert.equal(stored.items.length, 1);
+      assert.equal(stored.items[0].name, 'BPC-157');
     } finally { cleanupSandbox(sandbox); }
   });
 
@@ -381,9 +381,9 @@ describe('registry.removeRow', () => {
       const registry = freshRegistry(sandbox);
       registry.init();
       registry.removeRow('mood', '[date="2026-05-04"]');
-      const onDisk = readBack(sandbox, 'mood.json');
-      assert.equal(onDisk.data.length, 1);
-      assert.equal(onDisk.data[0].date, '2026-05-05');
+      const stored = readStored(sandbox, 'mood');
+      assert.equal(stored.length, 1);
+      assert.equal(stored[0].date, '2026-05-05');
     } finally { cleanupSandbox(sandbox); }
   });
 

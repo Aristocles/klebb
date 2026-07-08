@@ -38,7 +38,7 @@
     "url": "https://github.com/Aristocles/klebb/issues"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",

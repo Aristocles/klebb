@@ -17,6 +17,8 @@ const path = require('path');
 const PATHS = require('../config/paths');
 const { mergePatch, isPlainObject } = require('./merge-patch');
 const { parsePath, resolvePath } = require('./path');
+const datastore = require('../lib/datastore');
+const { createImporter } = require('../lib/datastore/import');
 
 const { isValidCategory } = require('../config/categories');
 const { validateNotifications, TIME_OF_DAY_TOKENS } = require('./notifications-schema');
@@ -74,10 +76,24 @@ const RESERVED_IDS = new Set([
   '_archive', '_virtual', '_meta', 'auto-export', 'reports', 'index',
 ]);
 
-let _entries = new Map();   // id -> { meta, description, schema, data, source, version }
+let _entries = new Map();   // id -> { meta, description, schema, source, version }
 let _errors = [];           // [{file, error}]
 let _watcher = null;
+let _store = null;          // lib/datastore handle (card data rows)
+let _importer = null;       // import-inbox: strips + stores data blocks on load
 const _deleteHooks = [];    // (id) => void; called after a manifest is deleted
+
+// Open the datastore once and rebuild its in-memory Map from disk. The handle
+// (and the boot-scoped importer) is reused across reloads; a fresh module
+// instance (per-test require-cache reset) starts with _store null and opens
+// its own handle against the then-current PATHS.DB_FILE.
+function _ensureStore() {
+  if (_store) return _store;
+  _store = datastore.open(PATHS.DB_FILE);
+  _store.load();
+  _importer = createImporter(_store);
+  return _store;
+}
 
 // Register a callback to fire after deleteManifest succeeds. Used by
 // notifications-state to prune sidecar entries for a removed card.
@@ -216,6 +232,7 @@ function _parse(filepath) {
 function _loadAll() {
   _entries = new Map();
   _errors = [];
+  _ensureStore();
   const dataDir = PATHS.DATA_DIR;
   const files = _scanDir(dataDir);
   for (const file of files) {
@@ -232,11 +249,21 @@ function _loadAll() {
       console.warn(`[manifest] duplicate id ${m.meta.id} in ${path.basename(file)}`);
       continue;
     }
+    // Import inbox: a file carrying a `data` key has that block moved into
+    // the datastore (full replace) and stripped from the file, leaving a
+    // backup. Convergent: the follow-up fs.watch reload finds no data key.
+    if (Object.prototype.hasOwnProperty.call(m, 'data')) {
+      try {
+        _importer.importParsedFile(file, m);
+      } catch (e) {
+        _errors.push({ file: path.basename(file), error: `import failed: ${e.message}` });
+        console.warn(`[manifest] import failed for ${path.basename(file)}: ${e.message}`);
+      }
+    }
     _entries.set(m.meta.id, {
       meta: m.meta,
       description: m.description || null,
       schema: m.schema || null,
-      data: m.data === undefined ? null : m.data,
       source: file,
       version: m.$schema,
     });
@@ -277,7 +304,7 @@ function list() {
       id,
       meta: entry.meta,
       description: entry.description,
-      hasData: entry.data !== null,
+      hasData: _store.hasData(id),
       enabled: entry.meta.enabled !== false,
     });
   }
@@ -294,12 +321,14 @@ function list() {
 function get(id) {
   const e = _entries.get(id);
   if (!e) return null;
-  return { meta: e.meta, description: e.description, schema: e.schema, data: e.data, version: e.version };
+  // Data is sourced from the datastore (live reference, same aliasing as the
+  // old in-memory cache); meta/description/schema stay file-derived.
+  return { meta: e.meta, description: e.description, schema: e.schema, data: _store.getData(id), version: e.version };
 }
 
 function data(id) {
-  const e = _entries.get(id);
-  return e ? e.data : null;
+  if (!_entries.has(id)) return null;
+  return _store.getData(id);
 }
 
 // Last-modified time (epoch ms) of the manifest's backing file, or null
@@ -313,6 +342,15 @@ function sourceMtime(id) {
   } catch {
     return null;
   }
+}
+
+// Last time a card's data rows were written (ISO string), or null if the id
+// is unknown or has never held data. Data no longer lives in the manifest
+// file, so sourceMtime (a meta-write timestamp) is no longer a proxy for
+// data freshness; staleness consumers use this instead.
+function dataUpdatedAt(id) {
+  if (!_entries.has(id)) return null;
+  return _store.dataUpdatedAt(id);
 }
 
 function errors() {
@@ -362,24 +400,16 @@ function _assertSchemaShape(id, schema, newData) {
   }
 }
 
-// Build the on-disk JSON envelope for an entry. When a 2-arg form is used,
-// the override is set unconditionally (so callers can emit data:null
-// deliberately). When the 1-arg form is used, falls back to entry.data and
-// skips the key when null/undefined (matches setMasterEnabled / patchManifest
-// pre-existing behaviour). Caller is responsible for any pre-write validation.
-function _buildEntryEnvelope(entry, ...rest) {
-  const overridden = rest.length > 0;
+// Build the on-disk JSON envelope for an entry. Manifest files are meta-only
+// since the data plane moved to the datastore, so the envelope never carries
+// a `data` key: meta writes (toggle, patch, reorder) don't touch stored rows.
+function _buildEntryEnvelope(entry) {
   const full = {
     $schema: entry.version,
     meta: entry.meta,
   };
   if (entry.description) full.description = entry.description;
   if (entry.schema) full.schema = entry.schema;
-  if (overridden) {
-    full.data = rest[0];
-  } else if (entry.data !== null && entry.data !== undefined) {
-    full.data = entry.data;
-  }
   return full;
 }
 
@@ -390,8 +420,10 @@ function _persistEnvelope(entry, envelope) {
   fs.renameSync(tmp, entry.source);
 }
 
-// Write full file back with updated data block. Preserves meta/description/schema.
-// Uses atomic tmp+rename to avoid partial writes.
+// Full-replace a card's data in the datastore. The manifest file is not
+// touched (it holds only meta now). Same validation gate as before:
+// _coerceWriteData rescues double-serialised strings, _assertSchemaShape
+// checks against the declared schema.type.
 function writeData(id, newData) {
   const entry = _entries.get(id);
   if (!entry) throw new Error(`unknown manifest: ${id}`);
@@ -399,8 +431,7 @@ function writeData(id, newData) {
   newData = _coerceWriteData(id, newData);
   _assertSchemaShape(id, entry.schema, newData);
 
-  _persistEnvelope(entry, _buildEntryEnvelope(entry, newData));
-  entry.data = newData;
+  _store.setData(id, newData);
   return true;
 }
 
@@ -412,27 +443,27 @@ function readRows(id, pathString, opts) {
   const entry = _entries.get(id);
   if (!entry) throw new Error(`unknown manifest: ${id}`);
   const segments = parsePath(pathString || '');
-  return resolvePath(entry.data, segments, opts);
+  return resolvePath(_store.getData(id), segments, opts);
 }
 
-// Apply a path-targeted mutation to entry.data atomically. Caller supplies
+// Apply a path-targeted mutation to a card's data atomically. Caller supplies
 // a `mutate(stagedData) -> result` callback that mutates a deep clone in
-// place and returns the result the registry should bubble out to its
-// caller. After the callback returns, the rebuilt envelope is shape-checked
-// and persisted via tmp+rename. On any error before rename, the on-disk
-// file and in-memory cache are unchanged.
+// place and returns the result the registry should bubble out to its caller.
+// The staged value is shape-checked and full-replaced into the datastore in
+// one transaction. On any error before setData commits, both the store and
+// the served value are unchanged.
 function _mutateData(id, mutate) {
   const entry = _entries.get(id);
   if (!entry) throw new Error(`unknown manifest: ${id}`);
-  if (entry.data === null || entry.data === undefined) {
+  const current = _store.getData(id);
+  if (current === null || current === undefined) {
     throw new Error(`${id} has no data block to address`);
   }
-  // Deep clone so a mid-mutation throw can't leave the cache half-edited.
-  const staged = JSON.parse(JSON.stringify(entry.data));
+  // Deep clone so a mid-mutation throw can't leave the served value edited.
+  const staged = JSON.parse(JSON.stringify(current));
   const result = mutate(staged);
   _assertSchemaShape(id, entry.schema, staged);
-  _persistEnvelope(entry, _buildEntryEnvelope(entry, staged));
-  entry.data = staged;
+  _store.setData(id, staged);
   return result;
 }
 
@@ -655,16 +686,7 @@ function reorderByIds(ids) {
     // Skip if unchanged (idempotent)
     if (entry.meta.order === newOrder) continue;
     entry.meta = { ...entry.meta, order: newOrder };
-    const full = {
-      $schema: entry.version,
-      meta: entry.meta,
-    };
-    if (entry.description) full.description = entry.description;
-    if (entry.schema) full.schema = entry.schema;
-    if (entry.data !== null) full.data = entry.data;
-    const tmp = entry.source + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(full, null, 2));
-    fs.renameSync(tmp, entry.source);
+    _persistEnvelope(entry, _buildEntryEnvelope(entry));
   }
   return { updated: [...ids] };
 }
@@ -736,17 +758,22 @@ function createManifest(manifestObj) {
     // on load. Don't overwrite it silently.
     throw new Error(`duplicate id: file already exists on disk`);
   }
-  const tmp = targetPath + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(parsed, null, 2));
-  fs.renameSync(tmp, targetPath);
-  _entries.set(id, {
+  const entry = {
     meta: parsed.meta,
     description: parsed.description || null,
     schema: parsed.schema || null,
-    data: parsed.data === undefined ? null : parsed.data,
     source: targetPath,
     version: parsed.$schema,
-  });
+  };
+  // Write a meta-only file; any inline data goes straight into the store
+  // (skipping the import-inbox backup dance — this file never had it on
+  // disk). A data key present with value null/[]/[...] is stored verbatim so
+  // hasData parity matches the old inline-cache behaviour.
+  _persistEnvelope(entry, _buildEntryEnvelope(entry));
+  if (Object.prototype.hasOwnProperty.call(parsed, 'data')) {
+    _store.setData(id, parsed.data);
+  }
+  _entries.set(id, entry);
   // One-time welcome-card auto-hide. When any other card is created, the
   // welcome card disables itself and records that the auto-hide has fired,
   // so a user who later re-enables it in Settings won't have the system
@@ -796,17 +823,8 @@ function maybeAutoHideWelcome(createdId) {
     enabled: false,
     welcome: { ...(wmeta || {}), autoHideApplied: true },
   };
-  const full = {
-    $schema: welcome.version,
-    meta: welcome.meta,
-  };
-  if (welcome.description) full.description = welcome.description;
-  if (welcome.schema) full.schema = welcome.schema;
-  if (welcome.data !== null) full.data = welcome.data;
-  const tmp = welcome.source + '.tmp';
   try {
-    fs.writeFileSync(tmp, JSON.stringify(full, null, 2));
-    fs.renameSync(tmp, welcome.source);
+    _persistEnvelope(welcome, _buildEntryEnvelope(welcome));
     return true;
   } catch (e) {
     console.warn('[welcome] auto-hide write failed:', e.message);
@@ -893,6 +911,11 @@ function deleteManifest(id) {
     }
   }
   _entries.delete(id);
+  // Drop the card's rows from the datastore. Without this a deleted-then-
+  // recreated id would resurface stale rows (M12 demo-reset guards this too).
+  try { _store.deleteCard(id); } catch (e) {
+    console.warn(`[registry] datastore.deleteCard failed for ${id}: ${e.message}`);
+  }
   for (const fn of _deleteHooks) {
     try { fn(id); } catch (e) {
       console.warn(`[registry] onDelete hook error for ${id}: ${e.message}`);
@@ -909,6 +932,7 @@ module.exports = {
   get,
   data,
   sourceMtime,
+  dataUpdatedAt,
   writeData,
   readRows,
   appendRow,

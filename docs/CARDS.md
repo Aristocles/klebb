@@ -992,8 +992,9 @@ of "I patched the manifest and nothing changed".
 
 **Ignores:**
 - Any data field not referenced by the display template or the inputs
-  list. They persist in the file but neither render nor become
-  editable.
+  list. They persist in the datastore but neither render nor become
+  editable (removing a field from the manifest orphans its rows rather
+  than deleting them).
 
 ### `list-card`
 

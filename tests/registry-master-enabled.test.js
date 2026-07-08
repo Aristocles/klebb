@@ -9,6 +9,7 @@ const assert = require('node:assert');
 const path = require('path');
 const fs = require('fs');
 const { createSandbox, cleanupSandbox } = require('./helpers/sandbox');
+const { readStored } = require('./helpers/datastore-readback');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const MANIFESTS_DIR = path.resolve(REPO_ROOT, 'manifests') + path.sep;
@@ -197,8 +198,10 @@ describe('registry master meta.enabled', () => {
       registry.setMasterEnabled('keep', true);
       const raw = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'keep.json'), 'utf8'));
       assert.equal(raw.description, 'must preserve me');
-      assert.equal(raw.data.length, 2);
-      assert.equal(raw.data[1].v, 2);
+      assert.equal('data' in raw, false, 'toggle rewrites meta only; no data key in the file');
+      const stored = readStored(sandbox, 'keep');
+      assert.equal(stored.length, 2);
+      assert.equal(stored[1].v, 2);
     } finally {
       cleanupSandbox(sandbox);
     }
@@ -219,9 +222,13 @@ describe('registry master meta.enabled', () => {
       registry.init();
       registry.setMasterEnabled('weight', false);
       registry.writeData('weight', [{ date: '2026-04-20', kg: 86 }]);
+      // writeData targets the datastore and never rewrites the file, so the
+      // master-disabled flag in the (meta-only) file is untouched by the data
+      // write, and the new data lands in the store.
       const raw = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'weight.json'), 'utf8'));
-      assert.equal(raw.meta.enabled, false, 'writeData must preserve the master-disabled flag');
-      assert.equal(raw.data[0].kg, 86);
+      assert.equal(raw.meta.enabled, false, 'the master-disabled flag survives a data write');
+      assert.equal(registry.get('weight').meta.enabled, false);
+      assert.equal(readStored(sandbox, 'weight')[0].kg, 86);
     } finally {
       cleanupSandbox(sandbox);
     }
