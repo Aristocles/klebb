@@ -79,6 +79,12 @@ const CHAT_DIR = process.env.HEALTH_CHAT_DIR || path.join(HEALTH_HOME, 'chat');
 const CHAT_HISTORY_FILE = path.join(CHAT_DIR, 'history.json');
 const CONFIG_PATH = process.env.HEALTH_CONFIG_PATH || path.join(HEALTH_HOME, 'config.json');
 
+// Embedded datastore for card data rows. Lives at HEALTH_HOME level so it
+// sits outside the fs.watch scope on data/ but inside every backup, export,
+// and teardown path that snapshots the instance dir.
+const DB_DIR = process.env.HEALTH_DB_DIR || path.join(HEALTH_HOME, 'db');
+const DB_FILE = process.env.HEALTH_DB_FILE || path.join(DB_DIR, 'klebb.db');
+
 // Per-instance runtime state for notifications. Decoupled from manifests
 // so the per-card meta block stays clean (config) and last-fired / toggle
 // state lives in this opaque sidecar (runtime). Created lazily.
@@ -137,6 +143,8 @@ module.exports = {
   INBOX_DIR,
   INBOX_FAILED_DIR,
   AUTO_EXPORT_DIR,
+  DB_DIR,
+  DB_FILE,
   SESSIONS_DIR,
   CREDENTIALS_DIR,
   ARCHIVE_DIR,
