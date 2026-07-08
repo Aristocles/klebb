@@ -9,6 +9,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Body-temperature and fasting-glucose templates.** Two new
+  threshold-banded vitals for the template gallery:
+  `body-temperature.klebb.json` (celsius, hypothermia through high
+  fever bands, up to three readings a day, and a neutral trend arrow
+  since neither direction is inherently good) and
+  `fasting-glucose.klebb.json` (mg/dL, the common clinical bands from
+  hypoglycaemic to diabetic, one morning reading a day, falling is
+  good). Both carry line-chart trends and threshold calendar markers.
+  Fixes #255, #256.
+
+- **Cardio-training starter prompt.** A prompts-gallery entry for
+  endurance training: a run/ride session log, a weekly distance goal
+  ring summed from the sessions card, and resting HR + HRV recovery
+  trends, with an Apple Health import branch when the user runs the
+  Health Auto Export pipeline. Fixes #257.
+
 ### Fixed
 
 - **Shipped templates now colour their trend arrows per metric.** The
