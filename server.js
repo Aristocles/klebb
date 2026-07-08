@@ -223,15 +223,6 @@ function getDateRange(dir, start, end) {
   return result;
 }
 
-function getWeightRange(start, end) {
-  const weights = readJSONFile(path.join(DATA_DIR, 'weight.json'));
-  if (!weights) return [];
-  // Unwrap v2 manifest
-  const arr = (weights && weights.$schema === 'klebb.datafile.v1') ? weights.data : weights;
-  if (!Array.isArray(arr)) return [];
-  return arr.filter(w => w.date >= start && w.date <= end);
-}
-
 // Extract a { speak, display } JSON object from a model's raw reply.
 // The model is instructed to emit pure JSON, but handle stray text/fences +
 // tool-use intermixing by grabbing the LAST JSON object in the response
@@ -939,48 +930,10 @@ const server = http.createServer(async (req, res) => {
 
     // === End content endpoints ===
 
-    // Simple JSON file endpoints
-    const simpleFiles = {
-      'config': 'config.json',
-      'supplements': 'supplements.json',
-      'weight': 'weight.json',
-      'bloods': 'bloods.json',
-      'appointments': 'appointments.json',
-      'goals': 'goals.json',
-      'peptides': 'peptides.json',
-    };
-
-    if (parts.length === 1 && simpleFiles[parts[0]]) {
-      const data = readJSONFile(path.join(DATA_DIR, simpleFiles[parts[0]]));
-      if (data) {
-        // Transparent v2 unwrap: if the file is a v2 manifest, return only
-        // the data block to keep legacy clients (and the current UI) happy.
-        if (data && typeof data === 'object' && data.$schema === 'klebb.datafile.v1') {
-          let payload = data.data;
-          // Special-case: the legacy frontend expects peptides.json to have
-          // 'peptides' and 'injection_groups' keys. The v2 manifest uses
-          // 'items' and 'groups'. Alias them back here for the legacy UI.
-          if (parts[0] === 'peptides' && payload && typeof payload === 'object') {
-            const aliased = {
-              ...payload,
-              peptides: Array.isArray(payload.items) ? payload.items : (payload.peptides || []),
-              injection_groups: Array.isArray(payload.groups)
-                ? payload.groups.map(g => ({
-                    name: g.label || g.name || g.id,
-                    peptides: g.items || g.peptides || [],
-                    timing: g.timing,
-                    draw_order: g.draw_order,
-                    max_units: g.max_units,
-                    notes: g.notes,
-                  }))
-                : (payload.injection_groups || []),
-            };
-            return sendJSON(res, aliased);
-          }
-          return sendJSON(res, payload);
-        }
-        return sendJSON(res, data);
-      }
+    // GET /api/config — instance config file (not a manifest).
+    if (parts.length === 1 && parts[0] === 'config') {
+      const data = readJSONFile(path.join(DATA_DIR, 'config.json'));
+      if (data) return sendJSON(res, data);
       return send404(res);
     }
 
@@ -1334,11 +1287,6 @@ const server = http.createServer(async (req, res) => {
         if (data) return sendJSON(res, data);
         return send404(res);
       }
-    }
-
-    // GET /api/weight/range/:start/:end
-    if (parts[0] === 'weight' && parts[1] === 'range' && parts.length === 4) {
-      return sendJSON(res, getWeightRange(parts[2], parts[3]));
     }
 
     // /api/chat/history — per-instance chat transcript so it follows the
