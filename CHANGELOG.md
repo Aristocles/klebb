@@ -7,6 +7,27 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Removed
+
+- **Legacy `mood` / `notes` / `injection-log` JSON endpoints.** These
+  were the only server writers that bypassed the manifest registry,
+  reading and writing card files directly and reconciling only via the
+  debounced `fs.watch` reload: a clobber window against a registry write
+  to the same card. They were also dead and, on the v2 array-shaped
+  cards, already broken: the manifest-driven UI never called them (only
+  the retired `_legacy-v1` views did), and the `POST /api/mood/:date`
+  and `POST /api/notes/:date` handlers were silent no-ops because they
+  applied date-keyed-object semantics to what are now dated arrays. The
+  `injection-log` handler additionally mutated `peptides.json` on disk,
+  leaving the registry cache stale. Removed the routes
+  (`GET/POST/DELETE /api/mood/:date`, `/api/mood/range`,
+  `POST /api/notes/:date`, `GET /api/notes/:date`,
+  `GET/POST /api/injection-log` and its `range`/`:date` variants) along
+  with the `readLegacyJSONFile` / `writeLegacyJSONFile` helpers, the
+  peptides write-through, and `synthesiseLegacyInjectionLog`. The live
+  UI already logs peptide doses through the registry write seam
+  (`POST /api/manifests/:id/data`). Fixes #496.
+
 ### Added
 
 - **Klebbius eval harness** (`evals/`). Simulated user conversations
