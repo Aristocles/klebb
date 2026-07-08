@@ -9,6 +9,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+### Fixed
+
+- **Embellishment chips now render on voice replies.** The follow-up
+  suggestion chips Klebbius attaches after creating or editing a card
+  were dropped on the recorded-voice path: the reply handler built the
+  assistant message with only the speech text, discarding the
+  `followup` block the server had attached. Since card-touching turns
+  are exactly the ones that earn chips, anyone driving Klebbius by mic
+  never saw them. Both send paths now unpack the reply through one
+  shared helper, pinned by tests so they can't drift apart again. A
+  live-reply e2e spec also now covers the typed path (the previous
+  chip specs only covered history reload). Fixes #463.
+
 ### Security
 
 - **Auth-surface hardening.** Admin and agent bearer tokens are compared

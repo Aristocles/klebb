@@ -671,6 +671,16 @@ class HealthChat extends LitElement {
     } catch {}
   }
 
+  // Unpack a /api/chat response's followup block into the extra fields
+  // _addMsg stores on the assistant message. Shared by the typed and
+  // recorded-voice send paths so chips can't silently drop from one (#463).
+  _followupExtras(data) {
+    return data.followup ? {
+      followupText: data.followup.text,
+      embellishments: Array.isArray(data.followup.embellishments) ? data.followup.embellishments : [],
+    } : {};
+  }
+
   // Optional fields that ride alongside {id, role, content} when the
   // message carries a CC-embellishment chip row (see #191).
   _persistExtras(m) {
@@ -931,10 +941,7 @@ class HealthChat extends LitElement {
       const data = await this._fetchChat(chatMessages, useVoice);
       if (data.error) this._pushError(data.error);
       else {
-        const extra = data.followup ? {
-          followupText: data.followup.text,
-          embellishments: Array.isArray(data.followup.embellishments) ? data.followup.embellishments : [],
-        } : {};
+        const extra = this._followupExtras(data);
         if (useVoice) {
           const speakText = data.speak || data.reply;
           const displayText = data.reply || data.display || data.speak || '';
@@ -1107,7 +1114,7 @@ class HealthChat extends LitElement {
       } else {
         const speakText = replyData.speak || replyData.reply;
         const displayText = replyData.reply || replyData.display || replyData.speak || '';
-        const msgId = this._addMsg('assistant', displayText, { speakText });
+        const msgId = this._addMsg('assistant', displayText, { ...this._followupExtras(replyData), speakText });
         this._scrollToBottom();
         // Fetch TTS + auto-play
         await this._generateAndAutoplay(msgId, speakText);
