@@ -1,0 +1,59 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "fasting-glucose",
+      "title": "Fasting glucose",
+      "summary": "Morning fasting blood glucose with clinical threshold bands (mg/dL).",
+      "category": "tracking",
+      "tags": ["vitals", "metabolic", "glucose", "threshold"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "🩸",
+    "order": 215,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{mg_dl}",
+        "unit": "mg/dL",
+        "thresholds": [
+          { "ifField": "mg_dl", "max": 69, "colour": "#66ccff", "label": "Hypoglycaemic" },
+          { "ifField": "mg_dl", "max": 99, "colour": "#44ff88", "label": "Normal" },
+          { "ifField": "mg_dl", "max": 125, "colour": "#ffaa33", "label": "Prediabetic" },
+          { "ifField": "mg_dl", "colour": "#ff4444", "label": "Diabetic" }
+        ],
+        "trendArrow": { "field": "mg_dl", "goodDirection": "down" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "mg_dl"
+    },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": {
+        "type": "threshold",
+        "field": "mg_dl",
+        "rules": [
+          { "max": 69, "emoji": "🔵" },
+          { "max": 99, "emoji": "🟢" },
+          { "max": 125, "emoji": "🟡" },
+          { "emoji": "🔴" }
+        ]
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 1,
+      "inputs": [
+        { "key": "mg_dl", "type": "number", "required": true, "min": 20, "max": 600 }
+      ]
+    }
+  },
+  "description": "Fasting blood glucose in mg/dL, logged once each morning before eating. Bands follow the common clinical cut-offs (normal under 100, prediabetic 100-125, diabetic 126+). Divide by 18 if your meter reads mmol/L, or edit the template to taste.",
+  "data": []
+}

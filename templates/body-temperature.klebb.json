@@ -1,0 +1,60 @@
+{
+  "$schema": "klebb.datafile.v1",
+  "meta": {
+    "template": {
+      "id": "body-temperature",
+      "title": "Body temperature",
+      "summary": "Temperature readings with fever / hypothermia threshold bands.",
+      "category": "tracking",
+      "tags": ["vitals", "temperature", "threshold"]
+    },
+    "id": "{{string:id}}",
+    "label": "{{string:label}}",
+    "emoji": "🌡️",
+    "order": 210,
+    "view": {
+      "enabled": true,
+      "component": "generic-card",
+      "display": {
+        "template": "{celsius:round(1)}",
+        "unit": "°C",
+        "thresholds": [
+          { "ifField": "celsius", "max": 34.9, "colour": "#66ccff", "label": "Hypothermia" },
+          { "ifField": "celsius", "max": 37.5, "colour": "#44ff88", "label": "Normal" },
+          { "ifField": "celsius", "max": 38.5, "colour": "#ffaa33", "label": "Low-grade fever" },
+          { "ifField": "celsius", "max": 39.5, "colour": "#ff7733", "label": "Fever" },
+          { "ifField": "celsius", "colour": "#ff4444", "label": "High fever" }
+        ],
+        "trendArrow": { "field": "celsius", "goodDirection": "neutral" }
+      }
+    },
+    "trends": {
+      "enabled": true,
+      "component": "line-chart",
+      "field": "celsius"
+    },
+    "calendar": {
+      "enabled": true,
+      "component": "day-marker",
+      "marker": {
+        "type": "threshold",
+        "field": "celsius",
+        "rules": [
+          { "max": 34.9, "emoji": "🔵" },
+          { "max": 37.5, "emoji": "🟢" },
+          { "max": 38.5, "emoji": "🟡" },
+          { "emoji": "🔴" }
+        ]
+      }
+    },
+    "writeable": {
+      "fromWebapp": true,
+      "maxReadingsPerDay": 3,
+      "inputs": [
+        { "key": "celsius", "type": "number", "required": true, "min": 30, "max": 45, "step": 0.1 }
+      ]
+    }
+  },
+  "description": "Body temperature in celsius. Up to three readings per day; the threshold bands follow the common clinical cut-offs, with a neutral trend arrow since neither direction is inherently good.",
+  "data": []
+}
