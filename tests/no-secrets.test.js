@@ -20,7 +20,6 @@ const REPO_ROOT = path.join(__dirname, '..');
 const SKIP_DIRS = new Set([
   'node_modules',
   '.git',
-  '_legacy-v1',
   'tests',              // fixtures use placeholder tokens like 'test-agent-token-ab12cd34ef56'
 ]);
 

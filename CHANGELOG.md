@@ -9,6 +9,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Removed
 
+- **Retired v1 client components and their API helper.** Deleted
+  `public/js/components/_legacy-v1/` (16 unmounted view components) and
+  `public/js/api.js`: the manifest-driven UI imports none of it, and the
+  legacy server endpoints these components called were removed with
+  #496, so the tree pointed at routes that 404. The personal-refs and
+  secrets scanners also drop their `_legacy-v1` skip exclusions, closing
+  the standing hole in the scan surface those files required. Fixes #506.
+
 - **Legacy `mood` / `notes` / `injection-log` JSON endpoints.** These
   were the only server writers that bypassed the manifest registry,
   reading and writing card files directly and reconciling only via the
