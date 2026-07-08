@@ -255,4 +255,35 @@ describe('dispatch: merge preserves prior dates', () => {
     assert.equal(rows.length, 1);
     assert.equal(rows[0].count, 9001);
   });
+
+  test('same-date re-push is whole-row replace, never field merge', () => {
+    // A sleep push without stage fields must DROP the stages the earlier
+    // push carried for that date. If `deep` survives the second push,
+    // field-level merge has crept into the upsert.
+    const reg = makeRegistry([
+      { id: 'sleep-hours', meta: { id: 'sleep-hours',
+          ingest: { source: 'hae', metric: 'sleep_analysis' } },
+        data: [] },
+    ]);
+
+    dispatch(reg, { data: { metrics: [
+      { name: 'sleep_analysis', data: [
+        { date: '2026-05-01 00:00:00 +1000', totalSleep: 7.5, deep: 1.4, rem: 1.9 },
+      ]},
+    ]}});
+    let rows = reg._snapshot('sleep-hours');
+    assert.equal(rows[0].deep, 1.4);
+    assert.equal(rows[0].rem, 1.9);
+
+    dispatch(reg, { data: { metrics: [
+      { name: 'sleep_analysis', data: [
+        { date: '2026-05-01 00:00:00 +1000', totalSleep: 7.5 },
+      ]},
+    ]}});
+    rows = reg._snapshot('sleep-hours');
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].hours, 7.5);
+    assert.equal(rows[0].deep, undefined, 'deep must be gone: whole-row replace');
+    assert.equal(rows[0].rem, undefined, 'rem must be gone: whole-row replace');
+  });
 });
