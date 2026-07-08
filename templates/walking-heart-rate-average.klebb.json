@@ -22,7 +22,7 @@
       "display": {
         "template": "{bpm}",
         "unit": "bpm",
-        "trendArrow": { "field": "bpm" }
+        "trendArrow": { "field": "bpm", "goodDirection": "down" }
       }
     },
     "trends": {

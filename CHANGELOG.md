@@ -11,6 +11,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Shipped templates now colour their trend arrows per metric.** The
+  trend-arrow renderer went metric-aware in v3.3.0
+  (`trendArrow.goodDirection`), but the shipped templates and demo
+  fixtures never declared a direction, so more-is-better metrics
+  (sleep hours, steps, active minutes, mindful minutes, HRV, blood
+  oxygen) still rendered a rising trend red. Every template trendArrow
+  now declares `goodDirection` explicitly (`up` for the six above,
+  `down` for weight, waist, body fat, blood pressure, and the heart
+  rates), the demo fixtures match, and the demo set's one legacy
+  `lowerIsBetter` alias is migrated to the canonical key. A test now
+  requires an explicit direction on every shipped trendArrow so new
+  templates can't inherit the weight default by omission. Fixes #427.
+
 - **Embellishment chips now render on voice replies.** The follow-up
   suggestion chips Klebbius attaches after creating or editing a card
   were dropped on the recorded-voice path: the reply handler built the
