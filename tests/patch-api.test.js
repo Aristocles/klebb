@@ -40,8 +40,10 @@ describe('PATCH /api/manifests/:id', () => {
     if (sandbox) cleanupSandbox(sandbox);
   });
 
-  test('200 on valid patch; meta updated, data byte-for-byte identical', async () => {
-    const dataBefore = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'mood.json'), 'utf8')).data;
+  test('200 on valid patch; meta updated, card data untouched', async () => {
+    // Data lives in the datastore now; the manifest file is meta-only. Prove
+    // the patch touches meta and leaves the card's data exactly as it was.
+    const dataBefore = (await req(server.baseUrl, '/api/manifests/mood/data')).json.data;
 
     const res = await req(server.baseUrl, '/api/manifests/mood', {
       method: 'PATCH',
@@ -64,7 +66,9 @@ describe('PATCH /api/manifests/:id', () => {
 
     const after = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'mood.json'), 'utf8'));
     assert.equal(after.meta.writeable.inputs[0].autoSubmit, false);
-    assert.deepEqual(after.data, dataBefore);
+    assert.equal('data' in after, false, 'manifest file carries no data key');
+    const dataAfter = (await req(server.baseUrl, '/api/manifests/mood/data')).json.data;
+    assert.deepEqual(dataAfter, dataBefore);
   });
 
   test('400 on patch touching $schema', async () => {

@@ -69,13 +69,16 @@ describe('POST /api/manifests/reorder', () => {
       assert.equal(bp.meta.order, 300);
     });
 
-    test('preserves every other meta field + data block', async () => {
+    test('preserves every other meta field; card data untouched', async () => {
       const mood = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'mood.json'), 'utf8'));
       assert.equal(mood.description, 'mood card');
       assert.equal(mood.meta.label, 'Mood');
       assert.equal(mood.meta.view.enabled, true);
-      assert.equal(mood.data.length, 1);
-      assert.equal(mood.data[0].v, 1);
+      assert.equal('data' in mood, false, 'reorder rewrites meta only; no data key in the file');
+
+      const data = (await req(server.baseUrl, '/api/manifests/mood/data')).json.data;
+      assert.equal(data.length, 1);
+      assert.equal(data[0].v, 1);
     });
 
     test('is idempotent — same order twice is a no-op', async () => {

@@ -8,6 +8,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { createSandbox, cleanupSandbox } = require('./helpers/sandbox');
+const { readStored } = require('./helpers/datastore-readback');
 
 // We need to isolate the registry module per test by clearing the require cache.
 // The registry reads PATHS.DATA_DIR at call time (via config/paths.js which
@@ -204,7 +205,7 @@ describe('manifest registry', () => {
     }
   });
 
-  test('writeData rewrites the .data block and preserves meta + description', () => {
+  test('writeData stores the data and leaves the meta-only file intact', () => {
     const sandbox = createSandbox({
       seed: {
         'weight.json': {
@@ -219,13 +220,18 @@ describe('manifest registry', () => {
       const registry = freshRegistry(sandbox);
       registry.init();
       registry.writeData('weight', [{ date: '2026-04-20', kg: 86 }, { date: '2026-04-21', kg: 86.5 }]);
-      const raw = fs.readFileSync(path.join(sandbox, 'data', 'weight.json'), 'utf8');
-      const parsed = JSON.parse(raw);
+      // The file holds meta only (the seed's data was imported + stripped on
+      // load); the write went to the datastore.
+      const parsed = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'weight.json'), 'utf8'));
       assert.equal(parsed.$schema, 'klebb.datafile.v1');
       assert.equal(parsed.meta.id, 'weight');
       assert.equal(parsed.description, 'preserve-me');
-      assert.equal(parsed.data.length, 2);
-      assert.equal(parsed.data[1].kg, 86.5);
+      assert.equal('data' in parsed, false, 'no data key in the manifest file');
+      const stored = readStored(sandbox, 'weight');
+      assert.equal(stored.length, 2);
+      assert.equal(stored[1].kg, 86.5);
+      // Served value matches the store.
+      assert.deepEqual(registry.get('weight').data, stored);
     } finally {
       cleanupSandbox(sandbox);
     }
@@ -262,10 +268,9 @@ describe('manifest registry', () => {
       registry.init();
       const payload = JSON.stringify([{ date: '2026-04-21', kg: 86 }]);
       registry.writeData('weight', payload);
-      const raw = fs.readFileSync(path.join(sandbox, 'data', 'weight.json'), 'utf8');
-      const parsed = JSON.parse(raw);
-      assert.ok(Array.isArray(parsed.data), 'data persisted as array, not a string');
-      assert.equal(parsed.data[0].kg, 86);
+      const stored = readStored(sandbox, 'weight');
+      assert.ok(Array.isArray(stored), 'data persisted as array, not a string');
+      assert.equal(stored[0].kg, 86);
       assert.match(warned, /rescued double-serialised/);
     } finally {
       console.warn = origWarn;

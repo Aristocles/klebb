@@ -961,6 +961,45 @@ Single-document cards use an object:
 The registry imposes no schema on `data`. Your renderer + your writer must
 agree.
 
+### The `data` key is an import inbox
+
+Logged data does not live in the manifest file. It lives in an embedded
+per-instance store at `$HEALTH_HOME/db/klebb.db`. The manifest file
+describes the card (`meta`); the store holds its rows.
+
+A `data` key in a manifest file is a **one-way import inbox**. When the
+server loads a file that carries one, it:
+
+1. copies the file aside as `<name>.json.pre-import-<timestamp>.json`
+   (a backup the loader ignores),
+2. imports the block into the store (a full replace of that card's rows),
+   and
+3. rewrites the file without the `data` key.
+
+So after first load, manifest files on disk are meta-only. This is how
+"drop a file, a card appears" and "drop an export, the data comes back"
+keep working: any inline data you ship in a file is absorbed once, then
+served from the store.
+
+Consequences worth knowing:
+
+- **Editing `meta` by hand still hot-reloads** the card, exactly as
+  before. The data store is untouched by meta edits.
+- **To change data by hand,** add a `data` block back to the file; it
+  imports (full replace) on the next load and is stripped again. Don't
+  expect to find your logged numbers by reading the manifest file — use
+  `GET /api/manifests/:id/data`.
+- **`data: null` vs no `data` key** are distinguished: a present-but-null
+  block imports as "no data" (the card is known to the store with a null
+  value); a file with no `data` key never imports.
+- **Backups + exports** still work off `$HEALTH_HOME`: the store sits
+  inside it at `db/`. See docs/DEPLOY.md for the WAL-safety note when
+  copying `db/` live, and `scripts/export-embed.js` for a portable tree
+  with data re-embedded.
+
+The HTTP contract is unchanged: `GET`/`POST /api/manifests/:id/data`
+behave exactly as they did when data lived in the file.
+
 ---
 
 ## Rules and conventions

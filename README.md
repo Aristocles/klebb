@@ -48,9 +48,11 @@ weight tracker in kg" produces a weight card with the right trend
 chart. Starter prompts take this further: paste one into the chat
 and the agent builds out a whole dashboard in one conversation.
 
-You still own your data (it's all plain JSON in `$HEALTH_HOME/data/`,
-which you can back up, version-control, or edit by hand) but you
-don't *have* to touch it. Most users won't.
+You still own your data. Every card is a plain-JSON manifest file in
+`$HEALTH_HOME/data/` that you can version-control or edit by hand; the
+logged numbers live in an embedded store alongside it
+(`$HEALTH_HOME/db/`). Back up the `$HEALTH_HOME` directory and you have
+everything. You don't *have* to touch any of it. Most users won't.
 
 ## Quickstart
 

@@ -351,9 +351,13 @@ See `MANIFEST-SCHEMA.md` ("Combination cards") for the CC contract.
 | `meta.ingest.metric` is not in the catalogue | Manifest loads; warning logged per push |
 | Webhook body is not valid JSON | `200 + {warning}`, raw archived for inspection |
 
-The no-op-on-empty invariant means manifest files are only rewritten
-when the dispatcher produced at least one row for them. A push that
-does nothing does not churn any file.
+The no-op-on-empty invariant means a card's data is only written when
+the dispatcher produced at least one row for it. A push that does
+nothing writes nothing. Ingested rows land in the embedded datastore
+(`$HEALTH_HOME/db/klebb.db`), not the manifest file: a push updates
+data without rewriting `meta`, and the manifest file's mtime does not
+change. Read a card's ingested rows back over the API
+(`GET /api/manifests/<id>/data`), not by opening the manifest file.
 
 ---
 

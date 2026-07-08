@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
+// Fail fast on an unsupported Node before anything opens the datastore.
+require('./lib/node-floor').assertNodeFloor();
 const http = require('http');
 const https = require('https');
 const fs = require('fs');

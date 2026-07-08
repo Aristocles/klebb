@@ -7,6 +7,33 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **Card data moved out of manifest files into an embedded datastore.**
+  Each card's logged data now lives in a per-instance SQLite store at
+  `$HEALTH_HOME/db/klebb.db` (`node:sqlite`, WAL); the manifest file
+  keeps `meta` and becomes a description of the card only. The registry
+  serves and writes data through the store, so a data write no longer
+  rewrites the whole manifest file and a meta edit no longer touches
+  data. The `data` key in a manifest file is now a one-way import inbox:
+  on load, any inline block is backed up, imported (full replace), and
+  stripped from the file, which is how file-drop seeding and re-imported
+  exports keep working. The HTTP contract is unchanged:
+  `GET`/`POST /api/manifests/:id/data`, the row-level chat tools, and the
+  HAE ingest path all behave byte-for-byte as before. Boot self-migrates
+  by importing every card's data block on first start; a snapshot of
+  `$HEALTH_HOME` remains a complete backup because the store lives inside
+  it. See MANIFEST-SCHEMA.md "The `data` key is an import inbox" and
+  docs/DEPLOY.md for the WAL-safe backup note. Refs #494.
+
+- **Node floor raised to 22.13.** The embedded datastore uses the
+  built-in `node:sqlite` module, unflagged from Node 22.13, so the
+  engines floor moves from `>=20` to `>=22.13` and CI now runs the
+  Node 22 + 24 matrix. The server fails fast at boot with a clear
+  message on anything older, instead of a cryptic missing-module crash.
+  The Docker image (`node:22-slim`) already floats above the floor.
+  Refs #494.
+
 ### Removed
 
 - **Legacy off-disk data-read endpoints.** Removed the read-side

@@ -7,9 +7,9 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
-const fs = require('fs');
 const path = require('path');
 const { createSandbox, cleanupSandbox } = require('./helpers/sandbox');
+const { readStored } = require('./helpers/datastore-readback');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const MANIFESTS_DIR = path.resolve(REPO_ROOT, 'manifests') + path.sep;
@@ -241,8 +241,8 @@ describe('append_row: dispatch', () => {
       assert.equal(res.ok, true);
       assert.equal(res.totalAfter, 2);
 
-      const onDisk = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8'));
-      const tb = onDisk.data.items.find(x => x.name === 'TB-500');
+      const stored = readStored(sandbox, 'peptides');
+      const tb = stored.items.find(x => x.name === 'TB-500');
       assert.equal(tb.doses.length, 2);
       assert.deepEqual(ctx.touches, [{ id: 'peptides', flow: 'edit' }]);
     } finally { cleanupSandbox(sandbox); }
@@ -258,9 +258,9 @@ describe('append_row: dispatch', () => {
         value: { name: 'Klow Stack', doses: [] },
       });
       assert.equal(res.ok, true);
-      const onDisk = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8'));
-      assert.equal(onDisk.data.items.length, 3);
-      assert.equal(onDisk.data.items[2].name, 'Klow Stack');
+      const stored = readStored(sandbox, 'peptides');
+      assert.equal(stored.items.length, 3);
+      assert.equal(stored.items[2].name, 'Klow Stack');
     } finally { cleanupSandbox(sandbox); }
   });
 
@@ -274,8 +274,7 @@ describe('append_row: dispatch', () => {
         value: { date: '2026-05-06', count: 9000 },
       });
       assert.match(res.error, /not writeable from the webapp/);
-      const onDisk = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'steps.json'), 'utf8'));
-      assert.equal(onDisk.data.length, 1, 'on-disk untouched');
+      assert.equal(readStored(sandbox, 'steps').length, 1, 'stored data untouched');
     } finally { cleanupSandbox(sandbox); }
   });
 
@@ -301,19 +300,18 @@ describe('append_row: dispatch', () => {
     } finally { cleanupSandbox(sandbox); }
   });
 
-  test('NO_MATCH bubbles with code; on-disk untouched', () => {
+  test('NO_MATCH bubbles with code; stored data untouched', () => {
     const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
     try {
       const { dispatchToolCall } = freshTools(sandbox);
-      const before = fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8');
+      const before = JSON.stringify(readStored(sandbox, 'peptides'));
       const res = call(dispatchToolCall, 'append_row', {
         id: 'peptides',
         path: 'items[name="DOES_NOT_EXIST"].doses',
         value: {},
       });
       assert.equal(res.code, 'NO_MATCH');
-      const after = fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8');
-      assert.equal(before, after);
+      assert.equal(JSON.stringify(readStored(sandbox, 'peptides')), before);
     } finally { cleanupSandbox(sandbox); }
   });
 });
@@ -445,8 +443,8 @@ describe('reorder_rows: dispatch', () => {
       assert.equal(res.ok, true);
       assert.equal(res.reordered, 2);
 
-      const onDisk = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8'));
-      assert.deepEqual(onDisk.data.items.map(i => i.name), ['TB-500', 'BPC-157']);
+      const stored = readStored(sandbox, 'peptides');
+      assert.deepEqual(stored.items.map(i => i.name), ['TB-500', 'BPC-157']);
       assert.deepEqual(ctx.touches, [{ id: 'peptides', flow: 'edit' }]);
     } finally { cleanupSandbox(sandbox); }
   });
@@ -461,8 +459,8 @@ describe('reorder_rows: dispatch', () => {
         key: 'name',
         order: ['TB-500', 'BPC-157'],
       })));
-      const onDisk = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8'));
-      const bpc = onDisk.data.items.find(x => x.name === 'BPC-157');
+      const stored = readStored(sandbox, 'peptides');
+      const bpc = stored.items.find(x => x.name === 'BPC-157');
       assert.equal(bpc.doses.length, 12);
       assert.equal(bpc.doses[0].scheduledDate, '2026-03-25');
     } finally { cleanupSandbox(sandbox); }
@@ -483,8 +481,8 @@ describe('reorder_rows: dispatch', () => {
       })));
       assert.equal(res.ok, true);
       assert.equal(res.reordered, 12);
-      const onDisk = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8'));
-      const bpc = onDisk.data.items.find(x => x.name === 'BPC-157');
+      const stored = readStored(sandbox, 'peptides');
+      const bpc = stored.items.find(x => x.name === 'BPC-157');
       assert.deepEqual(bpc.doses.map(d => d.scheduledDate), reversed);
     } finally { cleanupSandbox(sandbox); }
   });
@@ -514,8 +512,8 @@ describe('reorder_rows: dispatch', () => {
         order: ['2026-05-03', '2026-05-01', '2026-05-02'],
       })));
       assert.equal(res.ok, true);
-      const onDisk = JSON.parse(fs.readFileSync(path.join(sandbox, 'data', 'log.json'), 'utf8'));
-      assert.deepEqual(onDisk.data.map(r => r.date), ['2026-05-03', '2026-05-01', '2026-05-02']);
+      const stored = readStored(sandbox, 'log');
+      assert.deepEqual(stored.map(r => r.date), ['2026-05-03', '2026-05-01', '2026-05-02']);
     } finally { cleanupSandbox(sandbox); }
   });
 
@@ -537,7 +535,7 @@ describe('reorder_rows: dispatch', () => {
     const sandbox = createSandbox({ seed: { 'peptides.json': PEPTIDES } });
     try {
       const { dispatchToolCall } = freshTools(sandbox);
-      const before = fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8');
+      const before = JSON.stringify(readStored(sandbox, 'peptides'));
       const res = call(dispatchToolCall, 'reorder_rows', {
         id: 'peptides',
         path: 'items',
@@ -545,8 +543,7 @@ describe('reorder_rows: dispatch', () => {
         order: ['BPC-157'],
       });
       assert.equal(res.code, 'ORDER_MISMATCH');
-      const after = fs.readFileSync(path.join(sandbox, 'data', 'peptides.json'), 'utf8');
-      assert.equal(before, after, 'on-disk untouched on mismatch');
+      assert.equal(JSON.stringify(readStored(sandbox, 'peptides')), before, 'stored data untouched on mismatch');
     } finally { cleanupSandbox(sandbox); }
   });
 
