@@ -9,6 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Removed
 
+- **Legacy off-disk data-read endpoints.** Removed the read-side
+  counterparts of the writers retired in #496: `GET /api/supplements`,
+  `/api/weight`, `/api/bloods`, `/api/appointments`, `/api/goals`,
+  `/api/peptides` (which read the manifest file directly and unwrapped
+  its `data` block, including a peptides `items`/`groups` aliasing shim)
+  and `GET /api/weight/range/:start/:end`. Nothing has called them since
+  the `_legacy-v1` client and `public/js/api.js` were removed in #506;
+  they carried no test coverage and are not part of the external HTTP
+  contract. Card data is served through `GET /api/manifests/:id/data`.
+  `GET /api/config` (a config file, not a manifest) and the auto-export
+  per-day routes are unaffected. Refs #494.
+
 - **Retired v1 client components and their API helper.** Deleted
   `public/js/components/_legacy-v1/` (16 unmounted view components) and
   `public/js/api.js`: the manifest-driven UI imports none of it, and the
