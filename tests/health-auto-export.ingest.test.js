@@ -169,6 +169,30 @@ describe('POST /api/health-auto-export', () => {
       assert.equal(workouts[0].trained, true);
     });
 
+    test('a push writes only the datastore: manifest files untouched, no tmp strays', async () => {
+      const dataDir = path.join(sandbox, 'data');
+      const files = ['sleep-hours.json', 'steps.json', 'active-minutes.json', 'workouts.json'];
+      const before = Object.fromEntries(
+        files.map(f => [f, fs.statSync(path.join(dataDir, f)).mtimeMs]));
+
+      const res = await req(server.baseUrl, '/api/health-auto-export', {
+        method: 'POST',
+        body: CANNED_PAYLOAD,
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      });
+      assert.equal(res.status, 200);
+      await new Promise(r => setTimeout(r, 300));
+
+      for (const f of files) {
+        assert.equal(fs.statSync(path.join(dataDir, f)).mtimeMs, before[f],
+          `${f} mtime changed: an HAE push must not rewrite manifest files`);
+      }
+
+      const rawDir = path.join(dataDir, 'auto-export', 'raw');
+      const strays = fs.readdirSync(rawDir).filter(f => f.endsWith('.tmp'));
+      assert.deepEqual(strays, [], 'raw archive write left a .tmp behind');
+    });
+
     test('re-POSTing same date overwrites only that date', async () => {
       const second = {
         data: {

@@ -999,7 +999,11 @@ const server = http.createServer(async (req, res) => {
         try { fs.mkdirSync(rawDir, { recursive: true }); } catch {}
         const stamp = new Date().toISOString().replace(/[:.]/g, '');
         const rawFile = path.join(rawDir, `${stamp}.json`);
-        try { fs.writeFileSync(rawFile, body); } catch (e) {
+        try {
+          const tmp = `${rawFile}.tmp`;
+          fs.writeFileSync(tmp, body);
+          fs.renameSync(tmp, rawFile);
+        } catch (e) {
           console.error('[hae] failed to archive raw payload:', e.message);
         }
 
