@@ -77,6 +77,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Card-data migration + dump tooling** (`scripts/migrate-data-to-db.js`,
+  `scripts/dump-card-data.js`). The server self-migrates on boot (the
+  import inbox runs in `registry.init()`); the migrate script is the
+  operator-grade wrapper for pre-checks and rollback drills. `--dry-run`
+  round-trips every card's inline data through the shape kernel and
+  reports per-card row counts and skipped files, writing nothing; the
+  default run imports, strips, and verifies the datastore serves a value
+  deep-equal to what each file held, exiting non-zero on any mismatch,
+  and is idempotent. `dump-card-data.js` captures every card's
+  API-visible data to a directory (one file per card) and diffs two
+  dumps, so a storage change can be proven lossless with deep-equal
+  before/after snapshots. Rollback is documented in the script header:
+  restore the `.pre-import-*` backups and delete `db/`. Refs #494.
+
 - **Datastore import inbox** (`lib/datastore/import.js`). A manifest
   file carrying a `data` key gets that block imported into the
   datastore and stripped from the file, with a timestamped
