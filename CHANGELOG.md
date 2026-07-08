@@ -38,6 +38,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Embedded datastore module** (`lib/datastore/index.js`). Memory-first,
+  SQLite-durable store for card data rows at `$HEALTH_HOME/db/klebb.db`
+  via `node:sqlite` (WAL, `synchronous=NORMAL`, fully synchronous API).
+  Reads serve the same live in-memory reference the write stored,
+  matching the registry cache's aliasing semantics exactly; every
+  mutation is one transaction (prepared insert per row, full replace
+  per card), so a mid-write throw rolls back to the prior state,
+  verified by test. Rows persist decomposed through the shape kernel
+  with reserved storage channels that user keys cannot collide with,
+  and a bookkeeping table preserves `data: null` versus absent
+  alongside per-card update timestamps. Nothing consumes it yet; the
+  registry swap is a later change. Refs #494.
+
 - **Datastore shape kernel** (`lib/datastore/shape.js`). Pure, lossless
   decompose/reconstruct mapping between any card data value and flat
   row containers: arrays become one `rows` container, objects split
