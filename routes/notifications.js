@@ -15,6 +15,7 @@
 // the operator's account.
 
 const ENV = require('../config/env');
+const { originAllowed } = require('../lib/origin-check');
 const vapid = require('../lib/vapid');
 const subs = require('../lib/push-subscriptions');
 const stateStore = require('../lib/notifications-state');
@@ -45,12 +46,7 @@ function _readBody(req) {
 // cross-subdomain fetches. Reject any state-changing request whose
 // Origin doesn't match the configured public origin.
 function _checkOrigin(req, res) {
-  const origin = req.headers.origin;
-  if (origin && origin === ENV.WEBAUTHN_ORIGIN) return true;
-  // Same-host requests with no Origin header (e.g. curl from the
-  // operator) are allowed: they can't have ridden a CSRF, and the
-  // operator deliberately turning off Origin is their call.
-  if (!origin) return true;
+  if (originAllowed(req)) return true;
   _send(res, 403, { error: 'origin not allowed' });
   return false;
 }

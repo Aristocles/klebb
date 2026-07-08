@@ -24,6 +24,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Security
 
+- **`POST /api/feedback` now checks the Origin allowlist.** The
+  feedback endpoint was session-gated but skipped the same-site origin
+  check the notification POSTs enforce, so a page on a sibling
+  subdomain could append junk lines to `feedback.jsonl` riding the
+  session cookie (SameSite=Lax does not block same-eTLD+1 fetches).
+  The allowlist predicate now lives in `lib/origin-check.js`, shared
+  by both surfaces, and cross-origin posts get the same 403. Closes
+  the auth/origin-parity criterion from #417.
+
 - **Auth-surface hardening.** Admin and agent bearer tokens are compared
   in constant time (hash-then-`timingSafeEqual`); invite codes carry 64
   bits of randomness (up from 32); the admin invite endpoint shapes
