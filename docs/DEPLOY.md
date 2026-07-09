@@ -508,12 +508,42 @@ so recent writes may sit in the `klebb.db-wal` sidecar rather than the
 main `klebb.db` file. A raw copy of `klebb.db` alone can miss them. Copy
 the whole `db/` directory together (main file plus `-wal`/`-shm`), or
 stop the server / take the snapshot at rest. The blessed portable path
-is `scripts/export-embed.js` (added later in this migration), which
-materialises card files with their data re-embedded so a copy round-trips
-cleanly regardless of WAL state.
+is the portable export below, which materialises card files with their
+data re-embedded so a copy round-trips cleanly regardless of WAL state.
+
+### Portable export
+
+```bash
+npm run export -- /path/to/export-dir
+# or directly:
+node scripts/export-embed.js /path/to/export-dir
+```
+
+Writes a portable copy of the instance: every card manifest with its
+`data` block re-embedded from the datastore, non-card data files
+(`info/`, `auto-export/` state), `reports/`, and `config.json`. Drop the
+tree into a fresh `$HEALTH_HOME`, start the server, and the boot import
+ingests each card's data block: drop a file, a card appears, with its
+history.
+
+What it deliberately leaves out:
+
+- `credentials/`, `sessions/`, `keys/`, `push-subscriptions.json`,
+  `notifications.state.json` and `db/` are never copied. The exported
+  card files carry the data, so the raw DB isn't needed, and a fresh
+  instance mints its own auth state.
+- The HAE ingest token and invite codes are stripped from the exported
+  `config.json`. Pass `--include-secrets` to keep them (for a personal
+  full-fidelity copy, not for sharing).
+- `data/auto-export/raw/` (the raw ingest archive, typically large) is
+  skipped. Pass `--include-raw` to include it.
+
+The target directory must be empty (or absent), and safe from being
+swept into the export itself: the script refuses a target inside
+`$HEALTH_HOME/data/`.
 
 **Never include any of the credentials/sessions/keys/push-subscriptions
 files in a user-facing export.** If you build an "export my data"
-feature, it should walk `data/` and `reports/` only, never the
-sensitive files above. The `notifications.state.json` ring buffer
-also leaks subscription ids and recent fire metadata, so exclude it.
+feature on top of Klebb, use `scripts/export-embed.js` or mirror its
+exclusions. The `notifications.state.json` ring buffer also leaks
+subscription ids and recent fire metadata, so exclude it.

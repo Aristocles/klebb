@@ -9,6 +9,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Portable export.** `npm run export -- <dir>`
+  (`scripts/export-embed.js`) writes a portable copy of the instance:
+  every card manifest with its `data` block re-embedded from the
+  datastore, plus reports, non-card data files, and a secrets-stripped
+  `config.json` (HAE ingest token and invite codes excluded;
+  `--include-secrets` keeps them, `--include-raw` adds the raw ingest
+  archive). Credentials, sessions, keys, and `db/` are never copied.
+  Dropped into a fresh `$HEALTH_HOME`, the tree round-trips losslessly
+  via the boot import: cards reappear with their history, including
+  null-data vs no-data distinctions. See docs/DEPLOY.md "Portable
+  export". Fixes #497.
 - **Orphaned-data report + field renames.** Removing a manifest field has
   never deleted data (rows keep every key); now that's visible and
   manageable. `GET /api/manifests/:id/orphans` lists a card's stored row
