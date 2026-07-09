@@ -13,8 +13,9 @@ A demo instance behaves differently from a normal Klebb deployment:
 - **Chat is a canned reply.** No outbound HTTP to any LLM gateway.
 - **Card-hide is locked.** Visitors can't permanently hide cards.
 - **An hourly reset rolls the dataset forward.** A cron job re-runs
-  `scripts/reset-demo.js` against the bind-mounted data directory so
-  the dashboard always looks like it was updated this week.
+  `scripts/reset-demo.js` against the bind-mounted data directory and
+  then restarts the container, so the dashboard always looks like it
+  was updated this week.
 
 The demo mode is gated by a single env var: `KLEBB_DEMO=1`. A normal
 production instance never sets this; the safety wiring inside
@@ -128,11 +129,17 @@ so you can seed straight from inside the running container:
 docker exec --user root \
   -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=Australia/Sydney \
   klebb-demo node /app/scripts/reset-demo.js
+docker restart klebb-demo
 ```
 
-This wipes any JSON in `/data/data/` and any markdown in
-`/data/reports/`, then copies the curated fixture set over and
-rewrites `__OFFSET_DAYS:N__` placeholders against today.
+This wipes any JSON in `/data/data/`, the datastore in `/data/db/`,
+and any markdown in `/data/reports/`, then copies the curated fixture
+set over and rewrites `__OFFSET_DAYS:N__` placeholders against today.
+
+The restart matters: card data lives in the datastore, and the running
+server holds it in memory. The fixtures ship with inline `data` blocks,
+so the reboot imports them into a fresh store; without the restart the
+dashboard keeps serving the pre-reset rows.
 
 `TZ` matters: the script anchors `__OFFSET_DAYS:0__` to the
 container's local calendar date. The image has no `TZ` baked in, so
@@ -160,7 +167,12 @@ fi
 docker exec --user root \
   -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=Australia/Sydney \
   klebb-demo node /app/scripts/reset-demo.js
+docker restart klebb-demo
 ```
+
+The restart re-imports the fixtures' inline data into a fresh
+datastore (a few seconds of downtime at the top of the hour is fine
+for a demo).
 
 ```bash
 chmod +x /usr/local/bin/klebb-demo-reset.sh
@@ -194,6 +206,7 @@ docker compose up -d
 docker exec --user root \
   -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=Australia/Sydney \
   klebb-demo node /app/scripts/reset-demo.js
+docker restart klebb-demo
 ```
 
 Image tag must match the compose file. `latest` is also published but
@@ -208,8 +221,8 @@ explicit version pinning is recommended for visibility.
    SSHes to the demo host, and the host's forced-command runs
    `/usr/local/bin/klebb-demo-deploy`.
 4. That script does `docker compose pull && up -d`, waits for the
-   container to be healthy, then runs `reset-demo.js` so any new
-   fixtures land immediately.
+   container to be healthy, then runs `reset-demo.js` and restarts the
+   container so any new fixtures land immediately.
 
 The deploy key is constrained on the host with a `command="..."`
 forced-command and `restrict` flags in `~/.ssh/authorized_keys`, so
@@ -244,6 +257,7 @@ workflow will fail noisily.
 | Reset script: "refuses to run without KLEBB_DEMO=1" | The cron is wired correctly; the `.env` for the running container does not have `KLEBB_DEMO=1`. Add it and `docker compose up -d` to recreate. |
 | Visitors see the passkey prompt instead of "Enter the demo" | `KLEBB_DEMO=1` not set in the environment of the running container. Confirm with `docker inspect klebb-demo \| grep -i klebb_demo`. |
 | Cards don't show fresh dates | First check the cron is firing: `tail /var/log/klebb-demo-reset.log` and `systemctl status cron`. If it is firing but the newest dates lag the visitor's calendar by a day, the `docker exec` is missing `-e TZ=<your-zone>`; the script anchors to the container's local TZ, which defaults to UTC. |
+| Reset ran but the dashboard shows the old data | The reset script must be followed by `docker restart klebb-demo`: card data is served from the datastore held in server memory, and the fixtures' inline data only imports on boot. Check the reset wrapper includes the restart. |
 
 ## What the demo does NOT do
 

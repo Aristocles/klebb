@@ -245,7 +245,7 @@ const TOOL_DEFS = [
     function: {
       name: 'get_recent_activity',
       description:
-        "Get a one-pass recency summary of EVERY card without reading each one. Returns {cards:[{id, label, renderer, rowCount, lastEntryDate, ageDays, lastNDelta, staleSource}]}. Use this FIRST when the user asks anything about how their tracking is going, what is stale or untouched, what changed recently, or before suggesting a new card (so you reuse the conventions of sibling cards). `ageDays` is days since the newest entry; when a card has no dated rows it falls back to the file modification time (staleSource:'mtime') so you still get a freshness hint. `lastNDelta` is a best-effort last-minus-previous value when a card has one obvious numeric field; treat it as a hint, not a computed trend. Cheaper and faster than calling read_manifest on each card.",
+        "Get a one-pass recency summary of EVERY card without reading each one. Returns {cards:[{id, label, renderer, rowCount, lastEntryDate, ageDays, lastNDelta, staleSource}]}. Use this FIRST when the user asks anything about how their tracking is going, what is stale or untouched, what changed recently, or before suggesting a new card (so you reuse the conventions of sibling cards). `ageDays` is days since the newest entry; when a card has no dated rows it falls back to the last data write (staleSource:'updatedAt'), then the manifest file's modification time (staleSource:'mtime'), so you still get a freshness hint. `lastNDelta` is a best-effort last-minus-previous value when a card has one obvious numeric field; treat it as a hint, not a computed trend. Cheaper and faster than calling read_manifest on each card.",
       parameters: {
         type: 'object',
         properties: {},

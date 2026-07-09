@@ -2,9 +2,17 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // scripts/reset-demo.js
 //
-// Wipes $HEALTH_HOME/data/ for the public demo and restores the
-// curated dataset from demo/fixtures/. Resolves `__OFFSET_DAYS:N__`
-// placeholders against today so the dashboard always looks current.
+// Wipes $HEALTH_HOME/data/ and the datastore at $HEALTH_HOME/db/ for
+// the public demo and restores the curated dataset from demo/fixtures/.
+// Resolves `__OFFSET_DAYS:N__` placeholders against today so the
+// dashboard always looks current.
+//
+// The db wipe is what makes the reset complete: card rows live in the
+// datastore, so deleting card files alone would leave every wiped
+// card's rows ghosting in the DB (and resurfacing if the id is ever
+// re-created without data). Fixtures ship WITH inline data, so the
+// import inbox repopulates the store on the next boot — which is why
+// a running demo container must be restarted after this script runs.
 //
 // Refuses to run unless KLEBB_DEMO=1: never invoke this against a
 // real instance.
@@ -82,6 +90,23 @@ function wipeDataDir(dataDir) {
   return removed;
 }
 
+// Remove the datastore so no rows from wiped cards survive the reset.
+// Files are unlinked, not the dir itself: on Linux a running server keeps
+// writing harmlessly to the unlinked inode until the post-reset restart
+// boots a fresh store and the fixture files' inline data re-imports.
+function wipeDbDir(dbDir) {
+  if (!fs.existsSync(dbDir)) return [];
+  const removed = [];
+  for (const entry of fs.readdirSync(dbDir)) {
+    const full = path.join(dbDir, entry);
+    if (fs.statSync(full).isFile()) {
+      fs.unlinkSync(full);
+      removed.push(entry);
+    }
+  }
+  return removed;
+}
+
 function copyFixtures({ dataDir, fixturesDir = FIXTURES_DIR, today = new Date() } = {}) {
   fs.mkdirSync(dataDir, { recursive: true });
   const written = [];
@@ -144,9 +169,19 @@ function resolveReportsDir() {
   return path.join(home, 'reports');
 }
 
+function resolveDbDir() {
+  // Same non-memoised mirroring as resolveReportsDir, for $HEALTH_HOME/db/.
+  if (process.env.HEALTH_DB_DIR) return process.env.HEALTH_DB_DIR;
+  const home = process.env.HEALTH_HOME && process.env.HEALTH_HOME.trim()
+    ? path.resolve(process.env.HEALTH_HOME)
+    : PATHS.HEALTH_HOME;
+  return path.join(home, 'db');
+}
+
 function resetDemo({
   dataDir = PATHS.DATA_DIR,
   reportsDir = resolveReportsDir(),
+  dbDir = resolveDbDir(),
   fixturesDir = FIXTURES_DIR,
   reportsFixturesDir = REPORTS_FIXTURES_DIR,
   today = new Date(),
@@ -155,10 +190,11 @@ function resetDemo({
     throw new Error('reset-demo refuses to run without KLEBB_DEMO=1');
   }
   const removed = wipeDataDir(dataDir);
+  const dbRemoved = wipeDbDir(dbDir);
   const written = copyFixtures({ dataDir, fixturesDir, today });
   const reportsRemoved = wipeReportsDir(reportsDir);
   const reportsWritten = copyReportFixtures({ reportsDir, fixturesDir: reportsFixturesDir, today });
-  return { dataDir, removed, written, reportsDir, reportsRemoved, reportsWritten };
+  return { dataDir, removed, written, dbDir, dbRemoved, reportsDir, reportsRemoved, reportsWritten };
 }
 
 if (require.main === module) {
@@ -167,6 +203,9 @@ if (require.main === module) {
     console.log(`[reset-demo] data dir: ${result.dataDir}`);
     if (result.removed.length) {
       console.log(`[reset-demo] removed ${result.removed.length} existing data file(s)`);
+    }
+    if (result.dbRemoved.length) {
+      console.log(`[reset-demo] removed ${result.dbRemoved.length} datastore file(s) from ${result.dbDir}`);
     }
     for (const name of result.written) {
       console.log(`[reset-demo] restored ${name}`);
@@ -179,6 +218,7 @@ if (require.main === module) {
       console.log(`[reset-demo] restored report ${name}`);
     }
     console.log(`[reset-demo] done: ${result.written.length} fixture(s) and ${result.reportsWritten.length} report(s) restored`);
+    console.log('[reset-demo] restart the container/service now: fixture data re-imports into a fresh datastore on boot');
     process.exit(0);
   } catch (e) {
     console.error(`[reset-demo] ${e.message}`);
@@ -194,6 +234,7 @@ module.exports = {
   listFixtures,
   listReportFixtures,
   wipeDataDir,
+  wipeDbDir,
   wipeReportsDir,
   copyFixtures,
   copyReportFixtures,

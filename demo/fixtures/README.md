@@ -47,18 +47,20 @@ not supported. Pick one shape per fixture and stick with it.
 
 ## Resetting
 
-`scripts/reset-demo.js` wipes `$HEALTH_HOME/data/` and
-`$HEALTH_HOME/reports/`, then copies every JSON manifest from this
-directory into the data dir and every markdown report from
-`reports/` into the reports dir, rewriting every offset placeholder
-against the current date along the way. It refuses to run unless
-`KLEBB_DEMO=1` is set so it can never be invoked against a real
-instance by accident.
+`scripts/reset-demo.js` wipes `$HEALTH_HOME/data/`, the datastore in
+`$HEALTH_HOME/db/`, and `$HEALTH_HOME/reports/`, then copies every
+JSON manifest from this directory into the data dir and every
+markdown report from `reports/` into the reports dir, rewriting every
+offset placeholder against the current date along the way. It refuses
+to run unless `KLEBB_DEMO=1` is set so it can never be invoked against
+a real instance by accident.
 
 ```
 KLEBB_DEMO=1 HEALTH_HOME=/srv/klebb-demo node scripts/reset-demo.js
 ```
 
-Hook this into a cron / systemd timer / docker-compose `restart`
-policy on the demo host so the dashboard always looks like it was
-updated this week.
+Restart the server/container after the script: the fixtures carry
+inline `data` blocks that import into a fresh datastore on boot, and a
+running server would otherwise keep serving the pre-reset rows from
+memory. Hook script + restart into a cron / systemd timer on the demo
+host so the dashboard always looks like it was updated this week.
