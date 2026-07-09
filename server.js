@@ -33,6 +33,7 @@ const userTz = require('./lib/user-tz');
 const feedback = require('./lib/feedback');
 const { originAllowed } = require('./lib/origin-check');
 const { ambientStaleness } = require('./chat/hygiene');
+const { orphanReport } = require('./lib/datastore/fields');
 const hygieneState = require('./lib/hygiene-state');
 const notificationsState = require('./lib/notifications-state');
 const notificationsScheduler = require('./lib/notifications-scheduler');
@@ -731,6 +732,14 @@ const server = http.createServer(async (req, res) => {
       const entry = registry.get(parts[1]);
       if (!entry) return send404(res, 'manifest not found');
       return sendJSON(res, { data: entry.data });
+    }
+
+    // GET /api/manifests/:id/orphans — stored row keys nothing in the
+    // manifest references. Drives the Settings gear's orphan section.
+    if (parts[0] === 'manifests' && parts.length === 3 && parts[2] === 'orphans' && req.method === 'GET') {
+      const report = orphanReport(registry, parts[1]);
+      if (report.error) return send404(res, report.error);
+      return sendJSON(res, report);
     }
 
     // POST /api/manifests/:id/data — full rewrite (honours meta.writeable.fromWebapp)
