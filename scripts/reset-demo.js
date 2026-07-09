@@ -2,17 +2,24 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // scripts/reset-demo.js
 //
-// Wipes $HEALTH_HOME/data/ and the datastore at $HEALTH_HOME/db/ for
-// the public demo and restores the curated dataset from demo/fixtures/.
-// Resolves `__OFFSET_DAYS:N__` placeholders against today so the
-// dashboard always looks current.
+// Wipes $HEALTH_HOME/data/ (and, with --wipe-db, the datastore at
+// $HEALTH_HOME/db/) for the public demo and restores the curated
+// dataset from demo/fixtures/. Resolves `__OFFSET_DAYS:N__`
+// placeholders against today so the dashboard always looks current.
 //
-// The db wipe is what makes the reset complete: card rows live in the
-// datastore, so deleting card files alone would leave every wiped
-// card's rows ghosting in the DB (and resurfacing if the id is ever
-// re-created without data). Fixtures ship WITH inline data, so the
-// import inbox repopulates the store on the next boot — which is why
-// a running demo container must be restarted after this script runs.
+// Two supported flows:
+//
+// - Live server (no --wipe-db): the server's fs.watch reload imports
+//   each rewritten fixture's inline data into the datastore (full
+//   replace per card) within a second. Rows of cards REMOVED from the
+//   fixture set linger in the DB but are never served (their manifests
+//   are gone); they are cleaned up by the next --wipe-db reset.
+// - Stopped server (--wipe-db): also clears the datastore files so no
+//   stale rows survive at all; the next boot imports the fixtures'
+//   inline data into a fresh store. NEVER pass --wipe-db while the
+//   server is running: its watch reload would import the fixtures into
+//   the deleted (unlinked) DB and strip the files, so the next boot
+//   would come up empty.
 //
 // Refuses to run unless KLEBB_DEMO=1: never invoke this against a
 // real instance.
@@ -185,12 +192,13 @@ function resetDemo({
   fixturesDir = FIXTURES_DIR,
   reportsFixturesDir = REPORTS_FIXTURES_DIR,
   today = new Date(),
+  wipeDb = false,
 } = {}) {
   if (process.env.KLEBB_DEMO !== '1') {
     throw new Error('reset-demo refuses to run without KLEBB_DEMO=1');
   }
   const removed = wipeDataDir(dataDir);
-  const dbRemoved = wipeDbDir(dbDir);
+  const dbRemoved = wipeDb ? wipeDbDir(dbDir) : [];
   const written = copyFixtures({ dataDir, fixturesDir, today });
   const reportsRemoved = wipeReportsDir(reportsDir);
   const reportsWritten = copyReportFixtures({ reportsDir, fixturesDir: reportsFixturesDir, today });
@@ -199,7 +207,7 @@ function resetDemo({
 
 if (require.main === module) {
   try {
-    const result = resetDemo();
+    const result = resetDemo({ wipeDb: process.argv.includes('--wipe-db') });
     console.log(`[reset-demo] data dir: ${result.dataDir}`);
     if (result.removed.length) {
       console.log(`[reset-demo] removed ${result.removed.length} existing data file(s)`);
@@ -218,7 +226,9 @@ if (require.main === module) {
       console.log(`[reset-demo] restored report ${name}`);
     }
     console.log(`[reset-demo] done: ${result.written.length} fixture(s) and ${result.reportsWritten.length} report(s) restored`);
-    console.log('[reset-demo] restart the container/service now: fixture data re-imports into a fresh datastore on boot');
+    if (process.argv.includes('--wipe-db')) {
+      console.log('[reset-demo] datastore wiped: start the server now; fixture data re-imports on boot');
+    }
     process.exit(0);
   } catch (e) {
     console.error(`[reset-demo] ${e.message}`);

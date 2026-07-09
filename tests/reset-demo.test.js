@@ -178,7 +178,7 @@ describe('reset-demo: resetDemo()', () => {
     }
   });
 
-  test('wipes the datastore files so wiped cards cannot ghost rows', () => {
+  test('wipeDb: true clears the datastore files so wiped cards cannot ghost rows', () => {
     const dir = tmpDir();
     const reportsDir = tmpDir();
     const dbDir = tmpDir();
@@ -187,10 +187,31 @@ describe('reset-demo: resetDemo()', () => {
     const orig = process.env.KLEBB_DEMO;
     process.env.KLEBB_DEMO = '1';
     try {
-      const result = resetDemo({ dataDir: dir, reportsDir, dbDir });
+      const result = resetDemo({ dataDir: dir, reportsDir, dbDir, wipeDb: true });
       assert.deepEqual(result.dbRemoved.sort(), ['klebb.db', 'klebb.db-wal']);
       assert.ok(!fs.existsSync(path.join(dbDir, 'klebb.db')), 'db file should be gone');
       assert.ok(fs.existsSync(dbDir), 'db dir itself should survive');
+    } finally {
+      if (orig === undefined) delete process.env.KLEBB_DEMO;
+      else process.env.KLEBB_DEMO = orig;
+      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(reportsDir, { recursive: true, force: true });
+      fs.rmSync(dbDir, { recursive: true, force: true });
+    }
+  });
+
+  test('default (live-server flow) leaves the datastore alone', () => {
+    const dir = tmpDir();
+    const reportsDir = tmpDir();
+    const dbDir = tmpDir();
+    fs.writeFileSync(path.join(dbDir, 'klebb.db'), 'live');
+    const orig = process.env.KLEBB_DEMO;
+    process.env.KLEBB_DEMO = '1';
+    try {
+      const result = resetDemo({ dataDir: dir, reportsDir, dbDir });
+      assert.deepEqual(result.dbRemoved, []);
+      assert.ok(fs.existsSync(path.join(dbDir, 'klebb.db')),
+        'a live server\'s open DB must not be unlinked by default');
     } finally {
       if (orig === undefined) delete process.env.KLEBB_DEMO;
       else process.env.KLEBB_DEMO = orig;

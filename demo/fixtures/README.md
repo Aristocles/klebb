@@ -47,20 +47,26 @@ not supported. Pick one shape per fixture and stick with it.
 
 ## Resetting
 
-`scripts/reset-demo.js` wipes `$HEALTH_HOME/data/`, the datastore in
-`$HEALTH_HOME/db/`, and `$HEALTH_HOME/reports/`, then copies every
-JSON manifest from this directory into the data dir and every
-markdown report from `reports/` into the reports dir, rewriting every
-offset placeholder against the current date along the way. It refuses
-to run unless `KLEBB_DEMO=1` is set so it can never be invoked against
-a real instance by accident.
+`scripts/reset-demo.js` wipes `$HEALTH_HOME/data/` and
+`$HEALTH_HOME/reports/`, then copies every JSON manifest from this
+directory into the data dir and every markdown report from
+`reports/` into the reports dir, rewriting every offset placeholder
+against the current date along the way. A running server's file
+watcher imports each fixture's inline `data` block into the datastore
+within a second, so no restart is needed. The script refuses to run
+unless `KLEBB_DEMO=1` is set so it can never be invoked against a
+real instance by accident.
 
 ```
 KLEBB_DEMO=1 HEALTH_HOME=/srv/klebb-demo node scripts/reset-demo.js
 ```
 
-Restart the server/container after the script: the fixtures carry
-inline `data` blocks that import into a fresh datastore on boot, and a
-running server would otherwise keep serving the pre-reset rows from
-memory. Hook script + restart into a cron / systemd timer on the demo
-host so the dashboard always looks like it was updated this week.
+Hook this into a cron / systemd timer on the demo host so the
+dashboard always looks like it was updated this week.
+
+Rows of cards *removed* from the fixture set linger in the datastore
+(never served: their manifests are gone). To purge them, stop the
+server, run the script with `--wipe-db`, and start it again; the boot
+import repopulates the store from the fixtures. Never `--wipe-db`
+under a running server: its reload would import into the deleted DB
+file and the next boot would come up empty.

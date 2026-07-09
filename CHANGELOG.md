@@ -17,13 +17,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   (`staleSource:'updatedAt'`) and only then falls back to file mtime
   (meta edits). Refs #494.
 
-- **Demo reset wipes the datastore and requires a restart.**
-  `scripts/reset-demo.js` now clears `$HEALTH_HOME/db/` alongside the
-  data and reports dirs, so rows from wiped cards can't ghost across
-  resets. The reset must be followed by a service/container restart:
-  fixtures carry inline `data` blocks that re-import into a fresh store
-  on boot. docs/DEMO.md's cron and deploy recipes updated to match.
-  Refs #494.
+- **Demo reset gains a `--wipe-db` flag.** The live-server reset flow
+  is unchanged (the file watcher imports the rewritten fixtures' inline
+  data within a second), but rows of cards removed from the fixture set
+  linger in the datastore. `scripts/reset-demo.js --wipe-db`, run while
+  the server is stopped, also clears `$HEALTH_HOME/db/` so the next
+  boot imports into a fresh store. docs/DEMO.md documents both flows
+  and why `--wipe-db` must never run under a live server. Refs #494.
 
 - **`verify-install.sh` understands meta-only card files.** A file
   without a `data` key now passes as healthy (that is the migrated
