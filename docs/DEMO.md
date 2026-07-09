@@ -12,7 +12,7 @@ A demo instance behaves differently from a normal Klebb deployment:
   410 Gone.
 - **Chat is a canned reply.** No outbound HTTP to any LLM gateway.
 - **Card-hide is locked.** Visitors can't permanently hide cards.
-- **An hourly reset rolls the dataset forward.** A cron job re-runs
+- **A scheduled reset rolls the dataset forward.** A cron job re-runs
   `scripts/reset-demo.js` against the bind-mounted data directory so
   the dashboard always looks like it was updated this week.
 
@@ -132,7 +132,27 @@ docker exec --user root \
 
 This wipes any JSON in `/data/data/` and any markdown in
 `/data/reports/`, then copies the curated fixture set over and
-rewrites `__OFFSET_DAYS:N__` placeholders against today.
+rewrites `__OFFSET_DAYS:N__` placeholders against today. The running
+server's file watcher imports each fixture's inline `data` block into
+the datastore (full replace per card) within a second; no restart is
+needed.
+
+Rows of cards *removed* from the fixture set linger in the datastore
+but are never served (their manifests are gone). To purge them
+completely, stop the container and run the reset with `--wipe-db`,
+then start it again:
+
+```bash
+docker stop klebb-demo
+docker run --rm --volumes-from klebb-demo \
+  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=Australia/Sydney \
+  ghcr.io/aristocles/klebb:main node /app/scripts/reset-demo.js --wipe-db
+docker start klebb-demo
+```
+
+Never pass `--wipe-db` while the server is running: its watch reload
+would import the fixtures into the just-deleted DB file and strip
+them, so the next boot would come up empty.
 
 `TZ` matters: the script anchors `__OFFSET_DAYS:0__` to the
 container's local calendar date. The image has no `TZ` baked in, so
@@ -157,10 +177,20 @@ if ! docker ps --format '{{.Names}}' | grep -q '^klebb-demo$'; then
   exit 0
 fi
 
-docker exec --user root \
+docker stop klebb-demo
+docker run --rm --volumes-from klebb-demo \
   -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=Australia/Sydney \
-  klebb-demo node /app/scripts/reset-demo.js
+  ghcr.io/aristocles/klebb:main node /app/scripts/reset-demo.js --wipe-db
+docker start klebb-demo
 ```
+
+The stop/start sandwich matters. `--wipe-db` clears the datastore so
+rows from cards dropped from the fixture set can't linger, and the
+fresh boot imports every fixture's inline data into the new store. A
+few seconds of downtime per cycle is fine for a demo. (A live
+`docker exec` reset without `--wipe-db` also works and is
+zero-downtime, but it only refreshes cards still in the fixture set;
+removed cards' rows survive in the store until the next wiped reset.)
 
 ```bash
 chmod +x /usr/local/bin/klebb-demo-reset.sh
@@ -244,6 +274,9 @@ workflow will fail noisily.
 | Reset script: "refuses to run without KLEBB_DEMO=1" | The cron is wired correctly; the `.env` for the running container does not have `KLEBB_DEMO=1`. Add it and `docker compose up -d` to recreate. |
 | Visitors see the passkey prompt instead of "Enter the demo" | `KLEBB_DEMO=1` not set in the environment of the running container. Confirm with `docker inspect klebb-demo \| grep -i klebb_demo`. |
 | Cards don't show fresh dates | First check the cron is firing: `tail /var/log/klebb-demo-reset.log` and `systemctl status cron`. If it is firing but the newest dates lag the visitor's calendar by a day, the `docker exec` is missing `-e TZ=<your-zone>`; the script anchors to the container's local TZ, which defaults to UTC. |
+| Reset ran but the dashboard shows the old data | The running server imports the rewritten fixtures via its file watcher within a second or two. If the data never updates, check `docker logs klebb-demo` for import errors; a restart forces a full reload. |
+| Logs show `importing twice in one boot` after a reset | Expected on a demo: each reset re-seeds fixture files with inline data, so every cycle after the first re-imports the same card ids without a reboot. On a *non-demo* instance this warning is real and means something keeps re-adding `data` blocks. |
+| A card removed from the fixtures still shows old rows after re-creation | Stale rows linger in the datastore when a card file is wiped. Run the reset with `--wipe-db` while the container is stopped (see section 5), then start it again. |
 
 ## What the demo does NOT do
 

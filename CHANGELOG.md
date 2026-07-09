@@ -9,6 +9,27 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Staleness signals now prefer the datastore's write time.** The
+  `get_recent_activity` chat tool (and the hygiene scan built on it)
+  used the manifest file's mtime as the freshness fallback for cards
+  with no dated rows. Data writes no longer touch the manifest file, so
+  that fallback now reads the datastore's last-write timestamp first
+  (`staleSource:'updatedAt'`) and only then falls back to file mtime
+  (meta edits). Refs #494.
+
+- **Demo reset gains a `--wipe-db` flag.** The live-server reset flow
+  is unchanged (the file watcher imports the rewritten fixtures' inline
+  data within a second), but rows of cards removed from the fixture set
+  linger in the datastore. `scripts/reset-demo.js --wipe-db`, run while
+  the server is stopped, also clears `$HEALTH_HOME/db/` so the next
+  boot imports into a fresh store. docs/DEMO.md documents both flows
+  and why `--wipe-db` must never run under a live server. Refs #494.
+
+- **`verify-install.sh` understands meta-only card files.** A file
+  without a `data` key now passes as healthy (that is the migrated
+  steady state), an inline block is reported as import-inbox input, and
+  a new check reports whether the datastore file exists. Refs #494.
+
 - **HAE raw-archive writes are now atomic.** The webhook's raw payload
   archive (`data/auto-export/raw/<stamp>.json`) is written via tmp+rename,
   closing the last non-atomic write in the app: a crash mid-write can no
