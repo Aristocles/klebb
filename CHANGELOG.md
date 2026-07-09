@@ -7,6 +7,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Orphaned-data report + field renames.** Removing a manifest field has
+  never deleted data (rows keep every key); now that's visible and
+  manageable. `GET /api/manifests/:id/orphans` lists a card's stored row
+  keys that nothing in the manifest references (inputs, display template
+  tokens, trends/threshold/calendar/report fields, checkOffForm fields,
+  HAE catalogue shape, combo accessors from other cards). The card's
+  Settings gear shows an "Unreferenced data" section when the report is
+  non-empty, and the chat agent gains `orphan_report` plus a
+  user-confirmed `rename_data_field` tool that rewrites rows in one
+  transaction. `meta.data.aliases` (`{oldKey: newKey}`) marks a rename
+  without touching rows. See MANIFEST-SCHEMA.md "Removing a field
+  orphans data". Refs #494.
+
 ### Changed
 
 - **Staleness signals now prefer the datastore's write time.** The
