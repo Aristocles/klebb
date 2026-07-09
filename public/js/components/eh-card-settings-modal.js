@@ -43,6 +43,7 @@ export class EhCardSettingsModal extends LitElement {
     _busy: { state: true },
     _error: { state: true },
     _changed: { state: true },
+    _orphans: { state: true },
   };
 
   constructor() {
@@ -59,6 +60,9 @@ export class EhCardSettingsModal extends LitElement {
     // Whether any change was persisted this session (drives the view
     // refresh when the modal closes; individual saves also refresh live).
     this._changed = false;
+    // Orphaned data fields (stored keys the manifest no longer references),
+    // null until the report arrives; [] hides the section.
+    this._orphans = null;
   }
 
   static styles = css`
@@ -168,6 +172,11 @@ export class EhCardSettingsModal extends LitElement {
       color: var(--text-secondary);
     }
     .empty { font-size: 13px; color: var(--text-secondary); padding: 8px 0; }
+    code {
+      font-family: ui-monospace, monospace; font-size: 12px;
+      background: var(--bg-secondary, rgba(128,128,128,0.15));
+      padding: 1px 5px; border-radius: 4px;
+    }
     @media (prefers-reduced-motion: reduce) {
       .toggle, .toggle::after { transition: none; }
     }
@@ -179,6 +188,7 @@ export class EhCardSettingsModal extends LitElement {
     // on it. Visibility/input descriptors gate on meta alone, so most
     // cards never trigger this round-trip.
     if (this._needsData()) this._fetchData();
+    this._fetchOrphans();
   }
 
   _needsData() {
@@ -194,6 +204,17 @@ export class EhCardSettingsModal extends LitElement {
       const j = await r.json();
       this._data = j.data ?? null;
     } catch { /* availability falls back to meta-only; non-fatal */ }
+  }
+
+  async _fetchOrphans() {
+    try {
+      const r = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/orphans`, {
+        credentials: 'same-origin',
+      });
+      if (!r.ok) return;
+      const j = await r.json();
+      this._orphans = Array.isArray(j.orphans) ? j.orphans : [];
+    } catch { /* section stays hidden; non-fatal */ }
   }
 
   firstUpdated() {
@@ -334,6 +355,7 @@ export class EhCardSettingsModal extends LitElement {
 
             ${this._renderNotifications()}
             ${this._renderAdvanced()}
+            ${this._renderOrphans()}
 
             <p class="footer-note">
               There's a lot more you can do with this card.
@@ -443,6 +465,29 @@ export class EhCardSettingsModal extends LitElement {
             ></button>
           </div>
         `)}
+      </div>
+    `;
+  }
+
+  // Data fields the manifest no longer references. Read-only surface: the
+  // rows still hold these values (removing a manifest field never deletes
+  // data); fixing it is a manifest edit, which is Klebbius's job.
+  _renderOrphans() {
+    if (!Array.isArray(this._orphans) || this._orphans.length === 0) return '';
+    return html`
+      <div class="section-title">Unreferenced data</div>
+      <div class="rows">
+        <div class="row">
+          <div class="row-info">
+            <div class="row-label">${this._orphans.map(k => html`<code>${k}</code> `)}</div>
+            <div class="row-help">
+              These fields hold logged values but nothing on the card shows
+              them any more. The data is safe.
+              ${this._klebbiusLink('Ask Klebbius', 'unreferenced data fields')}
+              to bring a field back or rename it.
+            </div>
+          </div>
+        </div>
       </div>
     `;
   }

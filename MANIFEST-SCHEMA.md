@@ -1000,6 +1000,37 @@ Consequences worth knowing:
 The HTTP contract is unchanged: `GET`/`POST /api/manifests/:id/data`
 behave exactly as they did when data lived in the file.
 
+### Removing a field orphans data, never deletes it
+
+Manifest edits control what is *rendered*, not what is *stored*. Removing
+an input or a display reference from `meta` leaves every row's values in
+place; the field just stops being shown. Re-add the field (as an input or
+a template/trends reference) and the history is back.
+
+The **orphan report** lists a card's stored row keys that nothing in the
+manifest references any more:
+
+- `GET /api/manifests/:id/orphans` returns
+  `{id, orphans:[key], referenced:[key], aliases:{old:new}}`.
+- The card's Settings gear shows an "Unreferenced data" section when the
+  report is non-empty.
+- The chat agent has an `orphan_report` tool and is prompted to run it
+  after removing or renaming a manifest field.
+
+Only dated log rows are scanned. Roster items (`items[]`), category
+lists, and free documents are hand-curated content, not captured fields.
+Structural keys the renderers stamp (`date`, `added`, `takenAt`,
+`scheduledDate`, `offSchedule`, `takenDates`, …) are never orphans.
+
+**Renames** have two supported forms:
+
+- `meta.data.aliases: { "oldKey": "newKey" }` — a read-time marker. Rows
+  stay verbatim; the orphan report treats stored `oldKey` values as
+  covered by whatever references `newKey`.
+- The chat agent's `rename_data_field` tool — rewrites every row so
+  `oldKey` becomes `newKey` in one transaction (user-confirmed). Follow
+  it by updating the manifest's own references to the new key.
+
 ---
 
 ## Rules and conventions

@@ -15,6 +15,7 @@ const { buildRecentActivity } = require('./recent-activity');
 const { validateManifest } = require('./validate-manifest');
 const { appendFeedback } = require('../lib/feedback');
 const { scanHygiene } = require('./hygiene');
+const { orphanReport, renameDataField } = require('../lib/datastore/fields');
 
 // Server-local "today" (YYYY-MM-DD) in the configured TZ, matching the
 // server's todayIso(). Used for the ageDays maths in get_recent_activity.
@@ -236,6 +237,40 @@ const TOOL_DEFS = [
       parameters: {
         type: 'object',
         properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'orphan_report',
+      description:
+        "List a card's ORPHANED data fields: row keys that hold logged values but that nothing in the manifest references any more (no input, no display template token, no trend/threshold/calendar/report field, no combo accessor from another card). Rows are never deleted when a manifest field is removed — the data is still stored, just unrendered — so this report is how the user finds it again. Returns {id, orphans:[key], referenced:[key], aliases:{old:new}}. Call this after you remove or rename a manifest field (tell the user what became orphaned), or when the user asks 'is any of my data hidden/unused?'. Re-adding a field to the manifest (input or display reference) restores access; for a rename offer rename_data_field.",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Card id to report on' },
+        },
+        required: ['id'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'rename_data_field',
+      description:
+        "Rename a data field across every row of a card: from_key becomes to_key on each row that carries it, values untouched, one transactional full-replace. Use when the user renames a tracked field (e.g. kg → weight_kg) and wants history to follow the new name — after the rename, update the manifest's references (inputs, display template, trends) to the new key via patch_manifest in the same turn, or the old data goes orphaned. Refuses structural keys (date, takenAt, ...) and refuses to clobber rows that already have to_key. DESTRUCTIVE-feeling: confirm with the user EXACTLY ONCE before calling (state how the rows will change). Alternative for a lighter touch: patch meta.data.aliases {old:new} instead, which keeps rows verbatim and only affects orphan matching.",
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Card id' },
+          from_key: { type: 'string', description: 'Existing row key to rename' },
+          to_key: { type: 'string', description: 'New key name' },
+        },
+        required: ['id', 'from_key', 'to_key'],
         additionalProperties: false,
       },
     },
@@ -615,6 +650,14 @@ function dispatchToolCall(tc, ctx) {
       }
       case 'get_recent_activity': {
         return JSON.stringify({ cards: buildRecentActivity(registry, serverTodayIso()) });
+      }
+      case 'orphan_report': {
+        return JSON.stringify(orphanReport(registry, args.id));
+      }
+      case 'rename_data_field': {
+        const result = renameDataField(registry, args.id, args.from_key, args.to_key);
+        if (result.ok) recordTouch(ctx, { id: args.id, flow: 'edit' });
+        return JSON.stringify(result);
       }
       case 'hygiene_scan': {
         return JSON.stringify(scanHygiene(registry, serverTodayIso()));
