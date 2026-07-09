@@ -12,13 +12,14 @@ const { buildRecentActivity, dateFieldFor, ageInDays } = require('../chat/recent
 const { TOOL_DEFS } = require('../chat/tools');
 
 // Minimal registry stub: list() yields {id, meta}, get(id) yields {data},
-// sourceMtime(id) yields an epoch-ms or null. Mirrors the real registry's
-// shape for these three accessors only.
-function makeRegistry(cards, mtimes = {}) {
+// dataUpdatedAt(id) yields an ISO string or null, sourceMtime(id) yields an
+// epoch-ms or null. Mirrors the real registry's shape for these accessors.
+function makeRegistry(cards, mtimes = {}, updatedAts = {}) {
   const byId = new Map(cards.map(c => [c.id, c]));
   return {
     list: () => cards.map(c => ({ id: c.id, meta: c.meta || {} })),
     get: id => (byId.has(id) ? { data: byId.get(id).data } : null),
+    dataUpdatedAt: id => (id in updatedAts ? updatedAts[id] : null),
     sourceMtime: id => (id in mtimes ? mtimes[id] : null),
   };
 }
@@ -88,7 +89,20 @@ describe('recent-activity: buildRecentActivity', () => {
     assert.strictEqual(o.ageDays, 4);
   });
 
-  test('falls back to file mtime when no row date exists (staleSource mtime)', () => {
+  test('falls back to the datastore write time when no row date exists (staleSource updatedAt)', () => {
+    const reg = makeRegistry(
+      [{ id: 'notes', meta: { view: { component: 'markdown-doc' } }, data: { markdown: 'hi' } }],
+      { notes: Date.parse('2026-06-01T08:00:00Z') },
+      { notes: '2026-06-19T08:00:00.000Z' },
+    );
+    const [n] = buildRecentActivity(reg, TODAY);
+    assert.strictEqual(n.lastEntryDate, null);
+    assert.strictEqual(n.staleSource, 'updatedAt', 'dataUpdatedAt outranks mtime');
+    assert.strictEqual(n.ageDays, 5);
+    assert.strictEqual(n.rowCount, 1);
+  });
+
+  test('falls back to file mtime when the card has no data write record (staleSource mtime)', () => {
     const mtimeMs = Date.parse('2026-06-19T08:00:00Z');
     const reg = makeRegistry(
       [{ id: 'notes', meta: { view: { component: 'markdown-doc' } }, data: { markdown: 'hi' } }],

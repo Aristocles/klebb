@@ -24,6 +24,7 @@ const {
   copyFixtures,
   copyReportFixtures,
   wipeReportsDir,
+  wipeDbDir,
   FIXTURES_DIR,
   REPORTS_FIXTURES_DIR,
 } = require('../scripts/reset-demo');
@@ -132,13 +133,14 @@ describe('reset-demo: resetDemo()', () => {
   test('with KLEBB_DEMO=1: wipes existing JSON, copies all fixtures', () => {
     const dir = tmpDir();
     const reportsDir = tmpDir();
+    const dbDir = tmpDir();
     fs.writeFileSync(path.join(dir, 'stale.json'), '{"$schema":"x"}');
     fs.writeFileSync(path.join(dir, 'keep.txt'), 'not a manifest');
     const orig = process.env.KLEBB_DEMO;
     process.env.KLEBB_DEMO = '1';
     try {
       const today = new Date(2026, 4, 21);
-      const result = resetDemo({ dataDir: dir, reportsDir, today });
+      const result = resetDemo({ dataDir: dir, reportsDir, dbDir, today });
       assert.equal(result.dataDir, dir);
       assert.ok(result.removed.includes('stale.json'), 'stale.json should be removed');
       assert.ok(result.written.length >= 8, 'should write at least 8 fixtures');
@@ -176,13 +178,63 @@ describe('reset-demo: resetDemo()', () => {
     }
   });
 
-  test('written count matches the fixture count', () => {
+  test('wipeDb: true clears the datastore files so wiped cards cannot ghost rows', () => {
     const dir = tmpDir();
     const reportsDir = tmpDir();
+    const dbDir = tmpDir();
+    fs.writeFileSync(path.join(dbDir, 'klebb.db'), 'not-really-sqlite');
+    fs.writeFileSync(path.join(dbDir, 'klebb.db-wal'), 'wal');
     const orig = process.env.KLEBB_DEMO;
     process.env.KLEBB_DEMO = '1';
     try {
-      const result = resetDemo({ dataDir: dir, reportsDir });
+      const result = resetDemo({ dataDir: dir, reportsDir, dbDir, wipeDb: true });
+      assert.deepEqual(result.dbRemoved.sort(), ['klebb.db', 'klebb.db-wal']);
+      assert.ok(!fs.existsSync(path.join(dbDir, 'klebb.db')), 'db file should be gone');
+      assert.ok(fs.existsSync(dbDir), 'db dir itself should survive');
+    } finally {
+      if (orig === undefined) delete process.env.KLEBB_DEMO;
+      else process.env.KLEBB_DEMO = orig;
+      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(reportsDir, { recursive: true, force: true });
+      fs.rmSync(dbDir, { recursive: true, force: true });
+    }
+  });
+
+  test('default (live-server flow) leaves the datastore alone', () => {
+    const dir = tmpDir();
+    const reportsDir = tmpDir();
+    const dbDir = tmpDir();
+    fs.writeFileSync(path.join(dbDir, 'klebb.db'), 'live');
+    const orig = process.env.KLEBB_DEMO;
+    process.env.KLEBB_DEMO = '1';
+    try {
+      const result = resetDemo({ dataDir: dir, reportsDir, dbDir });
+      assert.deepEqual(result.dbRemoved, []);
+      assert.ok(fs.existsSync(path.join(dbDir, 'klebb.db')),
+        'a live server\'s open DB must not be unlinked by default');
+    } finally {
+      if (orig === undefined) delete process.env.KLEBB_DEMO;
+      else process.env.KLEBB_DEMO = orig;
+      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(reportsDir, { recursive: true, force: true });
+      fs.rmSync(dbDir, { recursive: true, force: true });
+    }
+  });
+
+  test('wipeDbDir on a missing dir is a no-op', () => {
+    const ghost = path.join(tmpDir(), 'never-created');
+    assert.deepEqual(wipeDbDir(ghost), []);
+    assert.ok(!fs.existsSync(ghost), 'must not create the dir');
+  });
+
+  test('written count matches the fixture count', () => {
+    const dir = tmpDir();
+    const reportsDir = tmpDir();
+    const dbDir = tmpDir();
+    const orig = process.env.KLEBB_DEMO;
+    process.env.KLEBB_DEMO = '1';
+    try {
+      const result = resetDemo({ dataDir: dir, reportsDir, dbDir });
       const fixtures = listFixtures(FIXTURES_DIR)
         .map(f => path.basename(f));
       assert.deepEqual(result.written.sort(), fixtures.sort());
@@ -191,6 +243,7 @@ describe('reset-demo: resetDemo()', () => {
       else process.env.KLEBB_DEMO = orig;
       fs.rmSync(dir, { recursive: true, force: true });
       fs.rmSync(reportsDir, { recursive: true, force: true });
+      fs.rmSync(dbDir, { recursive: true, force: true });
     }
   });
 });
@@ -263,12 +316,13 @@ describe('reset-demo: report fixtures', () => {
   test('resetDemo seeds reports/ alongside data/', () => {
     const dir = tmpDir();
     const reportsDir = tmpDir();
+    const dbDir = tmpDir();
     fs.writeFileSync(path.join(reportsDir, 'old-debrief.md'), '# old');
     const orig = process.env.KLEBB_DEMO;
     process.env.KLEBB_DEMO = '1';
     try {
       const today = new Date(2026, 4, 21);
-      const result = resetDemo({ dataDir: dir, reportsDir, today });
+      const result = resetDemo({ dataDir: dir, reportsDir, dbDir, today });
       assert.equal(result.reportsDir, reportsDir);
       assert.ok(result.reportsRemoved.includes('old-debrief.md'), 'pre-existing markdown should be wiped');
       assert.ok(result.reportsWritten.length >= 4, 'should seed at least 4 reports');
@@ -286,6 +340,7 @@ describe('reset-demo: report fixtures', () => {
       else process.env.KLEBB_DEMO = orig;
       fs.rmSync(dir, { recursive: true, force: true });
       fs.rmSync(reportsDir, { recursive: true, force: true });
+      fs.rmSync(dbDir, { recursive: true, force: true });
     }
   });
 });

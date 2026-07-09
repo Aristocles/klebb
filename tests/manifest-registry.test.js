@@ -391,6 +391,41 @@ describe('manifest registry', () => {
     }
   });
 
+  test('a data-carrying file dropped after init imports on reload (live demo-reset flow)', () => {
+    const sandbox = createSandbox({
+      seed: {
+        'weight.json': {
+          $schema: 'klebb.datafile.v1',
+          meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'generic-card' } },
+          data: [{ date: '2026-04-20', kg: 85 }],
+        },
+      },
+    });
+    try {
+      const registry = freshRegistry(sandbox);
+      registry.init();
+      assert.equal(registry.data('weight')[0].kg, 85);
+
+      // Overwrite the (now meta-only) file with a fresh inline block, the
+      // way reset-demo re-seeds fixtures under a running server.
+      const file = path.join(sandbox, 'data', 'weight.json');
+      fs.writeFileSync(file, JSON.stringify({
+        $schema: 'klebb.datafile.v1',
+        meta: { id: 'weight', label: 'Weight', view: { enabled: true, component: 'generic-card' } },
+        data: [{ date: '2026-04-27', kg: 84 }],
+      }, null, 2));
+
+      registry.reload();
+      const rows = registry.data('weight');
+      assert.equal(rows.length, 1, 'full replace, not merge');
+      assert.equal(rows[0].kg, 84, 'reload imported the re-seeded block');
+      assert.ok(!('data' in JSON.parse(fs.readFileSync(file, 'utf8'))),
+        'file stripped back to meta-only');
+    } finally {
+      cleanupSandbox(sandbox);
+    }
+  });
+
   test('error list survives reload', () => {
     const sandbox = createSandbox();
     fs.writeFileSync(path.join(sandbox, 'data', 'broken.json'), 'xxx');

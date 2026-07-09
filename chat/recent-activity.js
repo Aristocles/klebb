@@ -40,7 +40,8 @@ function ageInDays(today, then) {
 // Build the activity summary for every card the registry knows about.
 //
 // deps:
-//   registry : the manifest registry (needs list() + get(id) + sourceMtime(id))
+//   registry : the manifest registry (needs list() + get(id) +
+//              dataUpdatedAt(id) + sourceMtime(id))
 //   today    : server-local ISO date string (YYYY-MM-DD) for ageDays maths
 //
 // Returns an array (registry order) of:
@@ -50,8 +51,9 @@ function ageInDays(today, then) {
 //   - lastEntryDate is the newest per-row date, or null if the card has no
 //     dated rows (single-doc / schedule cards, or empty data)
 //   - ageDays is days since lastEntryDate; when no row date exists it falls
-//     back to the file mtime (staleSource:'mtime') so the agent still gets a
-//     freshness signal; null only when neither is available
+//     back to the datastore's last data write (staleSource:'updatedAt'),
+//     then the file mtime (staleSource:'mtime', meta edits only — data
+//     writes no longer touch the manifest file); null when none available
 //   - lastNDelta is last - previous row value when the newest two dated rows
 //     expose a single obvious numeric field; null otherwise (best-effort, the
 //     agent treats it as a hint, not a computed trend)
@@ -72,11 +74,19 @@ function buildRecentActivity(registry, today) {
     if (lastEntryDate) {
       ageDays = ageInDays(today, lastEntryDate);
       staleSource = 'rows';
-    } else if (typeof registry.sourceMtime === 'function') {
-      const mtime = registry.sourceMtime(c.id);
-      if (mtime != null) {
-        ageDays = ageInDays(today, isoFromMs(mtime));
-        staleSource = 'mtime';
+    } else {
+      const updatedAt = typeof registry.dataUpdatedAt === 'function'
+        ? registry.dataUpdatedAt(c.id)
+        : null;
+      if (updatedAt) {
+        ageDays = ageInDays(today, String(updatedAt).slice(0, 10));
+        staleSource = 'updatedAt';
+      } else if (typeof registry.sourceMtime === 'function') {
+        const mtime = registry.sourceMtime(c.id);
+        if (mtime != null) {
+          ageDays = ageInDays(today, isoFromMs(mtime));
+          staleSource = 'mtime';
+        }
       }
     }
 

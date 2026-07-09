@@ -45,7 +45,7 @@ function orphanedInputKeys(meta, data) {
 }
 
 // Build the full hygiene finding list.
-//   registry : manifest registry (list/get/sourceMtime)
+//   registry : manifest registry (list/get/dataUpdatedAt/sourceMtime)
 //   today    : server-local ISO date (YYYY-MM-DD)
 // Returns { findings: [{cardId, kind, severity, detail}] }.
 function scanHygiene(registry, today) {

@@ -104,6 +104,10 @@ else
   done
 
   # --- 5. Date-keyed object data in known ids ---
+  # Card data lives in the datastore; a healthy migrated file has no data
+  # key at all. An inline block is legal (import inbox: consumed and
+  # stripped on next boot), but a date-keyed one predates the v2 array
+  # shape and needs the migration script before import.
   for id in mood notes daily-notes; do
     f="$DATA_DIR/$id.json"
     if [[ -f "$f" ]]; then
@@ -111,22 +115,35 @@ else
 import json
 try:
   d = json.load(open('$f'))
-  data = d.get('data')
-  if isinstance(data, list): print('array')
-  elif isinstance(data, dict) and data:
-    first = next(iter(data))
-    print('date-keyed' if len(first)==10 and first[4]=='-' and first[7]=='-' else 'object')
-  elif isinstance(data, dict) and not data: print('empty-object')
-  else: print('unknown')
+  if 'data' not in d: print('meta-only')
+  else:
+    data = d.get('data')
+    if isinstance(data, list): print('array')
+    elif isinstance(data, dict) and data:
+      first = next(iter(data))
+      print('date-keyed' if len(first)==10 and first[4]=='-' and first[7]=='-' else 'object')
+    elif isinstance(data, dict) and not data: print('empty-object')
+    else: print('unknown')
 except Exception: print('error')
 " 2>/dev/null)
       case "$SHAPE" in
-        array) pass "$id.json uses array shape" ;;
+        meta-only) pass "$id.json is meta-only (data lives in the datastore)" ;;
+        array) info "$id.json carries an inline array data block (imported + stripped on next boot)" ;;
         date-keyed) warn "$id.json still uses date-keyed object shape — run: node scripts/migrate-date-keyed-to-array.js --dir $DATA_DIR" ;;
         error) warn "$id.json failed to parse" ;;
       esac
     fi
   done
+fi
+
+# --- 5b. Datastore ---
+echo ""
+echo "Datastore:"
+DB_FILE="${HEALTH_DB_FILE:-$HEALTH_HOME/db/klebb.db}"
+if [[ -f "$DB_FILE" ]]; then
+  pass "datastore present at $DB_FILE"
+else
+  info "no datastore yet — created on first boot (Node >= 22.13 required)"
 fi
 
 # --- 6. Credentials + sessions ---
