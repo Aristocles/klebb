@@ -34,7 +34,31 @@ forensic lines the tool assertions parse. Without `--log-cmd`, tool
 assertions are skipped and reply/chip/state checks still run.
 
 Other flags: `--reps N` (default 3), `--only <substr>`, `--out report.json`,
-`--list`.
+`--list`, `--model <name>` (default `sonnet-5`), `--yes`/`-y`.
+
+### Cost — this spends real money
+
+The corpus drives the **real agent against a real model**, so a full run is a
+real spend, not a free unit test. Rough shape (measured): the system prompt +
+27 tool definitions dominate each call at ~34k input tokens, and the agent
+loop makes ~2.5 model calls per conversation turn. A full 3-rep corpus is
+~220 calls: **~$15 at Sonnet, ~$38 at Opus**. A single-scenario smoke is a
+few cents.
+
+Two guards, defence-in-depth:
+
+- **Pre-run confirmation.** Before any run above ~$0.50 estimated, `run.js`
+  prints the estimate and waits for a `y/N` on the terminal. A non-interactive
+  stdin (piped, cron) does **not** auto-proceed: it aborts unless `--yes` is
+  passed. A small smoke runs without nagging.
+- **`--model`** defaults to `sonnet-5` (cheapest capable; property assertions
+  don't need Opus). It sets `CHAT_MODEL` in sandbox mode and labels the
+  estimate; in remote-instance mode the **instance's own config** picks the
+  model, so the estimate prints a note saying so — set the instance's model,
+  not this flag, to change what a remote run actually costs.
+
+The gateway's per-key budget is the hard backstop underneath both; the prompt
+is the "did you mean to" gate.
 
 Every scenario cleans up after itself: seeds, expected creations, and any
 stray card the model invented are deleted at the end (diffed against the

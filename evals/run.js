@@ -18,8 +18,17 @@
 // Options:
 //   --reps N          repetitions per scenario (default 3)
 //   --only <substr>   run only scenarios whose name contains substr
+//   --model <name>    model for the cost estimate; also sets CHAT_MODEL in
+//                     sandbox mode (default sonnet-5). In remote mode the
+//                     instance's own config picks the model; this only labels
+//                     the estimate.
+//   --yes, -y         skip the pre-run cost confirmation prompt (automation)
 //   --out <file>      write the full JSON report here
 //   --list            print scenario names and exit
+//
+// Before a run above a small cost threshold, the runner prints an estimate and
+// waits for a y/N confirmation (a real model answers, so a full run costs real
+// money). A single-scenario smoke runs without prompting.
 
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -27,6 +36,7 @@ const os = require('os');
 const path = require('path');
 const { runScenario } = require('./lib/scenario');
 const { createLogCollector } = require('./lib/toollog');
+const { estimateRun, needsConfirm, formatEstimate, DEFAULT_MODEL } = require('./lib/cost');
 
 const SCENARIOS = [
   ...require('./scenarios/happy'),
@@ -35,7 +45,7 @@ const SCENARIOS = [
 ];
 
 function parseArgs(argv) {
-  const args = { reps: 3, only: null, baseUrl: null, token: null, logCmd: null, out: null, list: false };
+  const args = { reps: 3, only: null, baseUrl: null, token: null, logCmd: null, out: null, list: false, model: DEFAULT_MODEL, yes: false };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--reps') args.reps = parseInt(argv[++i], 10);
@@ -45,15 +55,35 @@ function parseArgs(argv) {
     else if (a === '--log-cmd') args.logCmd = argv[++i];
     else if (a === '--out') args.out = argv[++i];
     else if (a === '--list') args.list = true;
+    else if (a === '--model') args.model = argv[++i];
+    else if (a === '--yes' || a === '-y') args.yes = true;
     else { console.error(`unknown arg: ${a}`); process.exit(2); }
   }
   return args;
 }
 
+// Block on a y/N prompt on the controlling TTY. Returns true only on an
+// explicit 'y'/'yes'. Any non-interactive stdin (piped, no TTY) returns false
+// so an unattended run never spends without --yes.
+function confirmPrompt(question) {
+  return new Promise((resolve) => {
+    if (!process.stdin.isTTY) { resolve(false); return; }
+    process.stdout.write(question);
+    process.stdin.setEncoding('utf8');
+    process.stdin.once('data', (d) => {
+      process.stdin.pause();
+      resolve(/^\s*y(es)?\s*$/i.test(String(d)));
+    });
+    process.stdin.resume();
+  });
+}
+
 // Spawn a sandboxed server with HEALTH_DEBUG=1, reusing the gateway config
 // from the calling environment. Mirrors tests/helpers/sandbox.js but keeps
-// the real CHAT_* env (that's the point: a real model answers).
-async function spawnSandbox() {
+// the real CHAT_* env (that's the point: a real model answers). `model`
+// overrides CHAT_MODEL so the runner's --model flag actually picks what the
+// sandbox agent talks to (remote-instance mode can't: the instance owns that).
+async function spawnSandbox(model) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'klebb-eval-'));
   const port = 20000 + Math.floor(Math.random() * 20000);
   const token = 'eval-agent-token-' + Math.random().toString(36).slice(2);
@@ -70,6 +100,7 @@ async function spawnSandbox() {
       HEALTH_HOME_WARNED: '1',
       KLEBB_SKIP_HOME_ENV: '1',
       SESSION_SECRET: 'eval-' + Math.random().toString(36).slice(2),
+      ...(model ? { CHAT_MODEL: model } : {}),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -110,6 +141,16 @@ async function main() {
   if (args.list) { list.forEach(s => console.log(s.name)); return; }
   if (list.length === 0) { console.error('no scenarios matched'); process.exit(2); }
 
+  // Spend gate: the corpus drives a real model, so show the estimated cost and
+  // require confirmation before anything spins up. A small smoke run (below the
+  // threshold) proceeds silently; a full run must be confirmed or pass --yes.
+  const est = estimateRun(list, args.reps, args.model);
+  console.log(formatEstimate(est, { remote: !!args.baseUrl }));
+  if (needsConfirm(est) && !args.yes) {
+    const ok = await confirmPrompt('Proceed with this run? [y/N] ');
+    if (!ok) { console.log('aborted (no spend). Pass --yes to skip this prompt.'); process.exit(3); }
+  }
+
   let target, cleanup = () => {};
   let collector = null;
   if (args.baseUrl) {
@@ -128,7 +169,7 @@ async function main() {
       console.error('sandbox mode needs CHAT_ENDPOINT_URL + CHAT_API_KEY (+ CHAT_MODEL) in the environment');
       process.exit(2);
     }
-    const sandbox = await spawnSandbox();
+    const sandbox = await spawnSandbox(args.model);
     target = sandbox;
     collector = sandbox.collector;
     cleanup = sandbox.kill;

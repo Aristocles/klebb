@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Eval runner cost guard.** `evals/run.js` now estimates a run's model
+  spend (call count, tokens, USD) and requires a `y/N` confirmation before
+  any run above a small threshold; a non-interactive stdin aborts rather
+  than proceeding unless `--yes` is passed. New `--model` flag (default
+  `sonnet-5`) sets `CHAT_MODEL` in sandbox mode and labels the estimate;
+  in remote-instance mode the note makes clear the instance's own config
+  picks the model. A single-scenario smoke runs without prompting. Estimate
+  maths + threshold pinned by `tests/eval-harness.test.js`. Refs #520.
+
 - **Eval corpus growth + `cardShape` assertions.** The Klebbius eval
   harness (`evals/`) gains a `features.js` scenario set covering trends,
   adherence reports, combination cards, notifications, weekly schedules,
