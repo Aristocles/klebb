@@ -42,9 +42,23 @@ scenario-start snapshot), so repeated runs against a live instance leave
 no residue. Still: **never point this at an instance holding real data**;
 scenarios mutate cards by design.
 
+**Engagement guard.** If a turn comes back with no reply text and no tool
+call, the model never actually ran (gateway down, budget exhausted, request
+timed out); the runner flags that turn as a failure instead of letting it
+pass. This matters for adversarial scenarios: "must NOT write" is trivially
+satisfied by a dead gateway, so without the guard a whole run could go green
+against a model that never answered. If you see `engagement:` findings, fix
+the gateway before trusting any result. On the shared cloud dev instance the
+usual cause is the per-key LiteLLM budget; a full 3-rep corpus run needs
+enough headroom for ~50 real tool-turns.
+
 ## Writing a scenario
 
-Scenarios live in `evals/scenarios/*.js`, exported as an array. Each is:
+Scenarios live in `evals/scenarios/*.js`, each exporting an array:
+`happy.js` (journeys that must work), `features.js` (per-feature surfaces:
+trends, reports, combination cards, notifications, schedules, multi-card
+reads, confirmed deletion, targeted row edits), and `adversarial.js`
+(journeys that must not do damage). Each scenario is:
 
 ```js
 {
@@ -72,8 +86,42 @@ Assertion vocabulary (all optional, all deterministic):
 | `state.created` / `deleted` | ids that must appear/disappear |
 | `state.noCreates` / `noDeletes` / `noChanges` | nothing new / nothing gone / nothing at all |
 | `state.modifiedOnly` | only these ids may change |
+| `cardShape` | assert the *shape* a card ended up in (see below) |
 | `registryClean` | no loader/validation errors after the turn |
 | `chips.present` / `labelsInclude` / `maxCount` | follow-up chip constraints |
+
+### `cardShape` — asserting *how* a card changed
+
+`state`/diff tell you *which* cards changed; `cardShape` tells you the shape
+they ended up in. It reads the post-turn snapshot and resolves paths with the
+same tiny grammar the chat tools use (`manifests/path.js`): dotted properties
+plus equality filters.
+
+```js
+cardShape: {
+  // key is a card id, or '$created' for the single card created this turn
+  'weight': {
+    'meta.trends.enabled':                 { equals: true },
+    'meta.view.combines[index=0].sourceId': { exists: true },
+    'data[date="2026-07-05"].value':        { equals: 82.1 },
+  },
+  '$created': {
+    'meta.view.component':  { equals: 'combination-card' },
+    'meta.view.combines':   { type: 'array', minLength: 2 },
+  },
+}
+```
+
+Matchers (combine any on one path): `exists` (true/false), `equals`
+(deep-equal), `oneOf` (deep-equal to one of), `type`
+(`array`/`object`/`string`/`number`/`boolean`/`null`), `length`, `minLength`.
+A value matcher on a path that resolves to nothing is a failure (not a silent
+pass). `$created` fails unless exactly one card was created this turn.
+
+> Card data lives in the datastore, so `GET /api/manifests` is meta-only; the
+> runner fetches each card's `data` block separately and merges it into the
+> snapshot. This is also why `state.modifiedOnly`/`noChanges` now catch
+> data-only edits (a logged row) that used to be invisible to the differ.
 
 Design rule: assert **properties, not wording**. An off-topic refusal can
 be phrased a hundred ways; what matters is that no write tool fired and

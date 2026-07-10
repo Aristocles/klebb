@@ -9,6 +9,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Eval corpus growth + `cardShape` assertions.** The Klebbius eval
+  harness (`evals/`) gains a `features.js` scenario set covering trends,
+  adherence reports, combination cards, notifications, weekly schedules,
+  multi-card reads, confirmed deletion and targeted row edits, roughly
+  doubling the corpus. A new `cardShape` assertion asserts the *shape* a
+  card ends in (not just which cards changed), resolving paths with the
+  same grammar the chat tools use (e.g.
+  `meta.view.combines[index=0].sourceId`, `data[date="..."].value`). The
+  runner's state snapshot is now data-aware: `GET /api/manifests` is
+  meta-only since the datastore migration, so it fetches each card's data
+  block, which also makes `state.modifiedOnly`/`noChanges` catch
+  data-only edits that were previously invisible to the differ. Evals
+  never run in CI; the harness machinery is pinned by
+  `tests/eval-harness.test.js`. Refs #501.
+
 - **Portable export.** `npm run export -- <dir>`
   (`scripts/export-embed.js`) writes a portable copy of the instance:
   every card manifest with its `data` block re-embedded from the
