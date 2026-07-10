@@ -30,6 +30,7 @@ const { createLogCollector } = require('./lib/toollog');
 
 const SCENARIOS = [
   ...require('./scenarios/happy'),
+  ...require('./scenarios/features'),
   ...require('./scenarios/adversarial'),
 ];
 
