@@ -11,6 +11,7 @@ const assert = require('node:assert');
 const { parseChatLog, createLogCollector } = require('../evals/lib/toollog');
 const { diffSnapshots } = require('../evals/lib/diff');
 const { evalTurn, evalCardShape } = require('../evals/lib/assert');
+const cost = require('../evals/lib/cost');
 
 describe('#498 toollog parser', () => {
   const LOG = [
@@ -262,5 +263,55 @@ describe('#501 cardShape assertion', () => {
     assert.deepEqual(evalTurn({ cardShape: { weight: { 'meta.trends.enabled': { equals: true } } } }, facts), []);
     const bad = evalTurn({ cardShape: { weight: { 'meta.trends.enabled': { equals: false } } } }, facts);
     assert.match(bad[0], /cardShape\[weight\]/);
+  });
+});
+
+describe('#520 cost estimate + confirm threshold', () => {
+  const twoTurn = [{ turns: [{}, {}] }];       // 2 turns
+  const oneTurn = [{ turns: [{}] }];           // 1 turn
+
+  test('estimate scales with turns and reps', () => {
+    const a = cost.estimateRun(twoTurn, 1, 'sonnet-5');
+    const b = cost.estimateRun(twoTurn, 3, 'sonnet-5');
+    assert.equal(a.turns, 2);
+    assert.equal(b.turns, 6);
+    assert.equal(b.calls, Math.round(6 * cost.AVG_CALLS_PER_TURN));
+    assert.ok(b.usd > a.usd);
+  });
+
+  test('sonnet is cheaper than opus for the same run', () => {
+    const s = cost.estimateRun(twoTurn, 3, 'sonnet-5');
+    const o = cost.estimateRun(twoTurn, 3, 'opus-4.7');
+    assert.ok(o.usd > s.usd);
+  });
+
+  test('priceFor resolves names and full slugs, longest key wins', () => {
+    assert.equal(cost.priceFor('anthropic/claude-sonnet-4.5').key, 'sonnet-4.5');
+    assert.equal(cost.priceFor('sonnet-5').key, 'sonnet-5');
+    assert.equal(cost.priceFor('claude-opus-4.7').key, 'opus-4.7');
+    assert.equal(cost.priceFor('some-unknown-model').key, null);
+  });
+
+  test('unknown model → null usd and always needs confirm', () => {
+    const est = cost.estimateRun(twoTurn, 3, 'mystery-model');
+    assert.equal(est.usd, null);
+    assert.equal(cost.needsConfirm(est), true);
+  });
+
+  test('a tiny smoke run does not need confirmation; a full run does', () => {
+    const smoke = cost.estimateRun(oneTurn, 1, 'sonnet-5');
+    assert.ok(smoke.usd <= cost.CONFIRM_THRESHOLD_USD, `smoke ${smoke.usd} should be under threshold`);
+    assert.equal(cost.needsConfirm(smoke), false);
+    // A realistic full corpus (24 scenarios, ~32 turns, 3 reps) is well over.
+    const full = cost.estimateRun(Array.from({ length: 24 }, () => ({ turns: [{}, {}] })), 3, 'sonnet-5');
+    assert.equal(cost.needsConfirm(full), true);
+  });
+
+  test('formatEstimate is human-readable and flags remote model ambiguity', () => {
+    const est = cost.estimateRun(twoTurn, 3, 'sonnet-5');
+    assert.match(cost.formatEstimate(est), /model calls/);
+    assert.match(cost.formatEstimate(est, { remote: true }), /instance's own model config/);
+    const unknown = cost.estimateRun(twoTurn, 3, 'mystery-model');
+    assert.match(cost.formatEstimate(unknown), /unknown \$/);
   });
 });
