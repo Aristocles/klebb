@@ -9,6 +9,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Stale-card nudge in the chat peek bar.** When `GET /api/hygiene`
+  reports high-confidence staleness, the peek bar gently swaps to a
+  dismissible nudge ("weight hasn't been updated in 34 days — tap to tidy
+  up"). Tapping seeds the chat with the finding so Klebbius can help
+  update or tidy the card; the ✕ dismisses without opening chat,
+  persisting via the existing per-card dismissal endpoint. Deferred from
+  the v3.3.0 preview (the backend shipped then). Fixes #452.
+
 - **Version in Diagnostics.** Settings > Diagnostics now shows the running
   Klebb version in the Server panel, and `GET /api/diagnostics` carries a
   `version` field (from `package.json`, read once at boot). Answers "which
