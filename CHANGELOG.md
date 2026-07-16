@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Eval judge tier.** Scenarios can carry `judge: { rubric: '...' }`; a
+  small model behind the same OpenAI-compatible gateway scores the turn's
+  reply 1–5 against the rubric (refusal politeness, redirect quality,
+  consultation encouragement, accurate create confirmations). Opt-in via
+  `JUDGE_MODEL`; self-skips without it. Scores land in the report JSON and
+  summary table as scores, never pass/fail, and never touch exit codes.
+  The judged reply is fenced as untrusted data against prompt injection.
+  Prompt assembly + score parsing pinned by deterministic tests.
+  Fixes #502.
+
 - **Post-deploy eval smoke subset.** `node evals/run.js --smoke` runs the
   five scenarios tagged `smoke: true` (create, chip chain, data log, two
   adversarial), sized for after an image publish or gateway model swap;

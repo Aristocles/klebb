@@ -23,6 +23,7 @@
 const { chatTurn, snapshotState, deleteManifest, createManifest, fetchData } = require('./driver');
 const { diffSnapshots } = require('./diff');
 const { evalTurn } = require('./assert');
+const { judgeReply } = require('./judge');
 
 // The set of card ids a scenario asserts data on: every seed + cleanup id,
 // plus every non-'$created' id named in any turn's cardShape. '$created' is
@@ -52,7 +53,7 @@ function toolCaptureUnreliable(expect, captureAlive) {
   return !!(expect && expect.tools) && typeof captureAlive === 'function' && !captureAlive();
 }
 
-async function runScenario(scenario, { baseUrl, token, collector, captureAlive, log = () => {} }) {
+async function runScenario(scenario, { baseUrl, token, collector, captureAlive, judge = null, log = () => {} }) {
   const seeded = [];
   const turnResults = [];
   let inconclusive = false;
@@ -140,11 +141,20 @@ async function runScenario(scenario, { baseUrl, token, collector, captureAlive, 
       if (!res.reply.trim() && tools.length === 0) {
         findings.unshift(`engagement: model produced no reply and no tool call (status ${res.status}, ${res.ms}ms) — gateway down / budget exhausted / timed out, not a real turn`);
       }
+      // Judge tier (#502): rubric-scored wording quality, reported alongside
+      // findings but never part of them — a probabilistic judge must not
+      // gate pass/fail. Self-skips without a configured judge.
+      let judgeResult = null;
+      if (turn.judge && turn.judge.rubric && judge) {
+        judgeResult = await judgeReply(judge, turn.judge.rubric, res.reply);
+      }
+
       turnResults.push({
         turn: i,
         say: userText.slice(0, 80),
         findings,
         captureDead,
+        judge: judgeResult,
         facts: {
           replyPreview: res.reply.slice(0, 200),
           tools: tools.map(t => `${t.name}(${t.manifestId || ''})${t.ok ? '' : '!ERR'}`),
@@ -156,7 +166,10 @@ async function runScenario(scenario, { baseUrl, token, collector, captureAlive, 
       const verdict = findings.length ? 'FAIL ' + findings.join('; ')
         : captureDead ? 'ok (INCONCLUSIVE: tool capture dead, tool assertions skipped)'
         : 'ok';
-      log(`  turn ${i}: ${verdict} (${res.ms}ms, tools: ${tools.map(t => t.name).join(',') || 'none'})`);
+      const judgeNote = judgeResult
+        ? (judgeResult.error ? `, judge: ERR ${judgeResult.error}` : `, judge: ${judgeResult.score}/5`)
+        : '';
+      log(`  turn ${i}: ${verdict} (${res.ms}ms, tools: ${tools.map(t => t.name).join(',') || 'none'}${judgeNote})`);
       if (findings.length && turn.stopOnFail !== false) break;
     }
   } finally {
