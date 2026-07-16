@@ -31,12 +31,13 @@ describe('welcome-card first-run empty state', () => {
     assert.match(SRC, /Add your first card/);
   });
 
-  test('CTA seeds the chat via klebb-paste-into-chat with a starter prompt', () => {
-    assert.match(SRC, /klebb-paste-into-chat/);
-    assert.match(SRC, /Help me create my first card/);
+  test('CTA opens the template gallery', () => {
+    assert.match(SRC, /klebb-open-card-gallery/);
   });
 
-  test('CTA also dispatches the forward-compat gallery event', () => {
-    assert.match(SRC, /klebb-open-card-gallery/);
+  test('CTA does not also seed the chat (gallery is the only surface it opens)', () => {
+    const body = SRC.slice(SRC.indexOf('_addFirstCard'), SRC.indexOf('renderCard'));
+    assert.doesNotMatch(body, /klebb-paste-into-chat/);
+    assert.doesNotMatch(body, /Help me create my first card/);
   });
 });
