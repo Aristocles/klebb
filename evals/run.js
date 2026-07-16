@@ -38,6 +38,7 @@ const os = require('os');
 const path = require('path');
 const { runScenario } = require('./lib/scenario');
 const { createLogCollector, attachLogCmd } = require('./lib/toollog');
+const { judgeConfig } = require('./lib/judge');
 const { estimateRun, needsConfirm, formatEstimate, DEFAULT_MODEL } = require('./lib/cost');
 
 const SCENARIOS = [
@@ -178,7 +179,11 @@ async function main() {
   // When there is no tool-log source, strip tool expectations so scenarios
   // degrade gracefully instead of failing on "required tool not observed".
   const stripTools = !collector;
-  const report = { startedAt: new Date().toISOString(), target: args.baseUrl || 'sandbox', reps: args.reps, scenarios: [] };
+  // Judge tier (#502): only runs when JUDGE_MODEL is set (endpoint/key
+  // default to the CHAT_* gateway env). Without it, judge turns self-skip.
+  const judge = judgeConfig();
+  if (judge) console.log(`judge: ${judge.model} via ${judge.endpoint}`);
+  const report = { startedAt: new Date().toISOString(), target: args.baseUrl || 'sandbox', reps: args.reps, judgeModel: judge ? judge.model : null, scenarios: [] };
 
   for (const scenario of list) {
     const runs = [];
@@ -188,7 +193,7 @@ async function main() {
       : scenario;
     for (let rep = 0; rep < args.reps; rep++) {
       try {
-        const result = await runScenario(effective, { ...target, collector, captureAlive, log: m => console.log(m) });
+        const result = await runScenario(effective, { ...target, collector, captureAlive, judge, log: m => console.log(m) });
         runs.push(result);
         console.log(`  rep ${rep + 1}: ${result.passed ? (result.inconclusive ? 'INCONCLUSIVE' : 'PASS') : 'FAIL'}`);
       } catch (e) {
@@ -200,15 +205,20 @@ async function main() {
     // a fail: its tool evidence is missing, so counting it either way lies.
     const passes = runs.filter(r => r.passed && !r.inconclusive).length;
     const inconclusive = runs.filter(r => r.passed && r.inconclusive).length;
-    report.scenarios.push({ name: scenario.name, passRate: `${passes}/${args.reps}`, passes, inconclusive, reps: args.reps, runs });
+    // Judge scores across reps: mean per scenario, reported as a score.
+    const scores = runs.flatMap(r => (r.turns || []).map(t => t.judge && t.judge.score).filter(s => s != null));
+    const judgeMean = scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 : null;
+    report.scenarios.push({ name: scenario.name, passRate: `${passes}/${args.reps}`, passes, inconclusive, judgeMean, reps: args.reps, runs });
   }
 
   console.log('\n================ PASS RATES ================');
   let sound = true;
   let anyInconclusive = false;
   for (const s of report.scenarios) {
-    const note = s.inconclusive ? `  (${s.inconclusive} inconclusive: tool capture dead)` : '';
-    console.log(`${s.passRate.padStart(5)}  ${s.name}${note}`);
+    const notes = [];
+    if (s.judgeMean != null) notes.push(`judge ${s.judgeMean}/5`);
+    if (s.inconclusive) notes.push(`${s.inconclusive} inconclusive: tool capture dead`);
+    console.log(`${s.passRate.padStart(5)}  ${s.name}${notes.length ? `  (${notes.join('; ')})` : ''}`);
     if (s.passes + s.inconclusive < s.reps) sound = false;
     if (s.inconclusive) anyInconclusive = true;
   }
