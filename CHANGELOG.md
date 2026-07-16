@@ -157,6 +157,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   UI already logs peptide doses through the registry write seam
   (`POST /api/manifests/:id/data`). Fixes #496.
 
+### Fixed
+
+- **Welcome card CTA no longer double-fires.** The first-run "Add your
+  first card" button opened the template gallery *and* simultaneously
+  seeded a prompt into the chat behind it, firing two competing surfaces
+  on a fresh instance's very first interaction. The chat-seed dispatch was
+  a forward-compat seam from before the gallery existed (#451); now that
+  the gallery ships, the CTA opens it and nothing else. Fixes #489.
+
 ### Added
 
 - **Card-data migration + dump tooling** (`scripts/migrate-data-to-db.js`,
