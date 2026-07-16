@@ -2,9 +2,9 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-welcome-card.js: first-run empty state shown when no user cards exist.
 // Teaches how cards come to exist (drop a JSON manifest, or ask Klebbius) and
-// offers a primary CTA that seeds the chat to build the first card. Hides
-// itself when the user creates their first card (server-side, in
-// registry.createManifest). Visibility can be restored from Settings.
+// offers a primary CTA that opens the template gallery. Hides itself when the
+// user creates their first card (server-side, in registry.createManifest).
+// Visibility can be restored from Settings.
 
 import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
@@ -198,13 +198,7 @@ export class EhWelcomeCard extends EhBaseCard {
   }
 
   _addFirstCard() {
-    // Forward-compat seam: a future card gallery can listen for this and
-    // open itself. Until that ships, the chat seed below is the working
-    // path: Klebbius proposes the manifest and creates it on approval.
     window.dispatchEvent(new CustomEvent('klebb-open-card-gallery'));
-    window.dispatchEvent(new CustomEvent('klebb-paste-into-chat', {
-      detail: { text: 'Help me create my first card.' },
-    }));
   }
 
   renderCard() {
