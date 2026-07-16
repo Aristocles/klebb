@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Post-deploy eval smoke subset.** `node evals/run.js --smoke` runs the
+  five scenarios tagged `smoke: true` (create, chip chain, data log, two
+  adversarial), sized for after an image publish or gateway model swap;
+  documented in evals/README.md and wired into the release runbook. Tool
+  capture is now trusted explicitly: a `--log-cmd` follower that dies at
+  startup aborts the run (exit 2), and one that dies mid-run marks
+  tool-asserting turns INCONCLUSIVE (exit 4, distinct from pass/fail)
+  instead of reporting false tool regressions or vacuous passes.
+  Fixes #503.
+
 - **Stale-card nudge in the chat peek bar.** When `GET /api/hygiene`
   reports high-confidence staleness, the peek bar gently swaps to a
   dismissible nudge ("weight hasn't been updated in 34 days — tap to tidy
