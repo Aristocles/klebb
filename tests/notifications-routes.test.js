@@ -237,6 +237,7 @@ test.describe('notifications routes (#386, authenticated)', () => {
   test('GET /api/diagnostics returns tz, vapid_key_id, subscriptions, recent_fires', async () => {
     const r = await req(srv.baseUrl, '/api/diagnostics', { cookie });
     assert.equal(r.status, 200);
+    assert.equal(r.json.version, require('../package.json').version);
     assert.match(r.json.vapid_key_id, /^[a-f0-9]{8}$/);
     assert.ok(Array.isArray(r.json.subscriptions));
     assert.ok(Array.isArray(r.json.recent_fires));

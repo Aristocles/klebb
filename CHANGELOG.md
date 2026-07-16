@@ -9,6 +9,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Version in Diagnostics.** Settings > Diagnostics now shows the running
+  Klebb version in the Server panel, and `GET /api/diagnostics` carries a
+  `version` field (from `package.json`, read once at boot). Answers "which
+  build is this instance on?" without shelling into the container. Older
+  servers without the field render `(unknown)`. Fixes #488.
+
 - **Eval runner cost guard.** `evals/run.js` now estimates a run's model
   spend (call count, tokens, USD) and requires a `y/N` confirmation before
   any run above a small threshold; a non-interactive stdin aborts rather
