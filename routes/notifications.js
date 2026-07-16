@@ -20,6 +20,7 @@ const vapid = require('../lib/vapid');
 const subs = require('../lib/push-subscriptions');
 const stateStore = require('../lib/notifications-state');
 const webPushSend = require('../lib/web-push-send');
+const VERSION = require('../package.json').version;
 
 const TEST_RATE_LIMIT_MS = 60_000;
 const _testFireRecent = new Map(); // key: `${subId}#${notifId}` -> timestamp
@@ -260,6 +261,7 @@ async function handle(req, res, parts, ctx) {
       deadSince: s.deadSince || null,
     }));
     _send(res, 200, {
+      version: VERSION,
       tz: process.env.TZ || null,
       vapid_key_id: vapid.getKeyId(),
       subscriptions: subList,

@@ -124,6 +124,8 @@ export class EhSettingsDiagnostics extends LitElement {
       <h3>Server</h3>
       <div class="panel">
         <dl class="kv">
+          <dt>Version</dt>
+          <dd>${d.version || '(unknown)'}</dd>
           <dt>Timezone</dt>
           <dd>${d.tz || '(unset)'}</dd>
           <dt>VAPID key id</dt>
