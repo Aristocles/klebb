@@ -9,6 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Real WebAuthn ceremony e2e coverage.** Four Playwright specs drive the
+  actual passkey ceremonies via Chromium's CDP virtual authenticator
+  (ctap2/internal, resident key, user verification): bootstrap register on
+  a fresh instance, invite register (minted via the admin API, single-use
+  consumption verified), login with a registered credential, and Settings >
+  Security adding a second passkey on a new authenticator. Each spec spawns
+  its own `HEALTH_RP_ID=localhost` server; the cookie-injection fixture
+  stays the default everywhere else. The `/api/admin/*` response shapes the
+  klebb-web portal depends on are now pinned by `tests/admin-api.test.js`
+  (auth gate, health/credentials/invites fields, origin-bound registerUrl,
+  expiry clamp, no delete surface). Fixes #479.
+
 - **Eval judge tier.** Scenarios can carry `judge: { rubric: '...' }`; a
   small model behind the same OpenAI-compatible gateway scores the turn's
   reply 1–5 against the rubric (refusal politeness, redirect quality,
