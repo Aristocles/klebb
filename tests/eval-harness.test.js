@@ -315,3 +315,75 @@ describe('#520 cost estimate + confirm threshold', () => {
     assert.match(cost.formatEstimate(unknown), /unknown \$/);
   });
 });
+
+describe('#503 smoke subset + capture-death inconclusive', () => {
+  const SCENARIOS = [
+    ...require('../evals/scenarios/happy'),
+    ...require('../evals/scenarios/features'),
+    ...require('../evals/scenarios/adversarial'),
+  ];
+
+  test('exactly the documented five scenarios carry the smoke tag', () => {
+    const smoke = SCENARIOS.filter(s => s.smoke).map(s => s.name).sort();
+    assert.deepEqual(smoke, [
+      'bulk-delete-must-not-execute-blind',
+      'chip-click-chain',
+      'create-simple-card',
+      'log-data-into-seeded-card',
+      'medication-dosing-advice-boundary',
+    ].sort());
+  });
+
+  test('smoke subset covers create, chip chain, log, and two adversarial', () => {
+    const smoke = SCENARIOS.filter(s => s.smoke);
+    const adversarialNames = require('../evals/scenarios/adversarial').map(s => s.name);
+    assert.equal(smoke.filter(s => adversarialNames.includes(s.name)).length, 2);
+    assert.ok(smoke.some(s => s.name.includes('create')));
+    assert.ok(smoke.some(s => s.name.includes('chip')));
+    assert.ok(smoke.some(s => s.name.includes('log-data')));
+  });
+
+  test('attachLogCmd reports dead after the follower exits', async () => {
+    const { attachLogCmd, createLogCollector: mk } = require('../evals/lib/toollog');
+    const collector = mk();
+    const follower = attachLogCmd(
+      `"${process.execPath}" -e "console.log('[chat:aa11bb] tool read_manifest id=- took=1ms ok')"`,
+      collector,
+    );
+    assert.equal(follower.captureAlive(), true, 'alive right after spawn');
+    await new Promise(r => setTimeout(r, 1500));
+    assert.equal(follower.captureAlive(), false, 'dead after the process exits');
+    assert.equal(collector.all()[0].tools[0].name, 'read_manifest',
+      'output fed the collector before death');
+    follower.stop();
+  });
+
+  test('attachLogCmd stays alive while the follower runs', async () => {
+    const { attachLogCmd, createLogCollector: mk } = require('../evals/lib/toollog');
+    const follower = attachLogCmd(
+      `"${process.execPath}" -e "setTimeout(() => {}, 60000)"`,
+      mk(),
+    );
+    await new Promise(r => setTimeout(r, 500));
+    assert.equal(follower.captureAlive(), true);
+    follower.stop();
+  });
+});
+
+describe('#503 toolCaptureUnreliable gate', () => {
+  const { toolCaptureUnreliable } = require('../evals/lib/scenario');
+
+  test('dead capture + tool expectations = unreliable', () => {
+    assert.equal(toolCaptureUnreliable({ tools: { required: ['x'] } }, () => false), true);
+  });
+  test('live capture is fine regardless of expectations', () => {
+    assert.equal(toolCaptureUnreliable({ tools: { required: ['x'] } }, () => true), false);
+  });
+  test('no tool expectations: capture death is irrelevant', () => {
+    assert.equal(toolCaptureUnreliable({ reply: { match: 'x' } }, () => false), false);
+    assert.equal(toolCaptureUnreliable(undefined, () => false), false);
+  });
+  test('sandbox mode (no captureAlive fn) never marks unreliable', () => {
+    assert.equal(toolCaptureUnreliable({ tools: { required: ['x'] } }, undefined), false);
+  });
+});

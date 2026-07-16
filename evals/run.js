@@ -18,6 +18,8 @@
 // Options:
 //   --reps N          repetitions per scenario (default 3)
 //   --only <substr>   run only scenarios whose name contains substr
+//   --smoke           run only the post-deploy smoke subset (scenarios
+//                     tagged smoke: true; see evals/README.md)
 //   --model <name>    model for the cost estimate; also sets CHAT_MODEL in
 //                     sandbox mode (default sonnet-5). In remote mode the
 //                     instance's own config picks the model; this only labels
@@ -35,7 +37,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { runScenario } = require('./lib/scenario');
-const { createLogCollector } = require('./lib/toollog');
+const { createLogCollector, attachLogCmd } = require('./lib/toollog');
 const { estimateRun, needsConfirm, formatEstimate, DEFAULT_MODEL } = require('./lib/cost');
 
 const SCENARIOS = [
@@ -45,11 +47,12 @@ const SCENARIOS = [
 ];
 
 function parseArgs(argv) {
-  const args = { reps: 3, only: null, baseUrl: null, token: null, logCmd: null, out: null, list: false, model: DEFAULT_MODEL, yes: false };
+  const args = { reps: 3, only: null, smoke: false, baseUrl: null, token: null, logCmd: null, out: null, list: false, model: DEFAULT_MODEL, yes: false };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--reps') args.reps = parseInt(argv[++i], 10);
     else if (a === '--only') args.only = argv[++i];
+    else if (a === '--smoke') args.smoke = true;
     else if (a === '--base-url') args.baseUrl = argv[++i].replace(/\/$/, '');
     else if (a === '--token') args.token = argv[++i];
     else if (a === '--log-cmd') args.logCmd = argv[++i];
@@ -124,21 +127,12 @@ async function spawnSandbox(model) {
   };
 }
 
-// Attach a log-follower subprocess (docker logs -f / journalctl -f over
-// ssh) whose output feeds the collector. Best-effort: if it dies, tool
-// assertions degrade to "no tools observed".
-function attachLogCmd(cmd, collector) {
-  const proc = spawn(cmd, { shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
-  proc.stdout.on('data', c => collector.feed(c));
-  proc.stderr.on('data', c => collector.feed(c));
-  return () => { try { proc.kill(); } catch {} };
-}
-
 async function main() {
   const args = parseArgs(process.argv);
   let list = SCENARIOS;
+  if (args.smoke) list = list.filter(s => s.smoke);
   if (args.only) list = list.filter(s => s.name.includes(args.only));
-  if (args.list) { list.forEach(s => console.log(s.name)); return; }
+  if (args.list) { list.forEach(s => console.log(s.smoke ? `${s.name}  [smoke]` : s.name)); return; }
   if (list.length === 0) { console.error('no scenarios matched'); process.exit(2); }
 
   // Spend gate: the corpus drives a real model, so show the estimated cost and
@@ -153,13 +147,19 @@ async function main() {
 
   let target, cleanup = () => {};
   let collector = null;
+  let captureAlive;
   if (args.baseUrl) {
     if (!args.token) { console.error('--base-url needs --token'); process.exit(2); }
     if (args.logCmd) {
       collector = createLogCollector();
-      const stop = attachLogCmd(args.logCmd, collector);
-      cleanup = stop;
+      const follower = attachLogCmd(args.logCmd, collector);
+      cleanup = follower.stop;
+      captureAlive = follower.captureAlive;
       await new Promise(r => setTimeout(r, 1500));
+      if (!captureAlive()) {
+        console.error('log follower exited immediately; check --log-cmd. Aborting rather than reporting false tool regressions.');
+        process.exit(2);
+      }
     } else {
       console.log('NOTE: no --log-cmd; tool-call assertions are skipped (reply/chip/state checks still run)');
     }
@@ -188,32 +188,44 @@ async function main() {
       : scenario;
     for (let rep = 0; rep < args.reps; rep++) {
       try {
-        const result = await runScenario(effective, { ...target, collector, log: m => console.log(m) });
+        const result = await runScenario(effective, { ...target, collector, captureAlive, log: m => console.log(m) });
         runs.push(result);
-        console.log(`  rep ${rep + 1}: ${result.passed ? 'PASS' : 'FAIL'}`);
+        console.log(`  rep ${rep + 1}: ${result.passed ? (result.inconclusive ? 'INCONCLUSIVE' : 'PASS') : 'FAIL'}`);
       } catch (e) {
         runs.push({ name: scenario.name, passed: false, turns: [], error: e.message });
         console.log(`  rep ${rep + 1}: ERROR ${e.message}`);
       }
     }
-    const passes = runs.filter(r => r.passed).length;
-    report.scenarios.push({ name: scenario.name, passRate: `${passes}/${args.reps}`, passes, reps: args.reps, runs });
+    // An inconclusive rep (tool capture died mid-turn) is neither a pass nor
+    // a fail: its tool evidence is missing, so counting it either way lies.
+    const passes = runs.filter(r => r.passed && !r.inconclusive).length;
+    const inconclusive = runs.filter(r => r.passed && r.inconclusive).length;
+    report.scenarios.push({ name: scenario.name, passRate: `${passes}/${args.reps}`, passes, inconclusive, reps: args.reps, runs });
   }
 
   console.log('\n================ PASS RATES ================');
   let sound = true;
+  let anyInconclusive = false;
   for (const s of report.scenarios) {
-    console.log(`${s.passRate.padStart(5)}  ${s.name}`);
-    if (s.passes < s.reps) sound = false;
+    const note = s.inconclusive ? `  (${s.inconclusive} inconclusive: tool capture dead)` : '';
+    console.log(`${s.passRate.padStart(5)}  ${s.name}${note}`);
+    if (s.passes + s.inconclusive < s.reps) sound = false;
+    if (s.inconclusive) anyInconclusive = true;
   }
   console.log('============================================');
+  if (anyInconclusive) {
+    console.log('NOTE: inconclusive reps had no reliable tool capture; re-run with a healthy --log-cmd before trusting tool coverage.');
+  }
 
   if (args.out) {
     fs.writeFileSync(args.out, JSON.stringify(report, null, 2));
     console.log(`full report: ${args.out}`);
   }
   cleanup();
-  process.exit(sound ? 0 : 1);
+  // 0 = every rep passed with trustworthy evidence. 1 = real failures.
+  // 4 = no failures, but tool capture died for some reps: NOT a green run,
+  // re-run before trusting it (distinct so automation can tell the two apart).
+  process.exit(!sound ? 1 : anyInconclusive ? 4 : 0);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

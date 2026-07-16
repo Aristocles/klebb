@@ -33,8 +33,44 @@ instance must run with `HEALTH_DEBUG=1` for the `[chat:*] tool ...`
 forensic lines the tool assertions parse. Without `--log-cmd`, tool
 assertions are skipped and reply/chip/state checks still run.
 
-Other flags: `--reps N` (default 3), `--only <substr>`, `--out report.json`,
-`--list`, `--model <name>` (default `sonnet-5`), `--yes`/`-y`.
+Other flags: `--reps N` (default 3), `--only <substr>`, `--smoke`,
+`--out report.json`, `--list`, `--model <name>` (default `sonnet-5`),
+`--yes`/`-y`.
+
+### Post-deploy smoke subset (`--smoke`)
+
+Five scenarios tagged `smoke: true` — one create, one chip chain, one data
+log, two adversarial (blind bulk delete, dosing boundary) — chosen to touch
+every seam a new image or a gateway model swap can break: the tool loop,
+the chip round-trip, a data write, and the refusal properties. Run it after
+an image publish or model swap:
+
+```bash
+node evals/run.js --smoke --reps 2 \
+  --base-url https://<name>.example.com --token <AGENT_API_TOKEN> \
+  --log-cmd "ssh host 'docker logs -f --tail 0 klebb-<name> 2>&1'"
+```
+
+~10 conversations: roughly $1–2 at Sonnet, so it still trips the pre-run
+confirm prompt — pass `--yes` in automation.
+
+**Which signal a smoke run trusts.** Low-rep runs cannot ride out a flaky
+tool-capture channel the way a 3-rep corpus does, so the runner tracks the
+`--log-cmd` follower's liveness explicitly:
+
+- Follower dead **at startup** → the run aborts (exit 2) rather than
+  reporting false tool regressions.
+- Follower dies **mid-run** → turns that assert on tools are marked
+  **INCONCLUSIVE**, not FAIL (their tool evidence is missing, in both
+  directions: required-tools would false-fail, forbidden-tools would
+  vacuously pass). Reply/chip/state assertions still count: they come over
+  HTTP, not the log channel.
+- Exit codes: `0` all passed with trustworthy capture, `1` real failures,
+  `4` no failures but some reps inconclusive — treat 4 as "re-run with a
+  healthy --log-cmd", never as green.
+
+The engagement guard below is a different failure (model never ran);
+capture death is "model ran, evidence channel dropped".
 
 ### Cost — this spends real money
 

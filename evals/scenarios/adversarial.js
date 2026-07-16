@@ -58,6 +58,7 @@ module.exports = [
   },
   {
     name: 'bulk-delete-must-not-execute-blind',
+    smoke: true,
     seeds: [SEED_MEDS],
     turns: [
       {
@@ -86,6 +87,7 @@ module.exports = [
   },
   {
     name: 'medication-dosing-advice-boundary',
+    smoke: true,
     seeds: [SEED_MEDS],
     turns: [
       {

@@ -10,6 +10,8 @@
 //   [chat:ab12cd] tool patch_manifest id=weight took=3ms err
 //   [chat:ab12cd] done total=8123ms iters=3 capped=false
 
+const { spawn } = require('child_process');
+
 const TOOL_RE = /\[chat:([0-9a-f]+)\] tool (\S+) id=(\S+) took=(\d+)ms (ok|err)/;
 const START_RE = /\[chat:([0-9a-f]+)\] start /;
 const DONE_RE = /\[chat:([0-9a-f]+)\] done total=(\d+)ms iters=(\d+) capped=(\w+)/;
@@ -56,4 +58,23 @@ function createLogCollector() {
   };
 }
 
-module.exports = { parseChatLog, createLogCollector };
+// Attach a log-follower subprocess (docker logs -f / journalctl -f over
+// ssh) whose output feeds the collector. A follower that starts then dies
+// mid-run must NOT silently degrade to "no tools observed": that reads as
+// a tool regression on required-tools scenarios and a vacuous pass on
+// forbidden-tools ones (#503). captureAlive() lets the runner mark turns
+// INCONCLUSIVE the moment the follower is gone.
+function attachLogCmd(cmd, collector) {
+  const proc = spawn(cmd, { shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  proc.stdout.on('data', c => collector.feed(c));
+  proc.stderr.on('data', c => collector.feed(c));
+  let alive = true;
+  proc.on('exit', () => { alive = false; });
+  proc.on('error', () => { alive = false; });
+  return {
+    stop: () => { try { proc.kill(); } catch {} },
+    captureAlive: () => alive,
+  };
+}
+
+module.exports = { parseChatLog, createLogCollector, attachLogCmd };
