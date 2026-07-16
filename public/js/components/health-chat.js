@@ -117,6 +117,9 @@ class HealthChat extends LitElement {
     // Starter chips, populated from /api/manifests on mount then
     // sampled via pickStarterPrompts. See #195.
     _starterChips: { state: true },
+    // Ambient stale-card findings from GET /api/hygiene, surfaced as a
+    // dismissible nudge in the peek bar. See #452.
+    _hygieneFindings: { state: true },
   };
 
   static styles = css`
@@ -170,6 +173,37 @@ class HealthChat extends LitElement {
       color: var(--text-muted, var(--text-secondary));
       font-size: 14px;
       flex-shrink: 0;
+    }
+
+    /* Stale-card nudge variant of the peek bar (#452). Same geometry,
+       gently accented so it reads as a suggestion, not an alert. The
+       bar is fixed over page content, so the background stays the
+       opaque card colour; the accent lives in the border only. */
+    .peek-bar.nudge {
+      border-top-color: var(--accent, #00d4aa);
+    }
+    .peek-bar.nudge .peek-text {
+      color: var(--text-primary);
+    }
+    .nudge-dismiss {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      color: var(--text-muted, var(--text-secondary));
+      font-size: 14px;
+      line-height: 1;
+    }
+    .nudge-dismiss:hover {
+      background: var(--bg-card, rgba(0, 0, 0, 0.06));
+      color: var(--text-primary);
+    }
+    .nudge-dismiss:focus-visible {
+      outline: 2px solid var(--accent, #00d4aa);
+      outline-offset: -2px;
     }
 
     /* Floating action button — fallback for browsers without :popover-open support */
@@ -597,6 +631,7 @@ class HealthChat extends LitElement {
     this._expanded = localStorage.getItem('klebb-chat-expanded') === '1';
     this._saveTimer = null;
     this._starterChips = null;
+    this._hygieneFindings = null;
     // One-shot voice arming: set when a starter prompt is pasted in,
     // consumed (and disarmed) by the next _sendText.
     this._voiceArmed = false;
@@ -605,6 +640,7 @@ class HealthChat extends LitElement {
     this._loadInstance();
     this._loadHistory();
     this._loadStarterChips();
+    this._loadHygiene();
   }
 
   // Produce a short display label for a starter chip. Chip width is
@@ -640,6 +676,60 @@ class HealthChat extends LitElement {
       // above the fixed Combine-cards chip, which is still useful.
       this._starterChips = [];
     }
+  }
+
+  // Ambient staleness nudge (#452). GET /api/hygiene only ever returns
+  // high-confidence stale findings minus dismissals, so anything here is
+  // worth a quiet mention in the peek bar. Fetched once per mount, like
+  // the starter chips; dismissing re-fetches so the next finding (if any)
+  // takes the slot.
+  async _loadHygiene() {
+    try {
+      const r = await fetch('/api/hygiene', { cache: 'no-store' });
+      if (!r.ok) { this._hygieneFindings = []; return; }
+      const body = await r.json();
+      this._hygieneFindings = Array.isArray(body?.findings) ? body.findings : [];
+    } catch {
+      this._hygieneFindings = [];
+    }
+  }
+
+  get _nudge() {
+    return (this._hygieneFindings && this._hygieneFindings.length)
+      ? this._hygieneFindings[0] : null;
+  }
+
+  _nudgeText(f) {
+    const days = /No entry in (\d+) days/.exec(f.detail || '');
+    return days
+      ? `${f.cardId} hasn't been updated in ${days[1]} days`
+      : `${f.cardId} looks stale`;
+  }
+
+  _useNudge() {
+    const f = this._nudge;
+    if (!f) return;
+    window.dispatchEvent(new CustomEvent('klebb-paste-into-chat', {
+      detail: { text: `My ${f.cardId} card is stale (${f.detail}) Help me bring it up to date or tidy it up.` },
+    }));
+  }
+
+  async _dismissNudge(e) {
+    // The dismiss button sits inside the peek-bar button; don't let the
+    // click bubble up and open the chat panel too.
+    e.stopPropagation();
+    const f = this._nudge;
+    if (!f) return;
+    // Optimistic: drop it locally first so the bar reverts immediately.
+    this._hygieneFindings = this._hygieneFindings.slice(1);
+    try {
+      await fetch(`/api/hygiene/${encodeURIComponent(f.cardId)}/dismiss`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: f.kind }),
+        cache: 'no-store',
+      });
+    } catch {}
   }
 
   // ---------- History persistence ----------
@@ -1411,6 +1501,25 @@ class HealthChat extends LitElement {
           </div>
         </div>
       ` : ''}
+      ${this._nudge && !this._open ? html`
+        <button
+          class="peek-bar nudge"
+          @click=${this._useNudge}
+          aria-label="Open chat about a stale card"
+        >
+          <span class="peek-icon">\u{1F9F9}</span>
+          <span class="peek-text">${this._nudgeText(this._nudge)} — tap to tidy up</span>
+          <span
+            class="nudge-dismiss"
+            role="button"
+            tabindex="0"
+            aria-label="Dismiss this nudge"
+            title="Dismiss"
+            @click=${this._dismissNudge}
+            @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') this._dismissNudge(e); }}
+          >✕</span>
+        </button>
+      ` : html`
       <button
         class="peek-bar"
         @click=${this._toggle}
@@ -1422,6 +1531,7 @@ class HealthChat extends LitElement {
         <span class="peek-text">Ask ${askName}…</span>
         <span class="peek-arrow" aria-hidden="true">\u25B2</span>
       </button>
+      `}
       <button class="fab ${this._open ? 'open' : ''}" @click=${this._toggle}>
         ${this._open ? '\u2715' : '\u{1F9E0}'}
       </button>
