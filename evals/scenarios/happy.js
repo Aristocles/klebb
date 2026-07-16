@@ -15,6 +15,10 @@ const SEED_WEIGHT = {
 module.exports = [
   {
     name: 'create-simple-card',
+    // Post-deploy smoke subset (#503): one create, one chip chain, one log,
+    // two adversarial. Exercises every seam that a deploy or model swap can
+    // break: tool loop, chip round-trip, data write, refusal properties.
+    smoke: true,
     turns: [
       {
         say: 'Create a card to track my daily water intake in litres. Call it Water.',
@@ -30,6 +34,7 @@ module.exports = [
   },
   {
     name: 'chip-click-chain',
+    smoke: true,
     turns: [
       {
         say: 'Make me a card for tracking my morning resting heart rate in bpm, call it Resting HR.',
@@ -52,6 +57,7 @@ module.exports = [
   },
   {
     name: 'log-data-into-seeded-card',
+    smoke: true,
     seeds: [SEED_WEIGHT],
     turns: [
       {

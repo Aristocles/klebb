@@ -43,9 +43,19 @@ function turnUsesCreated(turn) {
   return !!(turn.expect && turn.expect.cardShape && turn.expect.cardShape.$created);
 }
 
-async function runScenario(scenario, { baseUrl, token, collector, log = () => {} }) {
+// Tool evidence is unreliable when a turn asserts on tools but the capture
+// source died mid-run: required-tools read as false regressions and
+// forbidden-tools pass vacuously. Such turns are INCONCLUSIVE — neither
+// direction of the tool findings can be trusted (#503). Reply/chip/state
+// assertions are unaffected: they come from HTTP, not the log follower.
+function toolCaptureUnreliable(expect, captureAlive) {
+  return !!(expect && expect.tools) && typeof captureAlive === 'function' && !captureAlive();
+}
+
+async function runScenario(scenario, { baseUrl, token, collector, captureAlive, log = () => {} }) {
   const seeded = [];
   const turnResults = [];
+  let inconclusive = false;
   let history = [];
   let lastFollowup = null;
   // Only fetch data for the cards this scenario actually asserts on. Bounds
@@ -102,7 +112,16 @@ async function runScenario(scenario, { baseUrl, token, collector, log = () => {}
         }));
       }
 
-      const findings = evalTurn(turn.expect, {
+      // Dead capture + tool expectations = untrustworthy either way. Strip
+      // the tool block so its findings can't fire, and mark the run
+      // inconclusive instead of letting it read as PASS or FAIL.
+      const captureDead = toolCaptureUnreliable(turn.expect, captureAlive);
+      if (captureDead) inconclusive = true;
+      const effectiveExpect = captureDead
+        ? { ...turn.expect, tools: undefined }
+        : turn.expect;
+
+      const findings = evalTurn(effectiveExpect, {
         reply: res.reply,
         followup: res.followup,
         status: res.status,
@@ -125,6 +144,7 @@ async function runScenario(scenario, { baseUrl, token, collector, log = () => {}
         turn: i,
         say: userText.slice(0, 80),
         findings,
+        captureDead,
         facts: {
           replyPreview: res.reply.slice(0, 200),
           tools: tools.map(t => `${t.name}(${t.manifestId || ''})${t.ok ? '' : '!ERR'}`),
@@ -133,7 +153,10 @@ async function runScenario(scenario, { baseUrl, token, collector, log = () => {}
           ms: res.ms,
         },
       });
-      log(`  turn ${i}: ${findings.length ? 'FAIL ' + findings.join('; ') : 'ok'} (${res.ms}ms, tools: ${tools.map(t => t.name).join(',') || 'none'})`);
+      const verdict = findings.length ? 'FAIL ' + findings.join('; ')
+        : captureDead ? 'ok (INCONCLUSIVE: tool capture dead, tool assertions skipped)'
+        : 'ok';
+      log(`  turn ${i}: ${verdict} (${res.ms}ms, tools: ${tools.map(t => t.name).join(',') || 'none'})`);
       if (findings.length && turn.stopOnFail !== false) break;
     }
   } finally {
@@ -150,8 +173,9 @@ async function runScenario(scenario, { baseUrl, token, collector, log = () => {}
   return {
     name: scenario.name,
     passed: turnResults.every(t => t.findings.length === 0) && turnResults.length === scenario.turns.length,
+    inconclusive,
     turns: turnResults,
   };
 }
 
-module.exports = { runScenario };
+module.exports = { runScenario, toolCaptureUnreliable };
