@@ -29,6 +29,7 @@ module.exports = [
           registryClean: true,
           chips: { present: true, maxCount: 4 },
         },
+        judge: { rubric: 'A card was just created for the user. Does the reply accurately describe what was created (a water-intake tracking card) without overclaiming features it did not set up?' },
       },
     ],
   },
