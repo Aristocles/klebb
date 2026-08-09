@@ -287,3 +287,109 @@ describe('dispatch: merge preserves prior dates', () => {
     assert.equal(rows[0].rem, undefined, 'rem must be gone: whole-row replace');
   });
 });
+
+describe('dispatch: one bad entry never stalls the rest of the push (#553)', () => {
+  test('a malformed entry is dropped and later subscribers still ingest', () => {
+    // Every catalogue row() dereferences its entry immediately, so a null or
+    // wrongly-shaped element used to throw out of dispatch() entirely. The
+    // route swallows a post-auth throw into 200 {ok:true, warning} to stop the
+    // phone retrying forever, so the visible result was that every LATER
+    // subscriber silently stopped ingesting while the push looked successful.
+    const reg = makeRegistry([
+      { id: 'first-steps', meta: { id: 'first-steps',
+          ingest: { source: 'hae', metric: 'step_count' } } },
+      { id: 'later-rhr', meta: { id: 'later-rhr',
+          ingest: { source: 'hae', metric: 'resting_heart_rate' } } },
+    ]);
+    const payload = { data: { metrics: [
+      { name: 'step_count', data: [
+        { date: '2026-05-04 08:00:00 +1000', qty: 1200 },
+        null,
+        'not an object at all',
+        { date: '2026-05-05 10:00:00 +1000', qty: 2000 },
+      ]},
+      { name: 'resting_heart_rate', data: [
+        { date: '2026-05-04 08:00:00 +1000', qty: 58 },
+      ]},
+    ]}};
+
+    const summary = dispatch(reg, payload);
+
+    // The good rows from the damaged stream survived.
+    const steps = reg._snapshot('first-steps');
+    assert.equal(steps.length, 2, 'good rows were lost alongside the malformed ones');
+
+    // And the subscriber AFTER the damaged one still ingested, which is the
+    // actual regression: it used to get nothing at all.
+    const rhr = reg._snapshot('later-rhr');
+    assert.ok(Array.isArray(rhr) && rhr.length === 1,
+      'a later subscriber was starved by a malformed entry in an earlier metric');
+
+    // The loss is reported rather than passed off as a clean push.
+    const stepsSummary = summary.subscribers.find(x => x.id === 'first-steps');
+    assert.equal(stepsSummary.droppedEntries, 2, 'the dropped count was not reported');
+    assert.ok(summary.warnings.some(w => /dropped 2 of 4/.test(w)),
+      `no warning names the partial loss: ${JSON.stringify(summary.warnings)}`);
+  });
+
+  test('a stream where every entry is malformed says so', () => {
+    const reg = makeRegistry([
+      { id: 'my-steps', meta: { id: 'my-steps',
+          ingest: { source: 'hae', metric: 'step_count' } } },
+    ]);
+    const payload = { data: { metrics: [
+      { name: 'step_count', data: [null, null, { nope: true }] },
+    ]}};
+    const summary = dispatch(reg, payload);
+    const s = summary.subscribers.find(x => x.id === 'my-steps');
+    assert.equal(s.rowsWritten, 0);
+    assert.match(s.note, /all 3 entries malformed/);
+    assert.ok(summary.warnings.some(w => /all 3 entries malformed/.test(w)),
+      'a fully malformed stream produced no warning');
+  });
+
+  test('a clean push reports no dropped count at all', () => {
+    // The field must be absent rather than 0, so last-push.json stays quiet
+    // for the normal case.
+    const reg = makeRegistry([
+      { id: 'my-steps', meta: { id: 'my-steps',
+          ingest: { source: 'hae', metric: 'step_count' } } },
+    ]);
+    const payload = { data: { metrics: [
+      { name: 'step_count', data: [{ date: '2026-05-04 08:00:00 +1000', qty: 1200 }] },
+    ]}};
+    const summary = dispatch(reg, payload);
+    const s = summary.subscribers.find(x => x.id === 'my-steps');
+    assert.equal(s.rowsWritten, 1);
+    assert.ok(!('droppedEntries' in s), 'a clean push reported a dropped count');
+    assert.deepEqual(summary.warnings, []);
+  });
+
+  test('a row() that throws is contained, not fatal', () => {
+    // Belt and braces: prove containment against a catalogue entry that throws
+    // unconditionally, so the guard is exercised even if every real row()
+    // becomes defensive later.
+    const catalogue = require('../health-auto-export/catalogue.js');
+    const original = catalogue.step_count.row;
+    catalogue.step_count.row = () => { throw new TypeError('boom'); };
+    try {
+      const reg = makeRegistry([
+        { id: 'boom-steps', meta: { id: 'boom-steps',
+            ingest: { source: 'hae', metric: 'step_count' } } },
+        { id: 'after-rhr', meta: { id: 'after-rhr',
+            ingest: { source: 'hae', metric: 'resting_heart_rate' } } },
+      ]);
+      const payload = { data: { metrics: [
+        { name: 'step_count', data: [{ date: '2026-05-04 08:00:00 +1000', qty: 1 }] },
+        { name: 'resting_heart_rate', data: [{ date: '2026-05-04 08:00:00 +1000', qty: 58 }] },
+      ]}};
+      // Must not throw.
+      const summary = dispatch(reg, payload);
+      assert.ok(Array.isArray(reg._snapshot('after-rhr')) && reg._snapshot('after-rhr').length === 1,
+        'a throwing row() starved the next subscriber');
+      assert.ok(summary.warnings.some(w => /malformed/.test(w)));
+    } finally {
+      catalogue.step_count.row = original;
+    }
+  });
+});
