@@ -178,6 +178,32 @@ const KLEBB_CLOUD = process.env.KLEBB_CLOUD === '1';
 // default, which disables the admin endpoints entirely (self-host default).
 const KLEBB_ADMIN_TOKEN = process.env.KLEBB_ADMIN_TOKEN || null;
 
+// --- Reports ---
+// How many ingested reports an instance may hold. Every uploaded report is
+// one gateway comprehension call and one entry in the chat system prompt
+// every turn, so this is a cost + context bound, not a disk bound. The
+// default matches the hosted limit; self-hosters can raise it.
+//
+// Hand-authored markdown in reports/ never counts against it (only files
+// carrying the ingest sentinel do), so a PROFILE.md is never quota.
+//
+// Not HEALTH_*: that prefix is reserved for path overrides in config/paths.js.
+const REPORTS_MAX = (() => {
+  const raw = process.env.KLEBB_REPORTS_MAX;
+  if (raw === undefined || raw === '') return 20;
+  // Number(), not parseInt(): parseInt('2.7') is 2 and parseInt('20abc') is
+  // 20, so a typo would silently resolve to a plausible-looking cap. And
+  // Number.isInteger over truthiness, because parseInt('0') is 0 and
+  // parseInt('abc') is NaN, both falsy, so a truthiness check would report a
+  // real misconfiguration as "absent" and appear to work.
+  const n = Number(raw.trim());
+  if (!Number.isInteger(n) || n < 1) {
+    console.warn(`[env] KLEBB_REPORTS_MAX="${raw}" is not an integer >= 1; using 20`);
+    return 20;
+  }
+  return n;
+})();
+
 // --- Health system prompt (used by chat proxy) ---
 //
 // Default prompt is generic and references whatever cards the registry
@@ -648,5 +674,6 @@ module.exports = {
   DEMO_USER_ID,
   KLEBB_CLOUD,
   KLEBB_ADMIN_TOKEN,
+  REPORTS_MAX,
   HEALTH_SYSTEM_PROMPT,
 };
