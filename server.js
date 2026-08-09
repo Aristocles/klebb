@@ -459,7 +459,7 @@ blockquote { border-left: 3px solid var(--heading); padding-left: 16px; margin: 
 </script>
 </head>
 <body>
-<a href="/" class="back-link">← Back to Dashboard</a>
+<a href="/reports" class="back-link">← Back to Reports</a>
 ${htmlContent}
 </body></html>`;
 }
@@ -935,21 +935,49 @@ const server = http.createServer(async (req, res) => {
       // push without letting a pathological client exhaust memory.
       const HAE_MAX_BODY = 100 * 1024 * 1024;
       const receivedAt = new Date().toISOString();
-      let body = '';
+      // Chunks are collected as BUFFERS and decoded once, at the end.
+      //
+      // `body += chunk` decodes every chunk independently, so a multi-byte
+      // UTF-8 sequence straddling a TCP chunk boundary becomes U+FFFD on both
+      // sides, permanently: in the parsed rows AND in the "verbatim" raw
+      // archive, which can then never be byte-identical to what the phone sent.
+      // A device name with a curly apostrophe or an accent is enough to trigger
+      // it, and nothing downstream can recover the original bytes.
+      const chunks = [];
+      let received = 0;
       let tooBig = false;
+      const finishOversize = () => {
+        if (!tooBig) return;
+        haeDiagnostics.writeLastPush({
+          receivedAt, payloadBytes: received,
+          subscribers: [], availableUnsubscribed: [],
+          warnings: [`payload exceeded ${HAE_MAX_BODY} bytes`],
+        });
+        if (!res.headersSent) sendJSON(res, { error: 'payload too large' }, 413);
+      };
       req.on('data', c => {
-        body += c;
-        if (body.length > HAE_MAX_BODY) { tooBig = true; req.destroy(); }
-      });
-      req.on('end', () => {
-        if (tooBig) {
-          haeDiagnostics.writeLastPush({
-            receivedAt, payloadBytes: body.length,
-            subscribers: [], availableUnsubscribed: [],
-            warnings: [`payload exceeded ${HAE_MAX_BODY} bytes`],
-          });
-          return sendJSON(res, { error: 'payload too large' }, 413);
+        if (tooBig) return;
+        received += c.length;
+        if (received > HAE_MAX_BODY) {
+          tooBig = true;
+          // The 413 is sent from HERE, not from 'end'. Destroying the request
+          // means 'end' never fires (only 'aborted' and 'close'), so a check in
+          // the 'end' handler was unreachable: an oversize push got a bare TCP
+          // reset with no status and no diagnostic, which reads to the phone as
+          // a network blip worth retrying forever.
+          finishOversize();
+          // Drain rather than destroy, so the response we just wrote is
+          // actually delivered before the socket closes.
+          req.resume();
+          return;
         }
+        chunks.push(c);
+      });
+      req.on('aborted', () => { chunks.length = 0; });
+      req.on('end', () => {
+        if (tooBig) return;
+        const body = Buffer.concat(chunks).toString('utf8');
+        chunks.length = 0;
 
         // Archive the raw payload unconditionally. Stamp carries
         // milliseconds so rapid successive pushes don't clobber each

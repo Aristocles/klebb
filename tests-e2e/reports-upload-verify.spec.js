@@ -97,8 +97,36 @@ test.describe('Reports: upload and the managed list', () => {
     const sheet = page.locator('eh-report-detail');
     await expect(sheet.locator('.panel')).toBeVisible();
     await expect(sheet.locator('.title')).toContainText('e2e-sheet');
+    // The digest view is deliberately down to two actions. Delete and the OCR
+    // retry both live in the compare view, so they must NOT be here.
     await expect(sheet.locator('a.action', { hasText: 'View full report' })).toBeVisible();
-    await expect(sheet.locator('button.action', { hasText: 'Delete' })).toBeVisible();
+    await expect(sheet.locator('button.action').filter({ hasText: /Compare with original|Check the text/ })).toHaveCount(1);
+    await expect(sheet.locator('button.action', { hasText: 'Delete' })).toHaveCount(0);
+    await expect(sheet.locator('button.action', { hasText: 'Read it again' })).toHaveCount(0);
+  });
+
+  test('View full report is hidden until the report is approved', async ({ page }) => {
+    // A report awaiting an OCR check has content chat is not allowed to use, so
+    // offering to open it as a finished report is the wrong affordance.
+    await page.setViewportSize(DESKTOP);
+    await page.goto('/reports');
+    const view = await waitForReportsLoaded(page);
+
+    const cards = view.locator('.md-item');
+    const count = await cards.count();
+    for (let i = 0; i < count; i++) {
+      const card = cards.nth(i);
+      const needsCheck = await card.locator('.badge', { hasText: 'Needs checking' }).count();
+      if (!needsCheck) continue;
+      await card.click();
+      const sheet = page.locator('eh-report-detail');
+      await expect(sheet.locator('.panel')).toBeVisible();
+      await expect(sheet.locator('a.action', { hasText: 'View full report' })).toHaveCount(0);
+      await expect(sheet.locator('button.action', { hasText: 'Check the text' })).toHaveCount(1);
+      return;
+    }
+    // No unverified report in this sandbox (tesseract is absent, so nothing is
+    // gated); the API-layer suite covers the gating itself.
   });
 
   test('delete asks once, then removes the card and frees a slot', async ({ page }) => {
@@ -113,7 +141,10 @@ test.describe('Reports: upload and the managed list', () => {
     await card.click();
 
     const sheet = page.locator('eh-report-detail');
+    // Delete lives in the compare view now, one step in from the digest.
+    await sheet.locator('button.action').filter({ hasText: /Compare with original|Check the text/ }).click();
     const del = sheet.locator('button.action', { hasText: 'Delete' });
+    await expect(del).toBeVisible();
     await del.click();
     // One confirmation, in place, not a browser dialog.
     await expect(sheet.locator('button.action', { hasText: 'Really delete?' })).toBeVisible();
@@ -189,10 +220,11 @@ test.describe('Reports: state and the compare view', () => {
       .toBeLessThanOrEqual(probe.clientWidth + 1);
   });
 
-  test('the compare view uses tabs on a phone and both panes on a desktop', async ({ page }) => {
+  test('the compare view is one full-width text column with the original a tap away', async ({ page }) => {
     await seedReport(page, 'e2e-compare');
 
-    // Phone: tabs, because 375px cannot host a side-by-side comparison.
+    // Phone first: this is where the check actually happens, since it is the
+    // device the photo was taken with.
     await page.setViewportSize(PHONE);
     await page.goto('/reports');
     let view = await waitForReportsLoaded(page);
@@ -209,23 +241,35 @@ test.describe('Reports: state and the compare view', () => {
     await expect(compareBtn).toHaveCount(1);
     await compareBtn.click();
 
-    await expect(sheet.locator('.tabs')).toBeVisible();
-    await expect(sheet.locator('.tab', { hasText: 'Original' })).toBeVisible();
-    await expect(sheet.locator('.tab', { hasText: 'Text read' })).toBeVisible();
-    // On a phone only one pane shows at a time; the tab swaps it.
+    // One full-width text column. No tabs and no inline preview of the original:
+    // a PDF embed renders as a black box in several browsers, and half a phone
+    // screen of shrunken scan cannot be checked against anyway.
+    await expect(sheet.locator('.tabs')).toHaveCount(0);
     await expect(sheet.locator('.pane-label')).toHaveCount(1);
-    await sheet.locator('.tab', { hasText: 'Text read' }).click();
     await expect(sheet.locator('.pane-label', { hasText: 'Text read from it' })).toBeVisible();
+    await expect(sheet.locator('embed')).toHaveCount(0);
+
     // The extracted text is what the human compares against, so it has to be
-    // the document's content and not our frontmatter.
+    // the content of the document and not our own frontmatter.
     await expect(sheet.locator('.ocr')).toContainText('haemoglobin');
     await expect(sheet.locator('.ocr')).not.toContainText('klebb_ingest');
 
-    // Widening past the breakpoint shows both panes and drops the tabs.
+    // The original is one tap away, in its own tab, and the retry is gone.
+    await expect(sheet.locator('a.action', { hasText: 'Open the original' })).toHaveCount(1);
+    await expect(sheet.locator('button.action', { hasText: 'Retry reading it' })).toHaveCount(0);
+    await expect(sheet.locator('button.action', { hasText: 'Looks right' })).toHaveCount(1);
+    await expect(sheet.locator('button.action', { hasText: 'Delete' })).toHaveCount(1);
+
+    // Back returns to the digest, and does not leave a half-armed delete.
+    await sheet.locator('button.action', { hasText: 'Back' }).click();
+    await expect(sheet.locator('.ocr')).toHaveCount(0);
+    await expect(sheet.locator('button.action', { hasText: 'Really delete?' })).toHaveCount(0);
+
+    // Same single-column layout on a desktop; width is the only difference.
     await page.setViewportSize(DESKTOP);
+    await compareBtn.click();
     await expect(sheet.locator('.tabs')).toHaveCount(0);
-    await expect(sheet.locator('.pane-label', { hasText: 'Original' })).toBeVisible();
-    await expect(sheet.locator('.pane-label', { hasText: 'Text read from it' })).toBeVisible();
+    await expect(sheet.locator('.pane-label')).toHaveCount(1);
   });
 });
 

@@ -326,17 +326,39 @@ function dispatch(registry, payload) {
     }
 
     const mapped = [];
+    let dropped = 0;
     for (const raw of entries) {
-      const row = cat.row(raw);
+      // Per-entry try/catch: every catalogue row() dereferences its entry
+      // immediately, so one null or wrongly-shaped element used to throw out of
+      // dispatch() entirely. The route swallows a post-auth throw into
+      // 200 {ok:true, warning} to stop the phone's retry loop spiralling, so
+      // the result was that every LATER subscriber silently stopped ingesting
+      // while the push still looked successful.
+      let row = null;
+      try {
+        row = cat.row(raw);
+      } catch (e) {
+        dropped++;
+        continue;
+      }
       if (row && row.date) mapped.push(row);
+      else dropped++;
     }
 
     if (mapped.length === 0) {
       summary.subscribers.push({
         id: sub.id, metric: metricKey, rowsWritten: 0,
-        note: 'all entries malformed',
+        note: `all ${entries.length} entries malformed`,
       });
+      summary.warnings.push(`[hae] ${sub.id} (${metricKey}): all ${entries.length} entries malformed`);
       continue;
+    }
+
+    // Partial loss inside a recognised metric used to report as a clean push.
+    // Say so, so a payload shape change shows up instead of quietly halving
+    // someone's step count.
+    if (dropped) {
+      summary.warnings.push(`[hae] ${sub.id} (${metricKey}): dropped ${dropped} of ${entries.length} entries`);
     }
 
     const aggregated = aggregate(mapped, cat.aggregate);
@@ -347,6 +369,7 @@ function dispatch(registry, payload) {
       registry.writeData(sub.id, merged);
       summary.subscribers.push({
         id: sub.id, metric: metricKey, rowsWritten: aggregated.length,
+        ...(dropped ? { droppedEntries: dropped } : {}),
       });
     } catch (e) {
       summary.subscribers.push({

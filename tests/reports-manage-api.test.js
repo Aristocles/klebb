@@ -363,6 +363,32 @@ describe('GET /api/reports/:name/text', () => {
   });
 });
 
+describe('the rendered report page links back to Reports', () => {
+  let sandbox, server, auth;
+
+  before(async () => {
+    auth = fakeAuthState();
+    sandbox = createSandbox({ credentials: auth.credentials, sessions: auth.sessions });
+    seedV2(sandbox, 'link-check');
+    server = await spawnServer(sandbox);
+  });
+
+  after(async () => {
+    if (server) await server.kill();
+    if (sandbox) cleanupSandbox(sandbox);
+  });
+
+  test('the back link goes to /reports, not the dashboard', async () => {
+    // The page is only ever reached FROM the Reports view, so sending the reader
+    // to the dashboard loses their place.
+    const r = await request(server.baseUrl, '/report/link-check', { cookie: auth.cookie });
+    assert.equal(r.status, 200);
+    assert.match(r.body, /href="\/reports"/, 'the back link does not point at /reports');
+    assert.match(r.body, /Back to Reports/);
+    assert.ok(!/Back to Dashboard/.test(r.body), 'the old dashboard link is still there');
+  });
+});
+
 describe('POST /api/reports/:name/verify', () => {
   let sandbox, server, auth;
 
