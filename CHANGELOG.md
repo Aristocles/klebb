@@ -237,6 +237,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Request bodies no longer corrupt accented or curly-quoted text.** Every JSON
+  route accumulated its body with `body += chunk`, which decodes each TCP chunk
+  independently, so a multi-byte UTF-8 character straddling a chunk boundary
+  became two replacement characters. Silently, in whatever was then stored: a
+  card label, a note, a chat message. Found while fixing the same bug on the HAE
+  ingest route; the shape was repeated on thirteen others. utf8 decoding is now
+  installed on the stream, which carries a partial sequence across chunks. The
+  two binary upload paths deliberately keep collecting Buffers. A structural
+  test fails if any accumulator loses its decoding, because the failure mode is
+  silent: nothing errors, the text is just quietly wrong. Fixes #556.
+
+- **An oversize chat-history PUT now gets its 413.** Same dead-code shape as the
+  HAE route: the check sat in the `end` handler, which never fires after
+  `req.destroy()`.
+
 - **HAE pushes no longer corrupt multi-byte characters.** The ingest route
   accumulated the POST body as a string, so each TCP chunk was decoded
   independently and a UTF-8 sequence straddling a chunk boundary became a

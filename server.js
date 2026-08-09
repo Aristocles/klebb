@@ -584,6 +584,12 @@ const server = http.createServer(async (req, res) => {
     // request handler.
     if (parts[0] === 'manifests' && parts.length === 1 && req.method === 'POST') {
       let body = '';
+      // utf8 decoding is installed on the STREAM, so a multi-byte character
+      // split across TCP chunks is carried over rather than becoming two
+      // replacement characters. Without it, `body += chunk` decodes each
+      // chunk independently and silently corrupts accented or curly-quoted
+      // text in any sufficiently large request.
+      req.setEncoding('utf8');
       req.on('data', c => body += c);
       req.on('end', () => {
         let parsed;
@@ -631,6 +637,12 @@ const server = http.createServer(async (req, res) => {
       const id = parts[1];
       if (!registry.get(id)) return send404(res, 'manifest not found');
       let body = '';
+      // utf8 decoding is installed on the STREAM, so a multi-byte character
+      // split across TCP chunks is carried over rather than becoming two
+      // replacement characters. Without it, `body += chunk` decodes each
+      // chunk independently and silently corrupts accented or curly-quoted
+      // text in any sufficiently large request.
+      req.setEncoding('utf8');
       req.on('data', c => body += c);
       req.on('end', () => {
         let patch;
@@ -700,6 +712,12 @@ const server = http.createServer(async (req, res) => {
       if (!w || !w.fromWebapp) return sendJSON(res, { error: 'not writeable from webapp' }, 403);
       const fromAgent = isAgentRequest(req);
       let body = '';
+      // utf8 decoding is installed on the STREAM, so a multi-byte character
+      // split across TCP chunks is carried over rather than becoming two
+      // replacement characters. Without it, `body += chunk` decodes each
+      // chunk independently and silently corrupts accented or curly-quoted
+      // text in any sufficiently large request.
+      req.setEncoding('utf8');
       req.on('data', c => body += c);
       req.on('end', () => {
         try {
@@ -748,6 +766,12 @@ const server = http.createServer(async (req, res) => {
     // the whole operation to fail with no writes.
     if (parts[0] === 'manifests' && parts.length === 2 && parts[1] === 'reorder' && req.method === 'POST') {
       let body = '';
+      // utf8 decoding is installed on the STREAM, so a multi-byte character
+      // split across TCP chunks is carried over rather than becoming two
+      // replacement characters. Without it, `body += chunk` decodes each
+      // chunk independently and silently corrupts accented or curly-quoted
+      // text in any sufficiently large request.
+      req.setEncoding('utf8');
       req.on('data', c => body += c);
       req.on('end', () => {
         try {
@@ -829,6 +853,12 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, { error: 'demo mode: cards cannot be created' }, 403);
       }
       let body = '';
+      // utf8 decoding is installed on the STREAM, so a multi-byte character
+      // split across TCP chunks is carried over rather than becoming two
+      // replacement characters. Without it, `body += chunk` decodes each
+      // chunk independently and silently corrupts accented or curly-quoted
+      // text in any sufficiently large request.
+      req.setEncoding('utf8');
       req.on('data', c => body += c);
       req.on('end', () => {
         let parsed;
@@ -1194,6 +1224,12 @@ const server = http.createServer(async (req, res) => {
         && parts.length === 3 && req.method === 'POST') {
       const category = decodeURIComponent(parts[1]);
       let body = '';
+      // utf8 decoding is installed on the STREAM, so a multi-byte character
+      // split across TCP chunks is carried over rather than becoming two
+      // replacement characters. Without it, `body += chunk` decodes each
+      // chunk independently and silently corrupts accented or curly-quoted
+      // text in any sufficiently large request.
+      req.setEncoding('utf8');
       req.on('data', c => body += c);
       req.on('end', () => {
         let parsed;
@@ -1225,6 +1261,12 @@ const server = http.createServer(async (req, res) => {
         && parts.length === 3 && req.method === 'POST') {
       const cardId = decodeURIComponent(parts[1]);
       let body = '';
+      // utf8 decoding is installed on the STREAM, so a multi-byte character
+      // split across TCP chunks is carried over rather than becoming two
+      // replacement characters. Without it, `body += chunk` decodes each
+      // chunk independently and silently corrupts accented or curly-quoted
+      // text in any sufficiently large request.
+      req.setEncoding('utf8');
       req.on('data', c => body += c);
       req.on('end', () => {
         let parsed;
@@ -1250,6 +1292,12 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, { error: 'origin not allowed' }, 403);
       }
       let body = '';
+      // utf8 decoding is installed on the STREAM, so a multi-byte character
+      // split across TCP chunks is carried over rather than becoming two
+      // replacement characters. Without it, `body += chunk` decodes each
+      // chunk independently and silently corrupts accented or curly-quoted
+      // text in any sufficiently large request.
+      req.setEncoding('utf8');
       req.on('data', c => body += c);
       req.on('end', () => {
         let parsed;
@@ -1294,12 +1342,25 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'PUT') {
         let body = '';
         let tooBig = false;
+        // Chat history is the most likely body here to carry accented or
+        // curly-quoted text, and it is large enough to arrive in several
+        // chunks. Decode on the stream so a character split across a chunk
+        // boundary is carried over instead of becoming replacement characters.
+        req.setEncoding('utf8');
         req.on('data', c => {
+          if (tooBig) return;
           body += c;
-          if (body.length > 512 * 1024) { tooBig = true; req.destroy(); }
+          if (body.length > 512 * 1024) {
+            tooBig = true;
+            // Answer here, not from 'end': req.destroy() means 'end' never
+            // fires, so a check there is unreachable and the client gets a bare
+            // socket reset with no status.
+            if (!res.headersSent) sendJSON(res, { error: 'History too large' }, 413);
+            req.resume();
+          }
         });
         req.on('end', () => {
-          if (tooBig) return sendJSON(res, { error: 'History too large' }, 413);
+          if (tooBig) return;
           let parsed;
           try { parsed = JSON.parse(body); }
           catch { return sendJSON(res, { error: 'Invalid JSON' }, 400); }
@@ -1357,6 +1418,12 @@ const server = http.createServer(async (req, res) => {
     //   voiceMode=true → append "keep replies short/conversational" to system prompt
     if (parts[0] === 'chat' && parts.length === 1 && req.method === 'POST') {
       let body = '';
+      // utf8 decoding is installed on the STREAM, so a multi-byte character
+      // split across TCP chunks is carried over rather than becoming two
+      // replacement characters. Without it, `body += chunk` decodes each
+      // chunk independently and silently corrupts accented or curly-quoted
+      // text in any sufficiently large request.
+      req.setEncoding('utf8');
       req.on('data', c => body += c);
       req.on('end', () => {
         try {
@@ -1562,6 +1629,12 @@ Original system prompt follows:
     // boot; the server only writes when the value changed.
     if (parts[0] === 'user' && parts[1] === 'tz' && parts.length === 2 && req.method === 'POST') {
       let body = '';
+      // utf8 decoding is installed on the STREAM, so a multi-byte character
+      // split across TCP chunks is carried over rather than becoming two
+      // replacement characters. Without it, `body += chunk` decodes each
+      // chunk independently and silently corrupts accented or curly-quoted
+      // text in any sufficiently large request.
+      req.setEncoding('utf8');
       req.on('data', c => body += c);
       req.on('end', () => {
         let parsed;
@@ -1596,6 +1669,12 @@ Original system prompt follows:
     // Range support (critical for iOS auto-play).
     if (parts[0] === 'voice' && parts[1] === 'tts' && parts.length === 2 && req.method === 'POST') {
       let body = '';
+      // utf8 decoding is installed on the STREAM, so a multi-byte character
+      // split across TCP chunks is carried over rather than becoming two
+      // replacement characters. Without it, `body += chunk` decodes each
+      // chunk independently and silently corrupts accented or curly-quoted
+      // text in any sufficiently large request.
+      req.setEncoding('utf8');
       req.on('data', c => body += c);
       req.on('end', async () => {
         try {
@@ -1988,6 +2067,12 @@ Original system prompt follows:
       if (!originAllowed(req)) return sendJSON(res, { error: 'origin not allowed' }, 403);
       const name = decodeURIComponent(parts[1]);
       let body = '';
+      // utf8 decoding is installed on the STREAM, so a multi-byte character
+      // split across TCP chunks is carried over rather than becoming two
+      // replacement characters. Without it, `body += chunk` decodes each
+      // chunk independently and silently corrupts accented or curly-quoted
+      // text in any sufficiently large request.
+      req.setEncoding('utf8');
       req.on('data', c => body += c);
       req.on('end', () => {
         const found = reportsApi.readReportFile(name);
