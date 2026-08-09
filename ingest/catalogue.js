@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const PATHS = require('../config/paths');
+const ENV = require('../config/env');
 
 function parseReportHeader(text) {
   if (typeof text !== 'string') return null;
@@ -55,6 +56,59 @@ function listReportsWithMeta() {
   return out;
 }
 
+// Reports accepted by the upload endpoint whose bytes are not yet at their
+// final inbox name. The window is the request body stream: a `.part` file is
+// dot-prefixed and so invisible to _countInbox below, which without this
+// counter lets two concurrent uploads at `used == max - 1` both pass the
+// pre-check and land `max + 1` reports.
+//
+// Released on the rename into the inbox (the file becomes visible to the
+// scan at that instant), and on every abort / error cleanup path.
+let _pendingUploads = 0;
+
+function notePendingUpload() { _pendingUploads++; }
+function releasePendingUpload() { if (_pendingUploads > 0) _pendingUploads--; }
+function pendingUploads() { return _pendingUploads; }
+
+// Reports that count against the cap: top-level .md carrying the ingest
+// sentinel. Hand-authored markdown and the demo fixtures parse to null and
+// are deliberately free, so the demo does not burn slots and a hand-written
+// PROFILE.md is never quota. Cheap enough to do uncached (<= a couple of
+// dozen small files).
+function countIngestedReports() {
+  let entries;
+  try { entries = fs.readdirSync(PATHS.REPORTS_DIR); } catch { return 0; }
+  let n = 0;
+  for (const f of entries) {
+    if (!f.endsWith('.md') || f.startsWith('.') || f.startsWith('_')) continue;
+    const abs = path.join(PATHS.REPORTS_DIR, f);
+    try {
+      if (!fs.statSync(abs).isFile()) continue;
+      if (parseReportHeader(fs.readFileSync(abs, 'utf8'))) n++;
+    } catch {}
+  }
+  return n;
+}
+
+// Inbox files awaiting or undergoing extraction. Same skip rule as the
+// pipeline's _isProcessable, so staging (`.part`) and `_failed/` are excluded.
+function _countInbox() {
+  let entries;
+  try { entries = fs.readdirSync(PATHS.INBOX_DIR); } catch { return 0; }
+  let n = 0;
+  for (const f of entries) {
+    if (f.startsWith('.') || f.startsWith('_')) continue;
+    try { if (fs.statSync(path.join(PATHS.INBOX_DIR, f)).isFile()) n++; } catch {}
+  }
+  return n;
+}
+
+function quota() {
+  const max = ENV.REPORTS_MAX;
+  const used = countIngestedReports() + _countInbox() + _pendingUploads;
+  return { used, max, remaining: Math.max(0, max - used) };
+}
+
 function describeReportsCatalogue() {
   const entries = listReportsWithMeta();
   const lines = [
@@ -83,4 +137,13 @@ function describeReportsCatalogue() {
   return lines.join('\n');
 }
 
-module.exports = { parseReportHeader, listReportsWithMeta, describeReportsCatalogue };
+module.exports = {
+  parseReportHeader,
+  listReportsWithMeta,
+  describeReportsCatalogue,
+  countIngestedReports,
+  quota,
+  notePendingUpload,
+  releasePendingUpload,
+  pendingUploads,
+};

@@ -287,3 +287,55 @@ describe('config/env.js env overrides', () => {
     assert.equal(env.TZ, 'Australia/Sydney');
   });
 });
+
+describe('config/env.js REPORTS_MAX', () => {
+  // freshEnv strips HEALTH_/CHAT_ but not KLEBB_, so clear it explicitly:
+  // otherwise a value set by one case leaks into the "absent" case.
+  function reportsMax(raw) {
+    if (raw === undefined) delete process.env.KLEBB_REPORTS_MAX;
+    const env = freshEnv(raw === undefined ? {} : { KLEBB_REPORTS_MAX: raw });
+    delete process.env.KLEBB_REPORTS_MAX;
+    return env.REPORTS_MAX;
+  }
+
+  test('defaults to 20 when unset', () => {
+    assert.equal(reportsMax(undefined), 20);
+  });
+
+  test('an empty string is treated as unset', () => {
+    assert.equal(reportsMax(''), 20);
+  });
+
+  test('a valid integer wins', () => {
+    assert.equal(reportsMax('100'), 100);
+    assert.equal(reportsMax('1'), 1);
+  });
+
+  test('"0" falls back to 20', () => {
+    // parseInt('0') is 0, which is falsy, so a truthiness check would treat a
+    // real misconfiguration as "absent" and look like it worked.
+    assert.equal(reportsMax('0'), 20);
+  });
+
+  test('a negative value falls back to 20', () => {
+    assert.equal(reportsMax('-5'), 20);
+  });
+
+  test('an unparseable value falls back to 20', () => {
+    // NaN reaching the cap comparison makes every check false, so the cap
+    // silently does not exist.
+    assert.equal(reportsMax('abc'), 20);
+    assert.equal(reportsMax('twenty'), 20);
+  });
+
+  test('a fractional value falls back to 20 rather than truncating', () => {
+    assert.equal(reportsMax('2.7'), 20);
+  });
+
+  test('the resolved value is always an integer >= 1', () => {
+    for (const raw of [undefined, '', '0', '-1', 'abc', '2.7', '7', '999']) {
+      const v = reportsMax(raw);
+      assert.ok(Number.isInteger(v) && v >= 1, `REPORTS_MAX for ${JSON.stringify(raw)} was ${v}`);
+    }
+  });
+});

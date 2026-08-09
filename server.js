@@ -45,6 +45,9 @@ const { describeCcSchema } = require('./chat/describe-cc-schema');
 const { describeDocsCatalogue } = require('./chat/docs');
 const { describeReportsCatalogue } = require('./chat/reports');
 const inbox = require('./ingest/pipeline');
+const catalogue = require('./ingest/catalogue');
+const { ALLOWED_UPLOAD_EXTS } = require('./ingest/extract');
+const { sanitiseStem } = require('./ingest/writeReport');
 
 // chat endpoint config (env-driven; see config/env.js)
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
@@ -1440,10 +1443,10 @@ const server = http.createServer(async (req, res) => {
           // happens to inline today.
           const docsCatalogueBlock = '\n\n' + describeDocsCatalogue() + '\n';
 
-          // Catalogue of reports the user has ingested into
-          // $HEALTH_HOME/reports/ via the inbox watcher. Lets the
-          // agent pull a blood panel / scan / voice memo into the
-          // turn via read_report when the question calls for it.
+          // Catalogue of reports the user has uploaded into
+          // $HEALTH_HOME/reports/. Lets the agent pull a blood panel /
+          // scan / voice memo into the turn via read_report when the
+          // question calls for it.
           const reportsCatalogueBlock = '\n\n' + describeReportsCatalogue() + '\n';
 
           // Constrain meta.category to the canonical enum. Klebb uses the
@@ -1747,6 +1750,168 @@ Original system prompt follows:
 
     // === End voice endpoints ===
 
+    // POST /api/reports/upload — body: raw file bytes, filename in a header.
+    //
+    // One file per request as an octet stream: no multipart parser (and so no
+    // dependency), following the precedent set by POST /api/voice/asr. The
+    // filename travels in X-Klebb-Filename URL-encoded, because HTTP headers
+    // are latin-1 and a raw "Résultats.pdf" either corrupts or throws.
+    //
+    // Guard order matters: everything cheap and everything that can reject
+    // happens BEFORE the body is read, so a large non-allow-listed file is
+    // never streamed to disk just to be deleted.
+    if (parts[0] === 'reports' && parts[1] === 'upload' && parts.length === 2 && req.method === 'POST') {
+      // Reject without ever staging the body. The body is discarded with
+      // resume() rather than destroy(): destroying the request tears down the
+      // shared socket, so the client sees ECONNRESET instead of the status and
+      // message it needs to show the user. resume() streams the remainder to
+      // nowhere (no buffer, no disk), and Connection: close ends the socket
+      // once the client stops talking.
+      const rejectBeforeBody = (status, payload) => {
+        res.writeHead(status, { 'Content-Type': 'application/json', 'Connection': 'close' });
+        res.end(JSON.stringify(payload));
+        req.resume();
+      };
+
+      if (ENV.KLEBB_DEMO) {
+        return rejectBeforeBody(403, { error: 'Not available in demo mode' });
+      }
+
+      const rawHeader = req.headers['x-klebb-filename'];
+      if (!rawHeader || typeof rawHeader !== 'string') {
+        return rejectBeforeBody(400, { error: 'X-Klebb-Filename header is required' });
+      }
+      let decoded;
+      try {
+        decoded = decodeURIComponent(rawHeader);
+      } catch {
+        return rejectBeforeBody(400, { error: 'X-Klebb-Filename must be URL-encoded' });
+      }
+
+      // basename first (kills "../../etc/passwd" and any drive/UNC prefix),
+      // then sanitise the stem, then re-attach the extension we validated.
+      // The name never leaves the inbox dir even before the containment check.
+      const ext = path.extname(path.basename(decoded)).toLowerCase();
+      if (!ALLOWED_UPLOAD_EXTS.includes(ext)) {
+        return rejectBeforeBody(400, {
+          error: `Unsupported file type: ${ext || '(no extension)'} is not supported`,
+          allowed: ALLOWED_UPLOAD_EXTS,
+        });
+      }
+      const stem = sanitiseStem(path.parse(path.basename(decoded)).name);
+      if (!stem) {
+        return rejectBeforeBody(400, { error: 'filename is empty after sanitising' });
+      }
+
+      const q = catalogue.quota();
+      if (q.remaining < 1) {
+        return rejectBeforeBody(409, {
+          error: `Report cap reached (${q.max}). Delete a report to upload another.`,
+          used: q.used,
+          max: q.max,
+        });
+      }
+
+      // Allocate a non-colliding inbox name up front so two uploads of the
+      // same filename don't fight over one .part path.
+      let safeName = `${stem}${ext}`;
+      for (let i = 2; fs.existsSync(path.join(PATHS.INBOX_DIR, safeName)) && i < 1000; i++) {
+        safeName = `${stem}-${i}${ext}`;
+      }
+      const partAbs = path.join(PATHS.INBOX_DIR, `.${safeName}.part`);
+      const finalAbs = path.join(PATHS.INBOX_DIR, safeName);
+      const inboxWithSep = PATHS.INBOX_DIR + path.sep;
+      if (!finalAbs.startsWith(inboxWithSep) || !partAbs.startsWith(inboxWithSep)) {
+        return rejectBeforeBody(400, { error: 'invalid filename' });
+      }
+
+      try { fs.mkdirSync(PATHS.INBOX_DIR, { recursive: true }); } catch {}
+
+      // Reserve the slot for the duration of the body stream: a .part file is
+      // dot-prefixed and so invisible to the quota's inbox count, and without
+      // the reservation two concurrent uploads at used == max-1 both pass the
+      // pre-check above and land max+1 reports.
+      catalogue.notePendingUpload();
+      let reservationHeld = true;
+      const releaseReservation = () => {
+        if (reservationHeld) { reservationHeld = false; catalogue.releasePendingUpload(); }
+      };
+
+      const MAX_BYTES = 15 * 1024 * 1024;
+      let total = 0;
+      let settled = false;
+      const sink = fs.createWriteStream(partAbs);
+
+      // Unlink only once the write handle is actually closed: an open handle
+      // blocks the unlink on Windows, which would leave the .part orphan the
+      // cleanup exists to prevent.
+      const cleanupPart = () => {
+        const unlink = () => { try { fs.unlinkSync(partAbs); } catch {} };
+        if (sink.closed || sink.destroyed) return unlink();
+        sink.once('close', unlink);
+        sink.destroy();
+      };
+      // Cleanup runs on every terminal event, not just the size cap: an
+      // aborted request leaves an orphan .part otherwise.
+      const abandon = (statusCode, payload) => {
+        if (settled) return;
+        settled = true;
+        releaseReservation();
+        cleanupPart();
+        if (statusCode) {
+          res.writeHead(statusCode, { 'Content-Type': 'application/json', 'Connection': 'close' });
+          res.end(JSON.stringify(payload));
+          req.resume();
+        }
+      };
+
+      sink.on('error', e => abandon(500, { error: `could not stage upload: ${e.message}` }));
+      req.on('aborted', () => abandon(null, null));
+      req.on('error', () => abandon(null, null));
+      // A client that walks away without an explicit abort event.
+      res.on('close', () => { if (!settled) abandon(null, null); });
+
+      req.on('data', chunk => {
+        if (settled) return;
+        total += chunk.length;
+        if (total > MAX_BYTES) {
+          return abandon(413, { error: 'File too large (15 MB limit)', maxBytes: MAX_BYTES });
+        }
+        sink.write(chunk);
+      });
+
+      req.on('end', () => {
+        if (settled) return;
+        if (total === 0) return abandon(400, { error: 'empty upload' });
+        sink.end(() => {
+          if (settled) return;
+          settled = true;
+          try {
+            // Atomic within one filesystem. Until this rename the drain never
+            // sees the file (dot-prefixed); after it, the file is complete by
+            // construction, which is why no mtime-stability wait is needed.
+            fs.renameSync(partAbs, finalAbs);
+          } catch (e) {
+            releaseReservation();
+            cleanupPart();
+            return sendJSON(res, { error: `could not stage upload: ${e.message}` }, 500);
+          }
+          // The file is now visible to quota()'s inbox count, so the
+          // reservation must go at the same instant or it double-counts.
+          releaseReservation();
+          inbox.enqueue(finalAbs);
+          const after = catalogue.quota();
+          return sendJSON(res, {
+            accepted: true,
+            filename: safeName,
+            used: after.used,
+            max: after.max,
+          }, 202);
+        });
+      });
+      return;
+    }
+
     // GET /api/reports — list available report files
     if (parts[0] === 'reports' && parts.length === 1) {
       try {
@@ -1881,15 +2046,15 @@ server.listen(PORT, HOST, () => {
     console.error('[manifest] init failed:', e.message);
   }
 
-  // Start the inbox watcher: drains anything left behind from a
-  // previous boot, then watches $HEALTH_HOME/inbox/ for new drops.
-  // Failures inside the pipeline land in inbox/_failed/, so a
-  // broken watcher should never wedge boot.
+  // Drain the inbox: anything left behind by a crash mid-extract, plus the
+  // operator door (`docker cp` + restart). Uploads enqueue directly.
+  // Failures inside the pipeline land in inbox/_failed/, so a bad file
+  // should never wedge boot.
   try {
-    inbox.start();
-    console.log('[ingest] inbox watcher started');
+    const { queued } = inbox.start();
+    console.log(`[ingest] inbox drained; ${queued} file(s) queued`);
   } catch (e) {
-    console.warn('[ingest] watcher init failed:', e.message);
+    console.warn('[ingest] drain failed:', e.message);
   }
 
   // Notifications scheduler: 1-minute tick, evaluates triggers, fires
