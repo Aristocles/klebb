@@ -115,8 +115,20 @@ async function _spawnServerOnce(sandboxRoot, extraEnv = {}) {
   // Wait for "Health dashboard running" on stdout (or a small delay).
   // stderr is captured too: a bind failure prints there, and reporting only
   // stdout made an EADDRINUSE death look like a silent exit with no reason.
+  //
+  // 30s, not 5s. node --test runs one process per file across every core, and
+  // each spawnServer boots a whole server (datastore open, manifest discovery,
+  // first-boot seeding) while ~90 other files compete for the same CPUs. 5s was
+  // comfortable for one server and marginal for a full run: a different file
+  // aborted on roughly every third run, always with EVERY subtest passing,
+  // which reads as a regression in whatever changed most recently and is not
+  // one. A generous ceiling costs nothing when the server does start, and the
+  // exit handler below still fails fast when it genuinely cannot.
+  const STARTUP_TIMEOUT_MS = Number(process.env.KLEBB_TEST_STARTUP_TIMEOUT_MS) || 30000;
   await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('server did not start in 5s')), 5000);
+    const timeout = setTimeout(
+      () => reject(new Error(`server did not start in ${STARTUP_TIMEOUT_MS}ms`)),
+      STARTUP_TIMEOUT_MS);
     let buf = '';
     let errBuf = '';
     proc.stdout.on('data', chunk => {

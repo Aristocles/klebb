@@ -248,6 +248,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **The stale-card nudge no longer fires for hidden cards.** A card put away with
+  `hide_card` (`meta.enabled: false`) was still scanned, so the peek bar offered
+  "hasn't been updated in 84 days" for a card the user had deliberately taken out
+  of every view. `registry.js` already treats that flag as hiding a card
+  everywhere; hygiene was the one surface ignoring it. Suppressed for all finding
+  kinds, not just staleness, and unhiding restores them. It also stopped a hidden
+  card sorting ahead of a visible one and silently taking the peek bar's single
+  slot. Fixes #560.
+
+
 - **Request bodies no longer corrupt accented or curly-quoted text.** Every JSON
   route accumulated its body with `body += chunk`, which decodes each TCP chunk
   independently, so a multi-byte UTF-8 character straddling a chunk boundary
