@@ -2306,8 +2306,16 @@ server.listen(PORT, HOST, () => {
 
 // Graceful shutdown: stop the scheduler so the test harness's SIGTERM
 // doesn't leave a stray timer keeping the process alive.
+// SIGTERM/SIGINT: stop the scheduler so a stray timer cannot keep the process
+// alive, then CLOSE THE DATASTORE. Closing checkpoints the WAL into klebb.db,
+// so a `docker stop` followed by a plain copy of db/ cannot miss recent writes.
+// Guarded and synchronous: an exit that hangs on shutdown is worse than one that
+// skips a checkpoint, so anything that throws is logged and we still exit.
 function _shutdown() {
   try { notificationsScheduler.stop(); } catch {}
+  try { registry.closeStore(); } catch (e) {
+    console.warn('[shutdown] datastore close failed:', e.message);
+  }
   process.exit(0);
 }
 process.on('SIGTERM', _shutdown);

@@ -95,6 +95,30 @@ function _ensureStore() {
   return _store;
 }
 
+// Close the datastore, which checkpoints the WAL into the main database file.
+//
+// Without this, SIGTERM took the process down with recent writes living only in
+// klebb.db-wal. Everything still worked, because SQLite reads the WAL back on
+// next open, but a backup that copied klebb.db alone silently lost whatever had
+// not been checkpointed yet: measured at 1084 of 1095 rows on a real instance.
+// docs/DEPLOY.md warns to stop the container before copying db/, which is the
+// same advice, but it should not be the only thing standing between a routine
+// `docker stop` and a lossy backup.
+//
+// Safe to call more than once and safe to call having never opened the store.
+function closeStore() {
+  if (!_store) return false;
+  try {
+    _store.close();
+  } catch (e) {
+    console.warn('[manifest] datastore close failed:', e.message);
+    return false;
+  }
+  _store = null;
+  _importer = null;
+  return true;
+}
+
 // Register a callback to fire after deleteManifest succeeds. Used by
 // notifications-state to prune sidecar entries for a removed card.
 function onDelete(fn) {
@@ -926,6 +950,7 @@ function deleteManifest(id) {
 
 module.exports = {
   init,
+  closeStore,
   reload,
   list,
   listForView,

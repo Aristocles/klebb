@@ -248,6 +248,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Shutdown now checkpoints the WAL.** `_shutdown()` called `process.exit(0)`
+  without closing the datastore, so `docker stop` left recent writes living only
+  in `klebb.db-wal`. Nothing was lost while the file pair stayed together
+  (SQLite replays the WAL on next open), but a backup that copied `klebb.db`
+  alone silently dropped whatever had not been checkpointed: measured at 1084 of
+  1095 rows on a real instance. `docs/DEPLOY.md` already advised stopping the
+  container first, and that should not have been the only thing standing between
+  a routine restart and a lossy backup. Fixes #562.
+
+
 - **The stale-card nudge no longer fires for hidden cards.** A card put away with
   `hide_card` (`meta.enabled: false`) was still scanned, so the peek bar offered
   "hasn't been updated in 84 days" for a card the user had deliberately taken out
