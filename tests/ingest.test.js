@@ -186,13 +186,18 @@ describe('ingest/extract dispatcher', () => {
     assert.equal(formatFor('foo.PNG'), 'image');
     assert.equal(formatFor('foo.txt'), 'text');
     assert.equal(formatFor('foo.md'), 'markdown');
+    assert.equal(formatFor('foo.csv'), 'text');
+    assert.equal(formatFor('foo.docx'), 'docx');
     assert.equal(formatFor('foo.mp3'), 'audio');
-    assert.equal(formatFor('foo.docx'), null);
+    // Pre-2007 binary .doc is a different format entirely, and stays out.
+    assert.equal(formatFor('foo.doc'), null);
+    assert.equal(formatFor('foo.exe'), null);
+    assert.equal(formatFor('foo'), null);
   });
 
   test('extract rejects unsupported formats', async () => {
     await assert.rejects(
-      () => extract('/tmp/foo.docx'),
+      () => extract('/tmp/foo.exe'),
       /unsupported format/,
     );
   });
