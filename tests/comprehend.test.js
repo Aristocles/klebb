@@ -501,6 +501,43 @@ describe('comprehend: numeric fidelity', () => {
     assert.equal(t.get('5'), 2);
     assert.equal(t.get('6'), 1);
   });
+
+  test('a comma-separated csv row does not glue its fields into one token', () => {
+    // Found on a real lab csv during the test-instance sweep. Treating every
+    // comma as a thousands separator turned "130-180,2026-03-12" into the token
+    // "1802026", so a body faithfully quoting 180 and 2026 read as having
+    // invented both, and a perfectly good report degraded to raw.
+    const tokens = [...numericTokens('haemoglobin,147,g/L,130-180,2026-03-12').keys()];
+    assert.ok(tokens.includes('180'), `180 missing from ${tokens.join(' ')}`);
+    assert.ok(tokens.includes('2026'), `2026 missing from ${tokens.join(' ')}`);
+    assert.ok(!tokens.some(t => t.startsWith('180') && t.length > 3),
+      `a glued token survived: ${tokens.join(' ')}`);
+  });
+
+  test('a whole csv lab export round-trips with its reference ranges', () => {
+    const csv = [
+      'analyte,result,unit,reference,collected',
+      'haemoglobin,147,g/L,130-180,2026-03-12',
+      'ferritin,88,ug/L,30-300,2026-03-12',
+      'vitamin_d,72,nmol/L,50-150,2026-03-12',
+      'tsh,2.1,mIU/L,0.4-4.0,2026-03-12',
+    ].join('\n');
+    const body = [
+      'Haemoglobin 147 g/L (130-180)',
+      'Ferritin 88 ug/L (30-300)',
+      'Vitamin D 72 nmol/L (50-150)',
+      'TSH 2.1 mIU/L (0.4-4.0)',
+    ].join('\n');
+    const r = numericFidelity(csv, body);
+    assert.ok(r.ok, `a faithful reformat of a csv export was rejected: ${r.invented.join(', ')}`);
+  });
+
+  test('thousands grouping still normalises, but only when it is really grouping', () => {
+    assert.deepEqual([...numericTokens('n 12,345,678').keys()], ['12345678']);
+    assert.deepEqual([...numericTokens('a,1,2,3,b').keys()], ['1', '2', '3']);
+    // A group that runs into a fourth digit is not a group.
+    assert.ok([...numericTokens('x 1,2345').keys()].includes('2345'));
+  });
 });
 
 describe('comprehend: happy path', () => {
