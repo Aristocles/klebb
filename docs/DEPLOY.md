@@ -210,30 +210,43 @@ once to backfill the per-passkey `nickname` and `lastUsedAt` fields
 Voice input and voice replies are supported via Fish Audio. See
 [`docs/VOICE.md`](VOICE.md) for configuration and troubleshooting.
 
-### Inbox-driven report ingest (optional)
+### Report uploads
 
-Klebb watches `$HEALTH_HOME/inbox/` for `.pdf`, `.png`, `.jpg`,
-`.txt`, `.md`, `.mp3`, `.wav`, `.m4a`, `.ogg`, and `.opus` drops and
-extracts each into a markdown report under `$HEALTH_HOME/reports/`.
-The chat agent picks them up via the `read_report` tool.
+Users upload documents from the Reports page: PDFs, photos of lab
+results, scans, `.docx` letters, `.txt` / `.md` / `.csv`, and audio.
+Klebb extracts the text locally, then produces a summary through the
+configured chat gateway, and the agent reads them via `read_report`.
 
 System packages required for bare-metal deploys (the published Docker
-image ships with all four baked in):
+image ships all of them):
 
-- `poppler-utils` (provides `pdftotext` for PDF extraction)
-- `tesseract-ocr` + `tesseract-ocr-eng` (image OCR)
-- `ffmpeg` (already required for voice; reused for audio ingest)
+- `poppler-utils` (`pdftotext` for a PDF's text layer, plus `pdftoppm`
+  and `pdfinfo`, which rasterise scanned PDFs so they can be OCRed)
+- `tesseract-ocr` + `tesseract-ocr-eng` (OCR for photos and scans)
+- `ffmpeg` (already required for voice; reused for audio)
 
 ```bash
 sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-eng ffmpeg
 ```
 
-Audio ingest reuses `FISH_AUDIO_API_KEY`: drops without it land in
-`$HEALTH_HOME/inbox/_failed/` with an explanatory `.error` sibling.
-PDF / image / text drops work without any chat or voice key set.
+Audio reuses `FISH_AUDIO_API_KEY`; without it, audio uploads fail with
+an explanatory reason shown on the Reports page. Everything else works
+with no key at all, though without a reachable `CHAT_ENDPOINT_URL` a
+report lands unsummarised (its extracted text is still complete and
+readable).
 
-See [`REPORTS.md`](REPORTS.md) for the full workflow, output format,
-and troubleshooting checklist.
+`KLEBB_REPORTS_MAX` caps how many uploaded reports an instance holds,
+defaulting to 20. It is a cost and context bound rather than a disk
+one: each report is one gateway call on arrival and one entry in the
+agent's prompt every turn thereafter. Raise it if you run your own
+gateway.
+
+A file placed directly into `$HEALTH_HOME/inbox/` is picked up on the
+next restart, under the same cap. That is an operator door for bulk
+seeding and for recovering a crash mid-read, not a second ingest path.
+
+See [`REPORTS.md`](REPORTS.md) for the report states, the OCR
+verification loop, the privacy boundary, and troubleshooting.
 
 ---
 

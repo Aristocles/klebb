@@ -257,24 +257,29 @@ chat widget), point `CHAT_ENDPOINT_URL=http://host.docker.internal:<port>/v1/cha
 in `.env`. The compose file already maps that hostname to the host via
 `extra_hosts: host.docker.internal:host-gateway`.
 
-## Ingesting reports
+## Reports
 
-Klebb watches `$HEALTH_HOME/inbox/` and turns anything you drop in
-there into a markdown report under `$HEALTH_HOME/reports/`, ready for
-the chat agent to read on demand. Supports `.pdf` (via `pdftotext`),
-`.png` / `.jpg` / `.jpeg` (via `tesseract`), `.txt` / `.md` verbatim,
-and `.mp3` / `.wav` / `.m4a` / `.ogg` / `.opus` (via `ffmpeg` + Fish
-ASR; requires `FISH_AUDIO_API_KEY`).
+Upload a health document from the Reports page and Klebb reads it: a blood
+panel, a photo of a lab result, a scanned letter, a DNA export, a csv, a voice
+memo. Each becomes a titled report with a short summary that the chat agent can
+use, with the original kept alongside it.
 
-```bash
-scp bloods.pdf myhost:/data/inbox/
-```
+Extraction is local and deterministic: `pdftotext` for digital PDFs,
+`pdftoppm` + `tesseract` for scans and photos, a built-in reader for `.docx`,
+verbatim for `.txt` / `.md` / `.csv`, and `ffmpeg` + speech recognition for
+audio (needs `FISH_AUDIO_API_KEY`). A background pass then produces the
+summary through your configured chat gateway, with your own identifiers removed
+from the processed text.
 
-The Docker image ships with all four binaries baked in, so this works
-out of the box. Failures land in `$HEALTH_HOME/inbox/_failed/` with a
-sibling `.error` file. See [`docs/REPORTS.md`](docs/REPORTS.md) for
-the full workflow, output format, troubleshooting, and the chat
-round-trip.
+Anything read by OCR needs a quick human check first: you compare the text
+against the original, and until you confirm it the chat agent is told the
+report is waiting rather than being allowed to quote possibly-misread numbers.
+
+The Docker image ships every binary, so this works out of the box. Default
+limits are 15 MB per file and 20 reports per instance
+(`KLEBB_REPORTS_MAX=100` to raise it). See
+[`docs/REPORTS.md`](docs/REPORTS.md) for the states, the verification loop, the
+privacy boundary, and what is not included.
 
 ## Running tests
 
@@ -380,10 +385,10 @@ voice/
   fish.js                         Fish Audio TTS/ASR (optional)
   transcode.js                    ffmpeg pipe -> 16 kHz mono WAV (shared)
 ingest/
-  pipeline.js                     inbox watcher orchestrator
-  watcher.js                      fs.watch + debounce wrapper
+  pipeline.js                     single-slot queue + boot drain
   extract.js                      extension-keyed dispatcher
-  extractors/                     pdf / image / text / audio extractors
+  extractors/                     pdf / image / docx / text / audio extractors
+  comprehend.js                   digest + PII scrub + numeric-fidelity gate
   writeReport.js                  frontmatter + atomic .md write
   catalogue.js                    parses headers + builds chat catalogue
 public/
