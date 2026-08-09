@@ -91,14 +91,26 @@ function parseJsonReply(raw) {
 // Numeric tokens, normalised so that formatting differences are not treated as
 // changed values: thousands separators dropped, trailing zeros trimmed.
 // "1,234" and "1234" match; "7.0" and "7" match; "147" and "174" do not.
+//
+// A comma only groups digits when every group is exactly three digits AND the
+// run does not continue into a fourth ("1,234" and "12,345,678" group; the
+// "180,2026" in a csv row does not). The negative lookahead is load-bearing:
+// without it ",202" of ",2026" matches the group pattern and the token becomes
+// "180202".
+//
+// Treating every comma as a thousands separator glued csv fields together, so
+// "130-180,2026-03-12" tokenised as "1802026" and a body faithfully quoting 180
+// and 2026 looked like it had invented both. That degraded a perfectly good lab
+// report to raw on a real document during the test-instance sweep, which is why
+// the grouping rule is explicit rather than a blanket comma strip.
 function numericTokens(s) {
   const out = new Map();
-  const matches = String(s || '').match(/\d[\d,]*(?:\.\d+)?/g) || [];
+  const matches = String(s || '').match(/\d+(?:,\d{3})*(?:\.\d+)?(?!\d)/g) || [];
   for (const raw of matches) {
     let n = raw.replace(/,/g, '');
     if (n.includes('.')) n = n.replace(/0+$/, '').replace(/\.$/, '');
     n = n.replace(/^0+(?=\d)/, '');
-    out.set(n, (out.get(n) || 0) + 1);
+    if (n) out.set(n, (out.get(n) || 0) + 1);
   }
   return out;
 }
