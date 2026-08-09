@@ -3,7 +3,6 @@
 // Fail fast on an unsupported Node before anything opens the datastore.
 require('./lib/node-floor').assertNodeFloor();
 const http = require('http');
-const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -45,17 +44,17 @@ const { describeCcSchema } = require('./chat/describe-cc-schema');
 const { describeDocsCatalogue } = require('./chat/docs');
 const { describeReportsCatalogue } = require('./chat/reports');
 const inbox = require('./ingest/pipeline');
+const gateway = require('./lib/gateway');
+const { callGateway } = gateway;
 const catalogue = require('./ingest/catalogue');
 const { ALLOWED_UPLOAD_EXTS } = require('./ingest/extract');
 const { sanitiseStem } = require('./ingest/writeReport');
 
-// chat endpoint config (env-driven; see config/env.js)
+// chat endpoint config (env-driven; see config/env.js). The key and model are
+// read by lib/gateway.js, which owns the transport.
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
-const CHAT_API_KEY = ENV.CHAT_API_KEY;
-const CHAT_MODEL = ENV.CHAT_MODEL;
 const DEBUG_LOG = ENV.DEBUG_LOG;
 const CHAT_ITER_TIMEOUT_MS = ENV.CHAT_ITER_TIMEOUT_MS;
-const GATEWAY_HARD_TIMEOUT_MS = 180000;
 const NO_TOOL_FITS_REFUSAL =
   "I can't do that in one step right now: it doesn't fit any of the tools I have, and the workaround would have to rewrite the whole card (which times out on cards this size). If you tell me which slice of the card you want changed, I can usually do that with a row-level edit.";
 
@@ -66,15 +65,9 @@ const NO_TOOL_FITS_REFUSAL =
 function chatLog(reqId, ...parts) {
   if (DEBUG_LOG) console.log(`[chat:${reqId}]`, ...parts);
 }
-const CHAT_ENDPOINT = CHAT_ENDPOINT_URL ? (() => {
-  const u = new URL(CHAT_ENDPOINT_URL);
-  return {
-    hostname: u.hostname,
-    port: u.port || (u.protocol === 'https:' ? 443 : 80),
-    path: u.pathname + u.search,
-    transport: u.protocol === 'https:' ? https : http,
-  };
-})() : null;
+// Kept as a local truthiness flag for the "chat configured?" checks below;
+// the transport details now live in lib/gateway.js.
+const CHAT_ENDPOINT = CHAT_ENDPOINT_URL ? gateway.parseEndpoint(CHAT_ENDPOINT_URL) : null;
 
 const HEALTH_SYSTEM_PROMPT = ENV.HEALTH_SYSTEM_PROMPT;
 
@@ -272,58 +265,10 @@ function extractJsonReply(raw) {
   return null;
 }
 
-// POST one chat-completions payload to the configured gateway and return the
-// parsed JSON response. Promise rejects with a typed Error so the caller can
-// map to the right HTTP status:
-//   'gateway_unavailable: <msg>'  -> 502
-//   'gateway_timeout'             -> 504
-//   'gateway_parse: <msg>'        -> 500
-// Preserves the existing transport options (no keep-alive, self-signed TLS
-// tolerated, 180s per-hop timeout).
-function callGateway({ messages, tools, timeoutMs }) {
-  return new Promise((resolve, reject) => {
-    if (!CHAT_ENDPOINT) return reject(new Error('gateway_unavailable: CHAT_ENDPOINT_URL not set'));
-    const body = { model: CHAT_MODEL, messages };
-    if (tools && tools.length) {
-      body.tools = tools;
-      body.tool_choice = 'auto';
-    }
-    const payload = JSON.stringify(body);
-    const options = {
-      hostname: CHAT_ENDPOINT.hostname,
-      port: CHAT_ENDPOINT.port,
-      path: CHAT_ENDPOINT.path,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${CHAT_API_KEY}`,
-        'Content-Length': Buffer.byteLength(payload),
-        'Connection': 'close',
-      },
-      rejectUnauthorized: false,
-      agent: false,
-    };
-    const proxyReq = CHAT_ENDPOINT.transport.request(options, (proxyRes) => {
-      let data = '';
-      proxyRes.on('data', c => data += c);
-      proxyRes.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch (e) { reject(new Error('gateway_parse: ' + e.message)); }
-      });
-    });
-    proxyReq.on('error', (e) => reject(new Error('gateway_unavailable: ' + e.message)));
-    const effectiveTimeout = (typeof timeoutMs === 'number' && timeoutMs > 0)
-      ? Math.min(timeoutMs, GATEWAY_HARD_TIMEOUT_MS)
-      : GATEWAY_HARD_TIMEOUT_MS;
-    const isSoftCap = effectiveTimeout < GATEWAY_HARD_TIMEOUT_MS;
-    proxyReq.setTimeout(effectiveTimeout, () => {
-      proxyReq.destroy();
-      reject(new Error(isSoftCap ? 'gateway_iter_timeout' : 'gateway_timeout'));
-    });
-    proxyReq.write(payload);
-    proxyReq.end();
-  });
-}
+// callGateway now lives in lib/gateway.js so the report comprehension pass
+// can reach the gateway from ingest/ without requiring this file back.
+// Unchanged in behaviour, including the load-bearing error-string prefixes the
+// /api/chat catch below matches on.
 
 // Run the OpenAI-compatible tool-calling loop. Each iteration:
 //   1. call the gateway with current messages (+ TOOL_DEFS)

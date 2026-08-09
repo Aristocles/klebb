@@ -9,23 +9,62 @@ const path = require('path');
 const PATHS = require('../config/paths');
 const ENV = require('../config/env');
 
+// Parse an ingested report's frontmatter.
+//
+// Accepts v1 AND v2. Tightening this to v2 alone would silently orphan every
+// report already on disk across every live instance plus the demo: they would
+// vanish from the chat catalogue and lose their metadata in read_report, with
+// nothing in a log to say why. v1 files are never rewritten, so v1 stays valid
+// indefinitely and existing data is never at risk.
+//
+// The format is deliberately line-based rather than real YAML. The one list it
+// supports is `bullets`, whose items are `- ` lines following the key.
 function parseReportHeader(text) {
   if (typeof text !== 'string') return null;
   const m = text.match(/^---\n([\s\S]*?)\n---/);
   if (!m) return null;
   const block = m[1];
-  if (!/^klebb_ingest:\s*v1\s*$/m.test(block)) return null;
+  const sentinel = block.match(/^klebb_ingest:\s*v([12])\s*$/m);
+  if (!sentinel) return null;
+  const version = Number(sentinel[1]);
+
   const out = {};
+  let lastKey = null;
   for (const line of block.split('\n')) {
+    const item = line.match(/^\s*-\s+(.*)$/);
+    if (item && lastKey) {
+      if (!Array.isArray(out[lastKey])) out[lastKey] = [];
+      out[lastKey].push(item[1].trim());
+      continue;
+    }
     const kv = line.match(/^([a-z_]+):\s*(.*)$/);
-    if (kv) out[kv[1]] = kv[2].trim();
+    if (kv) {
+      const key = kv[1];
+      const value = kv[2].trim();
+      // A key with an empty value opens a list; anything else is a scalar.
+      out[key] = value === '' ? [] : value;
+      lastKey = key;
+    }
   }
   if (!out.ingested_at || !out.source_file || !out.source_format) return null;
+
+  const scalar = (v) => (typeof v === 'string' && v !== '' ? v : null);
   return {
+    version,
     ingestedAt: out.ingested_at,
     sourceFile: out.source_file,
     sourceFormat: out.source_format,
-    archivePath: out.archive_path || null,
+    archivePath: scalar(out.archive_path),
+    // v2 digest fields. A v1 file has none of these, so it reads as a plain
+    // ready report needing no verification, which is what it has always been.
+    status: scalar(out.status) || 'ready',
+    verify: scalar(out.verify) || 'not_required',
+    title: scalar(out.title),
+    documentDate: scalar(out.document_date),
+    relevance: scalar(out.relevance),
+    ocrPsm: out.ocr_psm ? Number(out.ocr_psm) : null,
+    reason: scalar(out.reason),
+    bullets: Array.isArray(out.bullets) ? out.bullets : [],
   };
 }
 
