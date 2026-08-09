@@ -9,6 +9,40 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Report upload, with AI comprehension and an OCR verification loop.**
+  Documents now go in from the browser instead of over SSH. Upload a blood
+  panel, a photo of a lab result, a scanned letter, a `.docx` referral, a csv
+  export or a voice memo from the Reports page; extraction stays local
+  (`pdftotext`, `pdftoppm` + tesseract for scans, a zero-dependency `.docx`
+  reader, ffmpeg + speech recognition), and a background pass through the
+  configured chat gateway turns the text into a title, the date on the
+  document, up to five bullets, and a body with the patient's own identifiers
+  removed. Clinicians, practices and labs are deliberately kept: it is the
+  patient's identity that is sensitive, and the referring doctor is useful
+  context.
+
+  Anything read by OCR is **gated until a human checks it**. The detail sheet
+  shows the original beside the extracted text (side by side on a desktop, two
+  tabs on a phone), and until you confirm it, `read_report` returns a refusal
+  with no content: the gate lives in the tool the agent calls, not in its
+  instructions. Retry re-runs OCR at a different page-layout setting.
+
+  A generated summary containing a number absent from the source is never
+  published: it degrades to the raw extracted text with the offending value
+  named. An LLM quietly transposing a lab value is the one failure here with
+  real consequences.
+
+  The chat agent now sees each report's title, document date and bullets
+  ordered by the date **on the document**, within a byte ceiling, rather than a
+  list of filenames.
+
+  Reports are a managed surface: quota, states (`processing`, `needs checking`,
+  `ready`, `not summarised`, `not health`, `failed` with its reason), reprocess
+  and delete. `KLEBB_REPORTS_MAX` caps how many an instance holds (default 20);
+  hand-authored markdown in `reports/` is never gated, never deleted by the
+  app, and never counts against it. All four mutating routes are gated in demo
+  mode. Fixes #534, #535, #536, #537, #538, #539; epic #533.
+
 - **Real WebAuthn ceremony e2e coverage.** Four Playwright specs drive the
   actual passkey ceremonies via Chromium's CDP virtual authenticator
   (ctap2/internal, resident key, user verification): bootstrap register on
@@ -105,6 +139,24 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **`GET /api/reports` returns an envelope, not a bare array.** Now
+  `{quota, reports, processing, failed}`, with each report carrying its
+  title, document date, state, source format and bullets. The Reports
+  view was the only consumer; it tolerates the old shape so a stale
+  cached script degrades rather than blanking.
+
+- **`callGateway` moved to `lib/gateway.js`.** Behaviour-identical
+  (same headers, same transport options, same error-string prefixes,
+  which `/api/chat` string-matches to pick a status code). It lived in
+  `server.js` as a closure over module-level config, so nothing outside
+  that file could reach the gateway; report comprehension runs from
+  `ingest/`.
+
+- **Report frontmatter has a v2 form** carrying the digest. The parser
+  accepts v1 **and** v2, and v1 files are never rewritten: reports
+  written by earlier versions keep working indefinitely, with no
+  migration to run.
+
 - **Staleness signals now prefer the datastore's write time.** The
   `get_recent_activity` chat tool (and the hygiene scan built on it)
   used the manifest file's mtime as the freshness fallback for cards
@@ -163,6 +215,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   Refs #494.
 
 ### Removed
+
+- **The inbox filesystem watcher, and the mtime-stability wait.** Upload
+  is the ingest path now, so `ingest/watcher.js` and its `fs.watch`
+  wiring are gone, and so is the six-poll wait that existed only to
+  avoid racing an rsync mid-copy: the server writes the bytes and
+  renames atomically, so a file at its final name is complete by
+  construction. The boot drain stays as an operator door (`docker cp`
+  plus a restart), now enqueuing under the same cap and the same rules
+  as an upload. Extraction is serialised through a single slot, since
+  tesseract and `pdftoppm` are CPU-bound and share node's thread with
+  request serving.
 
 - **Legacy off-disk data-read endpoints.** Removed the read-side
   counterparts of the writers retired in #496: `GET /api/supplements`,

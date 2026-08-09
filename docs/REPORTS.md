@@ -1,13 +1,12 @@
-# Reports: ingesting PDFs, scans, notes, and audio
+# Reports: uploading documents and how Klebb reads them
 
-Klebb watches `$HEALTH_HOME/inbox/` and turns anything you drop in
-there into a markdown report under `$HEALTH_HOME/reports/`. The chat
-agent picks up new reports automatically and can pull the full text
-into a conversation on demand.
+Upload a health document from your browser and Klebb turns it into a report:
+a titled card with a short summary, available to the chat agent, with the
+original kept alongside it.
 
-This is the workflow for getting blood panels, scan reports, hand
-notes, voice memos, and similar artefacts into Klebb so you can ask
-about them.
+Blood panels, scan reports, doctors' letters, DNA results, lab csv exports,
+hand notes, voice memos. Anything you would otherwise squint at in a PDF
+viewer and then try to remember.
 
 ---
 
@@ -15,180 +14,285 @@ about them.
 
 ```
 $HEALTH_HOME/
-├── inbox/                # drop files here
-│   └── _failed/          # things the pipeline could not extract
-└── reports/              # extracted markdown lives here
-    └── _archive/         # originals filed away after extraction
+├── inbox/                # transient: a file lives here for seconds
+│   └── _failed/          # things the pipeline could not read
+└── reports/              # the reports themselves
+    └── _archive/         # the original files, kept
 ```
 
-1. Drop a file into `$HEALTH_HOME/inbox/` (SSH, rsync, SCP, `docker
-   cp`, syncthing: whatever you already use).
-2. Klebb extracts the text using infra binaries (no LLM at ingest)
-   and writes a deterministic `<YYYY-MM-DD>-<stem>.md` into
-   `$HEALTH_HOME/reports/`.
-3. The original file is moved into `$HEALTH_HOME/reports/_archive/`.
-4. The chat agent's system prompt is regenerated on its next turn
-   with the new report listed under `## Available reports`. Ask it
-   anything about the file and it'll call its `read_report` tool to
-   fetch the body.
+1. **Upload** from the Reports page. One or more files; each goes up on its
+   own request.
+2. **Extract**, locally and deterministically: poppler for PDFs, tesseract for
+   photos and scans, a built-in reader for Word documents, ffmpeg plus speech
+   recognition for audio. No model involved at this step.
+3. **Comprehend**: one call to your configured chat gateway turns the extracted
+   text into a title, the date on the document, up to five bullets, and a body
+   with your own identifying details removed. This runs in the background; the
+   upload has already returned.
+4. **Verify**, for photos and scans only. Their text came from OCR, which can
+   misread a digit, so you check it against the original before the chat agent
+   is allowed to use it.
 
-The Reports view in the webapp shows the new `.md` file alongside any
-hand-authored markdown you've put in `$HEALTH_HOME/reports/` directly.
+The original file moves to `reports/_archive/` and stays there, because
+re-reading a document later needs it.
 
 ---
 
 ## 2. Supported file types
 
-| Extension | Extractor | Requires |
-|-----------|-----------|----------|
-| `.pdf` | `pdftotext -layout` | `poppler-utils` |
-| `.png`, `.jpg`, `.jpeg` | `tesseract <abs> stdout -l eng` | `tesseract-ocr`, `tesseract-ocr-eng` |
-| `.txt`, `.md` | `fs.readFile` | nothing |
-| `.mp3`, `.wav`, `.m4a`, `.ogg`, `.opus` | `ffmpeg` -> Fish ASR | `ffmpeg`, `FISH_AUDIO_API_KEY` |
+| Extension | How it is read | Needs |
+|-----------|----------------|-------|
+| `.pdf` (digital) | `pdftotext -layout` | `poppler-utils` |
+| `.pdf` (scanned) | `pdftoppm` renders the pages, then tesseract reads them | `poppler-utils`, `tesseract-ocr` |
+| `.png`, `.jpg`, `.jpeg` | tesseract OCR | `tesseract-ocr`, `tesseract-ocr-eng` |
+| `.docx` | built-in reader (no dependency) | nothing |
+| `.txt`, `.md`, `.csv` | read verbatim | nothing |
+| `.mp3`, `.wav`, `.m4a`, `.ogg`, `.opus` | `ffmpeg` then speech recognition | `ffmpeg`, `FISH_AUDIO_API_KEY` |
 
-The Docker image ships with all four binaries baked in, so containerised
-deploys work out of the box. Bare-metal deploys need to install the
-packages themselves (see [DEPLOY.md](DEPLOY.md)).
+The Docker image ships every binary, so containerised deploys work out of the
+box. Bare-metal deploys install the packages themselves; see
+[DEPLOY.md](DEPLOY.md).
 
-Audio ingest reuses the same Fish ASR pipeline that powers voice chat,
-so `FISH_AUDIO_API_KEY` is the only extra config you need. See
-[VOICE.md](VOICE.md) for setup.
+Anything else is refused at upload with a message naming the extension, and
+never reaches disk. `.doc` (pre-2007 Word) is a different format entirely and
+is not supported; re-save it as `.docx`.
 
-Anything else (`.docx`, `.zip`, `.heic`, etc.) is rejected and lands
-in `inbox/_failed/`. The list is intentionally tight: the pipeline is
-about predictable, auditable extraction, not a docx-to-markdown
-adventure.
+**Scanned PDFs** are detected rather than declared: if a PDF's text layer is
+too sparse to be real content, the pages are rendered at 300 dpi and OCRed
+instead, and the report records `source_format: pdf-ocr`. Capped at 20 pages,
+and if a document is longer the report says so rather than letting you believe
+you have the whole thing.
+
+Limits: 15 MB per file, and 20 reports per instance by default (see
+`KLEBB_REPORTS_MAX` below).
 
 ---
 
-## 3. Output format
+## 3. Report states
 
-Every ingested report is a markdown file with YAML frontmatter:
+A report's badge tells you where it stands.
+
+| State | Meaning |
+|-------|---------|
+| **processing** | uploaded, being read. Usually a second or two; a multi-page scan takes longer. |
+| **needs checking** | read by OCR from a photo or scan. Chat cannot use it until you confirm the text. |
+| **ready** | summarised and available to chat. |
+| **not summarised** (`raw`) | the text was extracted fine, but the summary could not be produced. The report is complete and readable; it just has no bullets. The reason is shown. |
+| **not health** (`rejected`) | the document had no health content (a receipt, a payslip). Kept visible so you can see what it was and delete it. |
+| **failed** | could not be read at all. The reason is shown on the card. |
+
+`raw` happens when the chat gateway is unreachable, returns something
+unparseable, or when the numeric-fidelity check below rejects the summary. It
+is a degradation, never a loss: the extracted text is always the report body.
+
+### The numeric-fidelity check
+
+Every number in a generated body is checked against the extracted text. If the
+summary contains a figure that is not in the source, the summary is retried
+once and then discarded: the report is published as `raw` with the raw text as
+its body and the offending number named in the reason.
+
+This is deliberately strict. A language model rewriting a blood panel is the
+one failure in this feature with real consequences, and a report with no
+summary is much better than a report with a wrong number in it. Formatting
+differences do not trip it (`1,234` and `1234` match; `7.0` and `7` match), and
+bullets are exempt because they are interpretation and may legitimately contain
+a derived figure ("down 32 since March").
+
+---
+
+## 4. Verifying a photo or scan
+
+Tap a report that needs checking, then **Check the text**.
+
+You get the original document beside the text that was read out of it: side by
+side on a wide screen, two tabs on a phone. Compare the numbers.
+
+- **Looks right** marks it verified. The badge clears and chat can use it.
+- **Retry reading it** runs OCR again with different settings. Tesseract has
+  several page-layout modes and the best one depends on the document; a lab
+  table often reads better on the second attempt than the first. Each retry
+  advances one setting and re-arms verification, since the text has changed.
+
+Until you verify, the chat agent is told the report exists and that its content
+is withheld. Ask about it and you are told it needs checking; you will not get
+an answer drawn from unchecked OCR text. That refusal is enforced in the tool
+the agent calls, not merely requested in its instructions.
+
+Text, markdown, csv, Word documents and digital PDFs never need verification:
+their extraction is exact, so there is nothing to compare against. Audio is not
+gated either, though speech recognition does mangle medical terms, so treat a
+voice memo as a note rather than a record.
+
+---
+
+## 5. Managing reports
+
+- **Reprocess** re-reads the archived original and regenerates the summary,
+  overwriting the same report. Useful after a bad OCR pass, or once a gateway
+  that was down comes back.
+- **Delete** removes the report and its archived original, freeing a slot.
+- **View full report** opens the whole text.
+
+Reports you wrote by hand (any `.md` you put in `$HEALTH_HOME/reports/`
+yourself) appear in the list and in chat with their full content, are never
+gated, and do not count against the cap. Klebb will not delete or reprocess
+them either: they are yours, not the app's.
+
+### `KLEBB_REPORTS_MAX`
+
+How many uploaded reports an instance holds. Defaults to 20.
+
+This is a cost and context limit rather than a disk one: every report is one
+gateway call when it arrives, and one entry in the chat agent's prompt on every
+turn thereafter. Self-hosters with their own gateway can raise it:
 
 ```
----
-klebb_ingest: v1
-source_file: bloods-april-fast.pdf
-source_format: pdf
-ingested_at: 2026-05-22T14:07:33Z
-archive_path: reports/_archive/bloods-april-fast.pdf
----
-
-# 2026-05-22-bloods-april-fast
-
-<raw extractor output, verbatim>
+KLEBB_REPORTS_MAX=100
 ```
 
-The `klebb_ingest: v1` sentinel is what marks a file as machine-ingested
-versus hand-authored; the chat catalogue uses it to label entries
-appropriately. The body is whatever the extractor returned, untouched.
-Klebb does not summarise, restructure, or "clean up" the text at ingest
-time; comprehension happens at chat time, where you can challenge the
-answer in the same turn.
-
-The output filename is `<YYYY-MM-DD>-<sanitised-stem>.md`, where the
-date is taken from the ingest timestamp (UTC) and the stem is the
-original filename with non-`[a-z0-9._-]` characters collapsed to dashes.
-Collisions get `-2`, `-3`, ... appended.
+At the cap, uploads are refused with a message naming the limit, and the
+Reports page shows how many slots are used before you pick a file. Existing
+reports keep working; nothing is deleted to make room. An instance that somehow
+sits above its cap stays fully functional and simply accepts no new uploads.
 
 ---
 
-## 4. The chat round-trip
+## 6. What the chat agent sees
 
-Once a report is ingested, the next chat turn includes a block like
-this in the system prompt:
+Every turn, the system prompt carries a catalogue of your reports, newest
+first, each with its title, document date, and bullets:
 
 ```
 ## Available reports
 
-The user has reports available in Klebb. Call `read_report(name)` to
-fetch the full text of any of them. ...
-
-- `2026-05-22-bloods-april-fast` (pdf, ingested 2026-05-22, source: bloods-april-fast.pdf)
-- `2026-04-12-mri-knee-report` (pdf, ingested 2026-04-12, source: mri-knee-report.pdf)
+- `2026-07-02-thyroid` — Thyroid panel, Melbourne Pathology (pdf, dated 2026-07-02)
+    - TSH 2.1 mIU/L, within the 0.4-4.0 range
+    - Free T4 14 pmol/L, mid-range
+- `2026-03-12-bloods` — Full blood count (image, dated 2026-03-12)
+    content withheld pending OCR verification; tell the user to check it in Reports
 ```
 
-You don't need to mention the report by its ingested name. Anything
-like *"summarise my latest blood panel"* or *"what did the MRI say
-about the meniscus?"* is enough; the agent picks the right report
-from the catalogue and calls `read_report` to fetch the body.
+Ordering is by the date **on the document**, not the upload date, so a 2019
+result uploaded today does not outrank last month's.
 
-Reports are capped at 200 KB on read (same as `read_doc`); long
-extractions are truncated and the response includes `truncated: true`
-so the agent knows.
+You do not need to name a report. "What did my last blood test say about
+ferritin?" is enough: the agent picks it from the catalogue and calls its
+`read_report` tool for the full text. It is told to read the document before
+quoting any figure, since the catalogue holds summaries rather than documents.
+
+The block is capped so it cannot grow without bound; past the cap the oldest
+entries are dropped and the agent is told how many were left out.
 
 ---
 
-## 5. Failure handling
+## 7. Privacy: what leaves the box
 
-Anything that throws inside the pipeline ends up in
-`$HEALTH_HOME/inbox/_failed/`:
+Stated plainly, because it matters more here than anywhere else in Klebb.
 
-```
-$HEALTH_HOME/inbox/_failed/
-├── evil.docx           # the original
-└── evil.docx.error     # ISO timestamp + error.message + truncated stderr
-```
-
-Common reasons:
-
-- **Unsupported format.** `evil.docx`, `report.heic`, etc. The error
-  reads `unsupported format: .docx`.
-- **Audio without a Fish key.** Audio ingest requires
-  `FISH_AUDIO_API_KEY`. Drops without it land in `_failed/` with
-  `audio ingest disabled: FISH_AUDIO_API_KEY not set`. Set the key
-  (same one as voice chat) and rename the file out of `_failed/` to
-  retry.
-- **Binary not on PATH.** If `pdftotext` or `tesseract` is missing,
-  the spawn fails. Install the package and rename the file out to
-  retry. Containerised deploys never hit this.
-- **File never stabilises.** Klebb waits up to 3s for `mtime` + `size`
-  to stop changing before extracting (so it doesn't race rsync
-  mid-copy). Files still being written after 3s are punted to
-  `_failed/` with `file mtime never stabilised`. Re-drop a complete
-  copy.
-
-To retry a failure, fix the root cause then `mv inbox/_failed/foo.pdf
-inbox/foo.pdf`. The watcher picks the new mtime up immediately.
-
-If your inbox is jammed and nothing is moving, check the server log
-for `[ingest]` lines: every processed file leaves a trace, and watcher
-init failures are logged at boot.
+- **Extraction is local.** PDFs, photos, scans, Word documents, text and csv are
+  read entirely on your own machine. Nothing is sent anywhere.
+- **Audio is not.** Speech recognition ships the audio to the configured
+  provider, the same hop voice chat uses. See [VOICE.md](VOICE.md).
+- **Comprehension sends the extracted text to your chat gateway, once**, when
+  the report is created. Whatever endpoint `CHAT_ENDPOINT_URL` points at sees
+  the document's text on that one call. If that is not acceptable for a given
+  document, do not upload it: there is no local-only summarisation mode.
+- **The processed report has your identifiers removed**: name, date of birth,
+  address, phone, email, and Medicare, patient or accession numbers. Since the
+  processed report is what goes into every subsequent chat turn, those details
+  are not in the context the agent works from.
+- **Clinicians and organisations are kept.** The requesting doctor, the
+  reporting pathologist, the practice and the lab stay as written: they are
+  useful context, and it is your own identity that is sensitive here.
+- **The archived original keeps everything.** It has to: verifying OCR means
+  comparing against the real document, and reprocessing means re-reading it.
+  It lives at `$HEALTH_HOME/reports/_archive/`, is served only to an
+  authenticated session, and is never cached by the browser.
+- **A `raw` report is unscrubbed.** When comprehension fails, the body is the
+  raw extracted text, identifiers included. Worth knowing if your gateway is
+  down and you upload something sensitive.
 
 ---
 
-## 6. Operational notes
+## 8. Failure handling
 
-- **Crash resilience.** If the server crashes mid-extraction, the
-  source stays in `inbox/`. On the next boot, the pipeline drains the
-  inbox before attaching `fs.watch`, so leftover files get processed.
-- **Hand-authored reports still work.** Anything you write directly
-  into `$HEALTH_HOME/reports/foo.md` shows up in the Reports view and
-  in the chat catalogue. The `klebb_ingest: v1` sentinel just lets
-  the catalogue label machine-ingested entries with their source
-  format and ingest date; hand-authored files appear with no metadata.
-- **The archive is invisible to the UI.** `$HEALTH_HOME/reports/_archive/`
-  is reserved on the server side; only the top level of `reports/` is
-  scanned for the Reports view and the chat catalogue, so originals
-  don't pollute either surface.
-- **Privacy.** Inbox files are processed locally except for audio,
-  which is shipped to Fish Audio for transcription (same hop voice
-  chat uses). PDF, image, and text extraction never leaves the box.
+A file the pipeline cannot read lands in `$HEALTH_HOME/inbox/_failed/` with a
+sibling `.error` file, and shows on the Reports page as **failed** with its
+reason, so a failure is visible in the app rather than only in a server log.
+
+Common causes:
+
+- **Audio without a key.** Audio needs `FISH_AUDIO_API_KEY`, the same key voice
+  chat uses.
+- **A binary missing.** Bare-metal deploys without `poppler-utils` or
+  `tesseract-ocr`. Containerised deploys never hit this.
+- **A corrupt or password-protected document.**
+
+To retry, delete the report and upload the file again.
+
+**The operator door.** A file placed directly into `$HEALTH_HOME/inbox/` (by
+`docker cp`, or on the host filesystem) is picked up on the next restart. This
+is the same pipeline and the same cap, and it exists for bulk seeding and for
+recovering after a crash mid-read, not as a second ingest path. Files over the
+cap go to `_failed/` with a message saying so.
 
 ---
 
-## 7. What's NOT included
+## 9. On disk
 
-- **No upload UI in the webapp.** Files arrive via SSH/rsync/SCP/`docker
-  cp`. A future browser-side drop zone could land on top of this
-  pipeline; today the pipeline is the contract.
-- **No LLM polish at ingest.** Output is whatever the extractor returned.
-  This is deliberate: medical numbers and dates need to round-trip
-  exactly. A future flag (`KLEBB_INGEST_STRUCTURE=1` or similar) could
-  add a structuring pass behind it without changing the on-disk format.
-- **No deduplication.** Drop the same PDF twice and you'll get two
-  reports (`-2` suffix on the second). Delete one if you want to
-  collapse.
-- **No per-report metadata UI.** Tags, notes, "this report supersedes
-  that one": none of that. The chat agent reasons over filenames and
-  bodies.
+An uploaded report is markdown with a frontmatter header:
+
+```
+---
+klebb_ingest: v2
+source_file: bloods-april.pdf
+source_format: pdf
+ingested_at: 2026-08-09T14:07:33Z
+archive_path: reports/_archive/bloods-april.pdf
+status: ready
+verify: not_required
+title: Full blood count, Melbourne Pathology
+document_date: 2026-03-12
+relevance: health
+bullets:
+  - Ferritin 88 ug/L, low end of the 30-300 range
+  - Haemoglobin 147 g/L, within range
+---
+
+# Full blood count, Melbourne Pathology
+
+<the processed text>
+```
+
+The header is the source of truth for a report's state; there is no database
+table. `klebb_ingest` marks the file as app-managed rather than hand-authored.
+
+Reports written by earlier versions carry `klebb_ingest: v1` and no digest
+fields. They keep working exactly as they did, are never rewritten, and read as
+`ready` and needing no verification, which is what they have always been. There
+is no migration to run.
+
+Filenames are `<YYYY-MM-DD>-<stem>.md`, dated by upload, with `-2`, `-3`
+appended on collision.
+
+---
+
+## 10. What is NOT included
+
+- **Correcting OCR text in the app.** If a photo reads badly, the options today
+  are Retry (a different OCR setting) or delete and re-photograph. Editing the
+  text in place, and re-summarising from the corrected version, is the obvious
+  next step and is not built yet.
+- **Deduplication.** Upload the same document twice and you get two reports.
+- **`.doc` and `.heic`.** Pre-2007 Word needs a different parser; iPhone's HEIC
+  needs a decoder in the image. Re-save as `.docx`, and set the iPhone camera to
+  "Most Compatible" to get JPEGs.
+- **Vision-model OCR.** Tesseract only. A vision model would read a bad photo
+  far better, and would also silently invent plausible numbers, which is the
+  exact failure this feature is built to avoid.
+- **Report supersession.** "These bloods replace those" is inferred from
+  document dates and nothing else.
+- **Very large documents.** Text sent for comprehension is capped at 100 KB, so
+  a whole-genome export is truncated for the summary, though the full extracted
+  text is kept.
