@@ -33,10 +33,12 @@ LABEL org.opencontainers.image.title="Klebb" \
 #   tini               : proper PID 1 so SIGTERM reaches Node cleanly
 #   gosu               : privilege drop from root -> klebb in the entrypoint
 #   ffmpeg             : transcode browser voice-note audio to 16 kHz mono WAV for Fish ASR
-#                        (also reused by the inbox audio extractor)
-#   poppler-utils      : pdftotext binary for the inbox PDF extractor
+#                        (also reused by the audio report extractor)
+#   poppler-utils      : pdftotext for a PDF's text layer, plus pdftoppm and
+#                        pdfinfo, which rasterise scanned (image-only) PDFs so
+#                        tesseract can read them
 #   tesseract-ocr (+
-#   tesseract-ocr-eng) : OCR for image reports dropped into the inbox
+#   tesseract-ocr-eng) : OCR for uploaded images and for scanned-PDF pages
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
       ffmpeg \
