@@ -7,6 +7,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-08-10
+
 ### Added
 
 - **Report upload, with AI comprehension and an OCR verification loop.**
