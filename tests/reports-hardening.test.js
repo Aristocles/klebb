@@ -130,19 +130,29 @@ describe('docx text scan is linear, not quadratic', () => {
   });
 
   test('scaling is not quadratic', () => {
-    const time = (n) => {
+    // Timed with a nanosecond clock and a floor on the baseline: at these sizes
+    // the linear version runs in ~1ms, and a millisecond clock cannot tell 1ms
+    // from 23ms of scheduler noise, which made this assertion flaky against
+    // correct code. hrtime plus a repeat count gives a baseline big enough to
+    // divide by meaningfully.
+    const time = (n, reps) => {
       const xml = '<w:p>' + '<w:t>'.repeat(n) + '</w:p>';
-      const t = Date.now();
-      documentXmlToText(xml);
-      return Date.now() - t;
+      const t = process.hrtime.bigint();
+      for (let i = 0; i < reps; i++) documentXmlToText(xml);
+      return Number(process.hrtime.bigint() - t) / 1e6 / reps;
     };
-    time(20_000);
-    const small = Math.max(time(20_000), 1);
-    const large = Math.max(time(160_000), 1);
-    // 8x the input. Quadratic would be ~64x; allow generous headroom for a
-    // noisy machine while still catching a return to O(n^2).
-    assert.ok(large / small < 20,
-      `8x input produced a ${(large / small).toFixed(1)}x slowdown (${small}ms -> ${large}ms)`);
+    time(20_000, 3);                       // warm up the JIT
+    const small = time(20_000, 10);
+    const large = time(160_000, 10);
+    // 8x the input. Linear is ~8x; the old quadratic scan was ~64x and, at
+    // 160k tags, took minutes rather than milliseconds. 25x leaves room for a
+    // loaded machine while still catching any return to O(n^2).
+    const ratio = large / small;
+    assert.ok(ratio < 25,
+      `8x input produced a ${ratio.toFixed(1)}x slowdown (${small.toFixed(2)}ms -> ${large.toFixed(2)}ms)`);
+    // And an absolute ceiling, which is what actually protects the instance:
+    // the quadratic version could not do this in under a second.
+    assert.ok(large < 500, `160k tags took ${large.toFixed(0)}ms`);
   });
 
   test('normal documents still extract correctly', () => {
