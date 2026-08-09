@@ -123,14 +123,24 @@ function documentXmlToText(xml) {
     let line = '';
     const re = /<w:(t|tab|br|cr)(?:\s[^>]*)?(\/?)>/g;
     let m;
+    // Tracks how far a failed close-tag search already got. Without it, an
+    // opening <w:t> with no matching </w:t> made every subsequent iteration
+    // rescan to the end of the paragraph, which is quadratic: a 1.6 KB file of
+    // repeated <w:t> blocked the event loop for minutes, and because a file is
+    // only archived AFTER extraction succeeds, the boot drain re-enqueued it on
+    // every restart. Once a search from position X finds nothing, no search
+    // from a later position can find anything either, so the rest of the
+    // paragraph has no more text to yield.
+    let noCloseFrom = Infinity;
     while ((m = re.exec(p)) !== null) {
       const tag = m[1];
       const selfClosing = m[2] === '/';
       if (tag === 'tab') { line += '\t'; continue; }
       if (tag === 'br' || tag === 'cr') { line += '\n'; continue; }
       if (selfClosing) continue;
+      if (re.lastIndex >= noCloseFrom) break;
       const close = p.indexOf('</w:t>', re.lastIndex);
-      if (close === -1) continue;
+      if (close === -1) { noCloseFrom = re.lastIndex; break; }
       line += _decodeEntities(p.slice(re.lastIndex, close));
       re.lastIndex = close + 6;
     }

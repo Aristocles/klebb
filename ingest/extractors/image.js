@@ -42,16 +42,33 @@ function tesseractArgs(absPath, psm) {
   ];
 }
 
+// Bounded: a wedged tesseract would otherwise hold the ingest queue's single
+// slot for the rest of the process's uptime, with nothing in the UI to explain
+// why no later upload is being read.
+const SPAWN_TIMEOUT_MS = 120_000;
+const MAX_OUTPUT_BYTES = 20 * 1024 * 1024;
+
 function extractImage(absPath, { psm = PSM_LADDER[0] } = {}) {
   const effectivePsm = PSM_LADDER.includes(Number(psm)) ? Number(psm) : PSM_LADDER[0];
   return new Promise((resolve, reject) => {
-    const proc = spawn('tesseract', tesseractArgs(absPath, effectivePsm), { stdio: ['ignore', 'pipe', 'pipe'] });
+    const proc = spawn('tesseract', tesseractArgs(absPath, effectivePsm), {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: SPAWN_TIMEOUT_MS,
+      killSignal: 'SIGKILL',
+    });
     const out = [];
     let stderr = '';
-    proc.stdout.on('data', c => out.push(c));
-    proc.stderr.on('data', c => stderr += c.toString());
+    let bytes = 0;
+    proc.stdout.on('data', c => {
+      bytes += c.length;
+      if (bytes <= MAX_OUTPUT_BYTES) out.push(c);
+    });
+    proc.stderr.on('data', c => { if (stderr.length < 4000) stderr += c.toString(); });
     proc.on('error', e => reject(new Error(`tesseract spawn failed: ${e.message}`)));
-    proc.on('close', code => {
+    proc.on('close', (code, signal) => {
+      if (signal === 'SIGKILL') {
+        return reject(new Error(`tesseract timed out after ${Math.round(SPAWN_TIMEOUT_MS / 1000)}s and was killed`));
+      }
       if (code !== 0) return reject(new Error(`tesseract exit ${code}: ${stderr.slice(0, 300)}`));
       resolve({
         text: Buffer.concat(out).toString('utf8'),
@@ -62,4 +79,4 @@ function extractImage(absPath, { psm = PSM_LADDER[0] } = {}) {
   });
 }
 
-module.exports = { extractImage, PSM_LADDER, nextPsm, tesseractArgs };
+module.exports = { extractImage, PSM_LADDER, nextPsm, tesseractArgs, SPAWN_TIMEOUT_MS };
