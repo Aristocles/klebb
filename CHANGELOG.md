@@ -159,6 +159,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **Dependencies updated** to current (`marked`, `@simplewebauthn/server`,
   `@playwright/test`); 0 vulnerabilities.
 
+- **Test servers bind an OS-assigned port instead of a random guess.** The
+  sandbox helper picked a random port in a 20k range with no collision check
+  and no retry. Across the suite count this repo now runs in parallel that is
+  a coin flip over a full run, and the loser's server died of `EADDRINUSE`
+  before printing anything, so the failure surfaced as a bare "server exited
+  with code 1" in whichever suite drew second, pointing at whatever had
+  changed most recently rather than at the harness. Ports now come from the
+  OS, `stderr` is captured so a bind failure says so, and a lost race retries
+  once.
 
 - **`GET /api/reports` returns an envelope, not a bare array.** Now
   `{quota, reports, processing, failed}`, with each report carrying its
@@ -326,6 +335,25 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   (`POST /api/manifests/:id/data`). Fixes #496.
 
 ### Fixed
+
+- **Chat says which thing went wrong instead of "No response".** An
+  exhausted AI allowance, an unreachable gateway, a timeout and a genuinely
+  empty answer all used to render as the same three words, which reads as
+  the app being broken in every case. Each now says something true and
+  distinct, and the journal names the cause so it can be told apart without
+  reproducing it. The root cause was a layer below the message:
+  `lib/gateway.js` parsed the response body without ever reading the HTTP
+  status, so the 429 that signals an exhausted allowance was discarded before
+  anything could act on it, and an error body with no `choices` surfaced as
+  an empty reply. Status is now inspected before parsing, and a shared
+  classifier keeps the chat route and the report comprehension pass from
+  drifting on what a given failure means. An allowance message is only shown
+  on a **positive** signal from the gateway: a bare 429 is ordinary rate
+  limiting and is reported as transient, because claiming someone's
+  allowance ran out when it has not sends them chasing a limit that is fine.
+  Any OpenAI-compatible gateway may be configured, so detection is
+  best-effort by design and never invents an allowance concept for a gateway
+  that does not report one. Fixes #547.
 
 - **Welcome card CTA no longer double-fires.** The first-run "Add your
   first card" button opened the template gallery *and* simultaneously
