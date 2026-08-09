@@ -31,20 +31,43 @@ const SPARSE_CHARS_PER_PAGE = 50;
 const OCR_DPI = 300;
 const OCR_MAX_PAGES = 20;
 
+// Wall-clock ceiling per shelled-out binary, and a cap on how much stdout we
+// will hold. Generous enough for a 20-page render on a slow container, tight
+// enough that a wedged process cannot own the queue for the rest of the uptime.
+const SPAWN_TIMEOUT_MS = 180_000;
+const MAX_OUTPUT_BYTES = 20 * 1024 * 1024;
+
 function _alnumCount(s) {
   const m = (s || '').match(/[a-z0-9]/gi);
   return m ? m.length : 0;
 }
 
-function _run(bin, args) {
+// Every shell-out is bounded. A hung binary would otherwise hold the ingest
+// queue's single slot forever: no later upload could ever be processed, and
+// nothing in the UI would explain why. node's own spawn timeout sends the kill
+// for us, but it only fires once the process is spawned, so ENOENT still
+// rejects through 'error'.
+function _run(bin, args, timeoutMs = SPAWN_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const proc = spawn(bin, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: timeoutMs,
+      killSignal: 'SIGKILL',
+    });
     const out = [];
     let stderr = '';
-    proc.stdout.on('data', c => out.push(c));
-    proc.stderr.on('data', c => stderr += c.toString());
+    let bytes = 0;
+    proc.stdout.on('data', c => {
+      // A runaway extractor could otherwise stream unbounded output into memory.
+      bytes += c.length;
+      if (bytes <= MAX_OUTPUT_BYTES) out.push(c);
+    });
+    proc.stderr.on('data', c => { if (stderr.length < 4000) stderr += c.toString(); });
     proc.on('error', e => reject(new Error(`${bin} spawn failed: ${e.message}`)));
-    proc.on('close', code => {
+    proc.on('close', (code, signal) => {
+      if (signal === 'SIGKILL') {
+        return reject(new Error(`${bin} timed out after ${Math.round(timeoutMs / 1000)}s and was killed`));
+      }
       if (code !== 0) return reject(new Error(`${bin} exit ${code}: ${stderr.slice(0, 300)}`));
       resolve(Buffer.concat(out).toString('utf8'));
     });
@@ -145,6 +168,7 @@ async function extractPdf(absPath) {
 
 module.exports = {
   extractPdf,
+  SPAWN_TIMEOUT_MS,
   hasPdftoppm,
   SPARSE_TOTAL_CHARS,
   SPARSE_CHARS_PER_PAGE,

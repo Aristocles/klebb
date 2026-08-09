@@ -1723,6 +1723,13 @@ Original system prompt follows:
       if (ENV.KLEBB_DEMO) {
         return rejectBeforeBody(403, { error: 'Not available in demo mode' });
       }
+      // Origin-allowlisted like the feedback and notification POSTs. The custom
+      // header already forces a preflight for a cross-origin fetch, but a
+      // sibling subdomain sharing the cookie is not cross-origin to it, and the
+      // three mutating routes below have no such header to rely on at all.
+      if (!originAllowed(req)) {
+        return rejectBeforeBody(403, { error: 'origin not allowed' });
+      }
 
       const rawHeader = req.headers['x-klebb-filename'];
       if (!rawHeader || typeof rawHeader !== 'string') {
@@ -1759,18 +1766,45 @@ Original system prompt follows:
         });
       }
 
-      // Allocate a non-colliding inbox name up front so two uploads of the
-      // same filename don't fight over one .part path.
-      let safeName = `${stem}${ext}`;
-      for (let i = 2; fs.existsSync(path.join(PATHS.INBOX_DIR, safeName)) && i < 1000; i++) {
-        safeName = `${stem}-${i}${ext}`;
-      }
-      const partAbs = path.join(PATHS.INBOX_DIR, `.${safeName}.part`);
-      const finalAbs = path.join(PATHS.INBOX_DIR, safeName);
+      // Staging path is unique per request rather than derived from the final
+      // name: two concurrent uploads of one filename would otherwise share a
+      // .part file and interleave their bytes into a corrupt hybrid.
+      const partAbs = path.join(PATHS.INBOX_DIR,
+        `.${stem}${ext}.${crypto.randomBytes(6).toString('hex')}.part`);
       const inboxWithSep = PATHS.INBOX_DIR + path.sep;
-      if (!finalAbs.startsWith(inboxWithSep) || !partAbs.startsWith(inboxWithSep)) {
+      if (!path.join(PATHS.INBOX_DIR, `${stem}${ext}`).startsWith(inboxWithSep)
+        || !partAbs.startsWith(inboxWithSep)) {
         return rejectBeforeBody(400, { error: 'invalid filename' });
       }
+      // The final name is claimed at RENAME time, not now. Resolving it up front
+      // let two concurrent uploads of one filename both see the same free name
+      // (neither has been renamed into place yet), and the second rename then
+      // silently clobbered the first document.
+      //
+      // link() is the atomic claim: it fails with EEXIST rather than
+      // overwriting, which rename() does not. Falls back to rename on a
+      // filesystem without hard links, where the up-front race is no worse than
+      // it was before.
+      const claimInboxName = () => {
+        for (let i = 1; i < 1000; i++) {
+          const candidate = i === 1 ? `${stem}${ext}` : `${stem}-${i}${ext}`;
+          const target = path.join(PATHS.INBOX_DIR, candidate);
+          try {
+            fs.linkSync(partAbs, target);
+            try { fs.unlinkSync(partAbs); } catch {}
+            return candidate;
+          } catch (e) {
+            if (e.code === 'EEXIST') continue;
+            if (e.code === 'EPERM' || e.code === 'ENOSYS' || e.code === 'EXDEV') {
+              if (fs.existsSync(target)) continue;
+              fs.renameSync(partAbs, target);
+              return candidate;
+            }
+            throw e;
+          }
+        }
+        throw new Error('could not allocate an inbox name (1000 collisions)');
+      };
 
       try { fs.mkdirSync(PATHS.INBOX_DIR, { recursive: true }); } catch {}
 
@@ -1833,11 +1867,12 @@ Original system prompt follows:
         sink.end(() => {
           if (settled) return;
           settled = true;
+          let safeName;
           try {
-            // Atomic within one filesystem. Until this rename the drain never
+            // Atomic within one filesystem. Until this claim the drain never
             // sees the file (dot-prefixed); after it, the file is complete by
             // construction, which is why no mtime-stability wait is needed.
-            fs.renameSync(partAbs, finalAbs);
+            safeName = claimInboxName();
           } catch (e) {
             releaseReservation();
             cleanupPart();
@@ -1846,7 +1881,7 @@ Original system prompt follows:
           // The file is now visible to quota()'s inbox count, so the
           // reservation must go at the same instant or it double-counts.
           releaseReservation();
-          inbox.enqueue(finalAbs);
+          inbox.enqueue(path.join(PATHS.INBOX_DIR, safeName));
           const after = catalogue.quota();
           return sendJSON(res, {
             accepted: true,
@@ -1909,6 +1944,7 @@ Original system prompt follows:
     // against the original and it reads correctly.
     if (parts[0] === 'reports' && parts.length === 3 && parts[2] === 'verify' && req.method === 'POST') {
       if (ENV.KLEBB_DEMO) return sendJSON(res, { error: 'Not available in demo mode' }, 403);
+      if (!originAllowed(req)) return sendJSON(res, { error: 'origin not allowed' }, 403);
       const result = reportsApi.verifyReport(decodeURIComponent(parts[1]));
       if (result.error) {
         return sendJSON(res, { error: result.error }, result.status || (result.notFound ? 404 : 400));
@@ -1921,6 +1957,7 @@ Original system prompt follows:
     // an OCR rung; the default advances one rung from whatever was recorded.
     if (parts[0] === 'reports' && parts.length === 3 && parts[2] === 'reprocess' && req.method === 'POST') {
       if (ENV.KLEBB_DEMO) return sendJSON(res, { error: 'Not available in demo mode' }, 403);
+      if (!originAllowed(req)) return sendJSON(res, { error: 'origin not allowed' }, 403);
       const name = decodeURIComponent(parts[1]);
       let body = '';
       req.on('data', c => body += c);
@@ -1955,6 +1992,7 @@ Original system prompt follows:
     // freeing a quota slot.
     if (parts[0] === 'reports' && parts.length === 2 && req.method === 'DELETE') {
       if (ENV.KLEBB_DEMO) return sendJSON(res, { error: 'Not available in demo mode' }, 403);
+      if (!originAllowed(req)) return sendJSON(res, { error: 'origin not allowed' }, 403);
       let result;
       try {
         result = reportsApi.deleteReport(decodeURIComponent(parts[1]));
@@ -2001,9 +2039,32 @@ Original system prompt follows:
 
     if (!md) return send404(res, 'Report not found');
 
-    const content = marked.parse(md);
+    // A report body is untrusted text. It is the extracted content of an
+    // uploaded document whenever comprehension degrades to `raw`, and the
+    // model's output otherwise, and `marked` passes raw HTML straight through.
+    // Escaping the angle brackets before parsing keeps markdown formatting
+    // (headings, lists, tables all still render) while making an embedded
+    // <script> inert. The CSP below is defence in depth: it forbids inline
+    // script and any outbound connection, so even a future sanitiser slip
+    // cannot exfiltrate the archived original, which is the one artefact still
+    // carrying the patient's identifiers.
+    const safeMd = md.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const content = marked.parse(safeMd);
     const html = renderReportPage(reportName, content);
-    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Content-Security-Policy': [
+        "default-src 'none'",
+        "style-src 'unsafe-inline'",
+        "img-src 'self' data:",
+        "form-action 'none'",
+        "base-uri 'none'",
+        "frame-ancestors 'self'",
+      ].join('; '),
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer',
+      'Cache-Control': 'private, no-store',
+    });
     res.end(html);
     return;
   }
