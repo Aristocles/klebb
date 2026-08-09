@@ -148,29 +148,91 @@ function quota() {
   return { used, max, remaining: Math.max(0, max - used) };
 }
 
+// Ceiling on the whole block. It goes into EVERY chat turn, so an unbounded
+// list is a permanent tax on the context budget. 20 reports of a title plus
+// five capped bullets is a few KB; hand-authored files have no such caps, which
+// is why the ceiling exists at all rather than being trusted to arithmetic.
+const CATALOGUE_MAX_BYTES = 8000;
+
+// Newest first, by the date IN the document, falling back to when it was
+// ingested. The filename date is only ever the ingest date, so ordering by it
+// would put a blood test from 2019 uploaded today above one from last month.
+function _sortKey(entry) {
+  return entry.header?.documentDate || entry.header?.ingestedAt || '';
+}
+
 function describeReportsCatalogue() {
-  const entries = listReportsWithMeta();
+  const entries = listReportsWithMeta()
+    .slice()
+    .sort((a, b) => _sortKey(b).localeCompare(_sortKey(a)) || a.name.localeCompare(b.name));
+
   const lines = [
     '## Available reports',
     '',
-    'The user has reports available in Klebb. Call `read_report(name)` to',
-    'fetch the full text of any of them. Reports are markdown: either',
-    'authored directly in $HEALTH_HOME/reports/, or extracted from PDFs,',
-    'images, notes, and audio dropped into $HEALTH_HOME/inbox/.',
+    'Health documents the user has uploaded (blood tests, scans, letters, notes,',
+    'voice memos), newest first. Each entry shows what the document is and the',
+    'date on the document itself. Call `read_report(name)` for the full text.',
+    '',
+    'Prefer the NEWEST report when the user asks about a current value ("what is',
+    'my ferritin?"); reach for older ones only to compare or show a trend, and say',
+    'which date you are quoting. A summary here is a digest, not the document: call',
+    '`read_report` before quoting any specific figure.',
     '',
   ];
+
   if (!entries.length) {
-    lines.push('_No reports yet. Drop a file into $HEALTH_HOME/inbox/ and Klebb will ingest it._');
+    lines.push('_No reports yet. The user can add one from the Reports page in Klebb._');
     lines.push('');
     return lines.join('\n');
   }
-  for (const e of entries) {
-    if (e.header) {
-      const date = e.header.ingestedAt.slice(0, 10);
-      lines.push(`- \`${e.name}\` (${e.header.sourceFormat}, ingested ${date}, source: ${e.header.sourceFile})`);
+
+  let truncatedAt = 0;
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    const block = [];
+
+    if (!e.header) {
+      // Hand-authored markdown: no digest to show, and its body is NEVER
+      // inlined here. That is what read_report is for.
+      block.push(`- \`${e.name}\` (markdown note authored by the user)`);
     } else {
-      lines.push(`- \`${e.name}\` (markdown report)`);
+      const h = e.header;
+      const date = h.documentDate || h.ingestedAt.slice(0, 10);
+      const label = h.title || e.name;
+      const bits = [`${h.sourceFormat}`, `dated ${date}`];
+      if (!h.documentDate) bits[1] = `ingested ${h.ingestedAt.slice(0, 10)}, no date in the document`;
+      block.push(`- \`${e.name}\` — ${label} (${bits.join(', ')})`);
+
+      if (h.verify === 'required') {
+        // Listed so the model knows it exists and can tell the user there is
+        // something waiting, but with no bullets and no content: the text is
+        // unchecked OCR. The hard stop is in read_report; this is the half that
+        // stops the model quoting a digest it should not have.
+        block.push('    content withheld pending OCR verification; tell the user to check it in Reports');
+      } else if (h.status === 'rejected') {
+        block.push('    flagged as not a health document; ignore unless the user asks about it');
+      } else {
+        if (h.status === 'raw') {
+          block.push('    not summarised (raw extracted text); read it if the user asks about this document');
+        }
+        for (const b of h.bullets) block.push(`    - ${b}`);
+      }
     }
+
+    // Budget for the truncation notice too. Checking only the entry would let
+    // the notice itself push the block over the ceiling, which is how a limit
+    // ends up exceeded by exactly the line announcing the limit.
+    const notice = `- _(${entries.length - i} older report(s) not listed here; ask the user if you need them.)_`;
+    const candidate = lines.concat(block, [notice, '']).join('\n');
+    if (Buffer.byteLength(candidate, 'utf8') > CATALOGUE_MAX_BYTES) {
+      truncatedAt = entries.length - i;
+      break;
+    }
+    lines.push(...block);
+  }
+
+  if (truncatedAt) {
+    lines.push(`- _(${truncatedAt} older report(s) not listed here; ask the user if you need them.)_`);
   }
   lines.push('');
   return lines.join('\n');
@@ -178,6 +240,7 @@ function describeReportsCatalogue() {
 
 module.exports = {
   parseReportHeader,
+  CATALOGUE_MAX_BYTES,
   listReportsWithMeta,
   describeReportsCatalogue,
   countIngestedReports,
