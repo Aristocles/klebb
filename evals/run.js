@@ -45,6 +45,7 @@ const SCENARIOS = [
   ...require('./scenarios/happy'),
   ...require('./scenarios/features'),
   ...require('./scenarios/adversarial'),
+  ...require('./scenarios/reports'),
 ];
 
 function parseArgs(argv) {
@@ -124,6 +125,9 @@ async function spawnSandbox(model) {
   }
   return {
     baseUrl, token, collector,
+    // Sandbox mode owns the instance dir, so scenarios can seed reports (files,
+    // not API resources). Remote mode leaves this null and those scenarios skip.
+    healthHome: root,
     kill: () => { try { proc.kill(); } catch {} try { fs.rmSync(root, { recursive: true, force: true }); } catch {} },
   };
 }

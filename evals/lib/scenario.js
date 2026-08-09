@@ -6,6 +6,12 @@
 //   {
 //     name: 'create-basic-card',
 //     seeds: [manifest, ...],          // created before the run, deleted after
+//     reportSeeds: [{ name, frontmatter?, body }, ...],
+//                                      // markdown reports written straight into
+//                                      // $HEALTH_HOME/reports/ and removed after.
+//                                      // Needs healthHome, so sandbox mode only:
+//                                      // a remote instance owns its own disk and
+//                                      // there is no API for writing a report.
 //     turns: [
 //       { say: 'text',                 // or { chip: n } to click the nth chip
 //         viewedCardId: 'id',          // optional focus context
@@ -20,10 +26,32 @@
 // turn feeds the chosen offer's prompt back as the next user message,
 // which is precisely what the UI does on chip click.
 
+const fs = require('fs');
+const path = require('path');
 const { chatTurn, snapshotState, deleteManifest, createManifest, fetchData } = require('./driver');
 const { diffSnapshots } = require('./diff');
 const { evalTurn } = require('./assert');
 const { judgeReply } = require('./judge');
+
+// Write one seeded report into $HEALTH_HOME/reports/ and return its absolute
+// path so the runner can remove it afterwards.
+//
+// Reports are files, not API resources, so there is no way to seed one over
+// HTTP. That makes this sandbox-only: against a remote instance healthHome is
+// unknown and unwritable, and a scenario needing a report is skipped rather
+// than silently passing with no report present, which would be the worse
+// outcome for a gate test.
+function writeReportSeed(healthHome, report) {
+  if (!healthHome) return null;
+  const dir = path.join(healthHome, 'reports');
+  try { fs.mkdirSync(dir, { recursive: true }); } catch {}
+  const abs = path.join(dir, `${report.name}.md`);
+  const parts = [];
+  if (report.frontmatter) parts.push('---', ...report.frontmatter, '---', '');
+  parts.push(`# ${report.title || report.name}`, '', report.body || '');
+  fs.writeFileSync(abs, parts.join('\n'));
+  return abs;
+}
 
 // The set of card ids a scenario asserts data on: every seed + cleanup id,
 // plus every non-'$created' id named in any turn's cardShape. '$created' is
@@ -53,8 +81,9 @@ function toolCaptureUnreliable(expect, captureAlive) {
   return !!(expect && expect.tools) && typeof captureAlive === 'function' && !captureAlive();
 }
 
-async function runScenario(scenario, { baseUrl, token, collector, captureAlive, judge = null, log = () => {} }) {
+async function runScenario(scenario, { baseUrl, token, collector, captureAlive, judge = null, healthHome = null, log = () => {} }) {
   const seeded = [];
+  const seededReports = [];
   const turnResults = [];
   let inconclusive = false;
   let history = [];
@@ -65,12 +94,26 @@ async function runScenario(scenario, { baseUrl, token, collector, captureAlive, 
   // cardShape plus every seeded/cleanup id; '$created' is unknown until the
   // turn runs, so created cards are folded in at snapshot time below.
   const dataIds = collectDataIds(scenario);
+
+  // A scenario that needs a report on disk cannot run against a remote
+  // instance: a report is a file and there is no API for writing one. Reported
+  // as skipped rather than run without its reports, because a gate scenario
+  // with no gated report present would pass while proving nothing.
+  if ((scenario.reportSeeds || []).length && !healthHome) {
+    log('  skipped: needs report seeding, which is sandbox-only');
+    return { name: scenario.name, passed: true, skipped: true, inconclusive: false, turns: [] };
+  }
+
   const scenarioStart = await snapshotState(baseUrl, token, dataIds);
 
   try {
     for (const seed of scenario.seeds || []) {
       await createManifest(baseUrl, token, seed);
       seeded.push(seed.meta.id);
+    }
+    for (const report of scenario.reportSeeds || []) {
+      const written = writeReportSeed(healthHome, report);
+      if (written) seededReports.push(written);
     }
 
     for (let i = 0; i < scenario.turns.length; i++) {
@@ -176,6 +219,9 @@ async function runScenario(scenario, { baseUrl, token, collector, captureAlive, 
     // Delete seeds, declared expectations, and ANYTHING the model created
     // that wasn't there at scenario start: repeated runs against a live
     // instance must never accumulate stray cards.
+    for (const abs of seededReports) {
+      try { fs.unlinkSync(abs); } catch {}
+    }
     const scenarioEnd = await snapshotState(baseUrl, token).catch(() => null);
     const strays = scenarioEnd ? diffSnapshots(scenarioStart, scenarioEnd).created : [];
     for (const id of new Set([...seeded, ...(scenario.cleanupIds || []), ...strays])) {
@@ -191,4 +237,4 @@ async function runScenario(scenario, { baseUrl, token, collector, captureAlive, 
   };
 }
 
-module.exports = { runScenario, toolCaptureUnreliable };
+module.exports = { runScenario, toolCaptureUnreliable, writeReportSeed };

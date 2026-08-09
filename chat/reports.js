@@ -41,12 +41,37 @@ function readReport(name) {
     truncated = true;
   }
   const header = parseReportHeader(content);
+
+  // The unverified-OCR gate, enforced HERE rather than only in the prompt.
+  //
+  // A prompt instruction is advisory: the model sees a report listed, calls this
+  // tool, gets a body, and answers from it. Enforced at the tool layer there is
+  // nothing to answer from. This report came from a photo or a scan, so its text
+  // is OCR output that no human has checked, and a mis-read digit in a health
+  // record is the failure that actually matters. No content key at all, so a
+  // model cannot half-use it.
+  if (header && header.verify === 'required') {
+    return {
+      error: 'report awaiting OCR verification; ask the user to verify it in Reports',
+      name,
+      path: `reports/${name}.md`,
+      title: header.title || null,
+      documentDate: header.documentDate || null,
+      sourceFormat: header.sourceFormat || null,
+      verify: 'required',
+    };
+  }
+
   return {
     name,
     path: `reports/${name}.md`,
     content,
     ingestedAt: header?.ingestedAt || null,
     sourceFormat: header?.sourceFormat || null,
+    title: header?.title || null,
+    documentDate: header?.documentDate || null,
+    status: header?.status || null,
+    verify: header?.verify || null,
     truncated,
   };
 }
