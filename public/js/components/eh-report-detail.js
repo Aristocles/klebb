@@ -7,10 +7,13 @@
 //
 //   1. Show what the comprehension pass made of the document: title, date,
 //      bullets, and why it degraded if it did.
-//   2. Let a human check OCR text against the original image. That check is
-//      what unlocks the report for chat, so it has to be genuinely usable on
-//      the phone the photo was taken with: side by side above 720 px, and two
-//      tabs below that, because 375 px cannot host a real comparison.
+//   2. Let a human check the OCR text against the original. That check is what
+//      unlocks the report for chat, so it has to be usable on the phone the
+//      photo was taken with: the text gets the full width, and the original
+//      opens in its own tab where it has the whole viewport and the browser's
+//      own zoom and rotate. Previewing it inline was worse than useless: a PDF
+//      <embed> renders as a black box in several browsers, and half a phone
+//      screen of shrunken scan is not something you can check a value against.
 //
 // Public API:
 //   <eh-report-detail
@@ -21,18 +24,14 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 
-const COMPARE_MIN_WIDTH = 720;
-
 export class EhReportDetail extends LitElement {
   static properties = {
     report: { type: Object },
     _mode: { state: true },
-    _tab: { state: true },
     _ocrText: { state: true },
     _busy: { state: true },
     _error: { state: true },
     _confirmDelete: { state: true },
-    _wide: { state: true },
   };
 
   constructor() {
@@ -40,24 +39,10 @@ export class EhReportDetail extends LitElement {
     this.report = null;
     // 'detail' | 'compare'
     this._mode = 'detail';
-    this._tab = 'image';
     this._ocrText = null;
     this._busy = null;
     this._error = null;
     this._confirmDelete = false;
-    this._wide = false;
-    this._onResize = () => { this._wide = window.innerWidth >= COMPARE_MIN_WIDTH; };
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    this._onResize();
-    window.addEventListener('resize', this._onResize);
-  }
-
-  disconnectedCallback() {
-    window.removeEventListener('resize', this._onResize);
-    super.disconnectedCallback();
   }
 
   firstUpdated() {
@@ -101,7 +86,8 @@ export class EhReportDetail extends LitElement {
     @media (min-width: 640px) {
       .panel { border-radius: 16px; box-shadow: 0 8px 60px rgba(0, 0, 0, 0.45); }
     }
-    /* The compare view earns more room, but only where there is room to earn. */
+    /* The compare view gives the extracted text more width to read in, where
+       there is width to give. */
     .panel.compare { max-width: 480px; }
     @media (min-width: 720px) {
       .panel.compare { max-width: 900px; }
@@ -167,29 +153,11 @@ export class EhReportDetail extends LitElement {
       text-decoration: none; display: inline-block;
     }
     a.action:hover { border-color: var(--accent); }
-    /* Tabs: the phone comparison. */
-    .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
-    .tab {
-      font: inherit; font-size: 13px; font-weight: 600; padding: 8px 12px;
-      background: none; border: none; border-bottom: 2px solid transparent;
-      color: var(--text-secondary); cursor: pointer;
-    }
-    .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
-    .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-    .panes { display: grid; grid-template-columns: 1fr; gap: 12px; min-width: 0; }
-    @media (min-width: 720px) {
-      .panes.side-by-side { grid-template-columns: 1fr 1fr; }
-    }
     .pane { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
     .pane-label {
       font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
       text-transform: uppercase; color: var(--text-muted, var(--text-secondary));
     }
-    .pane img, .pane embed {
-      width: 100%; max-height: 55vh; object-fit: contain;
-      background: #000; border-radius: 8px; border: 1px solid var(--border);
-    }
-    .pane audio { width: 100%; }
     /* pre must not widen the sheet: long OCR lines wrap rather than
        introducing a horizontal scrollbar on the whole panel. */
     .ocr {
@@ -199,6 +167,9 @@ export class EhReportDetail extends LitElement {
       background: var(--bg-secondary, rgba(128,128,128,0.1));
       border-radius: 8px; padding: 10px 12px;
     }
+    /* The compare view is now a single full-width column, so the text can use
+       the height it needs rather than sharing with a preview pane. */
+    .ocr.wide { max-height: 62vh; }
     .loading { font-size: 13px; color: var(--text-secondary); }
   `;
 
@@ -231,8 +202,17 @@ export class EhReportDetail extends LitElement {
     return json;
   }
 
+  // Back to the digest view. Clears the delete confirmation too: a half-armed
+  // "Really delete?" left behind a navigation is a footgun.
+  _back() {
+    this._mode = 'detail';
+    this._confirmDelete = false;
+    this._error = null;
+  }
+
   async _openCompare() {
     this._mode = 'compare';
+    this._confirmDelete = false;
     this._error = null;
     if (this._ocrText === null) {
       try {
@@ -264,20 +244,6 @@ export class EhReportDetail extends LitElement {
     }
   }
 
-  async _reprocess() {
-    this._busy = 'reprocess';
-    this._error = null;
-    try {
-      await this._post('/reprocess');
-      this._announce('reprocessing');
-      this._close();
-    } catch (e) {
-      this._error = e.message;
-    } finally {
-      this._busy = null;
-    }
-  }
-
   async _delete() {
     if (!this._confirmDelete) { this._confirmDelete = true; return; }
     this._busy = 'delete';
@@ -297,51 +263,24 @@ export class EhReportDetail extends LitElement {
     }
   }
 
-  _renderSourcePane() {
+  // The extracted text, full width, with the original one tap away.
+  //
+  // Deliberately does NOT try to preview the original inline. A PDF cannot be
+  // inlined reliably across browsers (an <embed> renders as a black box in
+  // several), and on a phone there is no room for a side-by-side comparison
+  // worth having anyway: half a screen of shrunken scan is not something you
+  // can check a lab value against. Opening the original in its own tab gives it
+  // the whole viewport and the browser's own PDF and image tooling (zoom,
+  // rotate, search), which is what actually makes the check possible.
+  _renderCompare() {
     const r = this.report;
     const src = `/api/reports/${encodeURIComponent(r.name)}/source`;
-    if (!r.hasSource) {
-      return html`<div class="note">The original file is no longer stored for this report.</div>`;
-    }
-    if (r.sourceFormat === 'image') {
-      return html`<img src="${src}" alt="Original document for ${r.title || r.name}">`;
-    }
-    if (r.sourceFormat === 'audio') {
-      return html`<audio controls src="${src}"></audio>`;
-    }
-    // A PDF cannot be reliably inlined across browsers; a link always works.
     return html`
-      <embed src="${src}" type="application/pdf">
-      <a class="action" href="${src}" target="_blank" rel="noopener">Open the original</a>
-    `;
-  }
-
-  _renderCompare() {
-    const showBoth = this._wide;
-    return html`
-      ${showBoth ? '' : html`
-        <div class="tabs" role="tablist">
-          <button class="tab" role="tab" aria-selected=${this._tab === 'image'}
-                  @click=${() => { this._tab = 'image'; }}>Original</button>
-          <button class="tab" role="tab" aria-selected=${this._tab === 'text'}
-                  @click=${() => { this._tab = 'text'; }}>Text read</button>
-        </div>
-      `}
-      <div class="panes ${showBoth ? 'side-by-side' : ''}">
-        ${showBoth || this._tab === 'image' ? html`
-          <div class="pane">
-            <span class="pane-label">Original</span>
-            ${this._renderSourcePane()}
-          </div>
-        ` : ''}
-        ${showBoth || this._tab === 'text' ? html`
-          <div class="pane">
-            <span class="pane-label">Text read from it</span>
-            ${this._ocrText === null
-              ? html`<div class="loading">Loading…</div>`
-              : html`<pre class="ocr">${this._ocrText || '(no text)'}</pre>`}
-          </div>
-        ` : ''}
+      <div class="pane">
+        <span class="pane-label">Text read from it</span>
+        ${this._ocrText === null
+          ? html`<div class="loading">Loading…</div>`
+          : html`<pre class="ocr wide">${this._ocrText || '(no text)'}</pre>`}
       </div>
       <p class="note">
         Check the numbers against the original. Until you confirm it, this
@@ -353,13 +292,20 @@ export class EhReportDetail extends LitElement {
         <button class="action primary" ?disabled=${!!this._busy} @click=${this._verify}>
           ${this._busy === 'verify' ? 'Saving…' : 'Looks right'}
         </button>
-        <button class="action" ?disabled=${!!this._busy} @click=${this._reprocess}>
-          ${this._busy === 'reprocess' ? 'Retrying…' : 'Retry reading it'}
+        ${r.hasSource ? html`
+          <a class="action" href="${src}" target="_blank" rel="noopener">Open the original</a>
+        ` : html`<span class="hint">The original file is no longer stored.</span>`}
+        <button class="action danger" ?disabled=${!!this._busy} @click=${this._delete}>
+          ${this._busy === 'delete' ? 'Deleting…'
+            : this._confirmDelete ? 'Really delete?' : 'Delete'}
         </button>
-        <button class="action" ?disabled=${!!this._busy} @click=${() => { this._mode = 'detail'; }}>
+        <button class="action" ?disabled=${!!this._busy} @click=${this._back}>
           Back
         </button>
       </div>
+      ${this._confirmDelete && !this._busy ? html`
+        <p class="note">Deleting removes the report and the original file. This cannot be undone.</p>
+      ` : ''}
     `;
   }
 
@@ -391,25 +337,13 @@ export class EhReportDetail extends LitElement {
       ${this._error ? html`<div class="error">${this._error}</div>` : ''}
 
       <div class="actions">
-        <a class="action" href="${r.url}" target="_blank" rel="noopener">View full report</a>
-        ${r.hasSource ? html`
-          <button class="action ${this._isUnverified ? 'primary' : ''}" @click=${this._openCompare}>
-            ${this._isUnverified ? 'Check the text' : 'Compare with original'}
-          </button>
-          <button class="action" ?disabled=${!!this._busy} @click=${this._reprocess}>
-            ${this._busy === 'reprocess' ? 'Retrying…' : 'Read it again'}
-          </button>
-        ` : ''}
-        ${r.managed ? html`
-          <button class="action danger" ?disabled=${!!this._busy} @click=${this._delete}>
-            ${this._busy === 'delete' ? 'Deleting…'
-              : this._confirmDelete ? 'Really delete?' : 'Delete'}
-          </button>
-        ` : ''}
+        ${this._isUnverified ? '' : html`
+          <a class="action" href="${r.url}" target="_blank" rel="noopener">View full report</a>
+        `}
+        <button class="action ${this._isUnverified ? 'primary' : ''}" @click=${this._openCompare}>
+          ${this._isUnverified ? 'Check the text' : 'Compare with original'}
+        </button>
       </div>
-      ${this._confirmDelete && !this._busy ? html`
-        <p class="note">Deleting removes the report and the original file. This cannot be undone.</p>
-      ` : ''}
     `;
   }
 

@@ -139,6 +139,27 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Reports detail sheet trimmed to what it is for.** The digest view now offers
+  only "View full report" (once approved) and the compare view. Reprocess is
+  gone from both surfaces: if a read went badly, deleting and re-uploading is
+  one more tap and much easier to reason about than an in-place re-read that
+  changes the report under you. Delete moved into the compare view, next to the
+  text being judged. "View full report" is hidden until a report is approved,
+  since an unverified one holds content chat is not allowed to use.
+
+- **The compare view no longer tries to preview the original.** It rendered as
+  an empty black box for PDFs (several browsers decline to inline an `<embed>`),
+  and a phone has no room for a useful side-by-side anyway. The extracted text
+  now gets the full width, with the original one tap away in its own tab, where
+  it has the whole viewport plus the browser's zoom, rotate and search.
+
+- **The report page links back to Reports**, not the dashboard. That page is
+  only ever reached from the Reports view.
+
+- **Dependencies updated** to current (`marked`, `@simplewebauthn/server`,
+  `@playwright/test`); 0 vulnerabilities.
+
+
 - **`GET /api/reports` returns an envelope, not a bare array.** Now
   `{quota, reports, processing, failed}`, with each report carrying its
   title, document date, state, source format and bullets. The Reports
@@ -213,6 +234,29 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   message on anything older, instead of a cryptic missing-module crash.
   The Docker image (`node:22-slim`) already floats above the floor.
   Refs #494.
+
+### Fixed
+
+- **HAE pushes no longer corrupt multi-byte characters.** The ingest route
+  accumulated the POST body as a string, so each TCP chunk was decoded
+  independently and a UTF-8 sequence straddling a chunk boundary became a
+  replacement character on both sides. Permanently: in the stored rows *and* in
+  the "verbatim" raw archive, which could therefore never be byte-identical to
+  what the phone sent. A device name with a curly apostrophe was enough to
+  trigger it. Bodies are now collected as Buffers and decoded once.
+
+- **An oversize HAE push now gets a real 413.** The check lived in the `end`
+  handler, but `req.destroy()` means `end` never fires, so both the response and
+  its diagnostic were unreachable and the phone got a bare TCP reset it would
+  read as a retryable blip.
+
+- **One malformed HAE entry no longer stalls a whole push.** Every catalogue
+  `row()` dereferences its entry immediately, so a `null` element threw out of
+  the dispatcher; the route deliberately swallows a post-auth throw into a 200
+  to stop the phone retrying forever, so the visible result was that every
+  *later* subscriber silently stopped ingesting while the push reported success.
+  Bad entries are now dropped per-entry, counted, and reported in the push
+  summary, so partial loss stops presenting as a clean push. Fixes #553.
 
 ### Removed
 
