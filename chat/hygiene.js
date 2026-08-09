@@ -56,6 +56,16 @@ function scanHygiene(registry, today) {
     const entry = typeof registry.get === 'function' ? registry.get(card.id) : null;
     const meta = entry ? entry.meta || {} : {};
     const data = entry ? entry.data : null;
+
+    // A hidden card is not a card the user is neglecting; it is one they chose
+    // to put away. `meta.enabled: false` already means "hidden from every view"
+    // (registry.js viewEnabled), and hide_card is offered as the non-destructive
+    // alternative to deleting, so nagging about staleness afterwards punishes
+    // exactly the tidy-up the nudge is asking for. Skipped for every finding
+    // kind, not just staleness: growth and orphaned inputs on a put-away card
+    // are equally not worth a mention.
+    if (meta.enabled === false) continue;
+
     const scheduled = hasScheduleCadence(data);
 
     // Stale-vs-cadence: a card with enough history that has gone quiet past
