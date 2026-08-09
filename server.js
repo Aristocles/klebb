@@ -47,8 +47,10 @@ const inbox = require('./ingest/pipeline');
 const gateway = require('./lib/gateway');
 const { callGateway } = gateway;
 const catalogue = require('./ingest/catalogue');
+const reportsApi = require('./lib/reports-api');
 const { ALLOWED_UPLOAD_EXTS } = require('./ingest/extract');
 const { sanitiseStem } = require('./ingest/writeReport');
+const { nextPsm } = require('./ingest/extractors/image');
 
 // chat endpoint config (env-driven; see config/env.js). The key and model are
 // read by lib/gateway.js, which owns the transport.
@@ -1857,31 +1859,113 @@ Original system prompt follows:
       return;
     }
 
-    // GET /api/reports — list available report files
-    if (parts[0] === 'reports' && parts.length === 1) {
+    // GET /api/reports — quota + reports + in-flight + failures
+    if (parts[0] === 'reports' && parts.length === 1 && req.method === 'GET') {
       try {
-        // Exclude system prompt / internal files
-        const EXCLUDED = new Set(['PEPI_SYSTEM_PROMPT_FOR_ONYX.md', 'PROFILE.md']);
-        const files = fs.readdirSync(REPORTS_DIR)
-          .filter(f => f.endsWith('.md') && !f.startsWith('.') && !EXCLUDED.has(f));
-        const reports = files.map(f => {
-          const name = f.replace(/\.md$/, '');
-          const content = fs.readFileSync(path.join(REPORTS_DIR, f), 'utf8');
-          const titleMatch = content.match(/^#\s+(.+)/m);
-          const title = titleMatch ? titleMatch[1] : name;
-          // Extract date from filename if present
-          const dateMatch = name.match(/\d{4}-\d{2}-\d{2}/);
-          return {
-            name,
-            title,
-            date: dateMatch ? dateMatch[0] : null,
-            url: `/report/${name}`,
-          };
-        }).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-        return sendJSON(res, reports);
-      } catch {
-        return sendJSON(res, []);
+        return sendJSON(res, reportsApi.envelope());
+      } catch (e) {
+        console.warn('[reports] list failed:', e.message);
+        return sendJSON(res, { quota: { used: 0, max: ENV.REPORTS_MAX, remaining: 0 }, reports: [], processing: [], failed: [] });
       }
+    }
+
+    // GET /api/reports/:name/source — the archived original, for the OCR
+    // compare view. Inline rather than a download, and never cached: it is the
+    // most sensitive artefact in the instance (the only copy that still carries
+    // the patient's identifiers).
+    if (parts[0] === 'reports' && parts.length === 3 && parts[2] === 'source' && req.method === 'GET') {
+      const name = decodeURIComponent(parts[1]);
+      const found = reportsApi.readReportFile(name);
+      if (found.error) return send404(res, found.notFound ? 'Report not found' : found.error);
+      if (!found.header) return send404(res, 'This report has no archived original');
+      const abs = reportsApi.resolveSource(found.header);
+      if (!abs || !fs.existsSync(abs)) return send404(res, 'Original file not found');
+      let stat;
+      try { stat = fs.statSync(abs); } catch { return send404(res, 'Original file not found'); }
+      res.writeHead(200, {
+        'Content-Type': reportsApi.sourceContentType(abs),
+        'Content-Length': stat.size,
+        'Content-Disposition': 'inline',
+        'Cache-Control': 'private, no-store',
+      });
+      return fs.createReadStream(abs).pipe(res);
+    }
+
+    // GET /api/reports/:name/text — the extracted text alone, for the compare
+    // view. /report/<name> renders a whole styled HTML page, so the client
+    // cannot use it here: stripping frontmatter out of rendered markup with a
+    // regex leaks the header into the pane the human is meant to be checking.
+    if (parts[0] === 'reports' && parts.length === 3 && parts[2] === 'text' && req.method === 'GET') {
+      const found = reportsApi.readReportFile(decodeURIComponent(parts[1]));
+      if (found.error) return send404(res, found.notFound ? 'Report not found' : found.error);
+      res.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'private, no-store',
+      });
+      return res.end(reportsApi.bodyText(found.text));
+    }
+
+    // POST /api/reports/:name/verify — the human has compared the OCR text
+    // against the original and it reads correctly.
+    if (parts[0] === 'reports' && parts.length === 3 && parts[2] === 'verify' && req.method === 'POST') {
+      if (ENV.KLEBB_DEMO) return sendJSON(res, { error: 'Not available in demo mode' }, 403);
+      const result = reportsApi.verifyReport(decodeURIComponent(parts[1]));
+      if (result.error) {
+        return sendJSON(res, { error: result.error }, result.status || (result.notFound ? 404 : 400));
+      }
+      return sendJSON(res, result);
+    }
+
+    // POST /api/reports/:name/reprocess — re-extract the archived original and
+    // re-comprehend, overwriting the SAME report. Body may carry {psm} to pick
+    // an OCR rung; the default advances one rung from whatever was recorded.
+    if (parts[0] === 'reports' && parts.length === 3 && parts[2] === 'reprocess' && req.method === 'POST') {
+      if (ENV.KLEBB_DEMO) return sendJSON(res, { error: 'Not available in demo mode' }, 403);
+      const name = decodeURIComponent(parts[1]);
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        const found = reportsApi.readReportFile(name);
+        if (found.error) {
+          return sendJSON(res, { error: found.error }, found.notFound ? 404 : 400);
+        }
+        if (!found.header) {
+          return sendJSON(res, { error: 'this report was authored by hand; there is nothing to reprocess' }, 403);
+        }
+        const source = reportsApi.resolveSource(found.header);
+        if (!source || !fs.existsSync(source)) {
+          // The report itself is left alone: losing it because its original is
+          // missing would be a strictly worse outcome than a failed retry.
+          return sendJSON(res, { error: 'the original file for this report is no longer available, so it cannot be reprocessed' }, 404);
+        }
+        let requested = null;
+        try { requested = JSON.parse(body || '{}').psm ?? null; } catch {}
+        const psm = Number.isInteger(requested) ? requested : nextPsm(found.header.ocrPsm);
+        inbox.enqueue(source, {
+          psm,
+          overwriteName: name,
+          archiveName: path.basename(source),
+        });
+        return sendJSON(res, { accepted: true, name, psm }, 202);
+      });
+      return;
+    }
+
+    // DELETE /api/reports/:name — remove the report and its archived original,
+    // freeing a quota slot.
+    if (parts[0] === 'reports' && parts.length === 2 && req.method === 'DELETE') {
+      if (ENV.KLEBB_DEMO) return sendJSON(res, { error: 'Not available in demo mode' }, 403);
+      let result;
+      try {
+        result = reportsApi.deleteReport(decodeURIComponent(parts[1]));
+      } catch (e) {
+        return sendJSON(res, { error: `could not delete report: ${e.message}` }, 500);
+      }
+      if (result.error) {
+        return sendJSON(res, { error: result.error }, result.status || (result.notFound ? 404 : 400));
+      }
+      const q = catalogue.quota();
+      return sendJSON(res, { ...result, used: q.used, max: q.max });
     }
 
     return send404(res);
