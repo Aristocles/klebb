@@ -10,7 +10,7 @@
 // carrying the extracted text and a stated reason, because a report the user
 // can read beats a report that never appeared.
 
-const { callGateway, isConfigured } = require('../lib/gateway');
+const { callGateway, isConfigured, classifyGatewayError } = require('../lib/gateway');
 
 // Bounds the cost of one call. A 100 KB document is already far more than a
 // digest needs, and genome exports run to megabytes.
@@ -180,14 +180,22 @@ async function comprehend({ text, sourceFormat, ocrPsm = null, callGatewayFn = c
     if (!digest) digest = await _askGateway(text, sourceFormat, { nudge: true, callGatewayFn });
   } catch (e) {
     const msg = String(e && e.message || e);
-    // Distinguish the failure classes the transport already separates for us.
-    const reason = /gateway_timeout|gateway_iter_timeout/.test(msg)
-      ? 'comprehension unavailable: gateway timed out'
-      : /gateway_unavailable/.test(msg)
-        ? 'comprehension unavailable: gateway unreachable'
-        : /gateway_parse/.test(msg)
+    // Distinguish the failure classes the transport separates for us. Budget
+    // exhaustion is called out by name (klebb#547): a report that fell back to
+    // raw text because the month's allowance ran out is a different problem
+    // from one that hit a dead gateway, and only one of them is worth retrying
+    // today. classifyGatewayError is shared with /api/chat so the two cannot
+    // drift on what a 429 means.
+    const cause = classifyGatewayError(e);
+    const reason = cause === 'budget'
+      ? "comprehension unavailable: this month's AI allowance is used up"
+      : cause === 'timeout'
+        ? 'comprehension unavailable: gateway timed out'
+        : cause === 'parse'
           ? 'comprehension unavailable: gateway returned an unreadable response'
-          : `comprehension unavailable: ${msg}`;
+          : /gateway_unavailable/.test(msg)
+            ? 'comprehension unavailable: gateway unreachable'
+            : `comprehension unavailable: ${msg}`;
     return raw({ reason });
   }
 
