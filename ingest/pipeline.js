@@ -22,7 +22,7 @@ const PATHS = require('../config/paths');
 const { extract, formatFor } = require('./extract');
 const { writeReport } = require('./writeReport');
 const { comprehend } = require('./comprehend');
-const { quota, countIngestedReports } = require('./catalogue');
+const { quota, countIngestedReports, parseReportHeader } = require('./catalogue');
 
 const _inFlight = new Set();
 const _queue = [];
@@ -52,7 +52,18 @@ function _scanInbox(inboxDir) {
 async function _moveToFailed(absPath, reason) {
   try { fs.mkdirSync(PATHS.INBOX_FAILED_DIR, { recursive: true }); } catch {}
   const base = path.basename(absPath);
-  const dest = path.join(PATHS.INBOX_FAILED_DIR, base);
+  // Suffix on collision: a second failure of the same filename would otherwise
+  // overwrite the first, so the earlier file and its reason both vanished.
+  let name = base;
+  if (fs.existsSync(path.join(PATHS.INBOX_FAILED_DIR, name))) {
+    const ext = path.extname(base);
+    const stem = base.slice(0, base.length - ext.length);
+    for (let i = 2; i < 1000; i++) {
+      const candidate = `${stem}-${i}${ext}`;
+      if (!fs.existsSync(path.join(PATHS.INBOX_FAILED_DIR, candidate))) { name = candidate; break; }
+    }
+  }
+  const dest = path.join(PATHS.INBOX_FAILED_DIR, name);
   try {
     fs.renameSync(absPath, dest);
   } catch (e) {
@@ -67,6 +78,30 @@ async function _moveToFailed(absPath, reason) {
   }
 }
 
+// A free name inside the archive dir, suffixing -2, -3 before the extension.
+// Reprocess passes archiveName explicitly and so never comes through here.
+function _freeArchiveName(base) {
+  const dir = PATHS.REPORTS_ARCHIVE_DIR;
+  if (!fs.existsSync(path.join(dir, base))) return base;
+  const ext = path.extname(base);
+  const stem = base.slice(0, base.length - ext.length);
+  for (let i = 2; i < 1000; i++) {
+    const candidate = `${stem}-${i}${ext}`;
+    if (!fs.existsSync(path.join(dir, candidate))) return candidate;
+  }
+  return `${stem}-${Date.now()}${ext}`;
+}
+
+// The digest already on disk for a report, or null. Used so a reprocess that
+// cannot reach the gateway keeps the summary the user already had.
+function _existingDigest(name) {
+  try {
+    const header = parseReportHeader(
+      fs.readFileSync(path.join(PATHS.REPORTS_DIR, `${name}.md`), 'utf8'));
+    return header || null;
+  } catch { return null; }
+}
+
 // `opts.psm` selects an OCR rung (reprocess). `opts.overwriteName` rewrites an
 // existing report rather than allocating a new name, and `opts.archiveName`
 // names the already-archived original when reprocessing (nothing to move).
@@ -74,17 +109,33 @@ async function processOne(absPath, opts = {}) {
   const base = path.basename(absPath);
   if (_inFlight.has(base)) return { skipped: 'in-flight' };
   _inFlight.add(base);
+
+  // On a reprocess the source IS the archived original, and it is the only
+  // remaining copy of the user's document. Moving it to _failed/ on a failure
+  // would destroy it: the report still points at an archive_path that no longer
+  // exists, so the compare view breaks and no future reprocess can ever work.
+  // A failed retry must cost the retry, never the document.
+  const isArchivedSource = path.resolve(path.dirname(absPath))
+    === path.resolve(PATHS.REPORTS_ARCHIVE_DIR);
+  const abandon = async (reason) => {
+    if (isArchivedSource) {
+      console.warn(`[ingest] reprocess of ${base} failed (${reason}); leaving the archived original in place`);
+      return;
+    }
+    await _moveToFailed(absPath, reason);
+  };
+
   try {
     const fmt = formatFor(absPath);
     if (!fmt) {
-      await _moveToFailed(absPath, `unsupported format: ${path.extname(absPath).toLowerCase() || '(none)'}`);
+      await abandon(`unsupported format: ${path.extname(absPath).toLowerCase() || '(none)'}`);
       return { failed: true, reason: 'unsupported' };
     }
     let extracted;
     try {
       extracted = await extract(absPath, { psm: opts.psm });
     } catch (e) {
-      await _moveToFailed(absPath, `extraction failed: ${e.message}`);
+      await abandon(`extraction failed: ${e.message}`);
       return { failed: true, reason: 'extract-error' };
     }
 
@@ -97,8 +148,33 @@ async function processOne(absPath, opts = {}) {
       ocrPsm: extracted.psm ?? opts.psm ?? null,
     });
 
+    // Reprocessing with a dead gateway would otherwise replace a perfectly good
+    // digest with `raw` and no title or bullets: the user asks to re-read a
+    // photo, the gateway happens to be down, and they lose the summary they
+    // already had. Keep the existing digest and record why the retry could not
+    // improve on it. Only for an overwrite; a first ingest has nothing to keep.
+    if (opts.overwriteName && digest.status === 'raw') {
+      const previous = _existingDigest(opts.overwriteName);
+      if (previous && previous.status !== 'raw') {
+        console.warn(`[ingest] reprocess of ${opts.overwriteName} could not re-summarise (${digest.reason}); keeping the previous digest`);
+        digest.status = previous.status;
+        digest.title = previous.title;
+        digest.documentDate = previous.documentDate;
+        digest.relevance = previous.relevance;
+        digest.bullets = previous.bullets;
+        digest.reason = `previous summary kept; this re-read could not be summarised (${digest.reason})`;
+      }
+    }
+
     const ingestedAt = new Date().toISOString();
-    const archiveName = opts.archiveName || base;
+    // Allocate a free archive name. Two uploads of the same filename (a month
+    // apart, say, both called results.pdf) would otherwise write to the same
+    // archive path: the second overwrote the first, so the older report's
+    // compare view silently showed the NEWER document, and a reprocess of it
+    // re-read the wrong file. The inbox de-dup does not help, because by then
+    // the first file has already been renamed out of the inbox.
+    try { fs.mkdirSync(PATHS.REPORTS_ARCHIVE_DIR, { recursive: true }); } catch {}
+    const archiveName = opts.archiveName || _freeArchiveName(base);
     const archiveAbs = path.join(PATHS.REPORTS_ARCHIVE_DIR, archiveName);
     const archiveRel = path.posix.join('reports', '_archive', archiveName);
     let outName;
@@ -125,7 +201,7 @@ async function processOne(absPath, opts = {}) {
       });
       outName = written.outName;
     } catch (e) {
-      await _moveToFailed(absPath, `report write failed: ${e.message}`);
+      await abandon(`report write failed: ${e.message}`);
       return { failed: true, reason: 'write-error' };
     }
 
