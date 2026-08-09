@@ -4,15 +4,21 @@
 //
 // Covers the inbox -> reports ingest pipeline. Three layers:
 //   1. Pure-function unit tests (no fs, no env): header parser, filename
-//      builder, dispatcher rejection, text extractor.
+//      builder, dispatcher rejection, text extractor, quota counting.
 //   2. Per-process unit tests with a fixed HEALTH_HOME so chat/reports
 //      can resolve PATHS.REPORTS_DIR against a sandbox tree.
-//   3. End-to-end via spawnServer: drop a file into inbox/, watch the
-//      pipeline produce reports/<date>-<stem>.md and archive the source.
+//   3. End-to-end via spawnServer: upload a file, watch the pipeline
+//      produce reports/<date>-<stem>.md and archive the source.
+//
+// The endpoint's own guards (allow-list, size, quota, demo, auth, staging
+// lifecycle) live in tests/reports-upload.test.js. What stays here is the
+// pipeline behind it, plus the operator door: a file that reaches the inbox
+// by `docker cp` + restart rather than by upload.
 
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const http = require('http');
 const { spawnSync, spawn } = require('child_process');
 
 // Set HEALTH_HOME BEFORE requiring any module that imports config/paths.
@@ -27,7 +33,7 @@ process.env.HEALTH_HOME_WARNED = '1';
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 const {
-  createSandbox, cleanupSandbox, spawnServer,
+  createSandbox, cleanupSandbox, spawnServer, fakeAuthState,
 } = require('./helpers/sandbox');
 
 const { parseReportHeader, describeReportsCatalogue } = require('../ingest/catalogue');
@@ -46,6 +52,34 @@ function which(bin) {
 
 function makeToolCall(name, args) {
   return { function: { name, arguments: JSON.stringify(args) } };
+}
+
+// Raw-body upload; the filename rides URL-encoded in a header (no multipart).
+function upload(baseUrl, filename, body, cookie) {
+  return new Promise((resolve, reject) => {
+    const payload = Buffer.isBuffer(body) ? body : Buffer.from(body);
+    const r = http.request(new URL('/api/reports/upload', baseUrl), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': payload.length,
+        'X-Klebb-Filename': encodeURIComponent(filename),
+        ...(cookie ? { Cookie: cookie } : {}),
+      },
+    }, res => {
+      let buf = '';
+      res.on('data', c => buf += c);
+      res.on('end', () => {
+        let json = null;
+        try { json = JSON.parse(buf); } catch {}
+        resolve({ status: res.statusCode, body: buf, json });
+      });
+    });
+    r.on('error', reject);
+    r.setTimeout(15000, () => r.destroy(new Error('request timeout')));
+    r.write(payload);
+    r.end();
+  });
 }
 
 async function waitFor(predicate, { timeoutMs = 8000, intervalMs = 200 } = {}) {
@@ -240,12 +274,14 @@ describe('chat tools: read_report', () => {
   });
 });
 
-describe('ingest pipeline: end-to-end via spawnServer', () => {
+describe('ingest pipeline: end-to-end via the upload endpoint', () => {
   let sandbox;
   let server;
+  let auth;
 
   before(async () => {
-    sandbox = createSandbox();
+    auth = fakeAuthState();
+    sandbox = createSandbox({ credentials: auth.credentials, sessions: auth.sessions });
     server = await spawnServer(sandbox);
   });
 
@@ -254,12 +290,12 @@ describe('ingest pipeline: end-to-end via spawnServer', () => {
     if (sandbox) cleanupSandbox(sandbox);
   });
 
-  test('text drop produces a .md report and archives the source', async () => {
-    const inbox = path.join(sandbox, 'inbox');
+  test('an uploaded text file produces a .md report and archives the source', async () => {
     const reports = path.join(sandbox, 'reports');
     const archive = path.join(reports, '_archive');
-    const src = path.join(inbox, 'note.txt');
-    fs.writeFileSync(src, 'hello world\n');
+
+    const r = await upload(server.baseUrl, 'note.txt', 'hello world\n', auth.cookie);
+    assert.equal(r.status, 202, `upload rejected: ${r.body}`);
 
     const found = await waitFor(() => {
       const files = fs.readdirSync(reports).filter(f => f.endsWith('.md'));
@@ -276,41 +312,20 @@ describe('ingest pipeline: end-to-end via spawnServer', () => {
 
     assert.ok(fs.existsSync(path.join(archive, 'note.txt')),
       'source not archived');
-    assert.ok(!fs.existsSync(src), 'source still in inbox');
+    assert.ok(!fs.existsSync(path.join(sandbox, 'inbox', 'note.txt')),
+      'source still in inbox');
   });
 
-  test('unsupported extension lands in _failed/ with a sibling .error', async () => {
-    const inbox = path.join(sandbox, 'inbox');
-    const failed = path.join(inbox, '_failed');
-    const src = path.join(inbox, 'evil.docx');
-    fs.writeFileSync(src, 'binary doom');
+  test('audio without FISH_AUDIO_API_KEY lands in _failed/ with the disabled message', async () => {
+    const failed = path.join(sandbox, 'inbox', '_failed');
+    const r = await upload(server.baseUrl, 'voice-note.mp3', 'not really mp3 bytes; ffmpeg+ASR will not run', auth.cookie);
+    assert.equal(r.status, 202, 'allow-listed audio should be accepted at the boundary');
 
     // Poll the sidecar (the LAST artefact the pipeline writes), not the
     // moved file (the first). The pipeline does renameSync then a
     // separate writeFileSync for the .error; on Node 22 in CI the second
     // write occasionally lags the rename, so polling for the moved file
     // and then immediately reading the sidecar raced (#377).
-    const errFile = path.join(failed, 'evil.docx.error');
-    const errBody = await waitFor(() => {
-      try {
-        const body = fs.readFileSync(errFile, 'utf8');
-        return body.length > 0 ? body : null;
-      } catch { return null; }
-    });
-    assert.ok(errBody, 'no sibling .error written for evil.docx');
-    assert.ok(fs.existsSync(path.join(failed, 'evil.docx')),
-      'source file never moved to _failed/');
-    assert.match(errBody, /unsupported format/);
-  });
-
-  test('audio drop without FISH_AUDIO_API_KEY lands in _failed/ with the disabled message', async () => {
-    const inbox = path.join(sandbox, 'inbox');
-    const failed = path.join(inbox, '_failed');
-    const src = path.join(inbox, 'voice-note.mp3');
-    fs.writeFileSync(src, 'not really mp3 bytes; ffmpeg+ASR will not run');
-
-    // See note in 'unsupported extension' above: poll the sidecar, not
-    // the moved file.
     const errFile = path.join(failed, 'voice-note.mp3.error');
     const errBody = await waitFor(() => {
       try {
@@ -322,6 +337,165 @@ describe('ingest pipeline: end-to-end via spawnServer', () => {
     assert.ok(fs.existsSync(path.join(failed, 'voice-note.mp3')),
       'source file never moved to _failed/');
     assert.match(errBody, /audio ingest disabled|FISH_AUDIO_API_KEY/);
+  });
+});
+
+describe('ingest pipeline: the operator door (docker cp + restart)', () => {
+  test('an unsupported extension in the inbox at boot lands in _failed/ with a sibling .error', async () => {
+    // The endpoint refuses a non-allow-listed extension before the body is
+    // read, so the only way one reaches the inbox is the operator door. The
+    // drain must still reject it rather than throw.
+    const sandbox = createSandbox();
+    const failed = path.join(sandbox, 'inbox', '_failed');
+    fs.writeFileSync(path.join(sandbox, 'inbox', 'evil.xyz'), 'binary doom');
+    let server;
+    try {
+      server = await spawnServer(sandbox);
+      const errBody = await waitFor(() => {
+        try {
+          const body = fs.readFileSync(path.join(failed, 'evil.xyz.error'), 'utf8');
+          return body.length > 0 ? body : null;
+        } catch { return null; }
+      });
+      assert.ok(errBody, 'no sibling .error written for evil.xyz');
+      assert.ok(fs.existsSync(path.join(failed, 'evil.xyz')),
+        'source file never moved to _failed/');
+      assert.match(errBody, /unsupported format/);
+    } finally {
+      if (server) await server.kill();
+      cleanupSandbox(sandbox);
+    }
+  });
+
+  test('extraction is serialised: never more than one file in flight', async () => {
+    // One slot, not a pool: tesseract and pdftoppm are CPU-bound and share
+    // node's thread with request serving. Observed via the archive order and
+    // per-file completion, using the drain to submit several at once.
+    const sandbox = createSandbox();
+    const COUNT = 5;
+    for (let i = 0; i < COUNT; i++) {
+      fs.writeFileSync(path.join(sandbox, 'inbox', `serial-${i}.txt`), `body ${i}\n`);
+    }
+    let server;
+    try {
+      server = await spawnServer(sandbox);
+      const done = await waitFor(() => {
+        const n = fs.readdirSync(path.join(sandbox, 'reports')).filter(f => f.endsWith('.md')).length;
+        return n === COUNT ? n : null;
+      }, { timeoutMs: 20000 });
+      assert.equal(done, COUNT, 'not every drained file produced a report');
+      assert.equal(fs.readdirSync(path.join(sandbox, 'inbox')).filter(f => f !== '_failed').length, 0,
+        'inbox not fully drained');
+      const archived = fs.readdirSync(path.join(sandbox, 'reports', '_archive'));
+      assert.equal(archived.length, COUNT, 'not every source was archived');
+    } finally {
+      if (server) await server.kill();
+      cleanupSandbox(sandbox);
+    }
+  });
+});
+
+describe('ingest/pipeline: queue serialisation is re-entrancy safe', () => {
+  test('two enqueue calls in the same tick do not start parallel chains', async () => {
+    // _running must be set synchronously before the first await, or two
+    // synchronous enqueue() calls both observe false and drive the queue
+    // twice concurrently.
+    const pipeline = require('../ingest/pipeline');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'eh-queue-'));
+    try {
+      const a = path.join(dir, 'a.txt');
+      const b = path.join(dir, 'b.txt');
+      fs.writeFileSync(a, 'a');
+      fs.writeFileSync(b, 'b');
+      pipeline.enqueue(a);
+      pipeline.enqueue(b);
+      // Depth counts queued + the one in flight; two parallel chains would
+      // have already shifted both entries off by now.
+      assert.ok(pipeline.queueDepth() >= 1, 'the queue drained synchronously');
+      assert.ok(pipeline.queueDepth() <= 2, `queue depth ${pipeline.queueDepth()} exceeds submitted work`);
+      await waitFor(() => pipeline.queueDepth() === 0 ? 'drained' : null, { timeoutMs: 10000 });
+      assert.equal(pipeline.queueDepth(), 0, 'queue never drained');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('enqueue is idempotent for a path already queued', () => {
+    const pipeline = require('../ingest/pipeline');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'eh-queue2-'));
+    try {
+      const p = path.join(dir, 'dup.txt');
+      fs.writeFileSync(p, 'x');
+      pipeline.stop();
+      pipeline.enqueue(p);
+      pipeline.enqueue(p);
+      pipeline.enqueue(p);
+      assert.ok(pipeline.queueDepth() <= 2,
+        `the same path was queued ${pipeline.queueDepth()} times`);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('ingest/catalogue: quota counting', () => {
+  const { countIngestedReports, quota, notePendingUpload, releasePendingUpload, pendingUploads } =
+    require('../ingest/catalogue');
+
+  test('hand-authored markdown does not count against the cap', () => {
+    // Asserted as a delta, not an absolute: earlier suites in this file write
+    // real reports into SHARED_HOME, and the invariant under test is "adding
+    // hand-authored files changes nothing", not any particular total.
+    const reportsDir = path.join(SHARED_HOME, 'reports');
+    const before = countIngestedReports();
+
+    fs.writeFileSync(path.join(reportsDir, 'PROFILE.md'), '# Profile\n\nhand-authored\n');
+    fs.writeFileSync(path.join(reportsDir, 'genome-notes.md'), '# Genome\n\nalso hand-authored\n');
+    fs.writeFileSync(path.join(reportsDir, 'not-markdown.txt'), 'ignored entirely\n');
+
+    assert.equal(countIngestedReports(), before,
+      'hand-authored markdown counted; the demo fixtures would burn quota slots');
+  });
+
+  test('a sentinel-carrying report does count against the cap', () => {
+    const reportsDir = path.join(SHARED_HOME, 'reports');
+    const before = countIngestedReports();
+    fs.writeFileSync(path.join(reportsDir, 'quota-probe.md'), [
+      '---',
+      'klebb_ingest: v1',
+      'source_file: probe.txt',
+      'source_format: text',
+      'ingested_at: 2026-06-01T00:00:00Z',
+      'archive_path: reports/_archive/probe.txt',
+      '---',
+      '',
+      '# quota-probe',
+    ].join('\n'));
+    assert.equal(countIngestedReports(), before + 1,
+      'an ingested report was not counted; the cap would never engage');
+    fs.unlinkSync(path.join(reportsDir, 'quota-probe.md'));
+    assert.equal(countIngestedReports(), before, 'deleting a report did not free its slot');
+  });
+
+  test('quota() reports {used, max, remaining} and includes in-flight uploads', () => {
+    const before = quota();
+    assert.equal(typeof before.max, 'number');
+    assert.equal(before.remaining, Math.max(0, before.max - before.used));
+
+    notePendingUpload();
+    assert.equal(pendingUploads(), 1);
+    const during = quota();
+    assert.equal(during.used, before.used + 1,
+      'an accepted-but-not-yet-renamed upload is invisible to the cap');
+    releasePendingUpload();
+    assert.equal(pendingUploads(), 0);
+    assert.equal(quota().used, before.used);
+  });
+
+  test('releasePendingUpload never drives the counter negative', () => {
+    releasePendingUpload();
+    releasePendingUpload();
+    assert.equal(pendingUploads(), 0);
   });
 });
 

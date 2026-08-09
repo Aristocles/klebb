@@ -3,28 +3,29 @@
 // ingest/pipeline.js
 // Orchestrates the inbox -> reports pipeline.
 //
-// On start():
-//   1. drain any files left over in INBOX_DIR from a previous boot
-//      (server crashed mid-extract).
-//   2. begin watching INBOX_DIR for new drops.
+// Files reach the inbox one of two ways, both of which end at enqueue():
+//   1. POST /api/reports/upload writes the bytes to a dot-prefixed .part
+//      staging file and renames it into place, then enqueues.
+//   2. The boot drain picks up anything sitting in the inbox from a previous
+//      boot (a crash mid-extract) or dropped in by an operator with
+//      `docker cp` + restart. Same cap, same queue, same rules.
 //
-// Per-file processing waits for mtime+size to be stable before extracting,
-// to avoid racing rsync mid-copy. Failures move the source to _failed/
-// with a sibling .error file. An in-flight Set prevents the debounced
-// re-scan from double-processing the same file.
+// There is no filesystem watcher and no mtime-stability wait: a file at its
+// final inbox name was renamed there atomically, so it is complete by
+// construction. Extraction is serialised through a single slot, because
+// tesseract and pdftoppm are CPU-bound and share node's thread with request
+// serving. Failures move the source to _failed/ with a sibling .error file.
 
 const fs = require('fs');
 const path = require('path');
 const PATHS = require('../config/paths');
-const watcher = require('./watcher');
 const { extract, formatFor } = require('./extract');
 const { writeReport } = require('./writeReport');
-
-const STABILITY_DELAY_MS = 500;
-const STABILITY_MAX_ATTEMPTS = 6;
+const { quota, countIngestedReports } = require('./catalogue');
 
 const _inFlight = new Set();
-let _watcherHandle = null;
+const _queue = [];
+let _running = false;
 
 function _isProcessable(name) {
   if (!name) return false;
@@ -45,23 +46,6 @@ function _scanInbox(inboxDir) {
     out.push(abs);
   }
   return out;
-}
-
-function _sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
-}
-
-async function _waitUntilStable(absPath) {
-  let prev;
-  try { prev = fs.statSync(absPath); } catch { return false; }
-  for (let i = 0; i < STABILITY_MAX_ATTEMPTS; i++) {
-    await _sleep(STABILITY_DELAY_MS);
-    let cur;
-    try { cur = fs.statSync(absPath); } catch { return false; }
-    if (cur.size === prev.size && cur.mtimeMs === prev.mtimeMs) return true;
-    prev = cur;
-  }
-  return false;
 }
 
 async function _moveToFailed(absPath, reason) {
@@ -87,11 +71,6 @@ async function processOne(absPath) {
   if (_inFlight.has(base)) return { skipped: 'in-flight' };
   _inFlight.add(base);
   try {
-    const stable = await _waitUntilStable(absPath);
-    if (!stable) {
-      await _moveToFailed(absPath, 'file mtime never stabilised; still being copied?');
-      return { failed: true, reason: 'unstable' };
-    }
     const fmt = formatFor(absPath);
     if (!fmt) {
       await _moveToFailed(absPath, `unsupported format: ${path.extname(absPath).toLowerCase() || '(none)'}`);
@@ -134,12 +113,78 @@ async function processOne(absPath) {
   }
 }
 
-function _onChange() {
-  const inbox = PATHS.INBOX_DIR;
-  for (const abs of _scanInbox(inbox)) {
-    const base = path.basename(abs);
-    if (_inFlight.has(base)) continue;
-    processOne(abs).catch(e => console.warn(`[ingest] processOne(${base}) threw:`, e.message));
+// Drive the queue one file at a time. _running is set synchronously before
+// the first await so two enqueue() calls in the same tick cannot both see it
+// false and start parallel chains.
+async function _drive() {
+  if (_running) return;
+  _running = true;
+  try {
+    while (_queue.length) {
+      const abs = _queue.shift();
+      const base = path.basename(abs);
+      const started = Date.now();
+      try {
+        const r = await processOne(abs);
+        if (r && r.ok) console.log(`[ingest] ${base} -> ${r.outName} in ${Date.now() - started}ms`);
+      } catch (e) {
+        console.warn(`[ingest] processOne(${base}) threw:`, e.message);
+      }
+    }
+  } finally {
+    _running = false;
+  }
+  // A file enqueued while the loop was winding down would otherwise sit
+  // untouched until the next upload.
+  if (_queue.length) _drive();
+}
+
+function enqueue(absPath) {
+  if (_queue.includes(absPath)) return;
+  _queue.push(absPath);
+  _drive();
+}
+
+function queueDepth() { return _queue.length + (_running ? 1 : 0); }
+
+// Pick up whatever is in the inbox at boot. Enforces the cap so a bulk
+// `docker cp` cannot walk an instance past its limit; overflow lands in
+// _failed/ with an actionable reason rather than being silently dropped.
+//
+// The budget is computed once, against the reports already on disk, and then
+// decremented locally. Re-reading quota() per file would count the pending
+// inbox files against their own admission (they are exactly what is being
+// drained), so nothing would ever be admitted on a full inbox.
+function drain() {
+  const pending = _scanInbox(PATHS.INBOX_DIR);
+  if (!pending.length) return { queued: 0, overflow: 0 };
+
+  const max = quota().max;
+  let budget = Math.max(0, max - countIngestedReports());
+  let overflow = 0;
+  for (const abs of pending) {
+    if (budget < 1) {
+      overflow++;
+      _moveToFailed(abs, `report cap reached (${max}); delete a report and re-upload`)
+        .catch(() => {});
+      continue;
+    }
+    budget--;
+    enqueue(abs);
+  }
+  if (overflow) console.warn(`[ingest] boot drain: ${overflow} file(s) over the report cap moved to _failed/`);
+  return { queued: _queue.length, overflow };
+}
+
+// A .part left behind means a client aborted mid-upload at a moment the
+// cleanup handlers could not cover (a hard kill). Harmless (the drain skips
+// dot-prefixed names) but worth saying out loud once.
+function _warnOnStrayParts() {
+  let entries;
+  try { entries = fs.readdirSync(PATHS.INBOX_DIR); } catch { return; }
+  const strays = entries.filter(f => f.endsWith('.part'));
+  if (strays.length) {
+    console.warn(`[ingest] ${strays.length} stray .part file(s) in inbox/ from an interrupted upload; safe to delete`);
   }
 }
 
@@ -149,15 +194,12 @@ function start() {
   try { fs.mkdirSync(PATHS.REPORTS_DIR, { recursive: true }); } catch {}
   try { fs.mkdirSync(PATHS.REPORTS_ARCHIVE_DIR, { recursive: true }); } catch {}
 
-  _onChange();
-
-  if (_watcherHandle) { try { _watcherHandle.stop(); } catch {} }
-  _watcherHandle = watcher.start({ inboxDir: PATHS.INBOX_DIR, onChange: _onChange });
-  return _watcherHandle;
+  _warnOnStrayParts();
+  return drain();
 }
 
 function stop() {
-  if (_watcherHandle) { try { _watcherHandle.stop(); } catch {} _watcherHandle = null; }
+  _queue.length = 0;
 }
 
-module.exports = { start, stop, processOne };
+module.exports = { start, stop, processOne, enqueue, drain, queueDepth };

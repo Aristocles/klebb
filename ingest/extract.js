@@ -23,6 +23,12 @@ const EXT_TO_FORMAT = {
   '.opus': 'audio',
 };
 
+// The upload endpoint's allow-list IS the dispatcher's key set. Deriving it
+// rather than maintaining a second list makes the two impossible to drift;
+// drift presents to the user as "the upload succeeded and then the file
+// vanished" (accepted at the boundary, rejected by the pipeline).
+const ALLOWED_UPLOAD_EXTS = Object.freeze(Object.keys(EXT_TO_FORMAT));
+
 function formatFor(absPath) {
   return EXT_TO_FORMAT[path.extname(absPath).toLowerCase()] || null;
 }
@@ -41,4 +47,4 @@ async function extract(absPath) {
   return { text: result.text, sourceFormat: fmt };
 }
 
-module.exports = { extract, formatFor, EXT_TO_FORMAT };
+module.exports = { extract, formatFor, EXT_TO_FORMAT, ALLOWED_UPLOAD_EXTS };
