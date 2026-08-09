@@ -21,6 +21,7 @@ const path = require('path');
 const PATHS = require('../config/paths');
 const { extract, formatFor } = require('./extract');
 const { writeReport } = require('./writeReport');
+const { comprehend } = require('./comprehend');
 const { quota, countIngestedReports } = require('./catalogue');
 
 const _inFlight = new Set();
@@ -66,7 +67,10 @@ async function _moveToFailed(absPath, reason) {
   }
 }
 
-async function processOne(absPath) {
+// `opts.psm` selects an OCR rung (reprocess). `opts.overwriteName` rewrites an
+// existing report rather than allocating a new name, and `opts.archiveName`
+// names the already-archived original when reprocessing (nothing to move).
+async function processOne(absPath, opts = {}) {
   const base = path.basename(absPath);
   if (_inFlight.has(base)) return { skipped: 'in-flight' };
   _inFlight.add(base);
@@ -78,36 +82,63 @@ async function processOne(absPath) {
     }
     let extracted;
     try {
-      extracted = await extract(absPath);
+      extracted = await extract(absPath, { psm: opts.psm });
     } catch (e) {
       await _moveToFailed(absPath, `extraction failed: ${e.message}`);
       return { failed: true, reason: 'extract-error' };
     }
+
+    // The comprehension pass. Always resolves: every failure inside it comes
+    // back as a `raw` digest carrying the extracted text and a stated reason,
+    // so a dead gateway costs the digest, never the report.
+    const digest = await comprehend({
+      text: extracted.text,
+      sourceFormat: extracted.sourceFormat,
+      ocrPsm: extracted.psm ?? opts.psm ?? null,
+    });
+
     const ingestedAt = new Date().toISOString();
-    const archiveAbs = path.join(PATHS.REPORTS_ARCHIVE_DIR, base);
-    const archiveRel = path.posix.join('reports', '_archive', base);
+    const archiveName = opts.archiveName || base;
+    const archiveAbs = path.join(PATHS.REPORTS_ARCHIVE_DIR, archiveName);
+    const archiveRel = path.posix.join('reports', '_archive', archiveName);
     let outName;
     try {
       const written = writeReport({
         reportsDir: PATHS.REPORTS_DIR,
-        text: extracted.text,
-        sourceFile: base,
+        version: 2,
+        text: digest.body,
+        sourceFile: archiveName,
         sourceFormat: extracted.sourceFormat,
         ingestedAt,
         archivePath: archiveRel,
+        status: digest.status,
+        verify: digest.verify,
+        title: digest.title,
+        documentDate: digest.documentDate,
+        relevance: digest.relevance,
+        ocrPsm: digest.ocrPsm,
+        // An extractor-level note (a truncated scan, OCR unavailable) is worth
+        // keeping when comprehension has nothing of its own to report.
+        reason: digest.reason || extracted.reason || null,
+        bullets: digest.bullets,
+        overwriteName: opts.overwriteName || null,
       });
       outName = written.outName;
     } catch (e) {
       await _moveToFailed(absPath, `report write failed: ${e.message}`);
       return { failed: true, reason: 'write-error' };
     }
+
     try { fs.mkdirSync(PATHS.REPORTS_ARCHIVE_DIR, { recursive: true }); } catch {}
-    try {
-      fs.renameSync(absPath, archiveAbs);
-    } catch (e) {
-      console.warn(`[ingest] processed ${base} but could not archive: ${e.message}`);
+    // On reprocess the source IS the archived original, so leave it be.
+    if (path.resolve(absPath) !== path.resolve(archiveAbs)) {
+      try {
+        fs.renameSync(absPath, archiveAbs);
+      } catch (e) {
+        console.warn(`[ingest] processed ${base} but could not archive: ${e.message}`);
+      }
     }
-    return { ok: true, outName };
+    return { ok: true, outName, status: digest.status, verify: digest.verify };
   } finally {
     _inFlight.delete(base);
   }
@@ -121,12 +152,14 @@ async function _drive() {
   _running = true;
   try {
     while (_queue.length) {
-      const abs = _queue.shift();
-      const base = path.basename(abs);
+      const { absPath, opts } = _queue.shift();
+      const base = path.basename(absPath);
       const started = Date.now();
       try {
-        const r = await processOne(abs);
-        if (r && r.ok) console.log(`[ingest] ${base} -> ${r.outName} in ${Date.now() - started}ms`);
+        const r = await processOne(absPath, opts);
+        if (r && r.ok) {
+          console.log(`[ingest] ${base} -> ${r.outName} (${r.status}/${r.verify}) in ${Date.now() - started}ms`);
+        }
       } catch (e) {
         console.warn(`[ingest] processOne(${base}) threw:`, e.message);
       }
@@ -139,9 +172,9 @@ async function _drive() {
   if (_queue.length) _drive();
 }
 
-function enqueue(absPath) {
-  if (_queue.includes(absPath)) return;
-  _queue.push(absPath);
+function enqueue(absPath, opts = {}) {
+  if (_queue.some(e => e.absPath === absPath)) return;
+  _queue.push({ absPath, opts });
   _drive();
 }
 
