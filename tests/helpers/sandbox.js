@@ -9,6 +9,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const http = require('http');
+const net = require('net');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
@@ -48,10 +49,43 @@ function cleanupSandbox(root) {
   try { fs.rmSync(root, { recursive: true, force: true }); } catch {}
 }
 
-// Spawn the server on a random port against the given sandbox.
+// Ask the OS for a port nobody is using, then close it and hand the number to
+// the child. A plain random pick had no collision check and no retry: with the
+// suite count this repo now runs in parallel, two sandboxes drawing the same
+// number is a coin-flip over a full run (birthday collision over a 20k range),
+// and the loser's server dies of EADDRINUSE before it prints anything, so the
+// failure surfaces as a bare "server exited with code 1" in whichever suite
+// drew second. That looks like a logic bug in whatever changed most recently
+// and is not one.
+//
+// There is still a small window between closing the probe and the child
+// binding, so the caller retries once on a bind failure. Not a general fix for
+// TOCTOU, but it turns a routine flake into a vanishing one.
+function reserveEphemeralPort() {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.once('error', reject);
+    srv.listen(0, '127.0.0.1', () => {
+      const { port } = srv.address();
+      srv.close(err => (err ? reject(err) : resolve(port)));
+    });
+  });
+}
+
+// Spawn the server on a free port against the given sandbox.
 // Resolves with { baseUrl, kill, port }. `kill()` must be called in afterEach.
+// Retries once if it loses the port race (see reserveEphemeralPort).
 async function spawnServer(sandboxRoot, extraEnv = {}) {
-  const port = 20000 + Math.floor(Math.random() * 20000);
+  try {
+    return await _spawnServerOnce(sandboxRoot, extraEnv);
+  } catch (e) {
+    if (!e || !e.addrInUse) throw e;
+    return _spawnServerOnce(sandboxRoot, extraEnv);
+  }
+}
+
+async function _spawnServerOnce(sandboxRoot, extraEnv = {}) {
+  const port = await reserveEphemeralPort();
   const env = {
     ...process.env,
     HEALTH_HOME: sandboxRoot,
@@ -78,10 +112,13 @@ async function spawnServer(sandboxRoot, extraEnv = {}) {
     cwd: REPO_ROOT,
   });
 
-  // Wait for "Health dashboard running" on stdout (or a small delay)
+  // Wait for "Health dashboard running" on stdout (or a small delay).
+  // stderr is captured too: a bind failure prints there, and reporting only
+  // stdout made an EADDRINUSE death look like a silent exit with no reason.
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('server did not start in 5s')), 5000);
     let buf = '';
+    let errBuf = '';
     proc.stdout.on('data', chunk => {
       buf += chunk.toString();
       if (buf.includes('Health dashboard running')) {
@@ -89,9 +126,15 @@ async function spawnServer(sandboxRoot, extraEnv = {}) {
         resolve();
       }
     });
+    proc.stderr.on('data', chunk => { errBuf += chunk.toString(); });
     proc.on('exit', code => {
       clearTimeout(timeout);
-      reject(new Error(`server exited with code ${code}: ${buf.slice(-400)}`));
+      const why = (errBuf || buf).slice(-400);
+      const err = new Error(`server exited with code ${code}: ${why}`);
+      // Let the caller distinguish "lost a port race" from "the server is
+      // broken", so only the former is retried.
+      err.addrInUse = /EADDRINUSE/.test(errBuf);
+      reject(err);
     });
   });
 

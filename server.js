@@ -60,6 +60,22 @@ const CHAT_ITER_TIMEOUT_MS = ENV.CHAT_ITER_TIMEOUT_MS;
 const NO_TOOL_FITS_REFUSAL =
   "I can't do that in one step right now: it doesn't fit any of the tools I have, and the workaround would have to rewrite the whole card (which times out on cards this size). If you tell me which slice of the card you want changed, I can usually do that with a row-level edit.";
 
+// Four gateway conditions used to collapse into the single string 'No response'
+// (klebb#547), so an exhausted allowance, a dead gateway, a timeout and a
+// genuinely empty reply all read as the app being broken. Each now says
+// something true and distinct.
+//
+// The allowance message deliberately states the window generically. The budget
+// is a rolling period the webapp has no field for, and naming a date it cannot
+// know would be a confident lie; "this month's" is true without inventing one.
+// It also avoids apologising: a limit being reached is not a fault.
+const CHAT_BUDGET_MESSAGE =
+  "This month's AI allowance is used up, so chat is paused until it resets. Everything else in your dashboard works as normal.";
+// The real "the model said nothing" case, which should be rare. Distinct from a
+// transport failure so a genuinely empty reply is not read as an outage.
+const EMPTY_REPLY_MESSAGE =
+  'No answer came back for that one. Try rephrasing the question.';
+
 // Forensic logging for the chat agent loop. Off by default; flip on with
 // HEALTH_DEBUG=1. Emits structural facts only (durations, counts, tool
 // names, manifest ids) so a journal grep can reconstruct a stuck turn
@@ -1576,25 +1592,37 @@ Original system prompt follows:
                   return sendJSON(res, withFollowup({ reply: display, speak }, followup));
                 }
                 const speak = finalText.replace(/\p{Extended_Pictographic}/gu, '').trim();
-                return sendJSON(res, withFollowup({ reply: finalText || 'No response', speak }, followup));
+                return sendJSON(res, withFollowup({ reply: finalText || EMPTY_REPLY_MESSAGE, speak }, followup));
               }
-              sendJSON(res, withFollowup({ reply: finalText || 'No response' }, followup));
+              sendJSON(res, withFollowup({ reply: finalText || EMPTY_REPLY_MESSAGE }, followup));
             })
             .catch((e) => {
               const msg = e.message || String(e);
-              chatLog(reqId, `err total=${Date.now() - turnStart}ms ${msg.split(':')[0]}`);
-              if (msg.startsWith('gateway_timeout')) {
-                console.error('Chat gateway timeout');
-                if (!res.headersSent) sendJSON(res, { error: 'Request timed out' }, 504);
+              const cause = gateway.classifyGatewayError(e);
+              // Log the distinguishing detail, so exhaustion and an outage are
+              // tellable apart in the journal without reproducing them.
+              chatLog(reqId, `err total=${Date.now() - turnStart}ms cause=${cause} ${msg.split(':')[0]}`);
+              if (cause === 'budget') {
+                // Not an error to apologise for: it is a limit being reported.
+                // The reset date is deliberately not stated: the allowance is a
+                // rolling window the webapp cannot see, and a wrong date is
+                // worse than none.
+                console.error('Chat allowance exhausted:', msg);
+                if (!res.headersSent) sendJSON(res, { error: CHAT_BUDGET_MESSAGE }, 429);
                 return;
               }
-              if (msg.startsWith('gateway_unavailable')) {
-                console.error('Chat proxy error:', msg);
-                if (!res.headersSent) sendJSON(res, { error: 'Gateway unavailable' }, 502);
+              if (cause === 'timeout') {
+                console.error('Chat gateway timeout');
+                if (!res.headersSent) sendJSON(res, { error: 'That took too long to come back. Try asking again.' }, 504);
+                return;
+              }
+              if (cause === 'transient') {
+                console.error('Chat gateway unavailable:', msg);
+                if (!res.headersSent) sendJSON(res, { error: 'The AI service is not responding right now. Try again in a moment.' }, 502);
                 return;
               }
               console.error('Chat parse error:', msg);
-              if (!res.headersSent) sendJSON(res, { error: 'Failed to parse response' }, 500);
+              if (!res.headersSent) sendJSON(res, { error: 'The AI service returned something unreadable. Try again in a moment.' }, 500);
             });
         } catch (e) {
           sendJSON(res, { error: 'Invalid request' }, 400);
