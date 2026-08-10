@@ -146,11 +146,18 @@ async function _spawnServerOnce(sandboxRoot, extraEnv = {}) {
   // 30s, not 5s. node --test runs one process per file across every core, and
   // each spawnServer boots a whole server (datastore open, manifest discovery,
   // first-boot seeding) while ~90 other files compete for the same CPUs. 5s was
-  // comfortable for one server and marginal for a full run: a different file
-  // aborted on roughly every third run, always with EVERY subtest passing,
-  // which reads as a regression in whatever changed most recently and is not
-  // one. A generous ceiling costs nothing when the server does start, and the
-  // exit handler below still fails fast when it genuinely cannot.
+  // comfortable for one server and marginal for a full run. A generous ceiling
+  // costs nothing when the server does start, and the exit handler below still
+  // fails fast when it genuinely cannot.
+  //
+  // This timeout is NOT the cause of the "a random file aborts with every
+  // subtest passing" flake, despite an earlier note here saying so. Raising it
+  // reduced that symptom without curing it, which was the clue. Two real causes
+  // were found and fixed separately: the port TOCTOU above, and three tests
+  // sleeping a fixed duration while waiting for an event (use waitFor). A
+  // residual case is a native process kill, which no timeout can prevent; run
+  // `npm run test:diag` to see a dead child's actual exit code, because the
+  // default reporter discards it.
   const STARTUP_TIMEOUT_MS = Number(process.env.KLEBB_TEST_STARTUP_TIMEOUT_MS) || 30000;
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(
@@ -166,6 +173,15 @@ async function _spawnServerOnce(sandboxRoot, extraEnv = {}) {
       }
     });
     proc.stderr.on('data', chunk => { errBuf += chunk.toString(); });
+    // A spawn that never starts (a bad executable path, EPERM from a security
+    // product) emits 'error' and never 'exit'. Without this listener that is an
+    // unhandled 'error' event, and the visible symptom is the startup timeout
+    // above followed by a stack pointing at the harness rather than at the real
+    // cause, which is a slow and misleading way to learn the binary is missing.
+    proc.on('error', e => {
+      clearTimeout(timeout);
+      reject(new Error(`server process failed to spawn: ${e.message}`));
+    });
     proc.on('exit', code => {
       clearTimeout(timeout);
       const why = (errBuf || buf).slice(-400);
@@ -183,9 +199,19 @@ async function _spawnServerOnce(sandboxRoot, extraEnv = {}) {
     proc,
     kill: () => new Promise(resolve => {
       if (proc.exitCode !== null) return resolve();
-      proc.once('exit', () => resolve());
+      // Clear the escalation timer when the child exits promptly, which is the
+      // normal case. Leaving it pending held a ref'd handle for a further two
+      // seconds after every suite that spawns a server, and there are dozens of
+      // those: measured at roughly 2s of wall clock each.
+      const escalate = setTimeout(() => {
+        try { proc.kill('SIGKILL'); } catch {}
+        resolve();
+      }, 2000);
+      proc.once('exit', () => {
+        clearTimeout(escalate);
+        resolve();
+      });
       try { proc.kill('SIGTERM'); } catch {}
-      setTimeout(() => { try { proc.kill('SIGKILL'); } catch {} resolve(); }, 2000);
     }),
   };
 }

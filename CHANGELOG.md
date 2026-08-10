@@ -9,6 +9,39 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **A test file that dies now says why.** When a test file's process is killed,
+  `node:test` loses every result it had not yet flushed (a file wrapped in one
+  top-level `describe` reports nothing at all), and the default reporter discards
+  the child's exit code, so the entire output is a bare `'test failed'`. That is
+  indistinguishable from "the change you just made is broken", and it has sent
+  people hunting a regression that was not there more than once.
+
+  `npm run test:diag` runs the suite through a reporter that prints the exit code
+  in hex, the signal, the stderr tail, and a one-line diagnosis, so a failure can
+  be classified at a glance: an ordinary assertion, a lost port race, an
+  out-of-memory abort, or a native process kill. Caught in the act on this repo:
+  three files in one run had exit code `0xC0000409`, the Windows `__fastfail`
+  path, with empty stderr, and all of them passed when re-run.
+
+  Also: `--test-concurrency` is now pinned to 6 rather than defaulting to the core
+  count, which reduces the process churn those kills correlate with (measured
+  cost: 203s versus 196s); `npm run test:retry` re-runs only natively killed
+  files, gated hard on the exit code so a genuine failure can never be retried
+  into green; and `tests/helpers/sandbox.js` gains a `waitFor(check)` helper,
+  because a fixed `setTimeout` while waiting for an event is a guess about
+  machine speed and the source of a whole class of these.
+
+### Fixed
+
+- Two defects in the test harness, both of which made an unrelated problem look
+  like the reported one. `spawnServer` had no `'error'` listener, so a spawn that
+  never started became an unhandled event and surfaced as a 30-second timeout
+  with a stack pointing at the harness instead of at the real cause. And `kill()`
+  left its SIGKILL escalation timer pending after a prompt exit, holding a
+  ref'd handle for a further two seconds per suite across dozens of them.
+
+### Changed
+
 - The chevron that opens a card's full trend chart now sits beside the
   sparkline instead of in the header. It used to render between the edit
   pencil and the settings gear, where nothing connected it to the trend line
