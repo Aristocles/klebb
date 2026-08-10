@@ -26,6 +26,7 @@ const path = require('path');
 const {
   createSandbox, cleanupSandbox, spawnServer, req,
 } = require('./helpers/sandbox');
+const { readSamples } = require('./helpers/hae-samples-readback');
 
 const TOKEN = 'hae-body-integrity-token';
 
@@ -114,29 +115,36 @@ describe('HAE body is decoded as bytes, not per-chunk', () => {
     const res = await rawPost(server.port, '/api/health-auto-export', bodyBuf, { splitAt });
     assert.match(res, /HTTP\/1\.1 200/, `push was not accepted: ${res.slice(0, 200)}`);
 
-    // The archive must be byte-identical to what was sent. This is the claim
-    // the whole raw-archive retention story rests on.
-    const rawDir = path.join(sandbox, 'data', 'auto-export', 'raw');
-    const files = fs.readdirSync(rawDir).filter(f => f.endsWith('.json'));
-    assert.equal(files.length, 1, `expected one archived payload, got ${files.join(', ')}`);
-    const archived = fs.readFileSync(path.join(rawDir, files[0]));
-    assert.ok(!archived.includes(Buffer.from('�', 'utf8')),
-      'the archived payload contains a replacement character: the body was decoded per chunk');
-    assert.equal(archived.toString('utf8'), bodyBuf.toString('utf8'),
-      'the archived payload is not byte-identical to what was POSTed');
+    // The stored samples must carry exactly the characters that were sent.
+    // Since #546 the durable copy is the samples table rather than a verbatim
+    // file, so the claim is about the stored values: a per-chunk decode would
+    // put U+FFFD in the middle of the source name, permanently, and nothing
+    // downstream could recover the original bytes.
+    const stored = readSamples(sandbox, 'step_count');
+    assert.equal(stored.length, data.length,
+      `expected ${data.length} stored samples, got ${stored.length}`);
 
-    // And the parsed data has to be intact too, not just the archive.
-    const parsed = JSON.parse(archived.toString('utf8'));
-    const sources = new Set(parsed.data.metrics[0].data.map(d => d.source));
+    const sources = new Set(stored.map(s => s.sample.source));
     assert.deepEqual([...sources], [SOURCE],
       'a source name was corrupted on the way through');
+    for (const s of stored) {
+      assert.ok(!String(s.sample.source).includes('�'),
+        'a stored sample contains a replacement character: the body was decoded per chunk');
+    }
+
+    // Nothing about the payload was lost, not just the one field that was split:
+    // every sample round-trips to exactly what was POSTed, in order.
+    assert.deepStrictEqual(stored.map(s => s.sample), data,
+      'the stored samples are not what was POSTed');
+    // And the metric wrapper survived too (units live there, not on the sample).
+    assert.deepEqual(stored[0].metricMeta, { units: 'count' });
   });
 
   test('rows land in the datastore from a chunk-split push', async () => {
     const r = await req(server.baseUrl, '/api/health-auto-export/status');
     // Status is session-gated; what matters is that the push above wrote rows,
-    // which the archive assertion already proves end to end. Read the card back
-    // through the agent surface instead.
+    // which the stored-sample assertions already prove end to end. Read the card
+    // back through the agent surface instead.
     assert.ok(r.status === 401 || r.status === 403 || r.status === 200);
   });
 });

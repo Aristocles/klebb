@@ -27,6 +27,9 @@ const hae = require('./health-auto-export/ingest');
 const haeDiagnostics = require('./health-auto-export/diagnostics');
 const haeDiscoveries = require('./health-auto-export/discoveries');
 const haeTokenStore = require('./health-auto-export/token-store');
+const haeSamples = require('./health-auto-export/samples');
+const haeSamplesInbox = require('./health-auto-export/samples-inbox');
+const haeQuarantine = require('./health-auto-export/quarantine');
 const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-export/describe');
 const userTz = require('./lib/user-tz');
 const feedback = require('./lib/feedback');
@@ -1025,33 +1028,45 @@ const server = http.createServer(async (req, res) => {
         const body = Buffer.concat(chunks).toString('utf8');
         chunks.length = 0;
 
-        // Archive the raw payload unconditionally. Stamp carries
-        // milliseconds so rapid successive pushes don't clobber each
-        // other's archive file.
-        const rawDir = path.join(PATHS.AUTO_EXPORT_DIR, 'raw');
-        try { fs.mkdirSync(rawDir, { recursive: true }); } catch {}
-        const stamp = new Date().toISOString().replace(/[:.]/g, '');
-        const rawFile = path.join(rawDir, `${stamp}.json`);
-        try {
-          const tmp = `${rawFile}.tmp`;
-          fs.writeFileSync(tmp, body);
-          fs.renameSync(tmp, rawFile);
-        } catch (e) {
-          console.error('[hae] failed to archive raw payload:', e.message);
-        }
-
         const payloadBytes = Buffer.byteLength(body);
 
         let payload;
         try {
           payload = JSON.parse(body);
         } catch {
+          // A payload that will not parse has no samples to store, so the
+          // samples table cannot hold it and the bytes are the only evidence
+          // of what the phone actually sent. Quarantine it: a bounded
+          // directory keeping the most recent few, not an unbounded archive.
+          const quarantined = haeQuarantine.write(body);
           haeDiagnostics.writeLastPush({
             receivedAt, payloadBytes,
             subscribers: [], availableUnsubscribed: [],
-            warnings: ['parse failed, raw saved'],
+            warnings: [quarantined
+              ? 'parse failed, payload quarantined for inspection'
+              : 'parse failed, payload could not be quarantined'],
           });
-          return sendJSON(res, { ok: true, warning: 'parse failed, raw saved' });
+          return sendJSON(res, {
+            ok: true,
+            warning: quarantined
+              ? 'parse failed, payload quarantined for inspection'
+              : 'parse failed',
+          });
+        }
+
+        // Store every sample the push carried, deduplicated by content. This
+        // replaced archiving each payload to its own file: HAE re-sends a
+        // rolling window, so 85% of what the file archive held was
+        // byte-identical re-sends (404 MB on a real instance).
+        //
+        // Recorded BEFORE dispatch, so a dispatch failure still leaves the
+        // samples durable and replayable. A failure here is logged, not
+        // fatal: a push that reaches subscribers is worth more than one that
+        // 500s because the history write failed.
+        try {
+          haeSamples.recordPush(payload, { receivedAt });
+        } catch (e) {
+          console.error('[hae] failed to record samples:', e.message);
         }
 
         try {
@@ -1081,7 +1096,9 @@ const server = http.createServer(async (req, res) => {
             subscribers: [], availableUnsubscribed: [],
             warnings: [`dispatch failed: ${e.message}`],
           });
-          return sendJSON(res, { ok: true, warning: 'dispatch failed, raw saved' });
+          // The samples were recorded before dispatch ran, so the push is
+          // replayable even though this dispatch did not land any rows.
+          return sendJSON(res, { ok: true, warning: 'dispatch failed, samples stored' });
         }
       });
       return;
@@ -2269,6 +2286,20 @@ server.listen(PORT, HOST, () => {
     console.warn('[first-boot] error (continuing):', e.message);
   }
 
+  // HAE push history from an exported tree: data/auto-export/samples.json is a
+  // one-way import inbox, exactly like a card file's `data` block. Runs BEFORE
+  // registry.init(), because init replays HAE-backed cards from the samples
+  // table and would otherwise find it empty on the first boot of a restore.
+  try {
+    const imported = haeSamplesInbox.drain();
+    if (imported) {
+      console.log(`[hae] imported ${imported.pushes} push(es) from samples.json; `
+        + `${imported.inserted} new sample(s)`);
+    }
+  } catch (e) {
+    console.warn('[hae] samples import failed:', e.message);
+  }
+
   // Initialise manifest registry (discovers + watches data files)
   try {
     const stats = registry.init();
@@ -2315,6 +2346,11 @@ function _shutdown() {
   try { notificationsScheduler.stop(); } catch {}
   try { registry.closeStore(); } catch (e) {
     console.warn('[shutdown] datastore close failed:', e.message);
+  }
+  // A second handle on the same database file, so it needs its own close for
+  // the WAL to be fully checkpointed into klebb.db.
+  try { haeSamples.close(); } catch (e) {
+    console.warn('[shutdown] samples close failed:', e.message);
   }
   process.exit(0);
 }

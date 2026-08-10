@@ -2,13 +2,14 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/health-auto-export.replay-integration.test.js
 // End-to-end: push arrives → later a subscriber is created → subscriber
-// manifest materialises with the archived data already in place.
+// manifest materialises with the already-stored samples replayed into it.
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { createSandbox, cleanupSandbox, spawnServer, req } = require('./helpers/sandbox');
+const { readSamples } = require('./helpers/hae-samples-readback');
 
 const TOKEN = 'replay-token-hex-0123456789abcdef';
 
@@ -33,9 +34,8 @@ describe('createManifest → replay from archive', () => {
   });
   after(async () => { if (server) await server.kill(); cleanupSandbox(sandbox); });
 
-  test('manifest created after a push is backfilled with archived data', async () => {
-    // Step 1: push with no subscribers → raw archive populated, no
-    // manifest files.
+  test('manifest created after a push is backfilled with stored samples', async () => {
+    // Step 1: push with no subscribers → samples stored, no manifest files.
     const pushRes = await req(server.baseUrl, '/api/health-auto-export', {
       method: 'POST', body: PAYLOAD,
       headers: { Authorization: `Bearer ${TOKEN}` },
@@ -43,9 +43,15 @@ describe('createManifest → replay from archive', () => {
     assert.equal(pushRes.status, 200);
     assert.deepEqual(pushRes.json.ingested, {});
 
-    // Confirm raw file exists, no manifest created.
-    const rawDir = path.join(sandbox, 'data', 'auto-export', 'raw');
-    assert.ok(fs.readdirSync(rawDir).length >= 1);
+    // The samples are durable even with nothing subscribed, which is the whole
+    // reason a later-created card can be backfilled at all.
+    const stored = readSamples(sandbox);
+    assert.equal(stored.length, 2, `expected 2 stored samples, saw ${stored.length}`);
+    assert.deepEqual(stored.map(s => s.metric).sort(),
+      ['sleep_analysis', 'step_count']);
+    // And no file archive is written any more.
+    assert.equal(fs.existsSync(path.join(sandbox, 'data', 'auto-export', 'raw')), false,
+      'the raw file archive was recreated');
     assert.equal(fs.existsSync(path.join(sandbox, 'data', 'sleep-hours.json')), false);
 
     // Step 2: create a sleep-analysis subscriber via the manifest-create API.

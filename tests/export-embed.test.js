@@ -86,8 +86,13 @@ describe('export-embed round trip', { skip }, () => {
     }, null, 2));
     fs.mkdirSync(path.join(sandboxA, 'reports'), { recursive: true });
     fs.writeFileSync(path.join(sandboxA, 'reports', 'bloods-2026-05.md'), '# Bloods May');
+    // A pre-#546 tree can still hold the superseded file archive, and the
+    // migration leaves a moved-aside copy. Neither may be staged: they are
+    // hundreds of MB of duplicates, and the export goes to a customer.
     fs.mkdirSync(path.join(sandboxA, 'data', 'auto-export', 'raw'), { recursive: true });
     fs.writeFileSync(path.join(sandboxA, 'data', 'auto-export', 'raw', 'push-1.json'), '{"data":{"metrics":[]}}');
+    fs.mkdirSync(path.join(sandboxA, 'data', 'auto-export', 'raw.migrated-20260810T000000000Z'), { recursive: true });
+    fs.writeFileSync(path.join(sandboxA, 'data', 'auto-export', 'raw.migrated-20260810T000000000Z', 'old.json'), '{}');
     fs.writeFileSync(path.join(sandboxA, 'data', 'auto-export', 'last-push.json'), '{"receivedAt":"2026-07-08"}');
 
     // Boot A: the import inbox strips every seeded data block into the store.
@@ -160,15 +165,18 @@ describe('export-embed round trip', { skip }, () => {
     assert.deepStrictEqual(strays, []);
   });
 
-  test('auto-export raw archive is skipped by default, other files copied', () => {
+  test('superseded raw archives are never staged, other files copied', () => {
     assert.ok(!fs.existsSync(path.join(target, 'data', 'auto-export', 'raw')));
+    assert.ok(!fs.existsSync(path.join(target, 'data', 'auto-export',
+      'raw.migrated-20260810T000000000Z')),
+      'a moved-aside archive from the migration was staged into the export');
     assert.ok(fs.existsSync(path.join(target, 'data', 'auto-export', 'last-push.json')));
     assert.ok(fs.existsSync(path.join(target, 'reports', 'bloods-2026-05.md')));
   });
 });
 
 describe('export-embed flags and guards', { skip }, () => {
-  test('--include-secrets keeps the config verbatim; --include-raw copies raw/', async () => {
+  test('--include-secrets keeps the config verbatim; --include-raw is inert', async () => {
     const auth = fakeAuthState();
     const sandbox = createSandbox({
       seed: { 'weight.json': card('weight', { data: [{ date: '2026-04-20', kg: 85 }] }) },
@@ -184,12 +192,16 @@ describe('export-embed flags and guards', { skip }, () => {
     const target = fs.mkdtempSync(path.join(os.tmpdir(), 'eh-export-'));
     fs.rmdirSync(target);
     try {
+      // --include-raw referred to the removed file archive. It is still
+      // accepted, so an existing invocation does not start failing, but it
+      // must no longer stage the directory.
       const res = runExport(sandbox, target, ['--include-secrets', '--include-raw']);
       assert.equal(res.code, 0, res.stdout + (res.stderr || ''));
       const cfg = JSON.parse(fs.readFileSync(path.join(target, 'config.json'), 'utf8'));
       assert.equal(cfg.hae.token, 'seekrit');
       assert.equal(cfg.auth.invites.length, 1);
-      assert.ok(fs.existsSync(path.join(target, 'data', 'auto-export', 'raw', 'push-1.json')));
+      assert.ok(!fs.existsSync(path.join(target, 'data', 'auto-export', 'raw')),
+        '--include-raw still copies the superseded archive');
     } finally {
       await server.kill();
       cleanupSandbox(sandbox);

@@ -70,6 +70,39 @@ If two layers apply, pick the cheapest one that reliably proves the
 fix. A Playwright test is rarely the right choice when an API test
 would do.
 
+## Anything that touches stored data
+
+Card rows and HAE samples live in SQLite, not in the manifest files, so
+a test that reads a card file off disk is asserting on meta only. Two
+helpers exist so a suite can assert on what is **durable** rather than
+on what an endpoint reported:
+
+- `tests/helpers/datastore-readback.js`: reconstructs a card's stored
+  value through a second WAL handle, so it can read committed rows
+  while the server under test still holds its own handle.
+- `tests/helpers/hae-samples-readback.js`: the same for stored HAE
+  samples. Deliberately hand-rolled SQL: it is the readback oracle for
+  `health-auto-export/samples.js`, and sharing that module's code would
+  let a bug in it hide behind itself.
+
+For a change to a data shape or a storage substrate, the standard is a
+deep-equal comparison before and after, not eyeballing:
+`scripts/dump-card-data.js --diff` for cards, and for the HAE store the
+equivalence suite in `tests/health-auto-export.replay-equivalence.test.js`
+(which keeps a copy of the previous algorithm as its oracle).
+
+Two harness traps, both of which produce a green run that proves
+nothing:
+
+- **Never mix `spawnServer` sandbox tests and fresh-require registry
+  tests in one file.** Every subtest passes and then the runner hangs,
+  because the require-cache purge pulls the module the server process is
+  using out from under it. Split them into two files.
+- A guard is only real if you have watched it fail. Break the code the
+  guard protects, confirm the test goes red, then put it back. Several
+  tests in this repo were passing for a reason that had stopped being
+  true, and only a deliberate failure revealed it.
+
 ## Writing an E2E test
 
 Use the `test` + `expect` from `tests-e2e/helpers/auth-fixture.js`,
@@ -135,7 +168,8 @@ freeze at that step and poke around the DOM.
 
 GitHub Actions runs all three layers on every PR:
 
-- `test` workflow runs `npm test` on Node 20 and 22.
+- `test` workflow runs `npm test` on Node 22 and 24. The floor is
+  `>=22.13` (`node:sqlite`), so Node 20 is no longer supported.
 - `e2e` workflow runs `npm run test:e2e` on Node 22 with Chromium.
   On failure, uploads screenshots, traces, and the HTML report as
   build artefacts.
