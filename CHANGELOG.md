@@ -9,6 +9,45 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Stale-card nudges are now opt-in per card via `meta.cadence`.** A card is
+  only ever reported as stale if it declares how often it expects an entry:
+
+  ```json
+  "meta": { "cadence": { "expectDays": 7 } }
+  ```
+
+  Absent `meta.cadence`, a card is never flagged however long it sits quiet.
+  This is a behaviour change: cards that used to be nudged after 21 days of
+  silence are now silent until they opt in.
+
+  Staleness used to apply to everything with a 21-day default guess, and each
+  time it embarrassed itself an exclusion was added: hidden cards, then
+  read-only cards, then a card of undated rows reporting "no entry in 40 days
+  ... Last: unknown". The blocklist kept growing because whether a quiet card
+  is a problem is not answerable from the card's structure. It depends on what
+  the card is for, and only its author knows that: a reading list, a finished
+  supplement cycle and a twice-yearly blood panel are all meant to be quiet.
+
+  So the rule set is inverted. Cards you want chased say so and say what window
+  they want. The existing conservative floor still applies on top, so opting in
+  can't produce a nudge you can't act on: the card must be visible, writeable
+  from the webapp, carry a real per-row date, and have at least 3 rows. A
+  schedule block no longer implies a tighter window; cadence is declared, never
+  inferred.
+
+  Invalid values are dropped at load (a typo leaves the card quiet rather than
+  breaking it) and rejected with 422 on create/PATCH so the chat agent is told
+  rather than silently ignored. `hygiene_scan`'s `growth` and `orphaned-input`
+  findings are unaffected.
+
+### Fixed
+
+- **A card whose rows carry no dates is no longer reported as stale.** A
+  writeable list of strings (a reading list, a supplement list) has no per-row
+  date, so the scan fell back to "when did anything last write this card" and
+  reported an age with `Last: unknown` attached, which is not the same claim and
+  could not be acted on.
+
 - **HAE push history moved from a file archive into a deduplicated table.**
   Every push used to be written to its own file under
   `data/auto-export/raw/`. Health Auto Export re-sends a rolling window

@@ -65,6 +65,35 @@ function validateScheduleTimeOfDay(parsed, { strict = false } = {}) {
   }
 }
 
+// An expectDays beyond this is not a cadence, it is a typo. Two years of
+// silence on a card the author claimed to track weekly says the declaration is
+// wrong, not that the nudge should wait.
+const CADENCE_MAX_DAYS = 730;
+
+// Validate / clean meta.cadence, the opt-in staleness declaration (#570).
+// Same two-stage pattern as the others: lenient at load (drop the bad field so
+// one typo cannot break a card), strict at create/PATCH (throw with a prefix
+// the handler maps to 422, so the agent gets told rather than silently ignored).
+//
+// Dropping rather than defaulting is the point: a card with no valid cadence is
+// never flagged stale, so a typo makes the card quiet, never noisy.
+function validateCadence(parsed, { strict = false } = {}) {
+  const meta = parsed?.meta;
+  if (!meta || meta.cadence === undefined) return;
+  const cadence = meta.cadence;
+  const bail = (msg) => {
+    if (strict) throw new Error(`invalid cadence: ${msg}`);
+    delete meta.cadence;
+  };
+  if (!cadence || typeof cadence !== 'object' || Array.isArray(cadence)) {
+    return bail('must be an object, e.g. {"expectDays": 7}');
+  }
+  const v = cadence.expectDays;
+  if (!Number.isInteger(v) || v <= 0 || v > CADENCE_MAX_DAYS) {
+    return bail(`expectDays must be a whole number of days from 1 to ${CADENCE_MAX_DAYS}`);
+  }
+}
+
 const SUPPORTED_SCHEMAS = ['klebb.datafile.v1'];
 const RESERVED_DIR_PREFIX = '_';
 
@@ -161,6 +190,7 @@ function _scanDir(dir) {
 //   "missing $schema" / "unsupported $schema:" / "missing meta" / "missing
 //   meta.id" / "missing meta.label"          -> 400
 //   "invalid id: format" / "invalid id: reserved"  -> 422
+//   "invalid cadence: ..."                         -> 422
 // `opts.strictId` applies the id-format sanitiser (filename-safe, reserved
 // names, length). Load-time validation is lenient about id format so legacy
 // files keep loading; the create path sets strictId:true.
@@ -211,6 +241,9 @@ function validateManifestShape(parsed, opts = {}) {
       parsed.meta.notifications = cleaned;
     }
   }
+
+  // meta.cadence is optional: same two-stage pattern.
+  validateCadence(parsed, { strict: strictNotifications });
 
   // data.items[].schedule.time_of_day: same two-stage pattern.
   validateScheduleTimeOfDay(parsed, { strict: strictNotifications });
@@ -980,4 +1013,5 @@ module.exports = {
   ID_PATTERN,
   ID_MAX_LENGTH,
   RESERVED_IDS,
+  CADENCE_MAX_DAYS,
 };
