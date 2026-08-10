@@ -57,7 +57,7 @@ the tools are simply unused.
 | `read_doc` | Fetch any allowlisted in-repo doc (README, MANIFEST-SCHEMA, this file, etc.) |
 | `read_report` | Fetch any ingested report from `$HEALTH_HOME/reports/`. The agent gets the catalogue automatically in its system prompt; see [`REPORTS.md`](REPORTS.md) for how reports get there. |
 | `get_recent_activity` | One-pass recency summary of every card (`rowCount`, `lastEntryDate`, `ageDays`, `lastNDelta`). The agent calls it before answering "how's my tracking" questions and before authoring a card (to match sibling conventions). |
-| `hygiene_scan` | On-demand dashboard health check: stale / oversized / orphaned-input findings. Report-only; never mutates. |
+| `hygiene_scan` | On-demand dashboard health check: stale / oversized / orphaned-input findings. Report-only; never mutates. `stale` is opt-in per card: only cards declaring `meta.cadence.expectDays` are ever reported, so a card with no declared cadence being quiet is not a finding. |
 | `validate_manifest` | Dry-run a candidate manifest (no write). Returns `{ok}` or `{ok:false, errors:[{path,message}]}`. The system prompt directs the agent to call it before every create/patch. |
 | `note_feature_request` | Logs an anonymised unmet-capability intent to `data/_meta/feedback.jsonl` when a request is genuinely unsupported (paraphrased intent only, no user data). |
 

@@ -47,6 +47,9 @@ Klebb dashboard. For the human-friendly tour, see
                                       //   CC suggestion clustering).
                                       //   Unknown values are silently
                                       //   dropped at load time.
+  "cadence":  { "expectDays": 7 },    // optional; opt-in staleness. Absent
+                                      //   means the card is NEVER flagged
+                                      //   stale. See below.
   "view":     { ... },                // optional view config
   "trends":   { ... },                // optional trends config
   "calendar": { ... },                // optional calendar config
@@ -85,6 +88,46 @@ set one explicitly.
 `meta.enabled: false` hides the card from all views (Today, Trends,
 Calendar, Reports). Settings still shows it so you can re-enable. Absent
 or `true` means the card participates according to its per-view config.
+
+### Expected cadence (`meta.cadence`)
+
+Opt-in. Declares how often the card expects an entry, which is the only
+thing that makes it eligible to be reported as **stale**.
+
+```json
+"meta": {
+  "cadence": { "expectDays": 7 }   // required; 1..730 whole days
+}
+```
+
+**Absent `meta.cadence` means the card is never flagged stale.** That is
+the default and it is deliberate: whether a quiet card is a problem
+depends on what the card is for, and only its author knows. A reading
+list, a greeting banner, a finished peptide cycle and a blood panel you
+run twice a year are all legitimately quiet.
+
+`expectDays` is the window. Quiet for longer than it and the card reads
+as stale; past double it, the finding escalates from `info` to `warn`.
+
+A card that declares a cadence is still only flagged when all of the
+following hold, so opting in cannot produce a nudge the user can't act
+on:
+
+| Requirement | Why |
+|---|---|
+| `meta.enabled` is not `false` | A hidden card was put away on purpose, not neglected. |
+| `meta.writeable.fromWebapp` is set | Nothing to log means "bring it up to date" is impossible. |
+| Rows carry a real date field | The age has to mean "no entry since", not "nothing wrote this file". |
+| At least 3 rows | Too little history to read a cadence from. |
+
+An HAE-fed card that is *also* writeable stays eligible: a phone that
+stopped pushing is worth mentioning.
+
+Invalid values (zero, negative, fractional, over 730, non-numeric, or a
+`cadence` that isn't an object) are **dropped at load** so one typo never
+costs you the card, and **rejected with 422** on `POST /api/manifests`
+and `PATCH /api/manifests/:id` so the chat agent is told rather than
+silently ignored. A dropped cadence means the card is simply quiet.
 
 ### Modal prompt (`meta.prompt`)
 

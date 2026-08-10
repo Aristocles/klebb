@@ -628,6 +628,7 @@ const server = http.createServer(async (req, res) => {
             : /^invalid id/.test(msg) ? 422
             : /^invalid notifications:/.test(msg) ? 422
             : /^invalid schedule\.time_of_day/.test(msg) ? 422
+            : /^invalid cadence:/.test(msg) ? 422
             : /^(missing |unsupported \$schema)/.test(msg) ? 400
             : 500;
           return sendJSON(res, { error: msg }, status);
@@ -683,6 +684,7 @@ const server = http.createServer(async (req, res) => {
             : /^invalid id/.test(msg) ? 422
             : /^invalid notifications:/.test(msg) ? 422
             : /^invalid schedule\.time_of_day/.test(msg) ? 422
+            : /^invalid cadence:/.test(msg) ? 422
             : 500;
           return sendJSON(res, { error: msg }, status);
         }
@@ -900,6 +902,7 @@ const server = http.createServer(async (req, res) => {
             : /^invalid id/.test(msg) ? 422
             : /^invalid notifications:/.test(msg) ? 422
             : /^invalid schedule\.time_of_day/.test(msg) ? 422
+            : /^invalid cadence:/.test(msg) ? 422
             : /^(missing |unsupported \$schema|not a template)/.test(msg) ? 400
             : 500;
           return sendJSON(res, { error: msg }, status);
@@ -1288,8 +1291,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     // POST /api/hygiene/:cardId/dismiss
-    // Body: { kind } — silence one finding kind for one card until its
-    // condition is re-raised. Mirrors the cc-suggestions dismissal model.
+    // Body: { kind } — silence one finding kind for one card, permanently.
+    // Mirrors the cc-suggestions dismissal model. `dismissedAt` is recorded but
+    // nothing expires on it: since staleness is opt-in (meta.cadence), a
+    // dismissal means the author asked to be chased and then said no, so the
+    // honest reading is "stop", not "ask again later". To resume nudges, clear
+    // the entry from data/_meta/hygiene-dismissed.json or drop the cadence.
     if (parts[0] === 'hygiene' && parts[2] === 'dismiss'
         && parts.length === 3 && req.method === 'POST') {
       const cardId = decodeURIComponent(parts[1]);

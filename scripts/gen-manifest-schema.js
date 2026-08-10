@@ -28,6 +28,7 @@ const {
   SUPPORTED_SCHEMAS,
   ID_PATTERN,
   ID_MAX_LENGTH,
+  CADENCE_MAX_DAYS,
 } = require('../manifests/registry');
 
 const OUT_PATH = path.join(__dirname, '..', 'manifests', 'schema', 'klebb.datafile.v1.schema.json');
@@ -81,6 +82,21 @@ function buildSchema() {
             description: 'Optional grouping for clustering heuristics. Unknown values are dropped at load.',
             type: 'string',
             enum: [...CATEGORIES],
+          },
+          cadence: {
+            description:
+              'Opt-in staleness declaration. Absent means the card is never flagged stale. Invalid values are dropped at load and rejected (422) at create/PATCH.',
+            type: 'object',
+            required: ['expectDays'],
+            properties: {
+              expectDays: {
+                description: 'Expected days between entries. Quiet for longer and the card reads as stale.',
+                type: 'integer',
+                minimum: 1,
+                maximum: CADENCE_MAX_DAYS,
+              },
+            },
+            additionalProperties: true,
           },
           // View-config objects share a shape; kept permissive (additionalProperties
           // true) because renderer-specific keys are validated by the renderer, not here.

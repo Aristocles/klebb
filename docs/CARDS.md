@@ -112,6 +112,41 @@ The master kill-switch. When `false`, the card is hidden from **every** view
 The data stays in the file; only visibility is suppressed. Toggle via the
 Settings page, or just edit the file yourself.
 
+### `meta.cadence` (optional, default: never nagged)
+
+Declares how often the card expects an entry. This is what opts the card
+in to **staleness** reporting: the chat widget's quiet nudge, and the
+`stale` findings from the agent's `hygiene_scan`.
+
+```json
+"meta": {
+  "cadence": { "expectDays": 7 }
+}
+```
+
+Leave it out and the card is never reported as stale, however long it sits
+untouched. That is the default on purpose. Only you know whether a quiet
+card is a problem: a reading list, a finished supplement cycle and a blood
+panel you run twice a year are all meant to be quiet, and being nagged
+about them is worse than not being reminded about the one card you did
+want chasing.
+
+So add it to the handful of cards you actually want chased, with the
+window you'd genuinely want a nudge after:
+
+```json
+"cadence": { "expectDays": 1 }    // daily habit: mood, weight
+"cadence": { "expectDays": 7 }    // weekly: measurements, a check-in
+"cadence": { "expectDays": 90 }   // quarterly: a blood panel
+```
+
+Past `expectDays` the card reads as stale; past double it, the finding
+escalates. Only cards you can log into from the webapp
+(`meta.writeable.fromWebapp`) with at least 3 dated rows are eligible, so
+a card you can't actually update is never nagged about. `expectDays` must
+be a whole number of days from 1 to 730; anything else is ignored at load
+(and rejected if the agent tries it), which leaves the card quiet.
+
 ### `meta.category` (optional)
 
 Free-form grouping label (e.g. `"vitals"`, `"health"`, `"example"`). Used

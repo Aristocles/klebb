@@ -55,6 +55,22 @@
             "medication"
           ]
         },
+        "cadence": {
+          "description": "Opt-in staleness declaration. Absent means the card is never flagged stale. Invalid values are dropped at load and rejected (422) at create/PATCH.",
+          "type": "object",
+          "required": [
+            "expectDays"
+          ],
+          "properties": {
+            "expectDays": {
+              "description": "Expected days between entries. Quiet for longer and the card reads as stale.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 730
+            }
+          },
+          "additionalProperties": true
+        },
         "view": {
           "type": "object"
         },
