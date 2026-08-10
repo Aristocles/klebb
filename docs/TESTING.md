@@ -103,6 +103,53 @@ nothing:
   tests in this repo were passing for a reason that had stopped being
   true, and only a deliberate failure revealed it.
 
+### Never sleep a fixed duration waiting for something to happen
+
+`await new Promise(r => setTimeout(r, 400))` encodes a guess about how
+fast the machine is. The runner starts one process per file across every
+core, so a duration that is generous when a file runs alone can be too
+short under a full run. The result is a test that passes standalone,
+fails intermittently in the suite, and reads as a regression in whatever
+changed last.
+
+Use `waitFor(check)` from `tests/helpers/sandbox.js` instead. It polls
+until the condition holds, with a long ceiling, and it is usually
+*faster* than the sleep it replaces. Keep an assertion afterwards that
+would fail if the thing never happened at all, so a wait cannot pass by
+being vacuously satisfied.
+
+A fixed sleep is only acceptable when nothing observable changes, and
+even then prefer polling the thing you actually care about.
+
+### When a file aborts and every subtest passed
+
+That signature means the file's **process died**, not that an assertion
+failed: `node:test` streams a file's results to the parent as suites
+resolve, so a file wrapped in one top-level `describe` reports nothing at
+all when it dies part-way. The default reporter discards the child's exit
+code, so all you see is:
+
+```
+✖ tests/some-file.test.js (2132.945ms)
+  'test failed'
+```
+
+Run `npm run test:diag` to get the exit code, the signal, the stderr
+tail, and a one-line diagnosis. Classification:
+
+| What you see | What it means |
+|---|---|
+| `exitCode undefined` with a real stack | an ordinary test failure: yours |
+| `exitCode 1` with `EADDRINUSE` in stderr | lost the port race; the harness retries, so all attempts lost |
+| `exitCode 134 (0x86)` with a GC dump | the child ran out of memory |
+| `exitCode 3221226505 (0xC0000409)`, no stderr | a native process kill. Not a JavaScript fault: retry before investigating |
+
+The last row is a Windows `__fastfail`: the process is terminated below
+the C runtime, so Node runs no handler, writes nothing, and produces no
+diagnostic report even with `--report-on-fatalerror`. Nothing in this
+repo can prevent it. `--test-concurrency` is pinned below the core count
+to reduce process churn for that reason.
+
 ## Writing an E2E test
 
 Use the `test` + `expect` from `tests-e2e/helpers/auth-fixture.js`,
