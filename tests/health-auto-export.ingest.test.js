@@ -10,6 +10,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { createSandbox, cleanupSandbox, spawnServer, req } = require('./helpers/sandbox');
+const { readSamples } = require('./helpers/hae-samples-readback');
 
 const CANNED_PAYLOAD = {
   data: {
@@ -144,9 +145,9 @@ describe('POST /api/health-auto-export', () => {
       assert.equal(res.json.ingested['active-minutes'], 1);
       assert.equal(res.json.ingested.workouts, 1);
 
-      const rawDir = path.join(sandbox, 'data', 'auto-export', 'raw');
-      const files = fs.readdirSync(rawDir).filter(f => f.endsWith('.json'));
-      assert.ok(files.length >= 1, 'raw file was archived');
+      // The push's samples are durable. Since #546 that means rows in the
+      // samples table rather than a file under auto-export/raw/.
+      assert.ok(readSamples(sandbox).length >= 1, 'the push stored no samples');
 
       // Ingest writes card data to the datastore now, not the manifest file;
       // read it back over the API.
@@ -188,9 +189,13 @@ describe('POST /api/health-auto-export', () => {
           `${f} mtime changed: an HAE push must not rewrite manifest files`);
       }
 
-      const rawDir = path.join(dataDir, 'auto-export', 'raw');
-      const strays = fs.readdirSync(rawDir).filter(f => f.endsWith('.tmp'));
-      assert.deepEqual(strays, [], 'raw archive write left a .tmp behind');
+      // Nothing under auto-export/ is written by a push any more, so a stray
+      // temp file there would mean the removed archive path came back.
+      const autoExport = path.join(dataDir, 'auto-export');
+      const strays = fs.existsSync(autoExport)
+        ? fs.readdirSync(autoExport).filter(f => f.endsWith('.tmp') || f === 'raw')
+        : [];
+      assert.deepEqual(strays, [], 'a push wrote into auto-export/');
     });
 
     test('re-POSTing same date overwrites only that date', async () => {
@@ -218,9 +223,13 @@ describe('POST /api/health-auto-export', () => {
       assert.equal(byDate['2026-05-05'], 9001, 'new date row appended');
     });
 
-    test('malformed JSON body: 200 + warning, raw archived', async () => {
-      const rawDir = path.join(sandbox, 'data', 'auto-export', 'raw');
-      const before = fs.readdirSync(rawDir).length;
+    test('malformed JSON body: 200 + warning, payload quarantined', async () => {
+      // Still 200 (the phone must not retry-loop) and still recoverable, but
+      // the bytes now go to a bounded quarantine rather than the unbounded
+      // archive: a payload that will not parse has no samples to store, so it
+      // is the one case where keeping the raw bytes still earns its keep.
+      const dir = path.join(sandbox, 'data', 'auto-export', 'unparsed');
+      const before = fs.existsSync(dir) ? fs.readdirSync(dir).length : 0;
 
       const res = await req(server.baseUrl, '/api/health-auto-export', {
         method: 'POST',
@@ -231,8 +240,12 @@ describe('POST /api/health-auto-export', () => {
       assert.equal(res.json.ok, true);
       assert.ok(res.json.warning, 'warning present on parse failure');
 
-      const after = fs.readdirSync(rawDir).length;
-      assert.ok(after > before, 'raw file archived on parse failure');
+      const files = fs.readdirSync(dir);
+      assert.ok(files.length > before, 'the unparseable payload was not kept');
+      assert.equal(
+        fs.readFileSync(path.join(dir, files.sort().at(-1)), 'utf8'),
+        'not json at all',
+        'the quarantined bytes are not what the client sent');
     });
   });
 
@@ -247,7 +260,7 @@ describe('POST /api/health-auto-export', () => {
     });
     after(async () => { if (server) await server.kill(); if (sandbox) cleanupSandbox(sandbox); });
 
-    test('payload archived, nothing upserted, available metrics reported', async () => {
+    test('samples stored, nothing upserted, available metrics reported', async () => {
       const res = await req(server.baseUrl, '/api/health-auto-export', {
         method: 'POST',
         body: CANNED_PAYLOAD,
@@ -269,9 +282,13 @@ describe('POST /api/health-auto-export', () => {
           `${f} should not be auto-created`);
       }
 
-      // Raw archive still happens.
-      const rawDir = path.join(sandbox, 'data', 'auto-export', 'raw');
-      assert.ok(fs.readdirSync(rawDir).length >= 1);
+      // The samples are stored even with nothing subscribed: that is what lets
+      // a card created later be backfilled, and for an uncatalogued metric it
+      // is the only copy that will ever exist.
+      const stored = readSamples(sandbox);
+      assert.ok(stored.length >= 1, 'a push with no subscribers stored nothing');
+      assert.ok(stored.some(s => s.metric === 'sleep_analysis'));
+      assert.ok(stored.some(s => s.metric === 'workouts'));
     });
   });
 });

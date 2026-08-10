@@ -7,6 +7,62 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **HAE push history moved from a file archive into a deduplicated table.**
+  Every push used to be written to its own file under
+  `data/auto-export/raw/`. Health Auto Export re-sends a rolling window
+  rather than a delta, so the same samples were archived over and over:
+  measured on the longest-running instance at 404 MB across 482 files for
+  2.5 months of data, of which 85.6% was byte-identical re-sends. That
+  archive had exactly one reader (backfilling a newly created card), so
+  rebuilding one card meant parsing all 404 MB.
+
+  Samples now live in the instance datastore, keyed by a hash of their full
+  content, so each unique sample is stored once. **Every metric is stored,
+  catalogued or not.** That is the point rather than a detail: a real iPhone
+  pushes around twenty-five metrics and the catalogue covers thirteen, and
+  for the other twelve this is the only place their history exists. Adding a
+  metric to the catalogue later still backfills from the beginning.
+
+  Deduplication is on the whole sample, not on `metric + timestamp`: Apple
+  Health emits several genuinely different samples at the same minute from
+  the same device, and a composite key would silently drop them. Key order
+  is normalised first, because the same sample arrives with its JSON keys in
+  different orders between pushes.
+
+  Replay is unchanged in behaviour, and there is a test suite that pins that
+  claim by keeping the previous file-scanning algorithm as an oracle and
+  comparing the two for every aggregation strategy, including the overlapping
+  running totals that caused #168.
+
+  A payload that will not parse has no samples to store, so its bytes are
+  kept at `data/auto-export/unparsed/` instead, most-recent-few only. The
+  endpoint still answers `200` on a parse failure, so the phone does not
+  retry-loop, and the reason is recorded in `last-push.json`.
+
+  `scripts/migrate-hae-samples.js` folds an existing archive in. It imports,
+  replays every affected metric from both the files and the table, and only
+  moves the files aside once the two match exactly; a mismatch aborts with
+  the archive untouched. `--dry-run` does the whole thing against a
+  throwaway copy of the database first, and `--prune` deletes the
+  moved-aside copy when you no longer want the insurance.
+  (Fixes #546)
+
+- Portable exports now carry HAE history. It lives in `db/`, which
+  `scripts/export-embed.js` never copies, so it is written out as
+  `data/auto-export/samples.json` in the payload shape the ingest endpoint
+  accepts, and imported on the next boot of the restored tree. The
+  `--include-raw` flag referred to the removed file archive; it is still
+  accepted so existing invocations don't fail, but does nothing.
+
+### Fixed
+
+- Shutdown now closes the HAE sample store as well as the card datastore, so
+  a `docker stop` checkpoints everything into `klebb.db`. Without it, a
+  backup that copied the main database file without its `-wal` sibling could
+  miss recently ingested samples.
+
 ## [3.4.0] - 2026-08-10
 
 ### Added

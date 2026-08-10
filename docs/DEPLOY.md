@@ -545,11 +545,20 @@ What it deliberately leaves out:
   `notifications.state.json` and `db/` are never copied. The exported
   card files carry the data, so the raw DB isn't needed, and a fresh
   instance mints its own auth state.
+- HAE push history lives in `db/`, which is never copied, so it is
+  written out separately as `data/auto-export/samples.json`: the same
+  payload shape the ingest endpoint accepts. A fresh instance imports
+  it on first boot (and renames it aside afterwards), so a restored
+  tree keeps its full sample history, including metrics that have no
+  card yet.
 - The HAE ingest token and invite codes are stripped from the exported
   `config.json`. Pass `--include-secrets` to keep them (for a personal
   full-fidelity copy, not for sharing).
-- `data/auto-export/raw/` (the raw ingest archive, typically large) is
-  skipped. Pass `--include-raw` to include it.
+- Any `data/auto-export/raw/` or `raw.migrated-*/` directory left over
+  from before the samples table is skipped: it is superseded duplicate
+  data, often hundreds of megabytes. The `--include-raw` flag is still
+  accepted so existing invocations don't fail, but it no longer does
+  anything.
 
 The target directory must be empty (or absent), and safe from being
 swept into the export itself: the script refuses a target inside
