@@ -7,6 +7,44 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Recording an HAE push no longer costs memory per sample, so a small payload
+  cannot exhaust a small container.** `recordPush` built an array of every
+  sample and then a hash-keyed Map, both alive at once alongside the request body
+  and the parsed object. The cost was per sample rather than per byte, so the
+  100 MB body cap did not bound it: on a 256 MB heap a 6.57 MB body of a million
+  bare numbers died, while a 6.20 MB body holding one large sample was fine, and
+  on a 128 MB heap 2.56 MB was enough. The push path now streams (`flatten` is a
+  generator) and intra-push duplicates collapse in the `ON CONFLICT` clause
+  instead of in a Map. Every case that previously died now survives, including
+  two million samples on a 128 MB heap. A crash here mattered more than a lost
+  push, because the phone retries: a container would restart-loop. (Fixes #574)
+
+- **Replay no longer gets quadratically slower as history grows.**
+  `replayMetric` merged into the accumulated result once per push group, and that
+  merge rebuilds a Map of the whole result and re-sorts the whole array every
+  call. The cost was always O(groups x dates); reading 412 MB of archive files
+  used to dominate it, so moving history into the samples table exposed the
+  asymptote rather than creating it. Measured on synthetic histories: 2.5 months
+  16 ms, five years 1084 ms, all of it inside `POST /api/manifests` on a
+  single-threaded server. One accumulator for the whole replay makes it flat, and
+  the output is byte-identical (the equivalence suite compares against the
+  previous algorithm for every aggregation strategy). (Fixes #575)
+
+- **The test suite no longer drops a random file on a full run.** Two unrelated
+  timing faults, both of which produced a file that aborted while every subtest
+  in it reported as passing, and both of which reproduced on an untouched tree so
+  they read as a regression in whatever changed last. First, the sandbox harness
+  picks a port in the parent and closes the probe before the child binds it, so
+  two files could be handed the same port (reproduced: 24 concurrent processes
+  probing, closing, waiting 300 ms and binding were handed a duplicate); the
+  window cannot be closed without teaching the server about the harness, so it
+  now retries the draw several times instead of once, and only on `EADDRINUSE`.
+  Second, three tests slept a fixed duration waiting for an event (a child
+  exiting, `fs.watch` noticing a file) and now poll for it via a new `waitFor`
+  helper, which is both reliable and faster. (Fixes #576)
+
 ## [3.5.0] - 2026-08-10
 
 ### Changed

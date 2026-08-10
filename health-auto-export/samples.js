@@ -102,7 +102,12 @@ function guessDate(sample) {
     || toDate(sample.sleepStart) || toDate(sample.startDate) || null;
 }
 
-// Flatten a payload into [{ metric, metricMeta, sample }] in payload order.
+// Walk a payload as { metric, metricMeta, sample } in payload order.
+//
+// A generator, not an array: recordPush consumes it one sample at a time so a
+// push with a million samples does not materialise a million-entry array on top
+// of the parsed payload. Payload order is preserved because `push_ord` depends
+// on it (last-per-date metrics resolve by position within the push).
 //
 // `data.metrics[]` entries look like { name, units, data: [...] }. Everything
 // on the wrapper except `name` and `data` is kept as `metricMeta` and hashed
@@ -110,9 +115,8 @@ function guessDate(sample) {
 // and a wrong number when someone backfills it later, and a units change
 // between pushes has to produce a new row rather than silently reinterpret
 // the old ones.
-function flatten(payload) {
+function* flatten(payload) {
   const data = payload?.data || payload || {};
-  const out = [];
 
   if (Array.isArray(data.metrics)) {
     for (const m of data.metrics) {
@@ -125,7 +129,7 @@ function flatten(payload) {
       }
       const metricMeta = Object.keys(wrapper).length ? canonical(wrapper) : null;
       for (const sample of m.data) {
-        out.push({ metric: m.name, metricMeta, sample });
+        yield { metric: m.name, metricMeta, sample };
       }
     }
   }
@@ -135,11 +139,9 @@ function flatten(payload) {
   // namespace stays consistent across ingest, replay and discovery.
   if (Array.isArray(data.workouts)) {
     for (const sample of data.workouts) {
-      out.push({ metric: 'workouts', metricMeta: null, sample });
+      yield { metric: 'workouts', metricMeta: null, sample };
     }
   }
-
-  return out;
 }
 
 let _db = null;
@@ -189,12 +191,26 @@ function _open(dbFile) {
     pushBySource: db.prepare(
       'SELECT push_seq FROM hae_pushes WHERE source_file = ?'),
     countPushes: db.prepare('SELECT COUNT(*) AS n FROM hae_pushes'),
+    // Intra-push repeats are collapsed HERE rather than in a Map built ahead of
+    // the transaction, so a push is streamed sample by sample and peak memory
+    // does not scale with the sample count. See recordPush.
+    //
+    // The `last_push = excluded.last_push` test is what keeps `dup_count`
+    // meaning "times this sample appeared in the MOST RECENT push":
+    //   same push  -> a genuine intra-push repeat, so increment
+    //   older push -> a re-send, so reset to 1 and take the new position
+    // Getting this backwards would either double-count a re-sent sample forever
+    // or lose an intra-push repeat, and both silently change a sum-per-date
+    // total on replay.
     upsertSample: db.prepare(
       'INSERT INTO hae_samples '
       + '(hash, metric, metric_meta, sample_date, doc, dup_count, push_ord, first_push, last_push) '
       + 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) '
       + 'ON CONFLICT(hash) DO UPDATE SET '
-      + 'dup_count = excluded.dup_count, push_ord = excluded.push_ord, '
+      + 'dup_count = CASE WHEN hae_samples.last_push = excluded.last_push '
+      + 'THEN hae_samples.dup_count + 1 ELSE 1 END, '
+      + 'push_ord = CASE WHEN hae_samples.last_push = excluded.last_push '
+      + 'THEN hae_samples.push_ord ELSE excluded.push_ord END, '
       + 'last_push = excluded.last_push'),
     forMetric: db.prepare(
       'SELECT doc, metric_meta, dup_count, push_ord, last_push FROM hae_samples '
@@ -234,38 +250,33 @@ function recordPush(payload, opts = {}) {
     }
   }
 
-  const flat = flatten(payload);
-
-  // Collapse intra-push repeats first so dup_count is the count within THIS
-  // push, not an accumulation across pushes: the value has to describe the
-  // most recent payload, because that is the one replay aggregates.
-  const byHash = new Map();
-  for (let i = 0; i < flat.length; i++) {
-    const { metric, metricMeta, sample } = flat[i];
-    const doc = canonical(sample);
-    const hash = sampleHash(metric, metricMeta, doc);
-    const key = hash.toString('latin1');
-    const existing = byHash.get(key);
-    if (existing) {
-      existing.dupCount += 1;
-      continue;
-    }
-    byHash.set(key, {
-      hash, metric, metricMeta, doc, dupCount: 1, ord: i,
-      date: guessDate(sample),
-    });
-  }
-
+  // Streamed one sample at a time, deliberately: nothing here holds a
+  // per-sample structure for the whole payload.
+  //
+  // This used to build a flat array of every sample and then a Map keyed by
+  // hash, both live at once alongside the request body string and the parsed
+  // object. The cost was per SAMPLE, not per byte, so the 100 MB body cap did
+  // not bound it: a 6.6 MB body of a million bare numbers exhausted a 256 MB
+  // heap, and 2.6 MB exhausted 128 MB, while a 6.2 MB body holding ONE large
+  // sample was fine. Verified both ways, and verified that the pre-samples-table
+  // code survived the same input, so this was a regression rather than an
+  // inherited limit. A crash here is a restart loop, because the phone retries.
+  //
+  // Intra-push repeats now collapse in the upsert (see the statement), which is
+  // what the Map was for.
   db.exec('BEGIN');
   let pushSeq;
   let inserted = 0;
+  let seen = 0;
   try {
     const res = _stmts.insertPush.run(receivedAt, sourceFile);
     pushSeq = Number(res.lastInsertRowid);
-    for (const s of byHash.values()) {
+    for (const { metric, metricMeta, sample } of flatten(payload)) {
+      const doc = canonical(sample);
       _stmts.upsertSample.run(
-        s.hash, s.metric, s.metricMeta, s.date, s.doc,
-        s.dupCount, s.ord, pushSeq, pushSeq);
+        sampleHash(metric, metricMeta, doc), metric, metricMeta,
+        guessDate(sample), doc, 1, seen, pushSeq, pushSeq);
+      seen += 1;
     }
     // `changes` is 1 for both a fresh insert and a conflicting update, so
     // novelty is counted by asking which rows recorded THIS push as their
@@ -277,7 +288,7 @@ function recordPush(payload, opts = {}) {
     throw e;
   }
 
-  return { pushSeq, seen: flat.length, inserted, skipped: false };
+  return { pushSeq, seen, inserted, skipped: false };
 }
 
 // Every stored sample for one metric, in the order replay must consume them:

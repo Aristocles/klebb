@@ -10,7 +10,7 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
-const { createSandbox, cleanupSandbox, spawnServer, req } = require('./helpers/sandbox');
+const { createSandbox, cleanupSandbox, spawnServer, req, waitFor } = require('./helpers/sandbox');
 
 function makeCard(id, label, description) {
   return {
@@ -179,15 +179,18 @@ describe('chat proxy dynamic card-list injection', () => {
       path.join(sandbox, 'data', 'mood.json'),
       path.join(sandbox, 'data', '_mood.json.bak')
     );
-    // Give fs.watch time to catch up
-    await new Promise(r => setTimeout(r, 500));
-
-    const res = await req(server.baseUrl, '/api/chat', {
-      method: 'POST',
-      body: { messages: [{ role: 'user', content: 'hi' }], voiceMode: false },
-    });
-    assert.equal(res.status, 200);
-    const sp = gateway.getLastPrompt();
+    // Poll until fs.watch has actually noticed, rather than sleeping a fixed
+    // 500 ms and hoping. The reload is a filesystem event: fast when the machine
+    // is idle, not guaranteed under a full parallel run.
+    const sp = await waitFor(async () => {
+      const r = await req(server.baseUrl, '/api/chat', {
+        method: 'POST',
+        body: { messages: [{ role: 'user', content: 'hi' }], voiceMode: false },
+      });
+      assert.equal(r.status, 200);
+      const prompt = gateway.getLastPrompt();
+      return prompt.includes('(none yet)') ? prompt : null;
+    }, { what: 'the reload to drop the removed card from the prompt' });
     assert.ok(sp.includes('(none yet)'));
 
     // Restore

@@ -18,7 +18,7 @@
 
 const catalogue = require('./catalogue');
 const samples = require('./samples');
-const { aggregate, mergeByDate } = require('./ingest');
+const { aggregate } = require('./ingest');
 
 // Rebuild the per-push groups the live dispatcher saw, from rows that each
 // exist exactly once.
@@ -73,7 +73,27 @@ function replayMetric(metric, opts = {}) {
   const cat = catalogue[metric];
   if (!cat) return { rows: null, pushesScanned: 0 };
 
-  let merged = [];
+  // One accumulator for the whole replay, rather than mergeByDate() against the
+  // running result once per push.
+  //
+  // The two are equivalent, and the equivalence is worth spelling out because
+  // the per-push merge is what the file-scanning version did and the
+  // replay-equivalence suite pins this output byte for byte. mergeByDate
+  // replaces the row for a date and keeps every other date, and aggregate()
+  // emits at most one row per date. So merging group after group is exactly
+  // last-writer-wins per date, which is what a single Map gives, and Map keys
+  // make sort ties impossible so the final ordering is not sort-stability
+  // dependent.
+  //
+  // It matters because mergeByDate rebuilds a Map of the ENTIRE accumulated
+  // result and re-sorts the ENTIRE array on every call (ingest.js), so the
+  // chain is O(groups x accumulated dates). That was always true; before the
+  // samples table (#546) reading 412 MB of JSON dominated it, and removing the
+  // file I/O exposed the asymptote. Measured on synthetic histories at the
+  // shape of a real instance: 2.5 months (177 push groups) 16 ms, but 5 years
+  // (about 8500 groups) 1084 ms of pure merging, on the single-threaded server,
+  // inside POST /api/manifests. With one Map it is flat.
+  const byDate = new Map();
   let pushesScanned = 0;
   for (const group of groupsByPush(metric, opts)) {
     pushesScanned += 1;
@@ -91,9 +111,14 @@ function replayMetric(metric, opts = {}) {
       if (row && row.date) mapped.push(row);
     }
     if (mapped.length === 0) continue;
-    merged = mergeByDate(merged, aggregate(mapped, cat.aggregate));
+    for (const row of aggregate(mapped, cat.aggregate)) {
+      if (row && row.date) byDate.set(row.date, row);
+    }
   }
-  return { rows: merged, pushesScanned };
+  // Same comparator mergeByDate used, so the row order is unchanged.
+  const rows = [...byDate.values()]
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  return { rows, pushesScanned };
 }
 
 // Replay stored HAE samples into a single manifest.
