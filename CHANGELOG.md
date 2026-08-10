@@ -248,6 +248,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **The stale-card nudge no longer fires for cards the user cannot write to.**
+  Surfaced the moment #560 stopped hidden cards masking other findings: a
+  `greeting-banner`, which has no input form at all, was flagged "hasn't been
+  updated in 32 days". Staleness now requires `meta.writeable.fromWebapp`, judged
+  on behaviour rather than a renderer allow-list so a future read-only renderer
+  is covered automatically. HAE-fed cards are excluded on the same grounds (they
+  cannot be hand-logged), while a card that is both HAE-fed and writeable stays
+  included, because a phone that has stopped pushing is worth mentioning. Growth
+  and orphaned-input still apply to read-only cards: those are author-facing
+  tidy-ups rather than "go log something". Fixes #564.
+
+
 - **Shutdown now checkpoints the WAL.** `_shutdown()` called `process.exit(0)`
   without closing the datastore, so `docker stop` left recent writes living only
   in `klebb.db-wal`. Nothing was lost while the file pair stayed together

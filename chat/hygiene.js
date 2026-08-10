@@ -70,7 +70,19 @@ function scanHygiene(registry, today) {
 
     // Stale-vs-cadence: a card with enough history that has gone quiet past
     // its expected window. Tighter window for schedule-bearing cards.
-    if (card.ageDays != null && card.rowCount >= MIN_ROWS_FOR_STALE) {
+    //
+    // Only for cards the user can actually WRITE TO. A card whose rows arrive
+    // from somewhere else, or which has no input form at all, cannot be brought
+    // up to date by the user, so "hasn't been updated in N days — tap to tidy
+    // up" asks for something impossible. Seen on a real instance with a
+    // greeting-banner: no inputs, nothing loggable, nagged anyway.
+    //
+    // Judged on behaviour rather than a renderer allow-list, so a future
+    // read-only renderer is covered without anyone remembering to add it.
+    // HAE-fed cards are deliberately included when they are also writeable: a
+    // phone that has stopped pushing IS worth mentioning.
+    const userWriteable = !!(meta.writeable && meta.writeable.fromWebapp);
+    if (userWriteable && card.ageDays != null && card.rowCount >= MIN_ROWS_FOR_STALE) {
       const limit = scheduled ? STALE_DAYS_SCHEDULED : STALE_DAYS_DEFAULT;
       if (card.ageDays > limit) {
         findings.push({

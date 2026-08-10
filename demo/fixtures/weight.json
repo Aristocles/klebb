@@ -8,6 +8,7 @@
     "view": {
       "enabled": true,
       "component": "generic-card",
+      "showSparkline": true,
       "display": {
         "template": "{kg:round(1)}",
         "unit": "kg",
