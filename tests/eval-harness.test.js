@@ -351,8 +351,22 @@ describe('#503 smoke subset + capture-death inconclusive', () => {
       collector,
     );
     assert.equal(follower.captureAlive(), true, 'alive right after spawn');
-    await new Promise(r => setTimeout(r, 1500));
-    assert.equal(follower.captureAlive(), false, 'dead after the process exits');
+
+    // Poll for the exit rather than sleeping a fixed 1500 ms. The child prints
+    // one line and exits in a few milliseconds when the machine is idle, but
+    // node --test runs one process per file across every core, so under a full
+    // run the spawn alone can take longer than the old sleep: this test failed
+    // roughly one full run in three while passing standalone every time.
+    const deadline = Date.now() + 30000;
+    while (follower.captureAlive() && Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 25));
+    }
+
+    assert.equal(follower.captureAlive(), false,
+      'dead after the process exits (waited up to 30s)');
+    // Proves the wait was not vacuous: if the follower had never started, or
+    // had died before reading anything, captureAlive() would also be false and
+    // the assertion above would pass for the wrong reason.
     assert.equal(collector.all()[0].tools[0].name, 'read_manifest',
       'output fed the collector before death');
     follower.stop();

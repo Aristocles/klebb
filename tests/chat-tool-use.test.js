@@ -18,7 +18,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const { createSandbox, cleanupSandbox, spawnServer, req } = require('./helpers/sandbox');
+const { createSandbox, cleanupSandbox, spawnServer, req, waitFor } = require('./helpers/sandbox');
 
 // Scripted stub gateway. Starts an HTTP server; each POST pops the next
 // response from the queue and captures the request body. Exhausted queue
@@ -162,8 +162,15 @@ describe('chat proxy tool-calling agent loop', () => {
       },
       data: [],
     }, null, 2));
-    // Give fs.watch a beat to notice
-    await new Promise(r => setTimeout(r, 350));
+    // Poll until the registry has actually picked the new file up, rather than
+    // sleeping a fixed 350 ms: hide_card below operates by id, so if the reload
+    // has not happened yet the tool fails on an unknown card and the whole file
+    // aborts. The wait is on a filesystem event, which is quick on an idle
+    // machine and not guaranteed under a full parallel run.
+    await waitFor(async () => {
+      const r = await req(server.baseUrl, '/api/manifests/tool-test-f');
+      return r.status === 200;
+    }, { what: 'the registry to notice tool-test-f' });
 
     gateway.pushResponses([
       toolCallResponse({ name: 'hide_card', args: { id: 'tool-test-f' }, id: 'call_f' }),

@@ -72,16 +72,43 @@ function reserveEphemeralPort() {
   });
 }
 
+// How many times to redraw a port after losing the race. Each attempt asks the
+// OS for a fresh number, so the chance of losing N times running is the
+// per-attempt chance to the Nth power: a handful of attempts takes an
+// occasional flake to negligible without masking a genuinely broken server,
+// because only EADDRINUSE is retried.
+const PORT_RACE_ATTEMPTS = 5;
+
 // Spawn the server on a free port against the given sandbox.
 // Resolves with { baseUrl, kill, port }. `kill()` must be called in afterEach.
-// Retries once if it loses the port race (see reserveEphemeralPort).
+//
+// Retries on EADDRINUSE only (see reserveEphemeralPort for the race). It used to
+// retry exactly once, which left a real residual failure rate: a full run drops
+// one or two spawnServer files, a different pair each time, and every subtest in
+// the dropped file reports as passing. That reads as a regression in whatever
+// changed most recently and never is one, which makes it expensive in attention
+// rather than in CI minutes.
+//
+// The window itself cannot be closed from here without production changes: the
+// probe socket must be released before the child can bind it, and passing a
+// listening handle down would mean teaching server.js about a test harness.
+// Reproduced directly on this platform: 24 concurrent processes that probe,
+// close, wait 300 ms, then bind were handed a duplicate port. So the fix is to
+// make losing cheap and repeatable instead of pretending it cannot happen.
 async function spawnServer(sandboxRoot, extraEnv = {}) {
-  try {
-    return await _spawnServerOnce(sandboxRoot, extraEnv);
-  } catch (e) {
-    if (!e || !e.addrInUse) throw e;
-    return _spawnServerOnce(sandboxRoot, extraEnv);
+  let last = null;
+  for (let attempt = 0; attempt < PORT_RACE_ATTEMPTS; attempt++) {
+    try {
+      return await _spawnServerOnce(sandboxRoot, extraEnv);
+    } catch (e) {
+      // A broken server must fail on the first attempt, loudly, rather than
+      // being retried four more times and reported as a port problem.
+      if (!e || !e.addrInUse) throw e;
+      last = e;
+    }
   }
+  last.message = `${last.message} (after ${PORT_RACE_ATTEMPTS} port-race retries)`;
+  throw last;
 }
 
 async function _spawnServerOnce(sandboxRoot, extraEnv = {}) {
@@ -234,6 +261,31 @@ function fakeAuthState(label = 'testuser') {
   };
 }
 
+// Wait until `check()` returns truthy, polling. Returns its value.
+//
+// Use this instead of `await new Promise(r => setTimeout(r, 400))` whenever a
+// test is waiting for something to HAPPEN (an fs.watch reload, a child process
+// exiting, a debounce firing). A fixed sleep encodes a guess about how fast the
+// machine is: node --test runs one process per file across every core, so a
+// duration that is generous when the file runs alone can be too short under a
+// full run. That produces a test which passes standalone, fails intermittently
+// in the suite, and looks like a regression in whatever changed last.
+//
+// The default ceiling is deliberately far longer than any real wait, because a
+// long ceiling costs nothing when the condition is met promptly and the throw
+// below still fails the test when it genuinely never happens.
+async function waitFor(check, { timeoutMs = 15000, intervalMs = 25, what = 'condition' } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const v = await check();
+    if (v) return v;
+    if (Date.now() >= deadline) {
+      throw new Error(`timed out after ${timeoutMs}ms waiting for ${what}`);
+    }
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+}
+
 module.exports = {
   createSandbox,
   cleanupSandbox,
@@ -241,5 +293,6 @@ module.exports = {
   req,
   sessionCookie,
   fakeAuthState,
+  waitFor,
   REPO_ROOT,
 };
