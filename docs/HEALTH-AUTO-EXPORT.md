@@ -2,8 +2,9 @@
 
 Klebb can receive a webhook push from the iPhone
 [Health Auto Export](https://apps.apple.com/app/health-auto-export-json-csv/id1115567069)
-app. Each push archives the raw payload, then dispatches the parsed
-metric data to whichever manifests subscribe to it via `meta.ingest`.
+app. Each push stores every sample it carries, then dispatches the
+parsed metric data to whichever manifests subscribe to it via
+`meta.ingest`.
 
 This page tells you how to set it up, what metrics are supported, and
 how to author your own HAE-backed cards.
@@ -40,9 +41,30 @@ On every push, the dispatcher finds every manifest whose
 using the catalogue, and upserts the rows by date into that manifest's
 `data[]`. Any number of manifests can subscribe to the same metric.
 
-The raw payload is archived unchanged at
-`$HEALTH_HOME/data/auto-export/raw/<ms-stamp>.json` regardless of
-whether parsing succeeds. Safe to delete if disk space is tight.
+### Where the history is kept
+
+Every sample in a push is stored in the instance's SQLite datastore
+(`$HEALTH_HOME/db/klebb.db`), deduplicated by content. This matters
+because HAE re-sends a rolling window rather than a delta: the same
+sample arrives in push after push. Storing each unique sample once
+keeps months of history in a few megabytes instead of hundreds.
+
+Two consequences worth knowing:
+
+- The datastore is part of every backup and export path, so the
+  history travels with the instance. `scripts/export-embed.js` writes
+  it to `data/auto-export/samples.json` in the exported tree, and a
+  fresh instance imports that file on first boot.
+- Deduplication is on the **full content** of a sample, not on
+  `metric + timestamp`. Apple Health legitimately emits several
+  distinct samples at the same minute from the same device, and all
+  of them are kept.
+
+A payload that is not valid JSON has no samples to store, so its raw
+bytes are kept instead, at
+`$HEALTH_HOME/data/auto-export/unparsed/<stamp>.json`. Only the most
+recent few are retained; the endpoint still answers `200` so the
+phone does not retry-loop, and `last-push.json` records the warning.
 
 ---
 
@@ -64,10 +86,18 @@ whether parsing succeeds. Safe to delete if disk space is tight.
 | `blood_pressure_systolic` | `{ date, systolic }` | last per date |
 | `blood_pressure_diastolic` | `{ date, diastolic }` | last per date |
 
-Metrics not in the catalogue are archived in the raw payload but not
-ingested. Adding a new metric is a one-line entry in
+Metrics not in the catalogue are **stored but not ingested**: their
+samples go into the datastore like any other, they simply have no
+card to shape them into rows yet. A real iPhone pushes roughly
+twenty-five metrics and the catalogue covers thirteen, so this is the
+normal case rather than an edge one, and it is what makes adding a
+metric later a genuine backfill rather than a fresh start.
+
+Adding a new metric is a one-line entry in
 `health-auto-export/catalogue.js`; open a feature request if you need
-something that's not here.
+something that's not here. Once it is in the catalogue, creating a
+card for it replays the stored samples, including everything that
+arrived before the metric was supported.
 
 Blood pressure is two separate entries; combine them with a
 combination card if you want them shown together.
@@ -162,9 +192,16 @@ $ curl -s https://<your-klebb>/api/manifests/sleep-hours/data | jq '.data[-1]'
   "source": "Apple Watch"
 }
 
-$ ls $HEALTH_HOME/data/auto-export/raw/
-2026-05-04T115853012Z.json
+$ sqlite3 $HEALTH_HOME/db/klebb.db     'SELECT metric, COUNT(*), MIN(sample_date), MAX(sample_date)
+       FROM hae_samples GROUP BY metric ORDER BY metric;'
+sleep_analysis|142|2026-01-02|2026-05-04
+step_count|3891|2026-01-02|2026-05-04
+vo2_max|37|2026-01-05|2026-05-03
 ```
+
+(`sqlite3` is not in the container image; the same figures are in the
+migration script's output, and the status endpoint reports the most
+recent push.)
 
 If nothing shows up:
 
@@ -221,10 +258,11 @@ automation should be posting to.
 
 When you create an HAE-backed manifest — whether via klebbius, a
 template, or by dropping a file in `$HEALTH_HOME/data/` — klebb
-replays its raw archive for that manifest's metric and populates
+replays the stored samples for that manifest's metric and populates
 `data[]` in one go. So "the iPhone pushed yesterday, I built the
 card today" still ends up with yesterday's data visible on the
-card.
+card, and so does "the iPhone has been pushing this metric for six
+months and klebb only started supporting it today".
 
 The replay is per-metric: it only affects the freshly-created
 manifest, and only if `data[]` is empty. Creating a card over an
@@ -279,9 +317,9 @@ what happened. Shape:
 }
 ```
 
-This is a single-snapshot diagnostic, not an audit log; the raw
-archive under `auto-export/raw/` is the durable history. The snapshot
-powers the authenticated status endpoint:
+This is a single-snapshot diagnostic, not an audit log; the stored
+samples are the durable history. The snapshot powers the
+authenticated status endpoint:
 
 ```
 GET /api/health-auto-export/status
@@ -349,7 +387,7 @@ See `MANIFEST-SCHEMA.md` ("Combination cards") for the CC contract.
 | All entries for a metric are malformed (no date, non-numeric qty) | Logged; manifest untouched |
 | Mixed: some entries valid, some malformed | Valid rows upserted, invalid ones dropped silently |
 | `meta.ingest.metric` is not in the catalogue | Manifest loads; warning logged per push |
-| Webhook body is not valid JSON | `200 + {warning}`, raw archived for inspection |
+| Webhook body is not valid JSON | `200 + {warning}`, bytes quarantined under `auto-export/unparsed/` |
 
 The no-op-on-empty invariant means a card's data is only written when
 the dispatcher produced at least one row for it. A push that does
@@ -372,13 +410,13 @@ Content-Type: application/json
 | Response | Meaning |
 |---|---|
 | `200 {ok:true, ingested:{...}, availableUnsubscribed:[...]}` | Parsed and dispatched |
-| `200 {ok:true, warning:"..."}` | Parse or dispatch failed but raw was archived; HAE will retry |
+| `200 {ok:true, warning:"..."}` | Parse or dispatch failed; the payload is recoverable (samples stored, or bytes quarantined) and HAE will retry |
 | `401` | Token missing or wrong |
 | `501 {error:"ingest disabled"}` | No token configured (visit Settings → Health Auto Export) |
 
 Errors after auth passes are swallowed into `200 + warning` on
 purpose: the iPhone app retries aggressively on non-2xx, and we'd
-rather have a raw archive to debug than a spiral.
+rather have the payload recoverable than a retry spiral.
 
 ---
 

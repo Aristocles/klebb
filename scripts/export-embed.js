@@ -19,8 +19,10 @@
 //                          (HAE ingest token + invite codes; keep with
 //                          --include-secrets)
 //   <target>/data/         card files with data re-embedded, plus non-card
-//                          data files (info/, auto-export/, ...) verbatim.
-//                          auto-export/raw/ is skipped unless --include-raw.
+//                          data files (info/, auto-export/, ...) verbatim,
+//                          including auto-export/samples.json: the HAE push
+//                          history rebuilt from the samples table (#546), which
+//                          cannot ride in db/ because db/ is never staged.
 //   <target>/reports/      markdown reports, verbatim
 //
 // A card that has never held data exports without a data key; a card whose
@@ -28,7 +30,7 @@
 // the same distinction on re-import, so hasData parity survives the trip.
 //
 // Usage:
-//   node scripts/export-embed.js <target-dir> [--include-secrets] [--include-raw]
+//   node scripts/export-embed.js <target-dir> [--include-secrets]
 //   npm run export -- <target-dir>
 
 'use strict';
@@ -39,11 +41,13 @@ const path = require('path');
 const BACKUP_NAME_RE = /\.json\.[^/\\]+\.json$/i;
 
 function parseArgs(argv) {
-  const args = { target: null, includeSecrets: false, includeRaw: false, help: false };
+  const args = { target: null, includeSecrets: false, help: false };
   for (const a of argv) {
     if (a === '-h' || a === '--help') args.help = true;
     else if (a === '--include-secrets') args.includeSecrets = true;
-    else if (a === '--include-raw') args.includeRaw = true;
+    // --include-raw referred to the raw file archive, which no longer exists
+    // (#546). Accepted and ignored so an existing invocation does not fail.
+    else if (a === '--include-raw') continue;
     else if (!a.startsWith('-') && !args.target) args.target = a;
     else { console.error(`error: unknown argument: ${a}`); return null; }
   }
@@ -51,7 +55,7 @@ function parseArgs(argv) {
 }
 
 function usage() {
-  console.log(`Usage: export-embed.js <target-dir> [--include-secrets] [--include-raw]
+  console.log(`Usage: export-embed.js <target-dir> [--include-secrets]
 
 Write a portable copy of the instance to <target-dir>: card files with their
 data re-embedded from the datastore, non-card data files, reports, and the
@@ -60,8 +64,6 @@ import. Never copies credentials/, sessions/, keys/, or db/.
 
   --include-secrets  Keep the HAE ingest token and invite codes in the
                      exported config.json (stripped by default).
-  --include-raw      Also copy data/auto-export/raw/ (the raw ingest archive;
-                     large, skipped by default).
   --help             Show this message.`);
 }
 
@@ -88,8 +90,8 @@ function writeJSON(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2));
 }
 
-// Recursive verbatim copy, skipping tmp strays and (unless included) the
-// auto-export raw archive. `skipDirs` holds absolute paths to prune.
+// Recursive verbatim copy, skipping tmp strays. `skipDirs` holds absolute
+// paths to prune.
 function copyTree(src, dst, skipDirs) {
   const entries = fs.readdirSync(src, { withFileTypes: true });
   fs.mkdirSync(dst, { recursive: true });
@@ -157,9 +159,20 @@ function main() {
   const outData = path.join(target, 'data');
   fs.mkdirSync(outData, { recursive: true });
 
-  const counts = { embedded: 0, inline: 0, noData: 0, filesCopied: 0 };
+  const counts = { embedded: 0, inline: 0, noData: 0, filesCopied: 0, haePushes: 0 };
   const skipDirs = new Set();
-  if (!args.includeRaw) skipDirs.add(path.join(PATHS.AUTO_EXPORT_DIR, 'raw'));
+  // A pre-#546 tree may still hold the old file archive, and a moved-aside copy
+  // from the migration. Neither is exported: the samples table is the history
+  // now, and copying hundreds of MB of superseded duplicates into a customer's
+  // archive would be worse than useless.
+  skipDirs.add(path.join(PATHS.AUTO_EXPORT_DIR, 'raw'));
+  if (fs.existsSync(PATHS.AUTO_EXPORT_DIR)) {
+    for (const name of fs.readdirSync(PATHS.AUTO_EXPORT_DIR)) {
+      if (name.startsWith('raw.migrated-')) {
+        skipDirs.add(path.join(PATHS.AUTO_EXPORT_DIR, name));
+      }
+    }
+  }
 
   for (const ent of fs.readdirSync(PATHS.DATA_DIR, { withFileTypes: true })) {
     const from = path.join(PATHS.DATA_DIR, ent.name);
@@ -210,6 +223,25 @@ function main() {
     counts.filesCopied += copyTree(PATHS.REPORTS_DIR, path.join(target, 'reports'), skipDirs);
   }
 
+  // HAE push history. It lives in the samples table inside klebb.db, and db/ is
+  // never staged (a live WAL copy can be torn, and the staged tree goes to a
+  // customer), so it is written out as payloads: the same shape the ingest
+  // endpoint accepts, so restoring is the ordinary ingest path.
+  if (fs.existsSync(PATHS.DB_FILE)) {
+    try {
+      const samples = require('../health-auto-export/samples');
+      const pushes = samples.exportPushes();
+      samples.close();
+      if (pushes.length) {
+        writeJSON(path.join(target, 'data', 'auto-export', 'samples.json'),
+          { version: 1, pushes });
+        counts.haePushes = pushes.length;
+      }
+    } catch (e) {
+      console.warn(`  ! HAE sample history not exported: ${e.message}`);
+    }
+  }
+
   if (store) store.close();
 
   const cards = counts.embedded + counts.inline + counts.noData;
@@ -219,7 +251,7 @@ function main() {
   console.log(`  no data (key omitted):    ${counts.noData}`);
   console.log(`  other files copied:       ${counts.filesCopied}`);
   console.log(`  secrets: ${args.includeSecrets ? 'INCLUDED (--include-secrets)' : 'stripped from config.json'}`);
-  console.log(`  auto-export/raw: ${args.includeRaw ? 'included (--include-raw)' : 'skipped'}`);
+  console.log(`  HAE push history:         ${counts.haePushes} push(es)`);
   return 0;
 }
 
