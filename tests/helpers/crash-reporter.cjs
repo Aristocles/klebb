@@ -51,6 +51,19 @@ const STDERR_TAIL_CHARS = 2000;
 const NATIVE_FAIL_FAST = 0xC0000409 >>> 0;
 
 function classify(exitCode, signal, stderr) {
+  // How an abort surfaces is platform-dependent: Linux reports signal SIGABRT
+  // with a null exit code, Windows reports exit code 134 and no signal. Both are
+  // the same event (usually the child running out of memory), so both get the
+  // same wording, and the out-of-memory hint only appears when the stderr backs
+  // it up rather than being guessed.
+  if (signal === 'SIGABRT') {
+    return /Last few GCs|heap limit|out of memory/i.test(stderr)
+      ? 'child aborted: out of memory (killed by SIGABRT)'
+      : 'child aborted (killed by SIGABRT; process.abort() or a native assertion)';
+  }
+  if (signal === 'SIGKILL' || signal === 'SIGTERM') {
+    return `killed by ${signal}: something outside the test stopped this process`;
+  }
   if (signal) return `killed by ${signal}`;
   if (exitCode === undefined || exitCode === null) {
     return 'in-process failure (an assertion or a throw; see the stack above)';
