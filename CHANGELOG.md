@@ -7,6 +7,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Opening the datastore while another process is writing now waits instead of
+  failing.** SQLite's default busy timeout is 0, so a second opener that found
+  the write lock held threw `SQLITE_BUSY` immediately, and the statement that
+  collides is the very first one of a fresh open (switching a database into WAL
+  takes the write lock). Measured across two processes with one holding a write
+  for 600 ms: previously the opener failed after 24 ms, now it waits 141 ms and
+  succeeds. This showed up as an intermittent CI failure in the export test, but
+  the export is *designed* to run against a live instance (that is how a Cloud
+  export reads a running container), so the same collision made a customer's
+  export fail. (Fixes #580)
+
 ### Changed
 
 - **A test file that dies now says why.** When a test file's process is killed,
