@@ -176,7 +176,7 @@ describe('export-embed round trip', { skip }, () => {
 });
 
 describe('export-embed flags and guards', { skip }, () => {
-  test('--include-secrets keeps the config verbatim; --include-raw is inert', async () => {
+  test('--include-secrets keeps the config verbatim; --include-raw is inert', () => {
     const auth = fakeAuthState();
     const sandbox = createSandbox({
       seed: { 'weight.json': card('weight', { data: [{ date: '2026-04-20', kg: 85 }] }) },
@@ -188,7 +188,11 @@ describe('export-embed flags and guards', { skip }, () => {
     }));
     fs.mkdirSync(path.join(sandbox, 'data', 'auto-export', 'raw'), { recursive: true });
     fs.writeFileSync(path.join(sandbox, 'data', 'auto-export', 'raw', 'push-1.json'), '{}');
-    const server = await spawnServer(sandbox);
+    // No server here on purpose. This test only asserts on files the export
+    // writes, and a running server holds a write handle on the same
+    // db/klebb.db the export subprocess opens: two writers, one database.
+    // Under load the server could hold the lock at that moment and the export
+    // died with "database is locked". See #583.
     const target = fs.mkdtempSync(path.join(os.tmpdir(), 'eh-export-'));
     fs.rmdirSync(target);
     try {
@@ -203,7 +207,6 @@ describe('export-embed flags and guards', { skip }, () => {
       assert.ok(!fs.existsSync(path.join(target, 'data', 'auto-export', 'raw')),
         '--include-raw still copies the superseded archive');
     } finally {
-      await server.kill();
       cleanupSandbox(sandbox);
       try { fs.rmSync(target, { recursive: true, force: true }); } catch {}
     }
