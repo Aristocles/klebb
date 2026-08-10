@@ -75,7 +75,13 @@ function sparklineManifest(today) {
         },
       },
       trends: { enabled: true, component: 'line-chart' },
-      writeable: { fromWebapp: true, todayAllowed: true, pastAllowed: true, futureAllowed: false },
+      // inputs are what make the edit pencil render. It matters here: the
+      // pencil is absolutely positioned into the header row, and the old
+      // header chevron sat underneath it (#572).
+      writeable: {
+        fromWebapp: true, todayAllowed: true, pastAllowed: true, futureAllowed: false,
+        inputs: [{ key: 'kg', type: 'number', label: 'Weight', step: 0.1 }],
+      },
     },
     description: 'Generic value card opting into a mini trend sparkline (storyboard).',
     data: rows,
@@ -215,6 +221,82 @@ test.describe('Storyboard: mini sparkline in a card, tap to full trend', () => {
 
     await expect(header).toHaveAttribute('aria-expanded', 'true');
     await expect(card.locator('eh-line-chart')).toBeVisible({ timeout: 10_000 });
+  });
+
+  // #572: the expand chevron sits beside the sparkline, not in the header
+  // chrome. Previously it rendered between the edit pencil and the settings
+  // gear, where it read as unrelated to the trend line it opens and
+  // overlapped the absolutely-positioned .edit-btn.
+  test('the expand chevron sits to the left of the sparkline, not in the header', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('eh-date-view')).toBeVisible({ timeout: 10_000 });
+
+    const card = page.locator('eh-generic-card', { hasText: 'Weight (sparkline e2e)' }).first();
+    const spark = card.locator('eh-sparkline');
+    await expect(spark).toBeVisible({ timeout: 10_000 });
+
+    // Exactly one chevron on the card, and it is the one beside the glyph.
+    const chevron = card.locator('button.spark-expand');
+    await expect(chevron).toBeVisible();
+    await expect(card.locator('.expand-indicator')).toHaveCount(0);
+
+    // Left of the sparkline and vertically aligned with it, so the two
+    // read as one control-plus-glyph unit.
+    const cBox = await chevron.boundingBox();
+    const sBox = await spark.boundingBox();
+    expect(cBox).not.toBeNull();
+    expect(sBox).not.toBeNull();
+    expect(cBox.x + cBox.width).toBeLessThanOrEqual(sBox.x + 1);
+    const cMid = cBox.y + cBox.height / 2;
+    const sMid = sBox.y + sBox.height / 2;
+    expect(Math.abs(cMid - sMid)).toBeLessThanOrEqual(4);
+
+    // It no longer collides with the edit button, which is what made the
+    // old placement read as hidden.
+    const edit = card.locator('.edit-btn');
+    await expect(edit).toBeVisible();
+    const eBox = await edit.boundingBox();
+    const overlaps = cBox.x < eBox.x + eBox.width && eBox.x < cBox.x + cBox.width
+      && cBox.y < eBox.y + eBox.height && eBox.y < cBox.y + cBox.height;
+    expect(overlaps).toBe(false);
+  });
+
+  // The chevron is a real button: it expands on click, flips aria-expanded,
+  // and is reachable by keyboard alone (a span with a click handler would
+  // pass the first two and fail the third).
+  test('the chevron expands the chart and is operable by keyboard', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('eh-date-view')).toBeVisible({ timeout: 10_000 });
+
+    const card = page.locator('eh-generic-card', { hasText: 'Weight (sparkline e2e)' }).first();
+    const chevron = card.locator('button.spark-expand');
+    await expect(chevron).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('eh-line-chart')).toHaveCount(0);
+    await expect(chevron).toHaveAttribute('aria-expanded', 'false');
+
+    await chevron.click();
+    await expect(chevron).toHaveAttribute('aria-expanded', 'true');
+    await expect(card.locator('eh-line-chart')).toBeVisible({ timeout: 10_000 });
+
+    // Collapse from the keyboard: focus the control and press Enter.
+    await chevron.focus();
+    await expect(chevron).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(chevron).toHaveAttribute('aria-expanded', 'false');
+    await expect(card.locator('eh-line-chart')).toHaveCount(0);
+  });
+
+  // A card that expands but draws no sparkline keeps the header indicator:
+  // the chevron only moves for the case it belongs to. Here the same card
+  // on a past date has no sparkline row, so no chevron rides it.
+  test('a card with no sparkline row has no chevron beside the value', async ({ page }) => {
+    await page.goto(`/day/${shiftDays(today, -3)}`);
+    await expect(page.locator('eh-date-view')).toBeVisible({ timeout: 10_000 });
+
+    const pastCard = page.locator('eh-generic-card', { hasText: 'Weight (sparkline e2e)' }).first();
+    await expect(pastCard).toBeVisible({ timeout: 10_000 });
+    await expect(pastCard.locator('eh-sparkline')).toHaveCount(0);
+    await expect(pastCard.locator('button.spark-expand')).toHaveCount(0);
   });
 
   // the Today sparkline and the
