@@ -87,7 +87,7 @@ export class EhGenericCard extends EhBaseCard {
       {
         path: 'view.showSparkline', label: 'Show trend sparkline', kind: 'toggle',
         section: 'Behaviour', default: false,
-        help: 'A small 30-day trend line on Today. Tap the card to open the full chart.',
+        help: 'A small 30-day trend line on Today. The chevron beside it opens the full chart.',
         needsData: true,
         availableWhen: ({ meta, data }) => {
           const display = meta?.view?.display || {};
@@ -192,15 +192,39 @@ export class EhGenericCard extends EhBaseCard {
     return null;
   }
 
-  // A card is expandable when it shows a sparkline (tap the header to open the
-  // full trend), OR when it opts into expand the generic way (viewConfig.expanded).
+  // The series the sparkline would plot, or null when there's nothing to
+  // plot. Single source of truth: the expand gate, the render, and the
+  // chevron's placement all read this, so they cannot disagree about
+  // whether this card has a trend.
+  _sparkSeries() {
+    const isToday = this.dateMode === 'today' || !this.dateMode;
+    if (!(this._config.showSparkline && isToday)) return null;
+    const field = this._sparklineField(this._display());
+    if (!field) return null;
+    const s = numericSeries(this._entries(), field, { endDate: this.date, limit: 30 });
+    return s.length >= 2 ? s : null;
+  }
+
+  // A card is expandable when it has a sparkline series (open the full
+  // trend), OR when it opts into expand the generic way (viewConfig.expanded).
   get _canExpand() {
     if (super._canExpand) return true;
-    const isToday = this.dateMode === 'today' || !this.dateMode;
-    if (!this._config.showSparkline || !isToday) return false;
-    const field = this._sparklineField(this._meta.view?.display || {});
-    if (!field) return false;
-    return numericSeries(this._entries(), field, { endDate: this.date, limit: 30 }).length >= 2;
+    return this._sparkSeries() !== null;
+  }
+
+  // Does the body actually draw the sparkline row this render? The chevron
+  // rides that row, so the header indicator stands down exactly when this
+  // is true. A multi-entry list, an open edit form, or a day with no value
+  // draws no sparkline, so those keep the header chevron. See #572.
+  _showsSparklineRow() {
+    if (this._maxReadingsPerDay() > 1) return false;
+    if (this._editing) return false;
+    if (this._currentEntry() === null) return false;
+    return this._sparkSeries() !== null;
+  }
+
+  get _ownsExpandControl() {
+    return this._showsSparklineRow();
   }
 
   // Expanded region: the full ECharts line trend, loaded lazily (the heavy
@@ -208,7 +232,7 @@ export class EhGenericCard extends EhBaseCard {
   // with a synthesised trends config pointing at the resolved sparkline field;
   // the chart reuses this card's already-fetched data (same id -> cache hit).
   renderExpanded() {
-    const display = this._meta.view?.display || {};
+    const display = this._display();
     const field = this._sparklineField(display);
     if (!field) return html`<div class="card-expanded">No trend available.</div>`;
     const chartCard = {
@@ -390,7 +414,41 @@ export class EhGenericCard extends EhBaseCard {
       .gen-spark {
         margin-top: 8px;
         line-height: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
       }
+      /* The expand affordance sits beside the thing it expands, rather
+         than in the header chrome where it read as unrelated (and
+         overlapped the absolutely-positioned edit button). #572. */
+      .spark-expand {
+        background: transparent;
+        border: none;
+        color: var(--text-muted, var(--text-secondary));
+        font-size: 11px;
+        line-height: 1;
+        font-family: inherit;
+        /* 24px keeps a usable touch target without the 44px a bare glyph
+           this small would otherwise need beside a 22px-high sparkline. */
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        cursor: pointer;
+        opacity: 0.75;
+        transition: opacity 0.15s, color 0.15s, transform 0.15s;
+      }
+      .spark-expand:hover { opacity: 1; color: var(--accent); }
+      .spark-expand:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        opacity: 1;
+      }
+      .spark-expand.open { transform: rotate(180deg); }
       .gen-secondary {
         margin-top: 6px;
         font-size: 0.95rem;
@@ -524,7 +582,7 @@ export class EhGenericCard extends EhBaseCard {
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .edit-btn { transition: none; }
+        .edit-btn, .spark-expand { transition: none; }
       }
     `,
   ];
@@ -653,14 +711,7 @@ export class EhGenericCard extends EhBaseCard {
     // resolvable numeric field and >= 2 dated points, else renders nothing.
     // When shown, it replaces the trend arrow so direction reads once (the
     // sparkline + its own latest value), not as two redundant glyphs.
-    let sparkValues = null;
-    if (this._config.showSparkline && isToday) {
-      const field = this._sparklineField(display);
-      if (field) {
-        const s = numericSeries(this._entries(), field, { endDate: this.date, limit: 30 });
-        if (s.length >= 2) sparkValues = s;
-      }
-    }
+    const sparkValues = this._sparkSeries();
     const showTrendArrow = trend && !sparkValues;
 
     return html`
@@ -701,7 +752,18 @@ export class EhGenericCard extends EhBaseCard {
                 ${threshold.label}
               </span>` : ''}
           </div>
-          ${sparkValues ? html`<div class="gen-spark"><eh-sparkline .values=${sparkValues}></eh-sparkline></div>` : ''}
+          ${sparkValues ? html`
+            <div class="gen-spark">
+              <button
+                class="spark-expand ${this.expanded ? 'open' : ''}"
+                type="button"
+                aria-expanded=${String(this.expanded)}
+                aria-label="${this.expanded ? 'Hide' : 'Show'} full trend chart"
+                title="${this.expanded ? 'Hide' : 'Show'} full trend chart"
+                @click=${this._toggleExpand}
+              >▼</button>
+              <eh-sparkline .values=${sparkValues}></eh-sparkline>
+            </div>` : ''}
           ${secondary ? html`<div class="gen-secondary">${secondary}</div>` : ''}
           ${carryOverLabel ? html`
             <div class="gen-carry-line">

@@ -41,6 +41,13 @@ describe('base card: headerless mode + aria-expanded', () => {
   test('clickable header carries aria-expanded', () => {
     assert.ok(/aria-expanded=\$\{this\._canExpand \? String\(this\.expanded\)/.test(BASE));
   });
+  test('header indicator stands down when a subclass owns the expand control', () => {
+    assert.ok(/get _ownsExpandControl\(\)/.test(BASE), 'base declares the _ownsExpandControl hook');
+    assert.ok(/return false;/.test(BASE.slice(BASE.indexOf('get _ownsExpandControl()'))),
+      'defaults to false so existing cards keep the header indicator');
+    assert.ok(/this\._canExpand && !this\._ownsExpandControl \? html`[\s\S]{0,160}expand-indicator/.test(BASE),
+      'the header chevron renders only when the subclass has not placed its own');
+  });
 });
 
 describe('generic-card: tap-to-expand wiring', () => {
@@ -48,7 +55,40 @@ describe('generic-card: tap-to-expand wiring', () => {
     assert.ok(/get _canExpand\(\)/.test(GEN), 'generic-card overrides _canExpand');
     assert.ok(/super\._canExpand/.test(GEN), 'still honours the generic expanded config');
     assert.ok(/_config\.showSparkline/.test(GEN), 'gates on showSparkline');
-    assert.ok(/numericSeries\([\s\S]*?\)\.length >= 2/.test(GEN), 'requires >= 2 points to be expandable');
+    assert.ok(/s\.length >= 2 \? s : null/.test(GEN), 'requires >= 2 points to be expandable');
+    assert.ok(/return this\._sparkSeries\(\) !== null/.test(GEN),
+      'the expand gate reads the same series resolver the render does');
+  });
+
+  // #572: the chevron moved out of the header to sit beside the sparkline.
+  test('places its own chevron beside the sparkline, not in the header', () => {
+    assert.ok(/get _ownsExpandControl\(\)[\s\S]{0,120}_showsSparklineRow\(\)/.test(GEN),
+      'claims the expand control exactly when the sparkline row draws');
+    const spark = GEN.slice(GEN.indexOf('<div class="gen-spark">'));
+    const btn = spark.indexOf('class="spark-expand');
+    const glyph = spark.indexOf('<eh-sparkline');
+    assert.ok(btn !== -1, 'a spark-expand control exists');
+    assert.ok(glyph !== -1, 'the sparkline is in that row');
+    assert.ok(btn < glyph, 'the chevron precedes the sparkline in the row');
+  });
+  test('the chevron is a real button: keyboard-reachable, labelled, aria-expanded', () => {
+    const btn = GEN.slice(GEN.indexOf('class="spark-expand'), GEN.indexOf('<eh-sparkline'));
+    assert.ok(/aria-expanded=\$\{String\(this\.expanded\)\}/.test(btn), 'exposes aria-expanded');
+    assert.ok(/aria-label=/.test(btn), 'carries an accessible label');
+    assert.ok(/@click=\$\{this\._toggleExpand\}/.test(btn), 'toggles expand on click');
+    assert.ok(/<button/.test(GEN.slice(GEN.indexOf('<div class="gen-spark">'), GEN.indexOf('<eh-sparkline'))),
+      'is a <button>, not a clickable span');
+  });
+  test('the sparkline itself stays non-interactive (its aria-label is the name)', () => {
+    const row = GEN.slice(GEN.indexOf('<div class="gen-spark">'), GEN.indexOf('</div>', GEN.indexOf('<eh-sparkline')));
+    assert.ok(!/<button[^>]*>\s*<eh-sparkline/.test(row), 'sparkline is not wrapped in a button');
+    assert.ok(!/<eh-sparkline[^>]*@click/.test(row), 'no click handler on the sparkline');
+  });
+  test('the row does not draw for multi-entry, an open form, or an empty day', () => {
+    const fn = GEN.slice(GEN.indexOf('_showsSparklineRow()'), GEN.indexOf('get _ownsExpandControl()'));
+    assert.ok(/_maxReadingsPerDay\(\) > 1/.test(fn), 'multi-entry list has no sparkline row');
+    assert.ok(/this\._editing/.test(fn), 'an open edit form replaces the headline block');
+    assert.ok(/_currentEntry\(\) === null/.test(fn), 'no value for the day means no row');
   });
   test('renderExpanded mounts a headerless eh-line-chart with a synthesised series', () => {
     assert.ok(/renderExpanded\(\)/.test(GEN));

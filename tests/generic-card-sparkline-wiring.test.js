@@ -51,8 +51,16 @@ describe('generic-card sparkline wiring', () => {
     assert.ok(/template[\s\S]{0,80}match\(/.test(SRC), 'resolver falls back to a template token match');
   });
 
-  test('default-off: nothing references showSparkline outside the guarded block', () => {
-    // sparkValues starts null; only the guarded block can set it.
-    assert.ok(/let sparkValues = null/.test(SRC), 'sparkValues defaults to null');
+  test('default-off: the series resolver is the only way a sparkline appears', () => {
+    // One resolver owns the decision, and every path out of it that isn't
+    // "flag on, Today, resolvable field, >= 2 points" returns null. The
+    // render and the expand gate both read it, so neither can draw a
+    // sparkline the other doesn't know about.
+    const fn = SRC.slice(SRC.indexOf('_sparkSeries()'), SRC.indexOf('get _canExpand()'));
+    assert.ok(/if \(!\(this\._config\.showSparkline && isToday\)\) return null;/.test(fn),
+      'off by default: no flag (or not Today) returns null');
+    assert.ok(/if \(!field\) return null;/.test(fn), 'no resolvable numeric field returns null');
+    assert.ok(/const sparkValues = this\._sparkSeries\(\);/.test(SRC),
+      'the render takes its values from the resolver, not its own copy of the gate');
   });
 });
