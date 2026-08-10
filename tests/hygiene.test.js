@@ -13,6 +13,14 @@ const { TOOL_DEFS } = require('../chat/tools');
 
 const TODAY = '2026-06-24';
 
+// Staleness only applies to cards the user can actually write to (#564), so a
+// fixture that means to exercise it has to say so. Read-only cards get their own
+// tests in the writeability suite below.
+const WRITEABLE = {
+  fromWebapp: true, todayAllowed: true, pastAllowed: true,
+  inputs: [{ key: 'v', label: 'Value', type: 'number' }],
+};
+
 function makeRegistry(cards, mtimes = {}) {
   const byId = new Map(cards.map(c => [c.id, c]));
   return {
@@ -34,7 +42,7 @@ function rowsEnding(daysAgo, count, field = 'v') {
 
 describe('hygiene: stale detection', () => {
   test('flags an atomic card untouched well past the default window', () => {
-    const reg = makeRegistry([{ id: 'weight', meta: { label: 'Weight' }, data: rowsEnding(30, 5) }]);
+    const reg = makeRegistry([{ id: 'weight', meta: { label: 'Weight', writeable: WRITEABLE }, data: rowsEnding(30, 5) }]);
     const { findings } = scanHygiene(reg, TODAY);
     const stale = findings.find(f => f.cardId === 'weight' && f.kind === 'stale');
     assert.ok(stale, 'expected a stale finding');
@@ -42,19 +50,19 @@ describe('hygiene: stale detection', () => {
   });
 
   test('does NOT flag a fresh card', () => {
-    const reg = makeRegistry([{ id: 'weight', meta: {}, data: rowsEnding(1, 5) }]);
+    const reg = makeRegistry([{ id: 'weight', meta: { writeable: WRITEABLE }, data: rowsEnding(1, 5) }]);
     assert.deepStrictEqual(scanHygiene(reg, TODAY).findings.filter(f => f.kind === 'stale'), []);
   });
 
   test('does NOT flag a near-empty card (too little signal)', () => {
-    const reg = makeRegistry([{ id: 'weight', meta: {}, data: rowsEnding(60, 2) }]);
+    const reg = makeRegistry([{ id: 'weight', meta: { writeable: WRITEABLE }, data: rowsEnding(60, 2) }]);
     assert.deepStrictEqual(scanHygiene(reg, TODAY).findings.filter(f => f.kind === 'stale'), []);
   });
 
   test('uses the tighter window for schedule-bearing cards', () => {
     // A card 10 days quiet: under the 21-day default it would NOT be stale,
     // but a recurring schedule tightens the window to 7 days so it trips.
-    const reg = makeRegistry([{ id: 'p', meta: {}, data: rowsEnding(10, 5).map(r => ({ ...r, schedule: { type: 'daily' } })) }]);
+    const reg = makeRegistry([{ id: 'p', meta: { writeable: WRITEABLE }, data: rowsEnding(10, 5).map(r => ({ ...r, schedule: { type: 'daily' } })) }]);
     const stale = scanHygiene(reg, TODAY).findings.find(f => f.kind === 'stale');
     assert.ok(stale, 'a 10-day-old scheduled card should be stale under the 7-day window');
   });
@@ -88,8 +96,8 @@ describe('hygiene: growth + orphaned inputs', () => {
 describe('hygiene: ambient filter', () => {
   test('ambientStaleness returns only stale findings', () => {
     const reg = makeRegistry([
-      { id: 'stalecard', meta: {}, data: rowsEnding(40, 5) },
-      { id: 'bigcard', meta: {}, data: rowsEnding(0, 800) },
+      { id: 'stalecard', meta: { writeable: WRITEABLE }, data: rowsEnding(40, 5) },
+      { id: 'bigcard', meta: { writeable: WRITEABLE }, data: rowsEnding(0, 800) },
     ]);
     const ambient = ambientStaleness(reg, TODAY);
     assert.ok(ambient.length >= 1);
@@ -124,8 +132,8 @@ describe('hygiene: hidden cards are left alone (#560)', () => {
     // Guards the fix from over-reaching: unhiding must restore the finding, so
     // this is not just a blanket suppression.
     const data = rowsEnding(84, 10);
-    const hidden = makeRegistry([{ id: 'c', meta: { enabled: false }, data }]);
-    const shown = makeRegistry([{ id: 'c', meta: { enabled: true }, data }]);
+    const hidden = makeRegistry([{ id: 'c', meta: { enabled: false, writeable: WRITEABLE }, data }]);
+    const shown = makeRegistry([{ id: 'c', meta: { enabled: true, writeable: WRITEABLE }, data }]);
     assert.equal(scanHygiene(hidden, TODAY).findings.length, 0);
     assert.ok(scanHygiene(shown, TODAY).findings.some(f => f.kind === 'stale'),
       'an enabled card stopped being flagged');
@@ -134,7 +142,7 @@ describe('hygiene: hidden cards are left alone (#560)', () => {
   test('a card with no enabled key is treated as visible', () => {
     // meta.enabled is optional and absent means shown, exactly as
     // registry.js viewEnabled reads it. Only an explicit false hides.
-    const reg = makeRegistry([{ id: 'c', meta: {}, data: rowsEnding(84, 10) }]);
+    const reg = makeRegistry([{ id: 'c', meta: { writeable: WRITEABLE }, data: rowsEnding(84, 10) }]);
     assert.ok(scanHygiene(reg, TODAY).findings.some(f => f.kind === 'stale'),
       'a card with no enabled key was treated as hidden');
   });
@@ -145,7 +153,7 @@ describe('hygiene: hidden cards are left alone (#560)', () => {
       id: 'big-hidden',
       meta: {
         enabled: false,
-        writeable: { inputs: [{ key: 'never-used', label: 'Unused', type: 'text' }] },
+        writeable: { fromWebapp: true, inputs: [{ key: 'never-used', label: 'Unused', type: 'text' }] },
       },
       data: rowsEnding(0, 800),
     }]);
@@ -156,8 +164,8 @@ describe('hygiene: hidden cards are left alone (#560)', () => {
   test('the ambient nudge surface skips hidden cards', () => {
     // This is the path the peek bar reads, and where the report came from.
     const reg = makeRegistry([
-      { id: 'hidden-one', meta: { enabled: false }, data: rowsEnding(84, 10) },
-      { id: 'visible-one', meta: {}, data: rowsEnding(40, 10) },
+      { id: 'hidden-one', meta: { enabled: false, writeable: WRITEABLE }, data: rowsEnding(84, 10) },
+      { id: 'visible-one', meta: { writeable: WRITEABLE }, data: rowsEnding(40, 10) },
     ]);
     const ambient = ambientStaleness(reg, TODAY);
     assert.deepEqual(ambient.map(f => f.cardId), ['visible-one'],
@@ -168,11 +176,80 @@ describe('hygiene: hidden cards are left alone (#560)', () => {
     // The peek bar shows findings[0], so a hidden card at the front of the list
     // would have silently taken the slot from a real one.
     const reg = makeRegistry([
-      { id: 'aaa-hidden', meta: { enabled: false }, data: rowsEnding(90, 10) },
-      { id: 'zzz-visible', meta: {}, data: rowsEnding(50, 10) },
+      { id: 'aaa-hidden', meta: { enabled: false, writeable: WRITEABLE }, data: rowsEnding(90, 10) },
+      { id: 'zzz-visible', meta: { writeable: WRITEABLE }, data: rowsEnding(50, 10) },
     ]);
     const ambient = ambientStaleness(reg, TODAY);
     assert.ok(ambient.length >= 1, 'the visible stale card was lost entirely');
     assert.equal(ambient[0].cardId, 'zzz-visible');
+  });
+});
+
+describe('hygiene: staleness only for cards the user can write to (#564)', () => {
+  // Surfaced on a real instance the moment the hidden-card fix stopped masking
+  // it: a greeting-banner was flagged "hasn't been updated in 32 days". That
+  // card has no inputs and no writeable.fromWebapp, so there is nothing the user
+  // could do about it; the nudge was asking for the impossible.
+  const writeable = WRITEABLE;
+
+  test('a read-only card is not flagged stale', () => {
+    const reg = makeRegistry([
+      { id: 'greeting', meta: { view: { component: 'greeting-banner' } }, data: rowsEnding(40, 5) },
+    ]);
+    const stale = scanHygiene(reg, TODAY).findings.filter(f => f.kind === 'stale');
+    assert.deepEqual(stale, [],
+      'a card with no writeable.fromWebapp was flagged stale');
+  });
+
+  test('an explicitly non-writeable card is not flagged stale', () => {
+    const reg = makeRegistry([
+      { id: 'ro', meta: { writeable: { fromWebapp: false } }, data: rowsEnding(40, 5) },
+    ]);
+    assert.deepEqual(scanHygiene(reg, TODAY).findings.filter(f => f.kind === 'stale'), []);
+  });
+
+  test('a writeable card IS still flagged', () => {
+    // Guards against the fix over-reaching into suppressing everything.
+    const reg = makeRegistry([{ id: 'weight', meta: { writeable }, data: rowsEnding(40, 5) }]);
+    assert.ok(scanHygiene(reg, TODAY).findings.some(f => f.kind === 'stale'),
+      'a writeable stale card stopped being flagged');
+  });
+
+  test('an HAE-fed card that is also writeable is still flagged', () => {
+    // A phone that has stopped pushing is worth mentioning, so long as the user
+    // could also log by hand. Deliberately NOT excluded by this rule.
+    const reg = makeRegistry([{
+      id: 'steps',
+      meta: { ingest: { source: 'hae', metric: 'step_count' }, writeable },
+      data: rowsEnding(40, 5),
+    }]);
+    assert.ok(scanHygiene(reg, TODAY).findings.some(f => f.kind === 'stale'),
+      'a writeable HAE card should still be flagged when the pushes stop');
+  });
+
+  test('growth and orphaned-input are unaffected by writeability', () => {
+    // These are author-facing tidy-ups rather than "go log something", so a
+    // read-only card can legitimately carry them.
+    const reg = makeRegistry([{
+      id: 'big-ro',
+      meta: {
+        view: { component: 'greeting-banner' },
+        writeable: { inputs: [{ key: 'never', label: 'Never', type: 'text' }] },
+      },
+      data: rowsEnding(0, 800),
+    }]);
+    const kinds = scanHygiene(reg, TODAY).findings.map(f => f.kind).sort();
+    assert.deepEqual(kinds, ['growth', 'orphaned-input'],
+      `expected growth + orphaned-input on a read-only card, got ${kinds.join(', ') || 'none'}`);
+  });
+
+  test('the ambient nudge surface only offers actionable cards', () => {
+    // The exact live shape: a read-only banner and a writeable card both stale.
+    const reg = makeRegistry([
+      { id: 'greeting', meta: { view: { component: 'greeting-banner' } }, data: rowsEnding(32, 5) },
+      { id: 'energy-levels', meta: { writeable }, data: rowsEnding(55, 5) },
+    ]);
+    assert.deepEqual(ambientStaleness(reg, TODAY).map(f => f.cardId), ['energy-levels'],
+      'the nudge offered a card the user cannot write to');
   });
 });

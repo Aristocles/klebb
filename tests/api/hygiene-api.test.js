@@ -20,7 +20,16 @@ function staleCard(id) {
   }
   return {
     $schema: 'klebb.datafile.v1',
-    meta: { id, label: `Card ${id}`, view: { enabled: true, component: 'generic-card' } },
+    meta: {
+      id, label: `Card ${id}`, view: { enabled: true, component: 'generic-card' },
+      // Staleness only applies to cards the user can write to (#564): a card
+      // with no input form cannot be brought up to date, so nagging about it
+      // asks the impossible. A fixture without this is not exercising the rule.
+      writeable: {
+        fromWebapp: true, todayAllowed: true, pastAllowed: true,
+        inputs: [{ key: 'kg', label: 'Weight', type: 'number' }],
+      },
+    },
     data: rows,
   };
 }
