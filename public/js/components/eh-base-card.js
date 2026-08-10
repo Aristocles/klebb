@@ -116,6 +116,13 @@ export class EhBaseCard extends LitElement {
     return exp && exp.enabled === true;
   }
 
+  // A subclass that renders its own expand control (next to whatever the
+  // expansion is *about*) sets this true so the header indicator is
+  // suppressed and the card shows exactly one chevron. See #572.
+  get _ownsExpandControl() {
+    return false;
+  }
+
   get _config() {
     return this.card?.viewConfig || {};
   }
@@ -278,7 +285,7 @@ export class EhBaseCard extends LitElement {
           ${this.dateMode === 'past'   ? html`<span class="past-badge">Past</span>` : ''}
         </div>
         <div class="header-right">
-          ${this._canExpand ? html`
+          ${this._canExpand && !this._ownsExpandControl ? html`
             <span class="expand-indicator ${this.expanded ? 'open' : ''}">▼</span>
           ` : ''}
           ${this._showSettingsGear ? html`

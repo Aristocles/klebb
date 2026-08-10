@@ -7,6 +7,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- The chevron that opens a card's full trend chart now sits beside the
+  sparkline instead of in the header. It used to render between the edit
+  pencil and the settings gear, where nothing connected it to the trend line
+  it opens, and where it partly sat under the edit button. It is a proper
+  keyboard-reachable button; tapping the card header still expands too, so
+  no existing gesture changed.
+
 ### Fixed
 
 - **Recording an HAE push no longer costs memory per sample, so a small payload
