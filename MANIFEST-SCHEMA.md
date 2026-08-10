@@ -412,6 +412,20 @@ All view configs share the same shape:
                                       //   as carry-over (built-in, not
                                       //   opt-out). See #228, #231.
   "expanded":         false,          // allow click-to-expand
+  "showSparkline":    false,          // default false. true → a small
+                                      //   30-day trend glyph on Today.
+                                      //   Today-only, and needs >= 2 days
+                                      //   of signal, so the flag alone does
+                                      //   not guarantee a glyph.
+                                      //   generic-card: a value trend line
+                                      //   over a resolved numeric field,
+                                      //   with a chevron beside it opening
+                                      //   the full chart inline; replaces
+                                      //   the trend arrow when it draws.
+                                      //   schedule-card + checklist-card:
+                                      //   an adherence strip (taken/missed
+                                      //   over scheduled days), no expand.
+                                      //   See docs/CARDS.md.
   "display":          { ... },        // template config (generic-card)
   "source":           "other-card-id" // virtual/computed cards only
 }

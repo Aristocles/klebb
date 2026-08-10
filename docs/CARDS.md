@@ -59,7 +59,8 @@ Most of the behaviour toggles below can be flipped from the app itself: data
 cards have a small gear (⚙️) in the header that opens a settings panel. It
 exposes the safe, common-sense options for that card type, pre-filled from the
 manifest: whether the app can log entries (and for which dates), the daily
-prompt, carry-forward, the trend sparkline, and reminders. Each toggle applies
+prompt, carry-forward, the trend sparkline (see `meta.view.showSparkline`
+below), and reminders. Each toggle applies
 immediately (it's written straight back to the manifest file, no Save button).
 Optional extras the card already has (a schedule card's per-dose check-off
 form, thresholds, a trend arrow, emoji labels, custom colours) show up under
@@ -659,6 +660,46 @@ with `goodDirection`:
 
 (The legacy `lowerIsBetter: true` flag is still accepted as an alias for
 `goodDirection: "down"`.)
+
+### `meta.view.showSparkline` — the mini trend glyph
+
+Draws a small 30-day trend line under the value on Today, with a chevron
+beside it that opens the card's full chart inline.
+
+```json
+"view": { "component": "generic-card", "showSparkline": true }
+```
+
+Note it sits on `view`, not on `view.display`, unlike `trendArrow`.
+
+Three things are worth knowing before you set it:
+
+**The flag alone does not guarantee a glyph.** It draws only on Today (a
+trend line is a "where am I heading" affordance, meaningless when you've
+navigated to a specific past date), and only with at least two dated
+numeric points. Below that, the card renders exactly as if the flag were
+off. This is also why the gear toggle greys out on a card with too little
+history rather than letting you switch on nothing.
+
+**You don't pick the field; it's resolved.** In order: `trendArrow.field`
+if set, else the first `{token}` in `display.template`, else the first
+numeric key on the newest row (`value`, `kg`, `ml`, `count`, `minutes`,
+`systolic`, then anything else numeric). Nominating `trendArrow.field` is
+the way to be explicit, and it also guarantees the arrow and the line
+describe the same series.
+
+**It replaces the trend arrow rather than joining it.** Setting both
+`trendArrow` and `showSparkline` gives you the line, not both: direction
+should read once. The line carries the same information with more context,
+so the arrow stands down.
+
+The chevron sits to the left of the line, in the card body, so it's clear
+what it opens. Tapping the card header expands too. The line itself is not
+a button: it's decorative, with a spoken trend summary for screen readers.
+
+On `schedule-card` and `checklist-card` the same flag means something
+different: an **adherence** strip (taken versus missed over scheduled days,
+with rest days drawn as gaps rather than misses), and there is no expand.
 
 ---
 
