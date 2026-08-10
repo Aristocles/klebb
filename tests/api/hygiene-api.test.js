@@ -22,9 +22,12 @@ function staleCard(id) {
     $schema: 'klebb.datafile.v1',
     meta: {
       id, label: `Card ${id}`, view: { enabled: true, component: 'generic-card' },
-      // Staleness only applies to cards the user can write to (#564): a card
+      // Staleness is opt-in per card (#570): without a declared cadence nothing
+      // is ever flagged, so a fixture that means to exercise it has to declare
+      // one. It also only applies to cards the user can write to (#564): a card
       // with no input form cannot be brought up to date, so nagging about it
-      // asks the impossible. A fixture without this is not exercising the rule.
+      // asks the impossible. A fixture without both is not exercising the rule.
+      cadence: { expectDays: 21 },
       writeable: {
         fromWebapp: true, todayAllowed: true, pastAllowed: true,
         inputs: [{ key: 'kg', label: 'Weight', type: 'number' }],

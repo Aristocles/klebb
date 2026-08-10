@@ -8,7 +8,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
 
-const { scanHygiene, ambientStaleness, orphanedInputKeys, hasScheduleCadence } = require('../chat/hygiene');
+const { scanHygiene, ambientStaleness, orphanedInputKeys, cadenceDays } = require('../chat/hygiene');
 const { TOOL_DEFS } = require('../chat/tools');
 
 const TODAY = '2026-06-24';
@@ -20,6 +20,12 @@ const WRITEABLE = {
   fromWebapp: true, todayAllowed: true, pastAllowed: true,
   inputs: [{ key: 'v', label: 'Value', type: 'number' }],
 };
+
+// Staleness is also opt-in per card (#570): no meta.cadence, no stale finding.
+// So every fixture that means to exercise staleness declares a window, and the
+// 21-day default that used to apply to everything is gone. The opt-in itself is
+// covered in tests/api/hygiene-cadence-opt-in.test.js.
+const CADENCE = { expectDays: 21 };
 
 function makeRegistry(cards, mtimes = {}) {
   const byId = new Map(cards.map(c => [c.id, c]));
@@ -41,8 +47,8 @@ function rowsEnding(daysAgo, count, field = 'v') {
 }
 
 describe('hygiene: stale detection', () => {
-  test('flags an atomic card untouched well past the default window', () => {
-    const reg = makeRegistry([{ id: 'weight', meta: { label: 'Weight', writeable: WRITEABLE }, data: rowsEnding(30, 5) }]);
+  test('flags an atomic card untouched well past its declared window', () => {
+    const reg = makeRegistry([{ id: 'weight', meta: { label: 'Weight', cadence: CADENCE, writeable: WRITEABLE }, data: rowsEnding(30, 5) }]);
     const { findings } = scanHygiene(reg, TODAY);
     const stale = findings.find(f => f.cardId === 'weight' && f.kind === 'stale');
     assert.ok(stale, 'expected a stale finding');
@@ -50,21 +56,22 @@ describe('hygiene: stale detection', () => {
   });
 
   test('does NOT flag a fresh card', () => {
-    const reg = makeRegistry([{ id: 'weight', meta: { writeable: WRITEABLE }, data: rowsEnding(1, 5) }]);
+    const reg = makeRegistry([{ id: 'weight', meta: { cadence: CADENCE, writeable: WRITEABLE }, data: rowsEnding(1, 5) }]);
     assert.deepStrictEqual(scanHygiene(reg, TODAY).findings.filter(f => f.kind === 'stale'), []);
   });
 
   test('does NOT flag a near-empty card (too little signal)', () => {
-    const reg = makeRegistry([{ id: 'weight', meta: { writeable: WRITEABLE }, data: rowsEnding(60, 2) }]);
+    const reg = makeRegistry([{ id: 'weight', meta: { cadence: CADENCE, writeable: WRITEABLE }, data: rowsEnding(60, 2) }]);
     assert.deepStrictEqual(scanHygiene(reg, TODAY).findings.filter(f => f.kind === 'stale'), []);
   });
 
-  test('uses the tighter window for schedule-bearing cards', () => {
-    // A card 10 days quiet: under the 21-day default it would NOT be stale,
-    // but a recurring schedule tightens the window to 7 days so it trips.
-    const reg = makeRegistry([{ id: 'p', meta: { writeable: WRITEABLE }, data: rowsEnding(10, 5).map(r => ({ ...r, schedule: { type: 'daily' } })) }]);
+  test('honours a tighter declared window', () => {
+    // A card 10 days quiet: under a 21-day window it would NOT be stale, but
+    // this one declares 7 days, so it trips. Pre-#570 the tighter window was
+    // INFERRED from a data.items[].schedule; cadence is now declared only.
+    const reg = makeRegistry([{ id: 'p', meta: { cadence: { expectDays: 7 }, writeable: WRITEABLE }, data: rowsEnding(10, 5) }]);
     const stale = scanHygiene(reg, TODAY).findings.find(f => f.kind === 'stale');
-    assert.ok(stale, 'a 10-day-old scheduled card should be stale under the 7-day window');
+    assert.ok(stale, 'a 10-day-quiet card should be stale under a declared 7-day window');
   });
 });
 
@@ -87,17 +94,25 @@ describe('hygiene: growth + orphaned inputs', () => {
     assert.deepStrictEqual(orphanedInputKeys(meta, [{ date: 'x', kg: 1 }]), []);
   });
 
-  test('hasScheduleCadence detects items[] with a schedule', () => {
-    assert.strictEqual(hasScheduleCadence({ items: [{ schedule: {} }] }), true);
-    assert.strictEqual(hasScheduleCadence([{ date: 'x', v: 1 }]), false);
+  test('cadenceDays reads a valid declared window and rejects the rest', () => {
+    // The scan re-checks the one property it depends on, so a hand-built
+    // registry that skipped the registry's validation cannot produce a
+    // nonsense window (a zero or a string would otherwise flag everything).
+    assert.strictEqual(cadenceDays({ cadence: { expectDays: 7 } }), 7);
+    assert.strictEqual(cadenceDays({}), null);
+    assert.strictEqual(cadenceDays({ cadence: {} }), null);
+    assert.strictEqual(cadenceDays({ cadence: { expectDays: 0 } }), null);
+    assert.strictEqual(cadenceDays({ cadence: { expectDays: -3 } }), null);
+    assert.strictEqual(cadenceDays({ cadence: { expectDays: 1.5 } }), null);
+    assert.strictEqual(cadenceDays({ cadence: { expectDays: '7' } }), null);
   });
 });
 
 describe('hygiene: ambient filter', () => {
   test('ambientStaleness returns only stale findings', () => {
     const reg = makeRegistry([
-      { id: 'stalecard', meta: { writeable: WRITEABLE }, data: rowsEnding(40, 5) },
-      { id: 'bigcard', meta: { writeable: WRITEABLE }, data: rowsEnding(0, 800) },
+      { id: 'stalecard', meta: { cadence: CADENCE, writeable: WRITEABLE }, data: rowsEnding(40, 5) },
+      { id: 'bigcard', meta: { cadence: CADENCE, writeable: WRITEABLE }, data: rowsEnding(0, 800) },
     ]);
     const ambient = ambientStaleness(reg, TODAY);
     assert.ok(ambient.length >= 1);
@@ -132,8 +147,8 @@ describe('hygiene: hidden cards are left alone (#560)', () => {
     // Guards the fix from over-reaching: unhiding must restore the finding, so
     // this is not just a blanket suppression.
     const data = rowsEnding(84, 10);
-    const hidden = makeRegistry([{ id: 'c', meta: { enabled: false, writeable: WRITEABLE }, data }]);
-    const shown = makeRegistry([{ id: 'c', meta: { enabled: true, writeable: WRITEABLE }, data }]);
+    const hidden = makeRegistry([{ id: 'c', meta: { enabled: false, cadence: CADENCE, writeable: WRITEABLE }, data }]);
+    const shown = makeRegistry([{ id: 'c', meta: { enabled: true, cadence: CADENCE, writeable: WRITEABLE }, data }]);
     assert.equal(scanHygiene(hidden, TODAY).findings.length, 0);
     assert.ok(scanHygiene(shown, TODAY).findings.some(f => f.kind === 'stale'),
       'an enabled card stopped being flagged');
@@ -142,7 +157,7 @@ describe('hygiene: hidden cards are left alone (#560)', () => {
   test('a card with no enabled key is treated as visible', () => {
     // meta.enabled is optional and absent means shown, exactly as
     // registry.js viewEnabled reads it. Only an explicit false hides.
-    const reg = makeRegistry([{ id: 'c', meta: { writeable: WRITEABLE }, data: rowsEnding(84, 10) }]);
+    const reg = makeRegistry([{ id: 'c', meta: { cadence: CADENCE, writeable: WRITEABLE }, data: rowsEnding(84, 10) }]);
     assert.ok(scanHygiene(reg, TODAY).findings.some(f => f.kind === 'stale'),
       'a card with no enabled key was treated as hidden');
   });
@@ -164,8 +179,8 @@ describe('hygiene: hidden cards are left alone (#560)', () => {
   test('the ambient nudge surface skips hidden cards', () => {
     // This is the path the peek bar reads, and where the report came from.
     const reg = makeRegistry([
-      { id: 'hidden-one', meta: { enabled: false, writeable: WRITEABLE }, data: rowsEnding(84, 10) },
-      { id: 'visible-one', meta: { writeable: WRITEABLE }, data: rowsEnding(40, 10) },
+      { id: 'hidden-one', meta: { enabled: false, cadence: CADENCE, writeable: WRITEABLE }, data: rowsEnding(84, 10) },
+      { id: 'visible-one', meta: { cadence: CADENCE, writeable: WRITEABLE }, data: rowsEnding(40, 10) },
     ]);
     const ambient = ambientStaleness(reg, TODAY);
     assert.deepEqual(ambient.map(f => f.cardId), ['visible-one'],
@@ -176,8 +191,8 @@ describe('hygiene: hidden cards are left alone (#560)', () => {
     // The peek bar shows findings[0], so a hidden card at the front of the list
     // would have silently taken the slot from a real one.
     const reg = makeRegistry([
-      { id: 'aaa-hidden', meta: { enabled: false, writeable: WRITEABLE }, data: rowsEnding(90, 10) },
-      { id: 'zzz-visible', meta: { writeable: WRITEABLE }, data: rowsEnding(50, 10) },
+      { id: 'aaa-hidden', meta: { enabled: false, cadence: CADENCE, writeable: WRITEABLE }, data: rowsEnding(90, 10) },
+      { id: 'zzz-visible', meta: { cadence: CADENCE, writeable: WRITEABLE }, data: rowsEnding(50, 10) },
     ]);
     const ambient = ambientStaleness(reg, TODAY);
     assert.ok(ambient.length >= 1, 'the visible stale card was lost entirely');
@@ -203,14 +218,14 @@ describe('hygiene: staleness only for cards the user can write to (#564)', () =>
 
   test('an explicitly non-writeable card is not flagged stale', () => {
     const reg = makeRegistry([
-      { id: 'ro', meta: { writeable: { fromWebapp: false } }, data: rowsEnding(40, 5) },
+      { id: 'ro', meta: { cadence: CADENCE, writeable: { fromWebapp: false } }, data: rowsEnding(40, 5) },
     ]);
     assert.deepEqual(scanHygiene(reg, TODAY).findings.filter(f => f.kind === 'stale'), []);
   });
 
   test('a writeable card IS still flagged', () => {
     // Guards against the fix over-reaching into suppressing everything.
-    const reg = makeRegistry([{ id: 'weight', meta: { writeable }, data: rowsEnding(40, 5) }]);
+    const reg = makeRegistry([{ id: 'weight', meta: { cadence: CADENCE, writeable }, data: rowsEnding(40, 5) }]);
     assert.ok(scanHygiene(reg, TODAY).findings.some(f => f.kind === 'stale'),
       'a writeable stale card stopped being flagged');
   });
@@ -220,7 +235,7 @@ describe('hygiene: staleness only for cards the user can write to (#564)', () =>
     // could also log by hand. Deliberately NOT excluded by this rule.
     const reg = makeRegistry([{
       id: 'steps',
-      meta: { ingest: { source: 'hae', metric: 'step_count' }, writeable },
+      meta: { ingest: { source: 'hae', metric: 'step_count' }, cadence: CADENCE, writeable },
       data: rowsEnding(40, 5),
     }]);
     assert.ok(scanHygiene(reg, TODAY).findings.some(f => f.kind === 'stale'),
@@ -247,7 +262,7 @@ describe('hygiene: staleness only for cards the user can write to (#564)', () =>
     // The exact live shape: a read-only banner and a writeable card both stale.
     const reg = makeRegistry([
       { id: 'greeting', meta: { view: { component: 'greeting-banner' } }, data: rowsEnding(32, 5) },
-      { id: 'energy-levels', meta: { writeable }, data: rowsEnding(55, 5) },
+      { id: 'energy-levels', meta: { cadence: CADENCE, writeable }, data: rowsEnding(55, 5) },
     ]);
     assert.deepEqual(ambientStaleness(reg, TODAY).map(f => f.cardId), ['energy-levels'],
       'the nudge offered a card the user cannot write to');

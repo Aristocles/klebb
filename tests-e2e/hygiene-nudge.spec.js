@@ -12,12 +12,14 @@ const { todayISO, shiftDays } = require('./helpers/seed-manifests');
 const ID = 'e2e_stale_452';
 
 function staleCard(today) {
-  // Rows ending ~40 days ago: past the 21-day default window, and enough
-  // rows to clear the near-empty suppression in chat/hygiene.js.
+  // Rows ending ~40 days ago: past the declared 21-day window, and enough rows
+  // to clear the near-empty suppression in chat/hygiene.js. meta.cadence is
+  // required for staleness at all since #570 (no declaration, no nudge).
   return {
     $schema: 'klebb.datafile.v1',
     meta: {
       id: ID, label: 'Stale 452', emoji: '🧪', order: 940,
+      cadence: { expectDays: 21 },
       view: { enabled: true, component: 'generic-card', display: { template: '{n}' } },
       writeable: { fromWebapp: true, todayAllowed: true, inputs: [{ key: 'n', type: 'number' }] },
     },

@@ -233,7 +233,7 @@ const TOOL_DEFS = [
     function: {
       name: 'hygiene_scan',
       description:
-        "Scan every card for hygiene problems and return {findings:[{cardId, kind, severity, detail}]}. Use this when the user asks to 'tidy up', 'what's stale/messy', 'is anything out of date', or wants a dashboard health check. Kinds: 'stale' (no entry well past the expected cadence), 'growth' (very large data block that wants archiving/a rolling window), 'orphaned-input' (a capture field no row ever uses). Findings are conservative (near-empty cards are skipped) and are SUGGESTIONS only: never act on them without the user's say-so, and surface them conversationally rather than dumping the raw list.",
+        "Scan every card for hygiene problems and return {findings:[{cardId, kind, severity, detail}]}. Use this when the user asks to 'tidy up', 'what's stale/messy', 'is anything out of date', or wants a dashboard health check. Kinds: 'stale' (no entry well past the cadence the card DECLARED in meta.cadence.expectDays), 'growth' (very large data block that wants archiving/a rolling window), 'orphaned-input' (a capture field no row ever uses). 'stale' is OPT-IN: a card with no meta.cadence is never reported however quiet it is, so an empty result means nothing the user asked to be chased is overdue, NOT that every card is current. Findings are conservative (hidden, read-only and near-empty cards are skipped) and are SUGGESTIONS only: never act on them without the user's say-so, and surface them conversationally rather than dumping the raw list.",
       parameters: {
         type: 'object',
         properties: {},

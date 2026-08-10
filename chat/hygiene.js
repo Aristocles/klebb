@@ -9,24 +9,25 @@
 // Severity is advisory: 'info' < 'warn'. The ambient surface (GET /api/hygiene)
 // only carries high-confidence staleness; the full set is for the on-demand
 // hygiene_scan tool, where the agent mediates whether to surface a finding.
+//
+// Staleness is opt-in per card (meta.cadence.expectDays); growth and
+// orphaned-input are not, because they are author-facing tidy-ups that hold
+// regardless of whether a card has a cadence. See the stale check for why.
 
-const { buildRecentActivity, dateFieldFor } = require('./recent-activity');
+const { buildRecentActivity } = require('./recent-activity');
 
-// How long a card may sit untouched before it reads as "stale". Cards with a
-// daily-ish cadence go stale fast; everything else gets a generous window.
-const STALE_DAYS_DEFAULT = 21;
-const STALE_DAYS_SCHEDULED = 7;
 // Don't flag growth until a card is genuinely large enough to matter.
 const ROW_GROWTH_SOFT_CAP = 730;
 // Don't flag staleness/orphans on near-empty cards: too little signal.
 const MIN_ROWS_FOR_STALE = 3;
 
-// Does any data.items[] entry carry a recurring schedule? Such cards expect
-// frequent check-offs, so they go stale faster. Defensive: data shape varies.
-function hasScheduleCadence(data) {
-  const items = Array.isArray(data) ? data : (data && Array.isArray(data.items) ? data.items : null);
-  if (!items) return false;
-  return items.some(it => it && typeof it === 'object' && it.schedule && typeof it.schedule === 'object');
+// The declared staleness window, or null when the card never opted in.
+// Trusts the registry's validation (meta.cadence is cleaned at load), but
+// re-checks the one property this file depends on so a hand-built registry in
+// a test or a caller that skipped validation cannot produce a nonsense window.
+function cadenceDays(meta) {
+  const v = meta && meta.cadence ? meta.cadence.expectDays : null;
+  return Number.isInteger(v) && v > 0 ? v : null;
 }
 
 // Inputs whose key never appears in any data row. A genuine "you built a
@@ -66,32 +67,35 @@ function scanHygiene(registry, today) {
     // are equally not worth a mention.
     if (meta.enabled === false) continue;
 
-    const scheduled = hasScheduleCadence(data);
-
-    // Stale-vs-cadence: a card with enough history that has gone quiet past
-    // its expected window. Tighter window for schedule-bearing cards.
+    // Stale-vs-cadence is OPT-IN: a card is only ever flagged when its author
+    // declared what cadence it expects, via meta.cadence.expectDays.
     //
-    // Only for cards the user can actually WRITE TO. A card whose rows arrive
-    // from somewhere else, or which has no input form at all, cannot be brought
-    // up to date by the user, so "hasn't been updated in N days — tap to tidy
-    // up" asks for something impossible. Seen on a real instance with a
-    // greeting-banner: no inputs, nothing loggable, nagged anyway.
+    // It used to be opt-out, with a 21-day default guess and an exclusion added
+    // each time the nudge embarrassed itself: hidden cards (#560), read-only
+    // cards (#564), and a card of undated rows reporting "Last: unknown" (#570).
+    // The blocklist kept growing because "is this card stale?" is not answerable
+    // from card structure. It needs the author's intent, and now the manifest
+    // carries it. A card that says nothing is silent, whatever its shape.
     //
-    // Judged on behaviour rather than a renderer allow-list, so a future
-    // read-only renderer is covered without anyone remembering to add it.
-    // HAE-fed cards are deliberately included when they are also writeable: a
-    // phone that has stopped pushing IS worth mentioning.
+    // The behavioural floor below still applies on top of the opt-in, so opting
+    // in cannot resurrect the cases already settled as wrong:
+    //   - writeable from the webapp, else "go log something" is impossible
+    //     (HAE-fed cards that are ALSO writeable stay in: a phone that stopped
+    //     pushing is worth mentioning)
+    //   - enough rows to carry signal
+    //   - a real per-row date, so the age means "no entry since" rather than
+    //     "nothing wrote this file", which is what produced "Last: unknown"
+    const expectDays = cadenceDays(meta);
     const userWriteable = !!(meta.writeable && meta.writeable.fromWebapp);
-    if (userWriteable && card.ageDays != null && card.rowCount >= MIN_ROWS_FOR_STALE) {
-      const limit = scheduled ? STALE_DAYS_SCHEDULED : STALE_DAYS_DEFAULT;
-      if (card.ageDays > limit) {
-        findings.push({
-          cardId: card.id,
-          kind: 'stale',
-          severity: card.ageDays > limit * 2 ? 'warn' : 'info',
-          detail: `No entry in ${card.ageDays} days (expected within ~${limit}). Last: ${card.lastEntryDate || 'unknown'}.`,
-        });
-      }
+    const dated = card.staleSource === 'rows' && card.lastEntryDate;
+    if (expectDays && userWriteable && dated && card.rowCount >= MIN_ROWS_FOR_STALE
+        && card.ageDays > expectDays) {
+      findings.push({
+        cardId: card.id,
+        kind: 'stale',
+        severity: card.ageDays > expectDays * 2 ? 'warn' : 'info',
+        detail: `No entry in ${card.ageDays} days (expected within ~${expectDays}). Last: ${card.lastEntryDate}.`,
+      });
     }
 
     // Unbounded growth: a very large data block that would benefit from a
@@ -127,4 +131,4 @@ function ambientStaleness(registry, today) {
   return scanHygiene(registry, today).findings.filter(f => f.kind === 'stale');
 }
 
-module.exports = { scanHygiene, ambientStaleness, orphanedInputKeys, hasScheduleCadence };
+module.exports = { scanHygiene, ambientStaleness, orphanedInputKeys, cadenceDays };
