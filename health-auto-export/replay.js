@@ -2,56 +2,109 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // health-auto-export/replay.js
 //
-// Backfill a newly-created HAE-backed manifest from the raw-archive
-// directory. The dispatcher only routes to subscribers present at the
-// time of a push, so a card created after a push misses data that's
-// already on disk. This module re-reads every archived payload, runs
-// the catalogue row() + aggregate pipeline for the manifest's metric,
-// and upserts the merged rows into the manifest's data[].
+// Backfill a newly-created HAE-backed manifest from the stored sample
+// history. The dispatcher only routes to subscribers present at the time of
+// a push, so a card created after a push misses data that already arrived.
+// This module re-runs the catalogue row() + aggregate pipeline for the
+// manifest's metric over every stored sample and upserts the merged rows.
 //
-// Pure-ish: takes (registry, manifestId), reads from disk, writes via
-// registry.writeData. Idempotent at the caller layer: skip when the
-// manifest already has data[].
+// Reads the deduplicated samples table (health-auto-export/samples.js). It
+// used to re-parse every file under data/auto-export/raw/, which meant reading
+// 404 MB of 85%-duplicate JSON to rebuild one card.
+//
+// Pure-ish: takes (registry, manifestId), reads the samples table, writes via
+// registry.writeData. Idempotent at the caller layer: skip when the manifest
+// already has data.
 
-const fs = require('fs');
-const path = require('path');
-const PATHS = require('../config/paths');
 const catalogue = require('./catalogue');
-const { aggregate, mergeByDate, extractEntries } = require('./ingest');
+const samples = require('./samples');
+const { aggregate, mergeByDate } = require('./ingest');
 
-const RAW_DIR = path.join(PATHS.AUTO_EXPORT_DIR, 'raw');
-
-function listRawFilesAscending() {
-  try {
-    return fs.readdirSync(RAW_DIR)
-      .filter(f => f.endsWith('.json'))
-      .sort();
-  } catch {
-    return [];
-  }
-}
-
-function readJsonSafe(file) {
-  try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch {
-    return null;
-  }
-}
-
-// Replay archived HAE pushes into a single manifest.
+// Rebuild the per-push groups the live dispatcher saw, from rows that each
+// exist exactly once.
 //
-// Pushes are processed one at a time — aggregate within a push, then
-// mergeByDate the running state against that push's result — so
-// overlapping pushes (scheduled HAE exports re-send the current day's
-// samples) don't double-count. This mirrors the live dispatcher's
-// per-push semantics: the end state matches what would have happened
-// if this manifest had existed at the time of each push.
+// A sample is stored once, attributed to `last_push`: the most recent push
+// that carried it. Grouping by that column and replaying the groups in
+// ascending push order reproduces the file-archive result exactly, for every
+// aggregation strategy. The argument, because it is not obvious and the whole
+// migration rests on it:
+//
+//   Fix a date D and let P be the highest `last_push` among D's samples.
+//   mergeByDate makes a later push replace an earlier one per date, so the old
+//   code's final value for D was whatever push P produced for D (P being the
+//   last push that mentioned D at all).
+//   A sample attributed to P was, by definition, present in push P. And every
+//   sample of date D present in push P has `last_push >= P`, so by maximality
+//   exactly `= P`. The two sets coincide: group P holds precisely push P's
+//   samples for date D, no more and no fewer. Aggregating group P therefore
+//   yields push P's value for D, which is the answer.
+//
+// So `last_push` is load-bearing, not redundant bookkeeping: aggregating a flat
+// bag of deduplicated samples in one pass resurrects #168 (5x step counts),
+// because content dedupe does not collapse {date:D, qty:1000} and
+// {date:D, qty:2000} and a sum-per-date metric would add both.
+//
+// `push_ord` preserves within-push order, which decides the stored value for
+// every `last-per-date` metric. `dup_count` restores a sample the payload
+// carried more than once, which a sum-per-date metric must count each time.
+function groupsByPush(metric, opts = {}) {
+  const rows = samples.forMetric(metric, opts);
+  const groups = new Map();
+  for (const row of rows) {
+    const list = groups.get(row.last_push) || [];
+    const sample = JSON.parse(row.doc);
+    const copies = Math.max(1, Number(row.dup_count) || 1);
+    for (let i = 0; i < copies; i++) list.push(sample);
+    groups.set(row.last_push, list);
+  }
+  return [...groups.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, list]) => list);
+}
+
+// Run the catalogue pipeline for one metric over the stored samples and return
+// the rows a card for that metric should hold. Split out from
+// replayFromArchive so the migration's verification can compare against the
+// shipped algorithm rather than a second copy of it that could drift.
+//
+// Returns { rows, pushesScanned }; rows is null when the metric has no
+// catalogue entry (stored for later, nothing to build yet).
+function replayMetric(metric, opts = {}) {
+  const cat = catalogue[metric];
+  if (!cat) return { rows: null, pushesScanned: 0 };
+
+  let merged = [];
+  let pushesScanned = 0;
+  for (const group of groupsByPush(metric, opts)) {
+    pushesScanned += 1;
+    const mapped = [];
+    for (const raw of group) {
+      // Per-sample try/catch for the same reason dispatch() has one: every
+      // catalogue row() dereferences its entry immediately, so one wrongly
+      // shaped sample would abort the whole replay and leave the card empty.
+      let row = null;
+      try {
+        row = cat.row(raw);
+      } catch {
+        continue;
+      }
+      if (row && row.date) mapped.push(row);
+    }
+    if (mapped.length === 0) continue;
+    merged = mergeByDate(merged, aggregate(mapped, cat.aggregate));
+  }
+  return { rows: merged, pushesScanned };
+}
+
+// Replay stored HAE samples into a single manifest.
 //
 // Returns { rowsWritten, pushesScanned, skipped }.
-//   skipped === true if the manifest is not HAE-backed, has non-empty
-//              data[] (unless opts.force), or its metric is not in the
-//              catalogue. No writes when skipped.
+//   skipped === true if the manifest is not HAE-backed, already has data
+//              (unless opts.force), or its metric is not in the catalogue.
+//              No writes when skipped.
+//   pushesScanned counts push groups that carried samples for this metric,
+//              which is what the file-scanning count meant in practice: a
+//              push with nothing for this metric contributed nothing.
 function replayFromArchive(registry, manifestId, opts = {}) {
   const { force = false } = opts;
   const entry = registry.get(manifestId);
@@ -69,29 +122,11 @@ function replayFromArchive(registry, manifestId, opts = {}) {
     return { rowsWritten: 0, pushesScanned: 0, skipped: true };
   }
 
-  const files = listRawFilesAscending();
-  let merged = [];
-  let pushesScanned = 0;
+  const { rows: merged, pushesScanned } = replayMetric(ing.metric);
 
-  for (const file of files) {
-    const payload = readJsonSafe(path.join(RAW_DIR, file));
-    if (!payload) continue;
-    pushesScanned += 1;
-    const entries = extractEntries(payload, { ...cat, _metricName: ing.metric });
-    if (!entries || entries.length === 0) continue;
-    const mapped = [];
-    for (const raw of entries) {
-      const row = cat.row(raw);
-      if (row && row.date) mapped.push(row);
-    }
-    if (mapped.length === 0) continue;
-    const aggregated = aggregate(mapped, cat.aggregate);
-    merged = mergeByDate(merged, aggregated);
-  }
-
-  // Always write when force is true (callers expect the manifest
-  // reflects the replay's result even if it produced zero rows, so
-  // stale data is cleared). Otherwise, skip when nothing was merged.
+  // Always write when force is true (callers expect the manifest to reflect
+  // the replay's result even if it produced zero rows, so stale data is
+  // cleared). Otherwise, skip when nothing was merged.
   if (merged.length === 0 && !force) {
     return { rowsWritten: 0, pushesScanned, skipped: false };
   }
@@ -100,4 +135,4 @@ function replayFromArchive(registry, manifestId, opts = {}) {
   return { rowsWritten: merged.length, pushesScanned, skipped: false };
 }
 
-module.exports = { replayFromArchive };
+module.exports = { replayFromArchive, replayMetric };

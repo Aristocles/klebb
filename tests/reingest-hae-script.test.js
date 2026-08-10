@@ -38,10 +38,18 @@ function run(sandbox, args = []) {
   });
 }
 
+// Seed a stored push the way a live ingest would. Runs out-of-process against
+// the sandbox's database so this file never opens a second handle of its own,
+// and so the seeding uses exactly the code the endpoint uses.
 function writeRawPush(sandbox, payload) {
-  const rawDir = path.join(sandbox, 'data', 'auto-export', 'raw');
-  fs.mkdirSync(rawDir, { recursive: true });
-  fs.writeFileSync(path.join(rawDir, 'archived-push.json'), JSON.stringify(payload));
+  const script = 'const s=require(' + JSON.stringify(
+    path.join(REPO_ROOT, 'health-auto-export', 'samples')) + ');'
+    + 's.recordPush(JSON.parse(process.argv[1]),{receivedAt:"2026-05-02T00:00:00.000Z"});'
+    + 's.close();';
+  execSync(`node -e ${JSON.stringify(script)} ${JSON.stringify(JSON.stringify(payload))}`, {
+    encoding: 'utf8',
+    env: { ...process.env, HEALTH_HOME: sandbox, HEALTH_HOME_WARNED: '1' },
+  });
 }
 
 describe('reingest-hae.js', { skip }, () => {

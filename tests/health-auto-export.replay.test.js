@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/health-auto-export.replay.test.js
-// Unit tests for the replay-from-archive module.
+// Unit tests for the replay module.
+//
+// Since #546 the source of truth is the deduplicated samples table rather than
+// a directory of archived payload files, so each fixture records a push through
+// the same path the live endpoint uses. The assertions are unchanged: they are
+// about replay semantics, which the storage swap must not alter.
 
 const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
@@ -11,14 +16,17 @@ const path = require('path');
 
 let tmp;
 let replay;
+let samples;
 
 function reloadModule() {
   delete require.cache[require.resolve('../config/paths')];
   delete require.cache[require.resolve('../health-auto-export/replay')];
+  delete require.cache[require.resolve('../health-auto-export/samples')];
   delete require.cache[require.resolve('../health-auto-export/ingest')];
   delete require.cache[require.resolve('../health-auto-export/catalogue')];
   delete require.cache[require.resolve('../health-auto-export/helpers')];
   replay = require('../health-auto-export/replay');
+  samples = require('../health-auto-export/samples');
 }
 
 // Minimal registry stub with data() + get() + writeData() + list().
@@ -47,11 +55,13 @@ function makeRegistry(manifests) {
   };
 }
 
+// Record a push the way the live endpoint does. Named for what it replaces so
+// the fixtures below read the same as they did against the file archive; the
+// stamp is the push's receivedAt, and push order follows call order.
 function writeRawPayload(stampMs, payload) {
-  const rawDir = path.join(tmp, 'data', 'auto-export', 'raw');
-  fs.mkdirSync(rawDir, { recursive: true });
-  const stamp = new Date(stampMs).toISOString().replace(/[:.]/g, '');
-  fs.writeFileSync(path.join(rawDir, `${stamp}.json`), JSON.stringify(payload));
+  samples.recordPush(payload, {
+    receivedAt: new Date(stampMs).toISOString(),
+  });
 }
 
 describe('replayFromArchive', () => {
@@ -63,6 +73,7 @@ describe('replayFromArchive', () => {
   });
 
   afterEach(() => {
+    try { samples.close(); } catch {}
     try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
     delete process.env.HEALTH_HOME;
   });
@@ -241,13 +252,17 @@ describe('replayFromArchive', () => {
     assert.equal(rows[0].trained, true);
   });
 
-  test('corrupt raw file is skipped, not fatal', () => {
-    const rawDir = path.join(tmp, 'data', 'auto-export', 'raw');
-    fs.mkdirSync(rawDir, { recursive: true });
-    fs.writeFileSync(path.join(rawDir, 'bad.json'), '{ not json');
-    // Valid file alongside.
+  test('an unusable stored sample is skipped, not fatal', () => {
+    // The file-archive equivalent of this test fed replay a corrupt JSON file.
+    // A payload that will not parse can no longer reach the store at all (the
+    // endpoint quarantines it), so the surviving hazard is a stored sample the
+    // catalogue cannot map: one bad sample must not cost the whole card.
     writeRawPayload(Date.parse('2026-05-06T00:00:00Z'), { data: { metrics: [
-      { name: 'step_count', data: [{ date: '2026-05-06', qty: 4200 }] },
+      { name: 'step_count', data: [
+        null,
+        { date: '2026-05-06', qty: 4200 },
+        { nothing: 'useful' },
+      ]},
     ]}});
 
     const reg = makeRegistry([
@@ -255,7 +270,7 @@ describe('replayFromArchive', () => {
     ]);
     const r = replay.replayFromArchive(reg, 'steps');
     assert.equal(r.rowsWritten, 1);
-    // pushesScanned counts only successfully-parsed files.
+    assert.equal(reg._snapshot('steps')[0].count, 4200);
     assert.ok(r.pushesScanned >= 1);
   });
 });
