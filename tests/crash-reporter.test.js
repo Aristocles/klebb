@@ -95,9 +95,14 @@ describe('the crash reporter explains why a file died', () => {
   });
 
   test('an aborted child is distinguished from a test failure', () => {
-    // Exit 134 is what a real out-of-memory kill or process.abort() produces.
-    // Calling it a test failure is how an infrastructure problem gets
-    // misattributed to whatever changed last.
+    // An abort is what a real out-of-memory kill produces, and calling it a test
+    // failure is how an infrastructure problem gets misattributed to whatever
+    // changed last.
+    //
+    // How it surfaces is platform-dependent, which is worth pinning rather than
+    // asserting one shape: Windows reports exit code 134 with no signal, Linux
+    // reports exitCode null with signal SIGABRT. Asserting only the Windows
+    // shape passed locally and failed on both CI Node lines.
     const out = runUnderReporter([
       "const { test, describe } = require('node:test');",
       "describe('outer', () => {",
@@ -106,9 +111,13 @@ describe('the crash reporter explains why a file died', () => {
       '});',
     ].join('\n'));
 
-    assert.match(out, /exitCode\s+134 \(0x86\)/);
+    assert.match(out, /exitCode\s+134 \(0x86\)|signal\s+SIGABRT/,
+      'neither an abort exit code nor an abort signal was reported');
     assert.match(out, /diagnosis\s+child aborted/,
       'an abort is being reported as an ordinary failure');
+    // Either way it must NOT be described as an in-process failure, which is the
+    // classification that would send someone looking at their own code.
+    assert.doesNotMatch(out, /diagnosis\s+in-process failure/);
   });
 
   test('a native process kill is named as such, not blamed on the code', () => {
@@ -140,6 +149,38 @@ describe('the crash reporter explains why a file died', () => {
       assert.match(out, /not your change/i);
       assert.match(out, /0xC0000409/, 'the hex code is missing; it is the searchable part');
     })();
+  });
+
+  test('a signalled death is classified the same way on either platform', async () => {
+    // Drives the classifier directly with the shapes each platform produces, so
+    // the Linux path is covered when running on Windows and vice versa. Asserting
+    // only the local shape is exactly how this test first passed here and failed
+    // on both CI Node lines.
+    const mod = require('./helpers/crash-reporter.cjs');
+    const render = async (error) => {
+      let out = '';
+      const events = [
+        { type: 'test:fail', data: { name: 'f.test.js', file: 'f.test.js', details: { error } } },
+        { type: 'test:summary', data: { counts: { tests: 1, passed: 0, failed: 1, skipped: 0, suites: 0 } } },
+      ];
+      for await (const c of mod((async function* () { yield* events; })())) out += c;
+      return out;
+    };
+
+    const linux = await render({ exitCode: null, signal: 'SIGABRT', failureType: 'testCodeFailure' });
+    assert.match(linux, /diagnosis\s+child aborted/,
+      'a SIGABRT death is not classified as an abort');
+    assert.doesNotMatch(linux, /diagnosis\s+in-process failure/);
+
+    const windows = await render({ exitCode: 134, signal: null, failureType: 'testCodeFailure' });
+    assert.match(windows, /diagnosis\s+child aborted/,
+      'exit 134 is not classified as an abort');
+
+    // An external SIGKILL is a different story and should read differently: it
+    // means something outside the test stopped the process.
+    const killed = await render({ exitCode: null, signal: 'SIGKILL', failureType: 'testCodeFailure' });
+    assert.match(killed, /killed by SIGKILL/);
+    assert.match(killed, /outside the test/);
   });
 
   test('the reporter still reports passes, so it is usable for a whole run', () => {
