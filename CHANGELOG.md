@@ -7,6 +7,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-08-10
+
 ### Changed
 
 - **Stale-card nudges are now opt-in per card via `meta.cadence`.** A card is
@@ -39,14 +41,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   breaking it) and rejected with 422 on create/PATCH so the chat agent is told
   rather than silently ignored. `hygiene_scan`'s `growth` and `orphaned-input`
   findings are unaffected.
-
-### Fixed
-
-- **A card whose rows carry no dates is no longer reported as stale.** A
-  writeable list of strings (a reading list, a supplement list) has no per-row
-  date, so the scan fell back to "when did anything last write this card" and
-  reported an age with `Last: unknown` attached, which is not the same claim and
-  could not be acted on.
 
 - **HAE push history moved from a file archive into a deduplicated table.**
   Every push used to be written to its own file under
@@ -96,6 +90,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   accepted so existing invocations don't fail, but does nothing.
 
 ### Fixed
+
+- **A card whose rows carry no dates is no longer reported as stale.** A
+  writeable list of strings (a reading list, a supplement list) has no per-row
+  date, so the scan fell back to "when did anything last write this card" and
+  reported an age with `Last: unknown` attached, which is not the same claim and
+  could not be acted on.
 
 - Shutdown now closes the HAE sample store as well as the card datastore, so
   a `docker stop` checkpoints everything into `klebb.db`. Without it, a
