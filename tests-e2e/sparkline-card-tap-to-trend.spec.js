@@ -7,8 +7,7 @@
 // regression coverage for the sparkline feature (#445 + #448); the
 // behaviour shipped in v3.3.0.
 //
-// Design source: .claude/scratch/release-spikes/SPIKE-3-SPARKLINES.md.
-// Key contracts the storyboard pins down (UI/UX lens only):
+// Key contracts, from the UI/UX lens only:
 //   - The sparkline is OPT-IN and default-off. It renders only when a
 //     manifest sets meta.view.showSparkline: true, so no existing card
 //     changes behaviour and the baseline suite stays untouched.
@@ -17,10 +16,11 @@
 //     aria-label summary for assistive tech.
 //   - It only surfaces on the Today masonry (eh-date-view _dateMode ===
 //     'today'); on a past/future date the card shows no sparkline.
-//   - Tapping the card (the existing ~44px header expand target) reveals
-//     the full trend chart for that card: the lazy ECharts line-chart
-//     expands inline below the headline. The same gesture is the bridge
-//     to the dedicated Trends view, which must plot the identical series.
+//   - Expanding reveals the full trend chart for that card: the lazy
+//     ECharts line-chart opens inline below the headline. Two targets do
+//     it, the chevron beside the sparkline and the card header itself
+//     (#572). That is the bridge to the dedicated Trends view, which must
+//     plot the identical series.
 //   - Visual language tracks the theme via CSS custom properties so the
 //     sparkline flips with dark/light mode and never hardcodes colour.
 
@@ -123,8 +123,8 @@ test.describe('Storyboard: mini sparkline in a card, tap to full trend', () => {
     await cleanup(page.request, sandboxState.baseUrl, 'no-sparkline-weight-e2e');
   });
 
-  // the opt-in card draws a sparkline
-  // on Today; the non-opted card with identical data does not.
+  // The opt-in card draws a sparkline on Today; the non-opted card with
+  // identical data does not.
   test('renders an inline sparkline only when meta.view.showSparkline is set', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('eh-date-view')).toBeVisible({ timeout: 10_000 });
@@ -154,8 +154,8 @@ test.describe('Storyboard: mini sparkline in a card, tap to full trend', () => {
     await expect(plainCard.locator('eh-sparkline')).toHaveCount(0);
   });
 
-  // the sparkline is decorative and
-  // accessible. The numeric headline carries the value to assistive tech;
+  // The sparkline is decorative and accessible: the numeric headline
+  // carries the value to assistive tech;
   // the SVG is aria-hidden but exposes an aria-label trend summary so it
   // is not silent where the headline is templated.
   test('sparkline is decorative: aria-hidden with a trend-summary label', async ({ page }) => {
@@ -178,8 +178,8 @@ test.describe('Storyboard: mini sparkline in a card, tap to full trend', () => {
     expect(label.toLowerCase()).toContain('down');
   });
 
-  // the sparkline lives on Today only.
-  // On a past date the same card is in the tree but shows no sparkline,
+  // The sparkline lives on Today only. On a past date the same card is
+  // in the tree but shows no sparkline,
   // because the trend glyph is a "today, at-a-glance" affordance.
   test('sparkline appears on Today but not on a past-date view', async ({ page }) => {
     await page.goto('/');
@@ -197,11 +197,11 @@ test.describe('Storyboard: mini sparkline in a card, tap to full trend', () => {
     await expect(pastCard.locator('eh-sparkline')).toHaveCount(0);
   });
 
-  // tapping the card expands the full
-  // trend inline. The sparkline itself is non-interactive; the gesture is
-  // the existing ~44px header expand target, which lazy-loads the full
-  // ECharts line-chart below the headline. This is the lower-risk default
-  // over scroll-to-Trends (SPIKE-3 open question 2).
+  // Tapping the card expands the full trend inline. The sparkline itself
+  // is non-interactive; the gesture is the existing ~44px header expand
+  // target, which lazy-loads the full ECharts line-chart below the
+  // headline. Expanding in place was chosen over scrolling the user to
+  // the Trends view: it keeps them where they were.
   test('tapping the card expands the full trend chart inline', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('eh-date-view')).toBeVisible({ timeout: 10_000 });
@@ -299,8 +299,8 @@ test.describe('Storyboard: mini sparkline in a card, tap to full trend', () => {
     await expect(pastCard.locator('button.spark-expand')).toHaveCount(0);
   });
 
-  // the Today sparkline and the
-  // dedicated Trends view plot the same card's series. Tapping is the
+  // The Today sparkline and the dedicated Trends view plot the same
+  // card's series. Tapping is the
   // bridge between the at-a-glance glyph and the full chart; the Trends
   // view must render the same card so the two never diverge.
   test('the same card surfaces its full trend on the Trends view', async ({ page }) => {
@@ -324,8 +324,8 @@ test.describe('Storyboard: sparkline dark-mode and mobile-first execution', () =
     await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
   });
 
-  // the sparkline tracks the theme via
-  // CSS custom properties and never hardcodes colour. Its stroke resolves
+  // The sparkline tracks the theme via CSS custom properties and never
+  // hardcodes colour. Its stroke resolves
   // to the same --accent token the rest of the UI uses, so a dark/light
   // flip needs zero JS in the component.
   test('sparkline stroke resolves to the themed --accent token', async ({ page }) => {
@@ -354,8 +354,8 @@ test.describe('Storyboard: sparkline dark-mode and mobile-first execution', () =
       .not.toBe(lightStroke);
   });
 
-  // on a narrow mobile viewport the
-  // sparkline is width-pinned in hard pixels (never %), so it cannot push
+  // On a narrow mobile viewport the sparkline is width-pinned in hard
+  // pixels (never %), so it cannot push
   // the card past the viewport or break the masonry. It sits in a fixed
   // headline grid track beside the value; the card stays within the
   // iPhone-13-mini width.
@@ -368,7 +368,7 @@ test.describe('Storyboard: sparkline dark-mode and mobile-first execution', () =
     const spark = card.locator('eh-sparkline');
     await expect(spark).toBeVisible({ timeout: 10_000 });
 
-    // Hard pixel width (mobile default is 64px per SPIKE-3); never a
+    // Hard pixel width (eh-sparkline defaults to 64); never a
     // percentage that fights the minmax(0, 1fr) Today grid tracks.
     const box = await spark.boundingBox();
     expect(box).not.toBeNull();
