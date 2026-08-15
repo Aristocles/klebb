@@ -18,10 +18,12 @@
 // live in catalogue.js. This file is the dispatcher + aggregators; it
 // does not know what a "sleep hour" is.
 //
-// Failure policy: a missing metric is not an error; an unknown metric
-// subscription is not an error. Malformed entries are dropped silently
-// per catalogue.row() returning null. The only thing that can fail loudly
-// is a filesystem write.
+// Failure policy: a missing metric is not an error, and at THIS layer an
+// unknown metric subscription only warns (the registry refuses one at
+// create/PATCH and drops it at load, #589, so dispatch should never see
+// one from a validated manifest). Malformed entries are dropped silently
+// per catalogue.row() returning null; an unknown aggregation strategy
+// throws and is contained per subscriber.
 
 const { toDate, numeric } = require('./helpers');
 const catalogue = require('./catalogue');

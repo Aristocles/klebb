@@ -155,4 +155,22 @@ describe('discoveries module', () => {
     const file = path.join(tmp, 'data', 'auto-export', 'discovered.json');
     assert.equal(fs.existsSync(file), false);
   });
+
+  test('a metric both seen and subscribed in the same sync is not created (#589)', () => {
+    // Subscribed wins: the same push that surfaces a metric can also carry
+    // its subscriber, and that must not leave a ghost discovery behind.
+    discoveries.sync({ seen: ['step_count'], subscribed: ['step_count'] });
+    assert.equal(discoveries.load().step_count, undefined);
+    const file = path.join(tmp, 'data', 'auto-export', 'discovered.json');
+    assert.equal(fs.existsSync(file), false);
+  });
+
+  test('state survives a module reload (#589)', () => {
+    discoveries.sync({ seen: ['hrv'], subscribed: [], now: 't1' });
+    discoveries.dismiss('hrv', 't2');
+    reloadModule();
+    const state = discoveries.load();
+    assert.equal(state.hrv.firstSeenAt, 't1');
+    assert.equal(state.hrv.dismissed, true);
+  });
 });

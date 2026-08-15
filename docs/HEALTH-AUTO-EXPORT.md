@@ -101,6 +101,14 @@ twenty-five metrics and the catalogue covers thirteen, so this is the
 normal case rather than an edge one, and it is what makes adding a
 metric later a genuine backfill rather than a fresh start.
 
+A card cannot subscribe to a metric outside the catalogue: creating
+or patching a manifest whose `meta.ingest.metric` is not a catalogue
+key is refused with `422` (`invalid ingest: ...`). A legacy manifest
+file already carrying one still loads, but with the subscription
+dropped, so the card renders and the metric keeps appearing under
+metric discovery (see "Discovering new metrics" below) instead of
+being silently claimed by a card that can never receive it.
+
 Adding a new metric is a one-line entry in
 `health-auto-export/catalogue.js`; open a feature request if you need
 something that's not here. Once it is in the catalogue, creating a
@@ -394,7 +402,7 @@ See `MANIFEST-SCHEMA.md` ("Combination cards") for the CC contract.
 | Payload contains a metric no manifest subscribes to | Archived; reported in `availableUnsubscribed` |
 | All entries for a metric are malformed (no date, non-numeric qty) | Logged; manifest untouched |
 | Mixed: some entries valid, some malformed | Valid rows upserted, invalid ones dropped silently |
-| `meta.ingest.metric` is not in the catalogue | Manifest loads; warning logged per push |
+| `meta.ingest.metric` is not in the catalogue | `422` at create/PATCH; a file on disk loads with the subscription dropped, metric stays discoverable |
 | Webhook body is not valid JSON | `200 + {warning}`, bytes quarantined under `auto-export/unparsed/` |
 
 The no-op-on-empty invariant means a card's data is only written when

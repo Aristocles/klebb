@@ -1225,8 +1225,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     // GET /api/health-auto-export/discoveries — list metrics present in
-    // past HAE pushes that no manifest subscribes to. Shape:
-    //   { undismissed: [{metric, firstSeenAt}], dismissed: [{metric, ...}] }
+    // past HAE pushes that no manifest subscribes to. Shape (see
+    // discoveries.list()):
+    //   { undismissed: { supported: {<category>: [{metric, firstSeenAt}]},
+    //                    unsupported: [{metric, firstSeenAt}] },
+    //     dismissed: [{metric, firstSeenAt, dismissedAt}] }
     if (parts[0] === 'health-auto-export' && parts[1] === 'discoveries'
         && parts.length === 2 && req.method === 'GET') {
       return sendJSON(res, haeDiscoveries.list());
