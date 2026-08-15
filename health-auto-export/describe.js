@@ -30,7 +30,12 @@ function makeProbe() {
     // Numeric generics.
     qty: 1,
 
-    // Sleep-specific fields.
+    // Sleep-specific fields. The *End/inBed* stamps are here because
+    // sleep_analysis reads them for bedTime/wakeTime; omitting one makes the
+    // orphan report flag the field it feeds as never-referenced.
+    sleepEnd:   '2026-01-01 06:12:00 +0000',
+    inBedStart: '2026-01-01 23:40:00 +0000',
+    inBedEnd:   '2026-01-01 06:20:00 +0000',
     totalSleep: 7.5,
     asleep:     7.3,
     inBed:      8.1,

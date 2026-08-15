@@ -52,9 +52,14 @@ function replayFromPayloads(pushes, metric) {
   for (const payload of pushes) {
     const entries = ingest.extractEntries(payload, { ...cat, _metricName: metric });
     if (!entries || entries.length === 0) continue;
+    // row() takes the metric wrapper as its second argument (body_mass reads
+    // `units` from it). The oracle reimplements the pre-#546 CONTROL FLOW, not
+    // an older row() signature, so it has to pass the wrapper as well or it
+    // would diverge on units alone.
+    const wrapper = ingest.extractWrapper(payload, metric);
     const mapped = [];
     for (const raw of entries) {
-      const row = cat.row(raw);
+      const row = cat.row(raw, wrapper);
       if (row && row.date) mapped.push(row);
     }
     if (mapped.length === 0) continue;
