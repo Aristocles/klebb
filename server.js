@@ -629,6 +629,7 @@ const server = http.createServer(async (req, res) => {
             : /^invalid notifications:/.test(msg) ? 422
             : /^invalid schedule\.time_of_day/.test(msg) ? 422
             : /^invalid cadence:/.test(msg) ? 422
+            : /^invalid ingest:/.test(msg) ? 422
             : /^(missing |unsupported \$schema)/.test(msg) ? 400
             : 500;
           return sendJSON(res, { error: msg }, status);
@@ -685,6 +686,7 @@ const server = http.createServer(async (req, res) => {
             : /^invalid notifications:/.test(msg) ? 422
             : /^invalid schedule\.time_of_day/.test(msg) ? 422
             : /^invalid cadence:/.test(msg) ? 422
+            : /^invalid ingest:/.test(msg) ? 422
             : 500;
           return sendJSON(res, { error: msg }, status);
         }
@@ -903,6 +905,7 @@ const server = http.createServer(async (req, res) => {
             : /^invalid notifications:/.test(msg) ? 422
             : /^invalid schedule\.time_of_day/.test(msg) ? 422
             : /^invalid cadence:/.test(msg) ? 422
+            : /^invalid ingest:/.test(msg) ? 422
             : /^(missing |unsupported \$schema|not a template)/.test(msg) ? 400
             : 500;
           return sendJSON(res, { error: msg }, status);

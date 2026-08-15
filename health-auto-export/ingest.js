@@ -223,9 +223,11 @@ function aggregate(rows, strategy) {
       }
 
       default:
-        // Unknown strategy: behave like last-per-date so catalogue authors
-        // get something vaguely sensible while debugging.
-        out.push({ ...list[list.length - 1] });
+        // An unknown strategy is a catalogue typo, and quietly behaving like
+        // last-per-date turned that typo into silently wrong data (#589). A
+        // test pins every catalogue entry to a known strategy, so this is
+        // unreachable from shipped code; throwing is for the day it is not.
+        throw new Error(`unknown aggregation strategy: ${strategy}`);
     }
   }
   return out.sort((a, b) => String(a.date).localeCompare(String(b.date)));
@@ -387,7 +389,21 @@ function dispatch(registry, payload) {
       summary.warnings.push(`[hae] ${sub.id} (${metricKey}): dropped ${dropped} of ${entries.length} entries`);
     }
 
-    const aggregated = aggregate(mapped, cat.aggregate);
+    // Contained per subscriber for the same reason row() is: aggregate()
+    // throws on an unknown strategy, and an uncontained throw here would
+    // starve every LATER subscriber while the push reports success, the
+    // exact shape #553's malformed-entry fix removed.
+    let aggregated;
+    try {
+      aggregated = aggregate(mapped, cat.aggregate);
+    } catch (e) {
+      summary.subscribers.push({
+        id: sub.id, metric: metricKey, rowsWritten: 0,
+        note: `aggregation failed: ${e.message}`,
+      });
+      summary.warnings.push(`[hae] ${sub.id} (${metricKey}): aggregation failed: ${e.message}`);
+      continue;
+    }
 
     const existing = registry.data(sub.id);
     const merged = mergeByDate(existing, aggregated);
