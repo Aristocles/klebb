@@ -369,8 +369,18 @@ Behaviour:
 - Any number of manifests can subscribe to the same metric.
 - Multiple subscribers to the same metric each receive their own copy
   of the rows; they do not share storage.
-- If `metric` is not in the catalogue, the manifest still loads; it
-  simply never receives ingest data. Server logs a warning per push.
+- `metric` must name an entry in the HAE catalogue (the
+  supported-metrics table in `docs/HEALTH-AUTO-EXPORT.md`). Validation
+  follows the same two-stage pattern as `meta.notifications` and
+  `meta.cadence`: an `ingest` that isn't an object, or whose `metric`
+  is missing or not a catalogue key, is **dropped at load** so one typo
+  never costs you the card (it still renders, it just never subscribes,
+  and its metric resumes appearing on the discovery surface), and
+  **rejected with 422** on `POST /api/manifests` and
+  `PATCH /api/manifests/:id` (prefix `invalid ingest: ...`) so the
+  author or the chat agent is told rather than silently ignored.
+- Sources other than `"hae"` are not validated: there is no catalogue
+  to check them against, and the dispatcher matches `"hae"` only.
 - Setting `writeable.fromWebapp: false` is the recommended default for
   ingest-fed cards — otherwise the webapp input form can overwrite
   rows that the next push will then re-overwrite.

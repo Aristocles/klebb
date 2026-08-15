@@ -629,6 +629,7 @@ const server = http.createServer(async (req, res) => {
             : /^invalid notifications:/.test(msg) ? 422
             : /^invalid schedule\.time_of_day/.test(msg) ? 422
             : /^invalid cadence:/.test(msg) ? 422
+            : /^invalid ingest:/.test(msg) ? 422
             : /^(missing |unsupported \$schema)/.test(msg) ? 400
             : 500;
           return sendJSON(res, { error: msg }, status);
@@ -685,6 +686,7 @@ const server = http.createServer(async (req, res) => {
             : /^invalid notifications:/.test(msg) ? 422
             : /^invalid schedule\.time_of_day/.test(msg) ? 422
             : /^invalid cadence:/.test(msg) ? 422
+            : /^invalid ingest:/.test(msg) ? 422
             : 500;
           return sendJSON(res, { error: msg }, status);
         }
@@ -903,6 +905,7 @@ const server = http.createServer(async (req, res) => {
             : /^invalid notifications:/.test(msg) ? 422
             : /^invalid schedule\.time_of_day/.test(msg) ? 422
             : /^invalid cadence:/.test(msg) ? 422
+            : /^invalid ingest:/.test(msg) ? 422
             : /^(missing |unsupported \$schema|not a template)/.test(msg) ? 400
             : 500;
           return sendJSON(res, { error: msg }, status);
@@ -1222,8 +1225,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     // GET /api/health-auto-export/discoveries — list metrics present in
-    // past HAE pushes that no manifest subscribes to. Shape:
-    //   { undismissed: [{metric, firstSeenAt}], dismissed: [{metric, ...}] }
+    // past HAE pushes that no manifest subscribes to. Shape (see
+    // discoveries.list()):
+    //   { undismissed: { supported: {<category>: [{metric, firstSeenAt}]},
+    //                    unsupported: [{metric, firstSeenAt}] },
+    //     dismissed: [{metric, firstSeenAt, dismissedAt}] }
     if (parts[0] === 'health-auto-export' && parts[1] === 'discoveries'
         && parts.length === 2 && req.method === 'GET') {
       return sendJSON(res, haeDiscoveries.list());
