@@ -212,6 +212,34 @@ describe('replay equivalence: samples table vs raw file archive', () => {
     assert.equal(rows.length, 2);
   });
 
+  test('units-bearing wrappers drive conversion per push', () => {
+    // The wrapper varies between pushes for the same metric (lb, lb, kg), so
+    // the conversion must come from each push's own stored metric_meta; a
+    // single per-metric wrapper would misconvert one side or the other.
+    const pushes = [
+      { data: { metrics: [
+        { name: 'body_mass', units: 'lb', data: [{ date: '2026-05-09', qty: 176.4 }] },
+      ]}},
+      { data: { metrics: [
+        { name: 'body_mass', units: 'lb', data: [
+          { date: '2026-05-09', qty: 176.4 },
+          { date: '2026-05-10', qty: 175 },
+        ]},
+      ]}},
+      { data: { metrics: [
+        { name: 'body_mass', units: 'kg', data: [{ date: '2026-05-10', qty: 80.5 }] },
+      ]}},
+    ];
+    const rows = assertEquivalent(pushes, 'body_mass', 'lb units');
+    // Absolute values, not just equivalence: both sides forgetting to convert
+    // would still agree with each other.
+    const byDate = Object.fromEntries(rows.map(r => [r.date, r.kg]));
+    assert.deepEqual(byDate, {
+      '2026-05-09': 80,   // 176.4 lb
+      '2026-05-10': 80.5, // the kg push is the last carrier of the date, beating 79.4
+    });
+  });
+
   test('mean-per-date over many same-day samples', () => {
     const pushes = [
       m('heart_rate_variability', [

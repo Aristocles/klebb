@@ -8,7 +8,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
 
-const { dispatch, findSubscribers } = require('../health-auto-export/ingest.js');
+const { dispatch, findSubscribers, extractWrapper } = require('../health-auto-export/ingest.js');
 
 // Build a minimal registry stub that looks enough like the real one to
 // satisfy dispatch(): list(), data(id), writeData(id, rows).
@@ -391,5 +391,58 @@ describe('dispatch: one bad entry never stalls the rest of the push (#553)', () 
     } finally {
       catalogue.step_count.row = original;
     }
+  });
+});
+
+describe('extractWrapper', () => {
+  test('returns the wrapper minus name and data', () => {
+    const payload = { data: { metrics: [
+      { name: 'body_mass', units: 'lb', data: [] },
+    ]}};
+    assert.deepEqual(extractWrapper(payload, 'body_mass'), { units: 'lb' });
+  });
+
+  test('unrecognised wrapper fields pass through untouched', () => {
+    const payload = { data: { metrics: [
+      { name: 'body_mass', units: 'lb', foo: 1, data: [] },
+    ]}};
+    assert.deepEqual(extractWrapper(payload, 'body_mass'), { units: 'lb', foo: 1 });
+  });
+
+  test('{} for a metric absent from the payload', () => {
+    const payload = { data: { metrics: [
+      { name: 'step_count', units: 'count', data: [] },
+    ]}};
+    assert.deepEqual(extractWrapper(payload, 'body_mass'), {});
+  });
+
+  test('{} when data.metrics is not an array', () => {
+    assert.deepEqual(extractWrapper({ data: { metrics: 'nope' } }, 'body_mass'), {});
+  });
+
+  test('{} for null and garbage payloads', () => {
+    assert.deepEqual(extractWrapper(null, 'body_mass'), {});
+    assert.deepEqual(extractWrapper('garbage', 'body_mass'), {});
+    assert.deepEqual(extractWrapper(42, 'body_mass'), {});
+  });
+});
+
+describe('dispatch: wrapper reaches row() (#587)', () => {
+  test('body_mass in lb is stored converted to kg', () => {
+    // The unit lives on the metric wrapper, not the sample, so this goes red
+    // if dispatch() ever reverts to cat.row(raw) without the wrapper: the
+    // unconverted pipeline stores kg: 176.4.
+    const reg = makeRegistry([
+      { id: 'weight', meta: { id: 'weight',
+          ingest: { source: 'hae', metric: 'body_mass' } } },
+    ]);
+    const payload = { data: { metrics: [
+      { name: 'body_mass', units: 'lb', data: [
+        { date: '2026-05-04 08:00:00 +1000', qty: 176.4 },
+      ]},
+    ]}};
+
+    dispatch(reg, payload);
+    assert.deepEqual(reg._snapshot('weight'), [{ date: '2026-05-04', kg: 80 }]);
   });
 });

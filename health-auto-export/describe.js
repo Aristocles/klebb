@@ -51,6 +51,10 @@ function makeProbe() {
     avgHeartRate:       { qty: 120, units: 'bpm' },
     maxHeartRate:       { qty: 145, units: 'bpm' },
     elevationUp:        { qty: 30,  units: 'm' },
+    // v1 nested fallback shapes; output-neutral because the flat fields
+    // above win the ?? fallbacks, but every entry-read key must exist here.
+    heartRate:          { avg: { qty: 120 }, max: { qty: 145 } },
+    elevation:          { ascent: 30, units: 'm' },
 
     // Attribution + labels.
     source: 'probe',
@@ -136,4 +140,4 @@ function describeCatalogue() {
   return lines.join('\n');
 }
 
-module.exports = { describeCatalogue, describeMetric };
+module.exports = { describeCatalogue, describeMetric, makeProbe };
