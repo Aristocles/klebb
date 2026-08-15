@@ -9,6 +9,30 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Sum-per-date metrics no longer round each sample before the total.**
+  `apple_exercise_time` and `mindful_minutes` rounded every payload entry to
+  whole minutes inside the catalogue, and the `sum-per-date` aggregate then
+  rounds the total, so every sub-minute granule was quantised before it was
+  added. Measured: a day of 47 samples of 0.4 min (18.8 min in truth) stored 0
+  instead of 19, and 47 samples of 0.75 min (35.25 in truth) stored 47 instead
+  of 35. The catalogue now returns unrounded minutes and only the total is
+  rounded. (Fixes #587)
+
+- **`body_mass` now reads the payload's declared units instead of assuming
+  kilograms.** HAE puts `units` on the metric wrapper, not on each sample, and
+  the catalogue never looked at it, so a 176.4 lb weight was stored as
+  `kg: 176.4`. `lb`/`lbs` and `st`/`stone` now convert on ingest (both 176.4 lb
+  and 12.6 st store as 80.0 kg), and the conversion applies on live ingest and
+  on replay/backfill alike, so the two paths agree. (Fixes #587)
+
+- **Sleep rows now carry `bedTime` and `wakeTime`.** HAE sends the night's
+  timestamps (`sleepStart`/`sleepEnd`, `inBedStart`/`inBedEnd`) and every one
+  of them was discarded: only the calendar date and the durations survived.
+  The new fields are the phone's own local wall-clock `HH:MM`, taken verbatim
+  from the stamp text rather than reinterpreted through the server's timezone.
+  Additive: existing rows are untouched, and either key is omitted when its
+  source stamps are absent. (Fixes #587)
+
 - **Opening the datastore while another process is writing now waits instead of
   failing.** SQLite's default busy timeout is 0, so a second opener that found
   the write lock held threw `SQLITE_BUSY` immediately, and the statement that

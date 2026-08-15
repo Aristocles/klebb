@@ -30,7 +30,12 @@ function makeProbe() {
     // Numeric generics.
     qty: 1,
 
-    // Sleep-specific fields.
+    // Sleep-specific fields. The *End/inBed* stamps are here because
+    // sleep_analysis reads them for bedTime/wakeTime; omitting one makes the
+    // orphan report flag the field it feeds as never-referenced.
+    sleepEnd:   '2026-01-01 06:12:00 +0000',
+    inBedStart: '2026-01-01 23:40:00 +0000',
+    inBedEnd:   '2026-01-01 06:20:00 +0000',
     totalSleep: 7.5,
     asleep:     7.3,
     inBed:      8.1,
@@ -46,6 +51,10 @@ function makeProbe() {
     avgHeartRate:       { qty: 120, units: 'bpm' },
     maxHeartRate:       { qty: 145, units: 'bpm' },
     elevationUp:        { qty: 30,  units: 'm' },
+    // v1 nested fallback shapes; output-neutral because the flat fields
+    // above win the ?? fallbacks, but every entry-read key must exist here.
+    heartRate:          { avg: { qty: 120 }, max: { qty: 145 } },
+    elevation:          { ascent: 30, units: 'm' },
 
     // Attribution + labels.
     source: 'probe',
@@ -131,4 +140,4 @@ function describeCatalogue() {
   return lines.join('\n');
 }
 
-module.exports = { describeCatalogue, describeMetric };
+module.exports = { describeCatalogue, describeMetric, makeProbe };

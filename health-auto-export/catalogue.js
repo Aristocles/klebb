@@ -31,7 +31,7 @@
 
 const {
   toDate, numeric, round,
-  readQty, toKcal, toKm, toM, passQty,
+  readQty, toKcal, toKm, toM, toKg, passQty,
   extractHHMM,
 } = require('./helpers');
 
@@ -55,6 +55,14 @@ module.exports = {
         const v = numeric(entry[key]);
         if (v !== null) row[key] = round(v, 3);
       }
+      // Bedtime and wake as local wall-clock HH:MM. Every timestamp HAE sends
+      // for a night was previously thrown away: toDate() keeps only the leading
+      // calendar date, so "asleep at 23:40, awake at 06:12" survived as a date
+      // and a duration. Same treatment workouts already give `start`.
+      const bedTime = extractHHMM(entry.sleepStart || entry.inBedStart);
+      const wakeTime = extractHHMM(entry.sleepEnd || entry.inBedEnd);
+      if (bedTime) row.bedTime = bedTime;
+      if (wakeTime) row.wakeTime = wakeTime;
       if (entry.source) row.source = entry.source;
       return row;
     },
@@ -127,7 +135,13 @@ module.exports = {
       const date = toDate(entry.date);
       const minutes = numeric(entry.qty);
       if (!date || minutes === null) return null;
-      return { date, minutes: round(minutes, 0) };
+      // Deliberately NOT rounded here. sum-per-date rounds the total (see
+      // aggregate() in ingest.js), so rounding each sample first quantises every
+      // one toward zero before they are added. Apple Health emits sub-minute
+      // granules, so a real day of 47 samples at 0.4 min stored as 0 instead of
+      // 19, and 47 at 0.75 stored as 47 instead of 35. step_count already relies
+      // on the aggregate for its integerisation, which is why it never had this.
+      return { date, minutes };
     },
   },
 
@@ -140,7 +154,10 @@ module.exports = {
       const date = toDate(entry.date);
       const minutes = numeric(entry.qty);
       if (!date || minutes === null) return null;
-      return { date, minutes: round(minutes, 0) };
+      // Unrounded for the same reason as apple_exercise_time: the sum is what
+      // gets rounded, and short sessions are exactly where pre-rounding loses
+      // the most. A few 40-second breathing sessions summed to zero.
+      return { date, minutes };
     },
   },
 
@@ -149,11 +166,17 @@ module.exports = {
   body_mass: {
     category: 'body',
     aggregate: 'last-per-date',
-    row(entry) {
+    // The one catalogue entry that reads the metric wrapper. Weight is the only
+    // dimensioned metric here with no usable magnitude heuristic: 176 lb and
+    // 176 kg are both plausible human weights, so a US user's 176.4 lb was
+    // stored as `kg: 176.4` and the card read 176 kg. Normalise instead of
+    // renaming the field, because `kg` is referenced by the shipped template,
+    // display templates, trends.field, describe.js and every live card.
+    row(entry, wrapper = {}) {
       const date = toDate(entry.date);
-      const kg = numeric(entry.qty);
-      if (!date || kg === null) return null;
-      return { date, kg: round(kg, 1) };
+      const raw = numeric(entry.qty);
+      if (!date || raw === null) return null;
+      return { date, kg: round(toKg(raw, wrapper.units || null), 1) };
     },
   },
 

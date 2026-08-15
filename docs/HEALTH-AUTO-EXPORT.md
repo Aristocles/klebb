@@ -72,7 +72,7 @@ phone does not retry-loop, and `last-push.json` records the warning.
 
 | Metric key (use in `meta.ingest.metric`) | Row shape | Aggregation |
 |---|---|---|
-| `sleep_analysis` | `{ date, hours, asleep?, inBed?, deep?, rem?, core?, awake?, source? }` | last per date |
+| `sleep_analysis` | `{ date, hours, asleep?, inBed?, deep?, rem?, core?, awake?, bedTime?, wakeTime?, source? }` | last per date |
 | `step_count` | `{ date, count }` | sum per date |
 | `apple_exercise_time` | `{ date, minutes }` | sum per date |
 | `workouts` (pseudo-metric, reads from `data.workouts[]`) | `{ date, trained, type?, durationMin?, distanceKm?, calories?, avgHr?, maxHr?, elevationM?, startTime?, sessionCount }` | merge per date |
@@ -85,6 +85,14 @@ phone does not retry-loop, and `last-push.json` records the warning.
 | `body_fat_percentage` | `{ date, pct }` | last per date |
 | `blood_pressure_systolic` | `{ date, systolic }` | last per date |
 | `blood_pressure_diastolic` | `{ date, diastolic }` | last per date |
+
+`bedTime` and `wakeTime` are the night's local wall-clock `HH:MM`
+exactly as the phone sent them, never reinterpreted through the
+server's timezone, and `bedTime` can belong to the previous calendar
+day: a 22:36 bedtime sits on the row dated the following morning.
+`body_mass` reads the payload's declared units and normalises
+`lb`/`lbs` and `st`/`stone` to kilograms on ingest, so the row is
+always `kg` regardless of the phone's unit preference.
 
 Metrics not in the catalogue are **stored but not ingested**: their
 samples go into the datastore like any other, they simply have no

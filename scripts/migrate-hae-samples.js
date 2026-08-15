@@ -91,10 +91,15 @@ function replayFromFiles(rawDir, metric, catalogue, ingest) {
     }
     const entries = ingest.extractEntries(payload, { ...cat, _metricName: metric });
     if (!entries || entries.length === 0) continue;
+    // The metric wrapper carries `units`, which body_mass reads. Without it this
+    // file-side replay would be unit-blind while the table-side replay is not,
+    // and the equivalence check below would report a mismatch that is really a
+    // difference between the two harnesses.
+    const wrapper = ingest.extractWrapper(payload, metric);
     const mapped = [];
     for (const raw of entries) {
       let row = null;
-      try { row = cat.row(raw); } catch { continue; }
+      try { row = cat.row(raw, wrapper); } catch { continue; }
       if (row && row.date) mapped.push(row);
     }
     if (mapped.length === 0) continue;
