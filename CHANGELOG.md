@@ -9,6 +9,26 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Subscribing a card to a metric the HAE catalogue does not know is now an
+  error instead of a silence.** `meta.ingest` was never validated: a misspelt
+  metric passed create, the card counted as a subscriber that could never
+  receive a row, every push logged a warning against it, and, because the
+  metric appeared to have a subscriber, it graduated off the discovery
+  surface, so nothing anywhere said the card was dead. Create and PATCH now
+  refuse an unknown metric with `422` (`invalid ingest: ...`), and a manifest
+  file already on disk loads with the subscription dropped, so the card still
+  renders and the metric resumes appearing as a discovery. (Fixes #589)
+
+- **An unknown aggregation strategy now throws instead of silently behaving
+  like last-per-date.** A catalogue entry naming a strategy that `aggregate()`
+  did not recognise fell through to keep-the-last-row-per-date, so a typo there
+  turned a summed metric into quietly wrong data (the day's final sample
+  stored as the day's total). The throw is contained per subscriber,
+  mirroring the malformed-entry handling: the push notes `aggregation failed`
+  against that subscriber and later subscribers still ingest. A test pins
+  every catalogue entry to a known strategy, so shipped code cannot reach the
+  throw. (Fixes #589)
+
 - **Sum-per-date metrics no longer round each sample before the total.**
   `apple_exercise_time` and `mindful_minutes` rounded every payload entry to
   whole minutes inside the catalogue, and the `sum-per-date` aggregate then

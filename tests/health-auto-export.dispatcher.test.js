@@ -8,7 +8,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
 
-const { dispatch, findSubscribers, extractWrapper } = require('../health-auto-export/ingest.js');
+const { dispatch, findSubscribers, extractWrapper, aggregate } = require('../health-auto-export/ingest.js');
 
 // Build a minimal registry stub that looks enough like the real one to
 // satisfy dispatch(): list(), data(id), writeData(id, rows).
@@ -444,5 +444,64 @@ describe('dispatch: wrapper reaches row() (#587)', () => {
 
     dispatch(reg, payload);
     assert.deepEqual(reg._snapshot('weight'), [{ date: '2026-05-04', kg: 80 }]);
+  });
+});
+
+describe('aggregate: unknown strategy is loud, and dispatch contains it (#589)', () => {
+  test('an unknown strategy throws and the message names it', () => {
+    // Quietly behaving like last-per-date turned a catalogue typo into
+    // silently wrong data.
+    assert.throws(
+      () => aggregate([{ date: '2026-05-04', v: 1 }], 'sum-per-dae'),
+      /unknown aggregation strategy: sum-per-dae/);
+  });
+
+  test('every catalogue entry uses a registered strategy', () => {
+    // Pins the whole catalogue so the throw above stays unreachable from
+    // shipped code: a new or edited entry with a typoed strategy fails here,
+    // not in a customer's push.
+    const catalogue = require('../health-auto-export/catalogue.js');
+    let checked = 0;
+    for (const [key, entry] of Object.entries(catalogue)) {
+      assert.doesNotThrow(
+        () => aggregate([{ date: '2026-05-04', qty: 1, totalSleep: 7 }], entry.aggregate),
+        `catalogue entry "${key}" uses an unregistered aggregation strategy`);
+      checked++;
+    }
+    assert.ok(checked > 10,
+      `only ${checked} catalogue entries checked; the pinning loop looks vacuous`);
+  });
+
+  test('an aggregate() throw is contained, not fatal', () => {
+    // Mirrors the row()-throw containment above: an uncontained throw here
+    // would starve every LATER subscriber while the push reports success.
+    const catalogue = require('../health-auto-export/catalogue.js');
+    const original = catalogue.step_count.aggregate;
+    catalogue.step_count.aggregate = 'not-a-strategy';
+    try {
+      const reg = makeRegistry([
+        { id: 'bad-agg-steps', meta: { id: 'bad-agg-steps',
+            ingest: { source: 'hae', metric: 'step_count' } } },
+        { id: 'after-rhr', meta: { id: 'after-rhr',
+            ingest: { source: 'hae', metric: 'resting_heart_rate' } } },
+      ]);
+      const payload = { data: { metrics: [
+        { name: 'step_count', data: [{ date: '2026-05-04 08:00:00 +1000', qty: 1200 }] },
+        { name: 'resting_heart_rate', data: [{ date: '2026-05-04 08:00:00 +1000', qty: 58 }] },
+      ]}};
+      // Must not throw.
+      const summary = dispatch(reg, payload);
+
+      assert.ok(Array.isArray(reg._snapshot('after-rhr')) && reg._snapshot('after-rhr').length === 1,
+        'a failed aggregation starved the next subscriber');
+
+      const steps = summary.subscribers.find(x => x.id === 'bad-agg-steps');
+      assert.equal(steps.rowsWritten, 0);
+      assert.match(steps.note, /aggregation failed/);
+      assert.ok(summary.warnings.some(w => /aggregation failed: unknown aggregation strategy/.test(w)),
+        `no warning names the failed aggregation: ${JSON.stringify(summary.warnings)}`);
+    } finally {
+      catalogue.step_count.aggregate = original;
+    }
   });
 });

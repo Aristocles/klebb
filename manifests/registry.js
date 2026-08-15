@@ -94,6 +94,42 @@ function validateCadence(parsed, { strict = false } = {}) {
   }
 }
 
+// Validate / clean meta.ingest, the HAE subscription (#589). Same two-stage
+// pattern as the others: lenient at load (drop the field so a legacy file
+// cannot brick a boot; the card still renders, and since it no longer counts
+// as a subscriber its metric resumes appearing on the hidden-metrics
+// discovery surface), strict at create/PATCH (throw with the prefix the
+// handlers map to 422, so the author or the chat agent is told at the moment
+// they can fix it). An unknown metric used to validate fine, store nothing
+// forever, AND graduate the metric off discovery: quiet in every direction.
+function validateIngest(parsed, { strict = false } = {}) {
+  const meta = parsed?.meta;
+  if (!meta || meta.ingest === undefined) return;
+  const ing = meta.ingest;
+  const bail = (msg) => {
+    if (strict) throw new Error(`invalid ingest: ${msg}`);
+    delete meta.ingest;
+  };
+  if (!ing || typeof ing !== 'object' || Array.isArray(ing)) {
+    return bail('must be an object, e.g. {"source": "hae", "metric": "step_count"}');
+  }
+  // Only the HAE source has a server-owned catalogue to validate against;
+  // an unrecognised source is inert (findSubscribers matches "hae" only).
+  if (ing.source !== 'hae') return;
+  if (typeof ing.metric !== 'string' || !ing.metric) {
+    return bail('metric must name an HAE catalogue entry');
+  }
+  let catalogue;
+  try {
+    catalogue = require('../health-auto-export/catalogue');
+  } catch {
+    return; // fail open: an unloadable catalogue must not block every create
+  }
+  if (!Object.prototype.hasOwnProperty.call(catalogue, ing.metric)) {
+    return bail(`unknown metric "${ing.metric}"; not in the HAE catalogue (see docs/HEALTH-AUTO-EXPORT.md for the supported list)`);
+  }
+}
+
 const SUPPORTED_SCHEMAS = ['klebb.datafile.v1'];
 const RESERVED_DIR_PREFIX = '_';
 
@@ -247,6 +283,9 @@ function validateManifestShape(parsed, opts = {}) {
 
   // data.items[].schedule.time_of_day: same two-stage pattern.
   validateScheduleTimeOfDay(parsed, { strict: strictNotifications });
+
+  // meta.ingest (HAE subscription): same two-stage pattern.
+  validateIngest(parsed, { strict: strictNotifications });
 
   return parsed;
 }
