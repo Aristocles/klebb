@@ -254,6 +254,31 @@ function extractEntries(payload, catalogueEntry) {
   return null;
 }
 
+// The metric wrapper's own fields, minus `name` and `data`.
+//
+// `data.metrics[]` entries look like { name, units, data: [...] }, and `units`
+// lives on the wrapper rather than on each sample. extractEntries() returns
+// `m.data` alone, so a row() that needs the unit cannot see it. This is the
+// missing channel: body_mass has to know whether a weight arrived in lb.
+//
+// Kept separate from extractEntries() rather than changing its return shape,
+// because that function is exported and is also what the migration script and
+// the replay-equivalence oracle call.
+function extractWrapper(payload, metricName) {
+  const data = payload?.data || payload || {};
+  if (!Array.isArray(data.metrics)) return {};
+  for (const m of data.metrics) {
+    if (!m || typeof m !== 'object' || m.name !== metricName) continue;
+    const out = {};
+    for (const k of Object.keys(m)) {
+      if (k === 'name' || k === 'data') continue;
+      out[k] = m[k];
+    }
+    return out;
+  }
+  return {};
+}
+
 // Enumerate every metric name actually present in the payload. Used for the
 // "available but unsubscribed" diagnostic. For `workouts[]` we report the
 // pseudo-name `workouts` so the output space matches catalogue keys.
@@ -308,6 +333,7 @@ function dispatch(registry, payload) {
     // Attach metricKey to the catalogue entry for extractEntries() without
     // mutating the exported catalogue object (shallow copy is fine).
     const entries = extractEntries(payload, { ...cat, _metricName: metricKey });
+    const wrapper = extractWrapper(payload, metricKey);
 
     if (entries === null) {
       summary.subscribers.push({
@@ -336,7 +362,7 @@ function dispatch(registry, payload) {
       // while the push still looked successful.
       let row = null;
       try {
-        row = cat.row(raw);
+        row = cat.row(raw, wrapper);
       } catch (e) {
         dropped++;
         continue;
@@ -399,6 +425,7 @@ module.exports = {
   mergeByDate,
   aggregate,
   extractEntries,
+  extractWrapper,
   metricsPresent,
   catalogue,
 };

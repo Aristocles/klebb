@@ -217,6 +217,27 @@ describe('replayFromArchive', () => {
     assert.equal(rows[0].count, 4200);
   });
 
+  test('body_mass replay converts lb via the stored metric wrapper', () => {
+    // Without groupsByPush carrying the wrapper, live ingest converts lb to kg
+    // while a backfill replay silently does not, and the two disagree for the
+    // same date. This is the only test that fails in that state.
+    writeRawPayload(Date.parse('2026-05-06T00:00:00Z'), { data: { metrics: [
+      { name: 'body_mass', units: 'lb', data: [{ date: '2026-05-06', qty: 176.4 }] },
+    ]}});
+    const reg = makeRegistry([
+      { id: 'weight',
+        meta: { id: 'weight', ingest: { source: 'hae', metric: 'body_mass' } },
+        data: [{ date: '2025-01-01', kg: 99 }] },
+    ]);
+    const r = replay.replayFromArchive(reg, 'weight', { force: true });
+    assert.equal(r.skipped, false);
+    assert.equal(r.rowsWritten, 1);
+    const rows = reg._snapshot('weight');
+    assert.equal(rows.length, 1);
+    // An unconverted replay stores 176.4.
+    assert.deepStrictEqual(rows[0], { date: '2026-05-06', kg: 80 });
+  });
+
   test('not HAE-backed: skipped with no writes', () => {
     writeRawPayload(Date.parse('2026-05-06T00:00:00Z'), { data: { metrics: [
       { name: 'step_count', data: [{ date: '2026-05-06', qty: 4200 }] },

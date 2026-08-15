@@ -6,7 +6,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
 
-const { describeCatalogue, describeMetric } = require('../health-auto-export/describe');
+const { describeCatalogue, describeMetric, makeProbe } = require('../health-auto-export/describe');
 const catalogue = require('../health-auto-export/catalogue');
 
 describe('describeCatalogue', () => {
@@ -106,5 +106,52 @@ describe('describeMetric', () => {
     assert.ok(match, 'should match row = { ... }');
     const fields = match[1].split(',').map(s => s.trim());
     assert.equal(fields[0], 'date');
+  });
+
+  test('sleep_analysis advertises bedTime in its row shape (#587)', () => {
+    const line = describeMetric('sleep_analysis', catalogue.sleep_analysis);
+    assert.match(line, /bedTime/);
+  });
+
+  test('sleep_analysis advertises wakeTime in its row shape (#587)', () => {
+    const line = describeMetric('sleep_analysis', catalogue.sleep_analysis);
+    assert.match(line, /wakeTime/);
+  });
+});
+
+describe('probe coverage of catalogue entry reads (#587)', () => {
+  // The probe is hand-maintained and drifts: it had sleepStart but not
+  // sleepEnd, so the sleep fix nearly shipped with wakeTime invisible to
+  // field discovery. Derive the required keys from row() source instead
+  // of trusting the list.
+  function entryFieldReaders() {
+    const readers = new Map();
+    for (const [key, entry] of Object.entries(catalogue)) {
+      for (const m of entry.row.toString().matchAll(/entry\.(\w+)/g)) {
+        if (!readers.has(m[1])) readers.set(m[1], new Set());
+        readers.get(m[1]).add(key);
+      }
+    }
+    return readers;
+  }
+
+  test('the derived field set is non-vacuous', () => {
+    // If a refactor stops row.toString() matching the regex, fail here
+    // rather than quietly asserting nothing below.
+    const readers = entryFieldReaders();
+    assert.ok(readers.size >= 15,
+      `derived only ${readers.size} entry fields; the source scan is broken`);
+    for (const field of ['sleepEnd', 'inBedEnd', 'heartRate']) {
+      assert.ok(readers.has(field),
+        `derived set missing ${field}; the source scan is broken`);
+    }
+  });
+
+  test('makeProbe() exposes every field any row() reads', () => {
+    const probe = makeProbe();
+    for (const [field, metrics] of entryFieldReaders()) {
+      assert.ok(field in probe,
+        `probe missing '${field}', read by: ${[...metrics].join(', ')}`);
+    }
   });
 });
