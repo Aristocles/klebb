@@ -50,6 +50,18 @@ const KJ_PER_KCAL = 4.184;
 const KM_PER_MI = 1.609344;
 const M_PER_FT = 0.3048;
 
+// Mass is the one metric where a magnitude guess is impossible: 176 lb and
+// 176 kg are both plausible human weights in the same numeric band, and stone
+// overlaps a real kg value too. So this has to read the declared unit; there is
+// no fallback heuristic to lean on.
+const KG_PER_LB = 0.45359237;
+const KG_PER_ST = 6.35029318;
+const toKg = (q, u) => {
+  if (u === 'lb' || u === 'lbs') return q * KG_PER_LB;
+  if (u === 'st' || u === 'stone') return q * KG_PER_ST;
+  return q;
+};
+
 const toKcal = (q, u) => (u === 'kJ' ? q / KJ_PER_KCAL : q);
 const toKm   = (q, u) => (u === 'mi' ? q * KM_PER_MI : q);
 const toM    = (q, u) => (u === 'ft' ? q * M_PER_FT : q);
@@ -67,6 +79,6 @@ function extractHHMM(stamp) {
 
 module.exports = {
   toDate, numeric, round,
-  readQty, toKcal, toKm, toM, passQty,
+  readQty, toKcal, toKm, toM, toKg, passQty,
   extractHHMM,
 };

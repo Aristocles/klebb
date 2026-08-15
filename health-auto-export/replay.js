@@ -47,19 +47,32 @@ const { aggregate } = require('./ingest');
 // `push_ord` preserves within-push order, which decides the stored value for
 // every `last-per-date` metric. `dup_count` restores a sample the payload
 // carried more than once, which a sum-per-date metric must count each time.
+// Each group is { samples, wrapper }: the wrapper carries the metric-level
+// fields (`units`), which body_mass needs to know whether a weight arrived in
+// lb. It is stored per row as metric_meta and already SELECTed, so this costs no
+// schema or query change. Forgetting it here is the subtle half of the units
+// fix: live ingest would convert correctly while a backfilled card silently did
+// not, and the two would disagree for the same night.
 function groupsByPush(metric, opts = {}) {
   const rows = samples.forMetric(metric, opts);
   const groups = new Map();
   for (const row of rows) {
-    const list = groups.get(row.last_push) || [];
+    let group = groups.get(row.last_push);
+    if (!group) {
+      let wrapper = {};
+      if (row.metric_meta) {
+        try { wrapper = JSON.parse(row.metric_meta) || {}; } catch { wrapper = {}; }
+      }
+      group = { samples: [], wrapper };
+      groups.set(row.last_push, group);
+    }
     const sample = JSON.parse(row.doc);
     const copies = Math.max(1, Number(row.dup_count) || 1);
-    for (let i = 0; i < copies; i++) list.push(sample);
-    groups.set(row.last_push, list);
+    for (let i = 0; i < copies; i++) group.samples.push(sample);
   }
   return [...groups.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([, list]) => list);
+    .map(([, group]) => group);
 }
 
 // Run the catalogue pipeline for one metric over the stored samples and return
@@ -98,13 +111,13 @@ function replayMetric(metric, opts = {}) {
   for (const group of groupsByPush(metric, opts)) {
     pushesScanned += 1;
     const mapped = [];
-    for (const raw of group) {
+    for (const raw of group.samples) {
       // Per-sample try/catch for the same reason dispatch() has one: every
       // catalogue row() dereferences its entry immediately, so one wrongly
       // shaped sample would abort the whole replay and leave the card empty.
       let row = null;
       try {
-        row = cat.row(raw);
+        row = cat.row(raw, group.wrapper);
       } catch {
         continue;
       }
