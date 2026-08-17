@@ -1724,6 +1724,9 @@ const server = http.createServer(async (req, res) => {
                   .map(e => ({ label: e.label, prompt: e.prompt }));
                 if (out.embellishments.length === 0) delete out.embellishments;
               }
+              // A spoken reply keeps its play affordance across reloads
+              // (#606); the audio itself re-synthesises on demand.
+              if (m.hasVoice === true) out.hasVoice = true;
               return out;
             })
             .slice(-200);

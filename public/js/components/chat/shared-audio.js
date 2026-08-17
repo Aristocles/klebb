@@ -16,7 +16,10 @@ export function getSharedAudio() {
   if (_sharedAudio) return _sharedAudio;
   const el = document.createElement('audio');
   el.preload = 'auto';
-  el.controls = true;
+  // No native controls: the element is a hidden playback engine and never
+  // leaves its off-screen parking spot. Rendering it INTO a bubble next to
+  // the custom play button is what produced two play controls (#599).
+  el.controls = false;
   el.playsInline = true;
   el.setAttribute('playsinline', 'playsinline');
   el.setAttribute('webkit-playsinline', 'webkit-playsinline');
@@ -45,7 +48,8 @@ export function primeSharedAudio() {
   } catch {}
 }
 
-// Pause and park the element back off-screen in <body>.
+// Pause playback. The element never leaves its parking spot any more, but
+// re-park defensively in case something moved it.
 export function stopSharedAudio() {
   const el = _sharedAudio;
   if (!el) return;

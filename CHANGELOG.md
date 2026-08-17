@@ -18,9 +18,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `capped: true` for the client. The per-step timeout also stops
   claiming the request "doesn't fit any of the tools" when the truth
   was a slow step. (#600)
-
-### Fixed
-
+- **Voice replies show one play control, and it actually toggles.** The
+  shared audio element rendered its native controls bar inside the bubble
+  next to the custom play button: two play arrows for one clip, and the
+  custom glyph never changed while playing. The element is now a hidden
+  playback engine; each voice bubble gets a single play/pause control
+  whose glyph tracks state, a seekable progress strip while playing, and
+  the playback-speed cycler relocated from the header. (#599, #606)
 - **The chat panel is now a true full-screen sheet on phones.** The old
   panel sized itself with `100vh` (the large viewport), pushing its
   header up under the iPhone status bar where taps belong to the OS, and
@@ -35,6 +39,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **A speak-replies toggle decides reply modality.** A speaker button
+  beside the mic: on means every reply (typed or spoken) comes back
+  voice-shaped and autoplays, off means text only. Off by default; the
+  first mic use flips it on once (a voice-first user clearly wants
+  speak-back), after which it is manual and persists per device. Spoken
+  replies also keep their play affordance across reloads (`hasVoice`
+  rides the history), re-synthesising audio on demand. The old one-shot
+  voice arming for pasted starter prompts is superseded by the toggle.
+  (#606)
 - **Chat turns survive the client.** A conversation turn now runs as a
   server-side job: a phone that backgrounds mid-turn (iOS aborts the
   fetch) no longer kills the reply, which is persisted to the
