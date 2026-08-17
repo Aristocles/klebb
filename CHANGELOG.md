@@ -7,6 +7,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Multi-step chat requests no longer die at a hardcoded 5-iteration
+  cap.** The agent loop's round-trip cap is now `CHAT_MAX_TURNS`
+  (default 12), and a new total-turn deadline (`CHAT_TURN_DEADLINE_MS`,
+  default 240s) stops a raised cap stacking per-step timeouts into a
+  multi-minute silent spinner. Capped turns keep any progress text the
+  model produced, explain how to resume ("keep going"), and carry
+  `capped: true` for the client. The per-step timeout also stops
+  claiming the request "doesn't fit any of the tools" when the truth
+  was a slow step. (#600)
+
 ### Added
 
 - **Every portable export now carries a provenance manifest.**

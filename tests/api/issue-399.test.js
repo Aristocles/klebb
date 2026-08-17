@@ -89,10 +89,18 @@ describe('#399 chat: iter-timeout returns refusal in <10s, not 504', () => {
     const elapsed = Date.now() - t0;
     assert.equal(res.status, 200, 'iter timeout must surface as 200 with a refusal, not 504');
     assert.ok(res.json.reply, 'response must carry a reply field');
+    // #600 re-worded this path: a timeout now names its real cause instead
+    // of borrowing the no-tool-fits refusal (which taught users a capability
+    // was missing). The fail-fast intent of #399 is unchanged.
     assert.match(
       res.json.reply,
-      /can't do that in one step/i,
-      'reply should be the standard refusal copy'
+      /too long/i,
+      'reply should name the timeout'
+    );
+    assert.doesNotMatch(
+      res.json.reply,
+      /doesn't fit any of the tools/i,
+      'a timeout must not be misdescribed as a capability gap (#600)'
     );
     assert.ok(elapsed < 10000, `must return in <10s; got ${elapsed}ms`);
   });
