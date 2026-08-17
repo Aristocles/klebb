@@ -21,6 +21,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Chat conversations are now first-class.** A `conversations` table in
+  the per-instance database (own handle, WAL-checkpointed on shutdown)
+  stores named transcripts behind `/api/conversations` CRUD: list by
+  recency, create, fetch, rename, replace messages, delete. Hard caps: 100
+  conversations with the least-recently-active pruned, 200 messages each,
+  512KB per write. Messages keep the legacy history sanitisation rules
+  plus a `hasVoice` flag so spoken replies keep their player across
+  reloads. The legacy `/api/chat/history` endpoint is unchanged until the
+  client cutover. (#603)
 - **Chat turns can stream.** `POST /api/chat` with `stream: true` answers
   with server-sent events: `status` (loop phase and live tool activity),
   `token` (assistant text fragments), `reset` (retract provisional text

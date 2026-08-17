@@ -29,6 +29,17 @@ const haeDiscoveries = require('./health-auto-export/discoveries');
 const haeTokenStore = require('./health-auto-export/token-store');
 const haeSamples = require('./health-auto-export/samples');
 const haeSamplesInbox = require('./health-auto-export/samples-inbox');
+const conversationsLib = require('./lib/conversations');
+
+// Opened on first use: an instance whose user never opens the chat pays
+// nothing. Holds its own handle on the shared database file (the samples
+// store set the precedent), so shutdown must close it for the WAL
+// checkpoint.
+let _conversationsStore = null;
+function conversationsStore() {
+  if (!_conversationsStore) _conversationsStore = conversationsLib.open();
+  return _conversationsStore;
+}
 const haeQuarantine = require('./health-auto-export/quarantine');
 const { describeCatalogue: describeHaeCatalogue } = require('./health-auto-export/describe');
 const userTz = require('./lib/user-tz');
@@ -1470,6 +1481,89 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // === Conversations (#603) ===
+    // The datastore-backed successor to /api/chat/history: many named
+    // conversations instead of one file, same single-user model. The legacy
+    // endpoint below keeps working until the client cutover, then retires.
+    if (parts[0] === 'conversations' && parts.length === 1 && req.method === 'GET') {
+      return sendJSON(res, { conversations: conversationsStore().list() });
+    }
+    if (parts[0] === 'conversations' && parts.length === 1 && req.method === 'POST') {
+      let body = '';
+      req.setEncoding('utf8');
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        let title = null;
+        let messages = [];
+        if (body) {
+          let parsed;
+          try { parsed = JSON.parse(body); }
+          catch { return sendJSON(res, { error: 'Invalid JSON' }, 400); }
+          if (typeof parsed?.title === 'string') title = parsed.title.trim().slice(0, 120) || null;
+          if (Array.isArray(parsed?.messages)) messages = parsed.messages;
+        }
+        sendJSON(res, { conversation: conversationsStore().create({ title, messages }) }, 201);
+      });
+      return;
+    }
+    if (parts[0] === 'conversations' && parts.length === 2 && req.method === 'GET') {
+      const conversation = conversationsStore().get(parts[1]);
+      if (!conversation) return send404(res, 'Unknown conversation');
+      return sendJSON(res, { conversation });
+    }
+    if (parts[0] === 'conversations' && parts.length === 2 && req.method === 'PATCH') {
+      let body = '';
+      req.setEncoding('utf8');
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        let parsed;
+        try { parsed = JSON.parse(body); }
+        catch { return sendJSON(res, { error: 'Invalid JSON' }, 400); }
+        if (typeof parsed?.title !== 'string') {
+          return sendJSON(res, { error: 'title required' }, 400);
+        }
+        if (!conversationsStore().rename(parts[1], parsed.title)) {
+          return send404(res, 'Unknown conversation');
+        }
+        sendJSON(res, { ok: true });
+      });
+      return;
+    }
+    if (parts[0] === 'conversations' && parts.length === 2 && req.method === 'DELETE') {
+      if (!conversationsStore().remove(parts[1])) return send404(res, 'Unknown conversation');
+      return sendJSON(res, { ok: true });
+    }
+    if (parts[0] === 'conversations' && parts.length === 3 && parts[2] === 'messages' && req.method === 'PUT') {
+      let body = '';
+      let tooBig = false;
+      // Same multi-byte and size discipline as the legacy history PUT: the
+      // cap is answered from the data handler so an oversized body is
+      // refused as soon as it crosses the line, not after it all arrived.
+      req.setEncoding('utf8');
+      req.on('data', c => {
+        if (tooBig) return;
+        body += c;
+        if (body.length > 512 * 1024) {
+          tooBig = true;
+          sendJSON(res, { error: 'Conversation too large' }, 413);
+        }
+      });
+      req.on('end', () => {
+        if (tooBig) return;
+        let parsed;
+        try { parsed = JSON.parse(body); }
+        catch { return sendJSON(res, { error: 'Invalid JSON' }, 400); }
+        if (!Array.isArray(parsed?.messages)) {
+          return sendJSON(res, { error: 'messages array required' }, 400);
+        }
+        if (!conversationsStore().setMessages(parts[1], parsed.messages)) {
+          return send404(res, 'Unknown conversation');
+        }
+        sendJSON(res, { ok: true });
+      });
+      return;
+    }
+
     // /api/chat/history — per-instance chat transcript so it follows the
     // user across devices. Single-user-per-instance model (WebAuthn auth),
     // so no per-user keying is needed.
@@ -2508,6 +2602,10 @@ function _shutdown() {
   // the WAL to be fully checkpointed into klebb.db.
   try { haeSamples.close(); } catch (e) {
     console.warn('[shutdown] samples close failed:', e.message);
+  }
+  // Third handle, same reason.
+  try { if (_conversationsStore) _conversationsStore.close(); } catch (e) {
+    console.warn('[shutdown] conversations close failed:', e.message);
   }
   process.exit(0);
 }
