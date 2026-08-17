@@ -518,7 +518,19 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-', emit = ()
     const msg = choice?.message || {};
     const finish = choice?.finish_reason;
     const toolCount = Array.isArray(msg.tool_calls) ? msg.tool_calls.length : 0;
-    chatLog(reqId, `iter=${i} gw=${gwMs}ms finish=${finish || '-'} tools=${toolCount}`);
+    // Token and cache counters per step, so a prompt-caching change can be
+    // proved rather than assumed. Cache writes cost more than uncached input,
+    // so a change that lands with a zero hit rate makes the bill go up; without
+    // these numbers that is invisible. `usage=none` stays distinct from a row
+    // of zeroes on purpose: a gateway reporting nothing and a gateway reporting
+    // a genuine zero hit rate are different faults with different fixes.
+    const usage = gateway.readUsage(gw);
+    const usageBits = usage
+      ? `in=${usage.promptTokens} out=${usage.completionTokens}`
+        + ` cached=${usage.cachedTokens} cwrite=${usage.cacheWriteTokens}`
+        + (usage.cost === null ? '' : ` cost=${usage.cost}`)
+      : 'usage=none';
+    chatLog(reqId, `iter=${i} gw=${gwMs}ms finish=${finish || '-'} tools=${toolCount} ${usageBits}`);
 
     if (typeof msg.content === 'string' && msg.content.trim()) {
       lastAssistantText = msg.content;
