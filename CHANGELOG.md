@@ -52,6 +52,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   store-or-deflate archives with sizes and CRCs in the local headers (no
   data descriptors, so stock extractors accept them) and refuses past the
   classic 4GB/65535-entry limits rather than emitting zip64. (#614)
+- **Wipe, quiesce and in-process export primitives for the upcoming in-app
+  import.** The card datastore (`store.wipeAll()`) and the HAE sample store
+  (`samples.wipeAll()`) can now drop everything in one in-place transaction.
+  Never a file unlink: a live server keeps writing to a deleted inode. The
+  sample wipe also resets the push sequence so a reimported history numbers
+  its pushes from 1 and replays in the original order. The manifest registry
+  gains `stopWatch()`/`resumeWatch()`; stopping also cancels a debounced
+  reload already queued by an fs event from just before the stop, which
+  would otherwise fire mid-wipe. The portable export lifts into an
+  in-process `exportTo(targetDir, opts)` that throws instead of exiting and
+  leaves the shared HAE samples handle open (inside a live server it belongs
+  to the ingest path); the CLI is a thin wrapper with identical behaviour.
+  (Fixes #615)
 
 - **A portable export can now be imported back with one command.**
   `npm run import -- <tree> [--apply] [--target <home>]` restores an
