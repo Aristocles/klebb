@@ -312,13 +312,10 @@ async function handleApply(req, res) {
   try { body = await readBody(req); }
   catch { send(res, 400, { error: 'invalid JSON body' }); return true; }
 
-  // TEST-ONLY freeze-window hook. The apply pipeline is fully synchronous,
-  // so while it runs the event loop is parked and no other request can be
-  // dispatched: the IMPORT_FROZEN gate is real but unobservable over HTTP
-  // (a concurrent request is simply deferred until after the release). The
-  // gate exists as structural insurance for any future await point inside
-  // the pipeline; this hook creates such a point on demand, engaging the
-  // same freeze the pipeline uses, so tests can drive the gate end to end.
+  // TEST-ONLY freeze-window hook. The pipeline now has real await points
+  // of its own (the streaming samples drain, #632), but their width depends
+  // on the fixture; this hook engages the same freeze for a fixed window so
+  // tests can drive the gate deterministically.
   const holdMs = Number(process.env.KLEBB_IMPORT_TEST_HOLD_MS);
   if (Number.isFinite(holdMs) && holdMs > 0) {
     freeze.engage('import-test-hold');
@@ -326,15 +323,15 @@ async function handleApply(req, res) {
     finally { freeze.release(); }
   }
 
-  const result = wizard().confirmAndApply({ nonce: body.nonce });
+  const result = await wizard().confirmAndApply({ nonce: body.nonce });
   if (result.code === 'CONFIRM_REQUIRED') { send(res, 428, result); return true; }
   if (result.code === 'BAD_STATE') { send(res, 409, result); return true; }
   send(res, 200, result);
   return true;
 }
 
-function handleRollback(req, res) {
-  const result = wizard().rollback();
+async function handleRollback(req, res) {
+  const result = await wizard().rollback();
   if (result.code === 'NO_SNAPSHOT') { send(res, 404, result); return true; }
   if (result.code === 'BAD_STATE') { send(res, 409, result); return true; }
   send(res, 200, result);

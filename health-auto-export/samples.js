@@ -368,17 +368,27 @@ function exportPushes(opts = {}) {
   return out;
 }
 
+// One exported-form item ({ receivedAt, payload }) through the ordinary
+// ingest path: one transaction, same dedupe. Returns recordPush's result,
+// or null for a payload-less item (skipped). Shared by importPushes and the
+// streaming inbox drain (samples-inbox.js), so the array form and the
+// stream can never disagree on per-push semantics.
+function importPush(item, opts = {}) {
+  if (!item || !item.payload) return null;
+  return recordPush(item.payload, {
+    receivedAt: item.receivedAt || new Date().toISOString(),
+    dbFile: opts.dbFile || null,
+  });
+}
+
 // Import the list exportPushes() produces, in order, through the ordinary
 // ingest path. Returns { pushes, inserted }.
 function importPushes(list, opts = {}) {
   let pushes = 0;
   let inserted = 0;
   for (const item of Array.isArray(list) ? list : []) {
-    if (!item || !item.payload) continue;
-    const r = recordPush(item.payload, {
-      receivedAt: item.receivedAt || new Date().toISOString(),
-      dbFile: opts.dbFile || null,
-    });
+    const r = importPush(item, opts);
+    if (!r) continue;
     pushes += 1;
     inserted += r.inserted;
   }
@@ -425,7 +435,7 @@ function close() {
 
 module.exports = {
   recordPush, forMetric, pushCount, sampleCount, metricSummary, close,
-  exportPushes, importPushes, wipeAll,
+  exportPushes, importPush, importPushes, wipeAll,
   // Exported for tests and for the migration's own hashing.
   canonical, sampleHash, flatten, guessDate,
 };

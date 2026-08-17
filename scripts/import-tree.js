@@ -86,7 +86,7 @@ function printPlan(plan) {
   console.log(`  config: ${plan.config}`);
 }
 
-function main() {
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) { usage(); return 0; }
   if (args.error) { console.error(`error: ${args.error}`); usage(); return 2; }
@@ -114,7 +114,7 @@ function main() {
 
   const { applyTree } = require('../lib/import/apply');
   console.log(`Importing ${tree} into ${targetHome}`);
-  const res = applyTree(tree, targetHome);
+  const res = await applyTree(tree, targetHome);
   printFindings(res.findings);
   if (res.verified) {
     console.log(`verified: ${res.verified.cards} card(s), `
@@ -125,5 +125,5 @@ function main() {
 }
 
 if (require.main === module) {
-  process.exit(main());
+  main().then(code => process.exit(code));
 }

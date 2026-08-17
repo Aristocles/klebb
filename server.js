@@ -704,9 +704,22 @@ function serveStaticFile(res, filePath, extraHeaders = {}) {
 // seeded over as if it were truth.
 let importRecoveryRefusedReason = null;
 
+// Boot (recovery, seeding, the samples drain, registry init) awaits since
+// #632, so the listen callback no longer parks the event loop: a request
+// could land mid-boot and see a half-initialised registry. Every request
+// except /healthz waits here until boot settles, which is exactly the
+// queueing the synchronous boot used to impose; /healthz answers
+// immediately, so a long boot drain no longer blinds container
+// healthchecks (previously the whole boot blocked them).
+let _booting = true;
+let _bootSettled = null;
+const _bootGate = new Promise(resolve => { _bootSettled = resolve; });
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname;
+
+  if (_booting && pathname !== '/healthz') await _bootGate;
 
   // === Import write freeze (#617) ===
   // One structural gate at the top of dispatch: while the import pipeline
@@ -2802,7 +2815,7 @@ Original system prompt follows:
   serveStaticFile(res, indexPath, staticHeadersFor('/'));
 });
 
-server.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, async () => {
   console.log(`Health dashboard running at http://${HOST}:${PORT} (TZ=${ENV.TZ})`);
 
   // First-boot passkey bootstrap. When the credential store is empty:
@@ -2828,7 +2841,7 @@ server.listen(PORT, HOST, () => {
   // above serves 503 IMPORT_RECOVERY_FAILED for everything but /healthz,
   // import status and rollback.
   try {
-    const rec = recoverAtBoot({ home: PATHS.HEALTH_HOME });
+    const rec = await recoverAtBoot({ home: PATHS.HEALTH_HOME });
     if (rec.action === 'refuse') {
       importRecoveryRefusedReason = rec.reason;
       console.error('[import] BOOT RECOVERY FAILED:', rec.reason);
@@ -2856,7 +2869,7 @@ server.listen(PORT, HOST, () => {
   // table and would otherwise find it empty on the first boot of a restore.
   if (!importRecoveryRefusedReason) {
     try {
-      const imported = haeSamplesInbox.drain();
+      const imported = await haeSamplesInbox.drain();
       if (imported) {
         console.log(`[hae] imported ${imported.pushes} push(es) from samples.json; `
           + `${imported.inserted} new sample(s)`);
@@ -2905,6 +2918,11 @@ server.listen(PORT, HOST, () => {
       console.warn('[notifications] scheduler init failed:', e.message);
     }
   }
+
+  // Open the request gate: every block above catches its own failures, so
+  // this line is always reached and parked requests resume in order.
+  _booting = false;
+  _bootSettled();
 });
 
 // Graceful shutdown: stop the scheduler so the test harness's SIGTERM

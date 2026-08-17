@@ -523,9 +523,10 @@ describe('write freeze over HTTP', { skip }, () => {
     fixture = await buildTreeZip([card('weight', WEIGHT_ROWS)]);
     auth = fakeAuthState();
     home = createSandbox({ credentials: auth.credentials, sessions: auth.sessions });
-    // The apply pipeline is synchronous, so its own frozen window parks the
-    // event loop and cannot be observed by a concurrent request; the hold
-    // hook engages the same freeze around an await point (see routes/data.js).
+    // The pipeline has real await points since #632 (the streaming samples
+    // drain), but their width depends on the fixture; the hold hook engages
+    // the same freeze for a fixed window so the gate can be asserted
+    // deterministically (see routes/data.js).
     server = await spawnServer(home, { KLEBB_IMPORT_TEST_HOLD_MS: '4000' });
     const up = await binPost(server.baseUrl, '/api/import/upload', fixture.zipBuf, auth.cookie);
     assert.strictEqual(up.status, 200, up.body);

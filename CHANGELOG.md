@@ -9,6 +9,24 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Importing a large HAE history no longer blows the heap of a small
+  container.** A real restore whose `data/auto-export/samples.json`
+  weighed tens of MB died of `FatalProcessOutOfMemory` inside a 256 MB
+  container: the samples drain read and JSON.parse'd the whole file, then
+  bound large strings per sample, and boot recovery re-crashed on every
+  restart until one pass squeaked under the ceiling. The drain now streams
+  the file one push at a time through a minimal JSON-aware scanner (string
+  and escape state, bracket depth; no new dependencies), so peak memory is
+  proportional to one push, never the file; a subprocess test drains a
+  synthetic 60 MB history under a 48 MB heap that provably kills the old
+  approach. Imports stay one transaction per push with the same
+  rename-aside semantics, and the drain yields to the event loop between
+  batches, so `/healthz` now answers during a long boot drain instead of
+  the whole boot blocking; every other route waits for boot to settle,
+  exactly as before. The import pipeline is async end to end (wizard
+  apply/rollback/resume, boot recovery, the offline CLI), with freeze
+  engage/release and watcher stop/resume still guaranteed across the new
+  await points. (#632)
 - **Multi-step chat requests no longer die at a hardcoded 5-iteration
   cap.** The agent loop's round-trip cap is now `CHAT_MAX_TURNS`
   (default 12), and a new total-turn deadline (`CHAT_TURN_DEADLINE_MS`,

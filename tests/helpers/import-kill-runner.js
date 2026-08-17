@@ -48,13 +48,15 @@ const wizard = createWizard({
   },
 });
 
-const started = wizard.startFromTree(tree);
-if (started.error || started.state !== 'awaiting-confirm') {
-  console.error(`start did not reach awaiting-confirm: ${JSON.stringify(started)}`);
-  process.exit(2);
-}
-const result = wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
-fs.writeFileSync(path.join(markerDir, 'finished'), JSON.stringify(result));
-samples.close();
-registry.closeStore();
-process.exit(0);
+(async () => {
+  const started = wizard.startFromTree(tree);
+  if (started.error || started.state !== 'awaiting-confirm') {
+    console.error(`start did not reach awaiting-confirm: ${JSON.stringify(started)}`);
+    process.exit(2);
+  }
+  const result = await wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
+  fs.writeFileSync(path.join(markerDir, 'finished'), JSON.stringify(result));
+  samples.close();
+  registry.closeStore();
+  process.exit(0);
+})();
