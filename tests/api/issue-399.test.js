@@ -12,6 +12,7 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
+const { systemMessageText } = require('../../chat/system-prompt');
 const {
   createSandbox, cleanupSandbox, spawnServer, req,
 } = require('../helpers/sandbox');
@@ -119,7 +120,7 @@ describe('#399 chat: system prompt instructs fail-fast refusal', () => {
           try {
             const parsed = JSON.parse(body);
             const sys = parsed.messages?.find(m => m.role === 'system');
-            lastPrompt = sys?.content || null;
+            lastPrompt = systemMessageText(sys);
           } catch {}
           response.writeHead(200, { 'Content-Type': 'application/json' });
           response.end(JSON.stringify({

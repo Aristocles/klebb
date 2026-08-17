@@ -57,6 +57,26 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **The chat system prompt is now cacheable, cutting the cost of a
+  multi-step turn.** Most of the prompt is identical on every request
+  (base prompt plus the HAE, combination-card, docs and category
+  catalogues), and the agent loop re-sent all of it on every round-trip:
+  with `CHAT_MAX_TURNS` at 12, a single question could transmit it a
+  dozen times. It is now sent as ordered content blocks with cache
+  breakpoints, so a supporting gateway serves the stable prefix at
+  roughly a tenth of the normal input price.
+  Caching is a prefix match, so ordering was the actual problem: today's
+  date sat second and the card in focus fourth, in front of every
+  catalogue, which made almost nothing cacheable. Same prompt text,
+  reordered into static (breakpoint), per-instance (breakpoint) and
+  volatile (no breakpoint) segments. Marking the volatile tail would
+  write a fresh cache entry per request, and cache writes cost more than
+  uncached input, so it would be worse than not caching. Voice mode
+  keeps its envelope in front of the static text, since that text says
+  "Original system prompt follows", so voice turns get their own cache
+  entry. `CHAT_PROMPT_CACHE=0` restores the previous flat string for
+  gateways that reject an array-valued `content` on the system role.
+  (#637)
 - **Chat gateway token and cache counters are now recorded.** Both
   gateway paths threw the response's `usage` block away: the buffered
   path parsed it and dropped it, and the streaming assembler rebuilt a

@@ -11,6 +11,7 @@ const http = require('http');
 const { createSandbox, cleanupSandbox, spawnServer, req } = require('./helpers/sandbox');
 
 const { describeCcSchema } = require('../chat/describe-cc-schema');
+const { systemMessageText } = require('../chat/system-prompt');
 
 describe('describeCcSchema (unit)', () => {
   test('names the canonical view.combines + sourceId shape', () => {
@@ -76,7 +77,7 @@ describe('chat proxy injects CC schema into system prompt', () => {
         try {
           const parsed = JSON.parse(body);
           const sys = parsed.messages?.find(m => m.role === 'system');
-          lastSystemPrompt = sys?.content || null;
+          lastSystemPrompt = systemMessageText(sys);
         } catch {}
         response.writeHead(200, { 'Content-Type': 'application/json' });
         response.end(JSON.stringify({

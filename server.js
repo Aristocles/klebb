@@ -21,6 +21,7 @@ const voiceCache = require('./voice/cache');
 const { transcodeToWav } = require('./voice/transcode');
 const { sanitiseForTts } = require('./voice/sanitise-for-tts');
 const { TOOL_DEFS, dispatchToolCall } = require('./chat/tools');
+const { buildSystemMessage } = require('./chat/system-prompt');
 const { pickEmbellishments } = require('./chat/embellish');
 const { buildDateContextBlock } = require('./chat/date-context');
 const hae = require('./health-auto-export/ingest');
@@ -450,11 +451,11 @@ function windowTranscript(stored) {
 // off in voice mode, whose reply is a JSON envelope no one should watch
 // being typed. A tokened iteration that turns out to end in tool calls
 // emits `reset` so the client can drop the provisional text.
-async function runAgentLoop({ systemPrompt, userMessages, reqId = '-', emit = () => {}, streamTokens = false, shouldAbort = () => false }) {
+async function runAgentLoop({ systemMessage, userMessages, reqId = '-', emit = () => {}, streamTokens = false, shouldAbort = () => false }) {
   const MAX_ITERS = CHAT_MAX_TURNS;
   const deadline = CHAT_TURN_DEADLINE_MS;
   const loopStart = Date.now();
-  const messages = [{ role: 'system', content: systemPrompt }, ...userMessages];
+  const messages = [systemMessage, ...userMessages];
   const ctx = { touches: [] };
   let lastAssistantText = '';
   let deadlined = false;
@@ -1976,9 +1977,23 @@ const server = http.createServer(async (req, res) => {
             '',
           ].join('\n');
 
-          let systemPrompt = HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + viewedCardBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + reportsCatalogueBlock + categoryBlock;
+          // Segment order is the caching mechanism, not cosmetics. The two
+          // volatile blocks used to sit second (today's date) and fourth (the
+          // card in focus), in front of every catalogue, so almost nothing in
+          // the prompt could be cached. Same text, ordered so the stable part
+          // comes first. See chat/system-prompt.js.
+          const staticBlocks = HEALTH_SYSTEM_PROMPT + haeCatalogueBlock + ccSchemaBlock
+            + docsCatalogueBlock + categoryBlock;
+          const instanceBlocks = cardListBlock + reportsCatalogueBlock;
+          const volatileBlocks = todayBlock + viewedCardBlock;
+          // The voice envelope stays in FRONT of the static text: it says
+          // "Original system prompt follows", so moving it would change what
+          // the prompt means. The cost is that a voice turn gets its own cache
+          // entry instead of sharing the text-mode one, which is a fair trade
+          // against altering a prompt while also reordering it.
+          let voicePrefix = '';
           if (voiceMode) {
-            systemPrompt = `You are ${process.env.CHAT_AGENT_NAME || 'Chat'}, a health assistant.
+            voicePrefix = `You are ${process.env.CHAT_AGENT_NAME || 'Chat'}, a health assistant.
 Voice mode is active: the user is speaking to you and will hear your reply aloud.
 
 OUTPUT FORMAT — MANDATORY:
@@ -2009,8 +2024,14 @@ Return STRICTLY the JSON object. No leading/trailing text. No markdown fences.
 
 Original system prompt follows:
 
-` + HEALTH_SYSTEM_PROMPT + todayBlock + cardListBlock + viewedCardBlock + haeCatalogueBlock + ccSchemaBlock + docsCatalogueBlock + reportsCatalogueBlock + categoryBlock;
+`;
           }
+
+          const systemMessage = buildSystemMessage({
+            static: voicePrefix + staticBlocks,
+            instance: instanceBlocks,
+            volatile: volatileBlocks,
+          }, { cache: ENV.CHAT_PROMPT_CACHE });
 
           if (!CHAT_ENDPOINT) {
             return sendJSON(res, { error: 'Chat endpoint not configured' }, 503);
@@ -2132,7 +2153,7 @@ Original system prompt follows:
             if (hub) hub.attach(es);
             const emit = hub ? hub.emit : es.send;
             runAgentLoop({
-              systemPrompt, userMessages: loopMessages, reqId, emit,
+              systemMessage, userMessages: loopMessages, reqId, emit,
               streamTokens: !voiceMode,
               shouldAbort: hub ? () => hub.aborted : undefined,
             })
@@ -2166,7 +2187,7 @@ Original system prompt follows:
           }
 
           runAgentLoop({
-            systemPrompt,
+            systemMessage,
             userMessages: loopMessages,
             reqId,
             emit: hub ? hub.emit : undefined,

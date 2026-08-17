@@ -112,6 +112,53 @@ The agent loop has three budgets, all env-tunable:
   last step's budget to what remains) and answers with the same capped
   reply, never a 5xx.
 
+### Prompt caching (`CHAT_PROMPT_CACHE`)
+
+Most of the system prompt is the same on every request: the base prompt
+plus the HAE, combination-card, docs and category catalogues. The agent
+loop re-sends all of it on every round-trip, and with `CHAT_MAX_TURNS`
+at 12 a single question can transmit it a dozen times.
+
+Gateways that support prompt caching serve a marked prefix from cache at
+roughly a tenth of the normal input price. So the system message is sent
+as ordered content blocks with cache breakpoints rather than one flat
+string:
+
+| Segment | Contents | Breakpoint | Invalidated by |
+|---|---|---|---|
+| static | base prompt + HAE / combination-card / docs / category catalogues | yes | a deploy |
+| instance | card list + reports catalogue | yes | adding, renaming or deleting a card or report |
+| volatile | today's date + the card in focus | **no** | every request |
+
+Caching is a **prefix match**: the gateway hashes everything up to a
+breakpoint and only serves a hit if every byte before it is identical.
+That is why the order matters and why the volatile blocks come last and
+carry no breakpoint of their own. Marking them would write a fresh cache
+entry on every request, and cache writes cost *more* than uncached
+input, so it would be worse than not caching at all. Tool schemas are
+hashed ahead of the system message, which is fine: they are static.
+
+A breakpoint caches everything up to itself, not just its own block, so
+the second one covers static+instance together. Creating a card misses
+on the second breakpoint and still hits on the first.
+
+Voice mode keeps its output-format envelope in front of the static text,
+because that text says "Original system prompt follows". A voice turn
+therefore gets its own cache entry rather than sharing the text-mode
+one.
+
+Set **`CHAT_PROMPT_CACHE=0`** to send the old flat string instead. The
+blocks are standard OpenAI-compatible content parts, but a gateway that
+rejects an array-valued `content` on the system role would fail every
+chat request, and the flat form is byte-identical to what earlier
+versions sent. Ordering is unaffected by the switch: it changes the
+payload shape, not which blocks come first.
+
+Cache effectiveness is visible in debug logs
+(`HEALTH_DEBUG=1`) on each step, as `cached=` and `cwrite=` token
+counts. `usage=none` means the gateway reported no usage at all, which
+is different from reporting a zero hit rate.
+
 ### Streaming (`stream: true`)
 
 `POST /api/chat` with `stream: true` in the body switches the response
