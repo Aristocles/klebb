@@ -73,6 +73,9 @@
     let startY = 0, pulling = false, threshold = 80;
 
     function isAtTop() {
+      // A full-screen sheet (the chat) owns all touch gestures while open;
+      // pulling inside its transcript must never reload the page under it.
+      if (document.body.dataset.klebbSheetOpen) return false;
       // Check both window scroll and any scrollable parent
       if (window.scrollY > 0) return false;
       if (document.documentElement.scrollTop > 0) return false;
