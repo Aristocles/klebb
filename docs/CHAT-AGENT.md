@@ -112,6 +112,41 @@ The agent loop has three budgets, all env-tunable:
   last step's budget to what remains) and answers with the same capped
   reply, never a 5xx.
 
+### Streaming (`stream: true`)
+
+`POST /api/chat` with `stream: true` in the body switches the response
+to server-sent events, so the client can show live progress instead of
+a spinner for the whole agent loop. The request is otherwise identical;
+error statuses that fire before the stream opens (400, 503) stay plain
+JSON, so clients should check the response `Content-Type`.
+
+Events, in order of appearance:
+
+| Event | Data | Meaning |
+|-------|------|---------|
+| `status` | `{phase:'thinking'}` | a gateway round-trip started |
+| `status` | `{phase:'tool', tool, id?}` | a tool call is executing (`id` = manifest id when known) |
+| `token` | `{text}` | a fragment of the assistant's text, in order |
+| `reset` | `{}` | drop text streamed so far: it preceded tool calls and was not the answer |
+| `reply` | same object the buffered mode returns (`reply`, `speak?`, `followup?`, `capped?`) | the final payload |
+| `error` | `{error, status}` | the classified failure copy plus the status the buffered mode would have sent |
+| `done` | `{}` | terminator; always the last event |
+
+Voice-mode turns (`voiceMode: true`) emit no `token` events: the model's
+raw output is a JSON speak/display envelope nobody should watch being
+typed. Status events still flow, and the `reply` event carries the same
+`{reply, speak}` shape as the buffered path.
+
+The gateway leg streams too (`stream: true` on the upstream call), and
+the per-step timeout becomes an idle timeout there: a healthy long
+generation keeps resetting it, a stalled one still trips it. A gateway
+that ignores `stream: true` and answers buffered JSON is tolerated.
+
+Comment heartbeats (`: ping`) are sent every 15s, and the response sets
+`X-Accel-Buffering: no` so an nginx in front does not buffer the
+stream. A client that disconnects mid-turn only mutes the events: the
+loop runs to completion, matching the buffered path's semantics.
+
 ### Legacy env vars
 
 Older deploys used `CHAT_GATEWAY_HOST` + `CHAT_GATEWAY_PORT` +
