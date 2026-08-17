@@ -148,6 +148,32 @@ const CHAT_ITER_TIMEOUT_MS = (() => {
   return n;
 })();
 
+// Iteration cap on the chat agent loop: one unit is one gateway round-trip,
+// which may batch several tool calls. Five was enough for single-task turns,
+// but the prompt's own validate-before-create / read-before-append workflow
+// makes a multi-card request cost well over five round-trips once the model
+// serialises its calls (#600).
+const CHAT_MAX_TURNS = (() => {
+  const raw = process.env.CHAT_MAX_TURNS;
+  if (raw === undefined || raw === '') return 12;
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) return 12;
+  return n;
+})();
+
+// Total wall-clock budget for one chat turn. A raised iteration cap must not
+// stack per-iteration timeouts into a multi-minute silent spinner, so the
+// loop stops starting new round-trips once this much time has passed and
+// answers with the capped reply instead. Set to 0 to disable (the per-iter
+// and transport ceilings still apply).
+const CHAT_TURN_DEADLINE_MS = (() => {
+  const raw = process.env.CHAT_TURN_DEADLINE_MS;
+  if (raw === undefined || raw === '') return 240000;
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 0) return 240000;
+  return n;
+})();
+
 // --- Demo mode ---
 // When KLEBB_DEMO=1, the server runs as a public no-credentials demo:
 //   - The login page shows a single "Enter the demo" button that calls
@@ -672,6 +698,8 @@ module.exports = {
   getSessionSecret,
   DEBUG_LOG,
   CHAT_ITER_TIMEOUT_MS,
+  CHAT_MAX_TURNS,
+  CHAT_TURN_DEADLINE_MS,
   KLEBB_DEMO,
   DEMO_USER_ID,
   KLEBB_CLOUD,

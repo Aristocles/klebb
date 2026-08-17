@@ -60,8 +60,22 @@ const { nextPsm } = require('./ingest/extractors/image');
 const CHAT_ENDPOINT_URL = ENV.CHAT_ENDPOINT_URL;
 const DEBUG_LOG = ENV.DEBUG_LOG;
 const CHAT_ITER_TIMEOUT_MS = ENV.CHAT_ITER_TIMEOUT_MS;
-const NO_TOOL_FITS_REFUSAL =
-  "I can't do that in one step right now: it doesn't fit any of the tools I have, and the workaround would have to rewrite the whole card (which times out on cards this size). If you tell me which slice of the card you want changed, I can usually do that with a row-level edit.";
+const CHAT_MAX_TURNS = ENV.CHAT_MAX_TURNS;
+const CHAT_TURN_DEADLINE_MS = ENV.CHAT_TURN_DEADLINE_MS;
+// The per-step timeout names its real cause. The old wording claimed the
+// request "doesn't fit any of the tools I have", which taught users a
+// capability was missing when the truth was a slow step (#600).
+const STEP_TIMEOUT_MESSAGE =
+  'One step of that took too long to come back, so I stopped rather than leave you waiting. A narrower request usually completes: one card at a time, or a specific slice of rows.';
+// Shown when the loop runs out of turn budget having produced no text of
+// its own. "Keep going" is literal: the client resends the transcript, so
+// the model picks the work back up from what the history shows done.
+const CAPPED_FALLBACK_MESSAGE =
+  'I got partway through but ran out of steps for this turn. Say "keep going" and I\'ll pick up where I stopped.';
+// Appended to partial progress on a capped turn, so finished work is kept
+// and the stop is explained instead of silently swallowed.
+const CAPPED_SUFFIX =
+  '\n\nI had to stop there: that was as many steps as one turn allows. Say "keep going" to continue.';
 
 // Four gateway conditions used to collapse into the single string 'No response'
 // (klebb#547), so an exhausted allowance, a dead gateway, a timeout and a
@@ -296,24 +310,52 @@ function extractJsonReply(raw) {
 //   2. if finish_reason is 'tool_calls', execute each tool_call, append the
 //      assistant turn and one {role:"tool"} per call, loop.
 //   3. otherwise, return the assistant's text as the final reply.
-// Caps at MAX_ITERS to keep a misbehaving model from looping forever; if we
-// hit the cap we return the last text we saw (or a fallback).
+// Caps at CHAT_MAX_TURNS round-trips to keep a misbehaving model from
+// looping forever, and at CHAT_TURN_DEADLINE_MS of wall clock so a raised
+// cap cannot stack per-iteration timeouts into a multi-minute silent
+// spinner. Either budget running out returns the last text we saw (or a
+// fallback) with cappedOut set; the caller tells the user how to resume.
 async function runAgentLoop({ systemPrompt, userMessages, reqId = '-' }) {
-  const MAX_ITERS = 5;
+  const MAX_ITERS = CHAT_MAX_TURNS;
+  const deadline = CHAT_TURN_DEADLINE_MS;
+  const loopStart = Date.now();
   const messages = [{ role: 'system', content: systemPrompt }, ...userMessages];
   const ctx = { touches: [] };
   let lastAssistantText = '';
+  let deadlined = false;
+  let itersDone = 0;
   for (let i = 0; i < MAX_ITERS; i++) {
+    const elapsed = Date.now() - loopStart;
+    if (deadline && elapsed >= deadline) {
+      deadlined = true;
+      break;
+    }
+    // Shrink the per-step budget to what is left of the turn, so one slow
+    // step cannot blow through the deadline it sits inside.
+    let iterBudget = CHAT_ITER_TIMEOUT_MS;
+    if (deadline) {
+      const remaining = deadline - elapsed;
+      iterBudget = iterBudget ? Math.min(iterBudget, remaining) : remaining;
+    }
     const gwStart = Date.now();
     let gw;
     try {
-      gw = await callGateway({ messages, tools: TOOL_DEFS, timeoutMs: CHAT_ITER_TIMEOUT_MS });
+      gw = await callGateway({ messages, tools: TOOL_DEFS, timeoutMs: iterBudget });
+      itersDone = i + 1;
     } catch (e) {
       if (e && e.message === 'gateway_iter_timeout') {
         const gwMs = Date.now() - gwStart;
+        // A step cut short by the turn deadline is budget exhaustion, not a
+        // slow step: report it as capped so the user resumes instead of
+        // narrowing a request that was fine.
+        if (deadline && Date.now() - loopStart >= deadline) {
+          chatLog(reqId, `iter=${i} gw=${gwMs}ms deadline`);
+          deadlined = true;
+          break;
+        }
         chatLog(reqId, `iter=${i} gw=${gwMs}ms iter_timeout`);
         return {
-          finalText: NO_TOOL_FITS_REFUSAL,
+          finalText: STEP_TIMEOUT_MESSAGE,
           cappedOut: false,
           iterTimedOut: true,
           ctx,
@@ -366,11 +408,11 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-' }) {
     return { finalText: msg.content || lastAssistantText || '', cappedOut: false, ctx, iters: i + 1 };
   }
   return {
-    finalText: lastAssistantText ||
-      "I wasn't able to finish that in one turn. Please re-ask or be more specific.",
+    finalText: lastAssistantText,
     cappedOut: true,
+    deadlined,
     ctx,
-    iters: MAX_ITERS,
+    iters: itersDone,
   };
 }
 
@@ -1611,20 +1653,26 @@ Original system prompt follows:
           chatLog(reqId, `start turns=${messages.length} voice=${!!voiceMode}`);
 
           runAgentLoop({ systemPrompt, userMessages: messages, reqId })
-            .then(({ finalText, ctx, cappedOut, iterTimedOut, iters }) => {
+            .then(({ finalText, ctx, cappedOut, deadlined, iterTimedOut, iters }) => {
               const followup = buildFollowup(ctx);
-              chatLog(reqId, `done total=${Date.now() - turnStart}ms iters=${iters} capped=${!!cappedOut}${iterTimedOut ? ' iter_timeout' : ''}`);
+              chatLog(reqId, `done total=${Date.now() - turnStart}ms iters=${iters} capped=${!!cappedOut}${deadlined ? ' deadline' : ''}${iterTimedOut ? ' iter_timeout' : ''}`);
+              // `capped: true` is the machine-readable form; the appended text
+              // is for today's client, which renders only the reply string.
+              const flags = cappedOut ? { capped: true } : {};
+              if (cappedOut) {
+                finalText = finalText ? finalText + CAPPED_SUFFIX : CAPPED_FALLBACK_MESSAGE;
+              }
               if (voiceMode) {
                 const parsedReply = extractJsonReply(finalText);
                 if (parsedReply && (parsedReply.speak || parsedReply.display)) {
                   const speak = (parsedReply.speak || parsedReply.display || '').trim();
                   const display = (parsedReply.display || parsedReply.speak || '').trim();
-                  return sendJSON(res, withFollowup({ reply: display, speak }, followup));
+                  return sendJSON(res, withFollowup({ reply: display, speak, ...flags }, followup));
                 }
                 const speak = finalText.replace(/\p{Extended_Pictographic}/gu, '').trim();
-                return sendJSON(res, withFollowup({ reply: finalText || EMPTY_REPLY_MESSAGE, speak }, followup));
+                return sendJSON(res, withFollowup({ reply: finalText || EMPTY_REPLY_MESSAGE, speak, ...flags }, followup));
               }
-              sendJSON(res, withFollowup({ reply: finalText || EMPTY_REPLY_MESSAGE }, followup));
+              sendJSON(res, withFollowup({ reply: finalText || EMPTY_REPLY_MESSAGE, ...flags }, followup));
             })
             .catch((e) => {
               const msg = e.message || String(e);
