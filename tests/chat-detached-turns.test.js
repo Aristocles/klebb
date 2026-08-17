@@ -222,6 +222,47 @@ describe('#602 detached conversation turns', () => {
     assert.equal(attached.events.at(-1).event, 'done');
   });
 
+  test('DELETE /api/chat/turn stops the loop, keeps the user message, releases the lock', async () => {
+    for (let i = 0; i < 20; i++) {
+      gateway.push({ toolName: 'list_manifests', toolArgs: {}, finish: 'tool_calls', delayMs: 200 });
+    }
+    const convo = await newConvo();
+    const turn = req(server.baseUrl, '/api/chat', {
+      method: 'POST', body: { conversationId: convo.id, messages: [{ role: 'user', content: 'spin' }] },
+    });
+    await new Promise(r => setTimeout(r, 350));
+    const del = await req(server.baseUrl, `/api/chat/turn/${convo.id}`, { method: 'DELETE' });
+    assert.equal(del.status, 200);
+
+    const res = await turn;
+    assert.equal(res.status, 200);
+    assert.equal(res.json.stopped, true, 'a stopped turn says so instead of inventing a reply');
+
+    const callsAtStop = gateway.calls;
+    await new Promise(r => setTimeout(r, 500));
+    assert.ok(gateway.calls <= callsAtStop + 1,
+      `the loop must stop making round-trips after the abort (was ${callsAtStop}, now ${gateway.calls})`);
+
+    const after = await getConvo(convo.id);
+    assert.deepEqual(after.messages.map(m => m.role), ['user'],
+      'the user message stays; no assistant reply is persisted');
+
+    // Drop the leftover looping specs before the follow-up send, or it
+    // consumes them and caps out instead of answering.
+    gateway.reset();
+    gateway.push({ content: 'fresh', finish: 'stop' });
+    const next = await req(server.baseUrl, '/api/chat', {
+      method: 'POST', body: { conversationId: convo.id, messages: [{ role: 'user', content: 'again' }] },
+    });
+    assert.equal(next.status, 200, 'the one-turn lock must release after a stop');
+    assert.equal(next.json.reply, 'fresh');
+  });
+
+  test('DELETE with no running turn is a 404', async () => {
+    const res = await req(server.baseUrl, '/api/chat/turn/nothing-here', { method: 'DELETE' });
+    assert.equal(res.status, 404);
+  });
+
   test('turns without a conversation are untouched by concurrency control', async () => {
     gateway.push(
       { content: 'a', finish: 'stop', delayMs: 200 },

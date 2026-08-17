@@ -254,6 +254,11 @@ function createTurnHub(conversationId) {
     events: [],
     listeners: new Set(),
     done: false,
+    // Set by DELETE /api/chat/turn/:id; the loop checks it between
+    // round-trips and between tool calls, so a stop lands at the next
+    // checkpoint rather than mid-write.
+    aborted: false,
+    abort() { hub.aborted = true; },
     emit(event, data) {
       hub.seq += 1;
       hub.events.push({ id: hub.seq, event, data });
@@ -442,7 +447,7 @@ function windowTranscript(stored) {
 // off in voice mode, whose reply is a JSON envelope no one should watch
 // being typed. A tokened iteration that turns out to end in tool calls
 // emits `reset` so the client can drop the provisional text.
-async function runAgentLoop({ systemPrompt, userMessages, reqId = '-', emit = () => {}, streamTokens = false }) {
+async function runAgentLoop({ systemPrompt, userMessages, reqId = '-', emit = () => {}, streamTokens = false, shouldAbort = () => false }) {
   const MAX_ITERS = CHAT_MAX_TURNS;
   const deadline = CHAT_TURN_DEADLINE_MS;
   const loopStart = Date.now();
@@ -452,6 +457,10 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-', emit = ()
   let deadlined = false;
   let itersDone = 0;
   for (let i = 0; i < MAX_ITERS; i++) {
+    if (shouldAbort()) {
+      chatLog(reqId, `iter=${i} aborted`);
+      return { finalText: '', cappedOut: false, aborted: true, ctx, iters: itersDone };
+    }
     const elapsed = Date.now() - loopStart;
     if (deadline && elapsed >= deadline) {
       deadlined = true;
@@ -525,6 +534,10 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-', emit = ()
         tool_calls: msg.tool_calls,
       });
       for (const tc of msg.tool_calls) {
+        if (shouldAbort()) {
+          chatLog(reqId, `iter=${i} aborted mid-tools`);
+          return { finalText: '', cappedOut: false, aborted: true, ctx, iters: itersDone };
+        }
         const name = tc.function?.name || '-';
         let manifestId = '-';
         try {
@@ -1663,6 +1676,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // DELETE /api/chat/turn/:conversationId — stop the running turn. The
+    // loop halts at its next checkpoint (between round-trips or tool
+    // calls); the user's message stays, no reply is persisted, and the
+    // one-turn lock releases so the next send goes through.
+    if (parts[0] === 'chat' && parts[1] === 'turn' && parts.length === 3 && req.method === 'DELETE') {
+      const hub = _activeTurns.get(parts[2]);
+      if (!hub || hub.done) return send404(res, 'No turn running');
+      hub.abort();
+      return sendJSON(res, { ok: true });
+    }
+
     // /api/chat/history — per-instance chat transcript so it follows the
     // user across devices. Single-user-per-instance model (WebAuthn auth),
     // so no per-user keying is needed.
@@ -2037,9 +2061,21 @@ Original system prompt follows:
             const es = startEventStream(res);
             if (hub) hub.attach(es);
             const emit = hub ? hub.emit : es.send;
-            runAgentLoop({ systemPrompt, userMessages: loopMessages, reqId, emit, streamTokens: !voiceMode })
+            runAgentLoop({
+              systemPrompt, userMessages: loopMessages, reqId, emit,
+              streamTokens: !voiceMode,
+              shouldAbort: hub ? () => hub.aborted : undefined,
+            })
               .then((out) => {
                 logDone(out);
+                if (out.aborted) {
+                  // Stopped at the user's request: their message stays,
+                  // no reply is invented, the lock releases.
+                  emit('stopped', {});
+                  emit('done', {});
+                  if (hub) hub.finish(); else es.end();
+                  return;
+                }
                 const payload = shapeReply(out);
                 // Persist BEFORE the events go out: a client that
                 // reconnects the moment done lands must find the reply in
@@ -2065,9 +2101,18 @@ Original system prompt follows:
             reqId,
             emit: hub ? hub.emit : undefined,
             streamTokens: !!hub && !voiceMode,
+            shouldAbort: hub ? () => hub.aborted : undefined,
           })
             .then((out) => {
               logDone(out);
+              if (out.aborted) {
+                if (hub) {
+                  hub.emit('stopped', {});
+                  hub.emit('done', {});
+                  hub.finish();
+                }
+                return sendJSON(res, { stopped: true });
+              }
               const payload = shapeReply(out);
               persistReply(payload);
               if (hub) {
