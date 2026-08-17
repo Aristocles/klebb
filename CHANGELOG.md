@@ -39,6 +39,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **A conversation drawer.** The chat header gains a history button that
+  slides in the conversation list: new chat pinned on top, then your
+  conversations newest-first with their model-generated titles and
+  last-activity times (five shown, the rest behind show-all; the store
+  keeps at most 100). Tap to switch (the transcript loads from the
+  server, and a turn still running in the conversation you left keeps
+  going and is waiting when you come back), rename inline, delete behind
+  a two-tap confirm. "New chat" parks the current conversation in the
+  drawer instead of erasing it, and reopening the app restores the
+  conversation you were in. (#607)
 - **The chat shows what it is doing, streams its answers, and can be
   stopped.** Turns now ride the event stream: the model's text appears
   as it generates, a live status line names the tool being worked
