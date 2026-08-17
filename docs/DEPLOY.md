@@ -564,6 +564,12 @@ The target directory must be empty (or absent), and safe from being
 swept into the export itself: the script refuses a target inside
 `$HEALTH_HOME/data/`.
 
+Every export also carries a provenance manifest, `klebb-export.json`,
+written into the tree root after every other file (so a tree without one
+is a torn export). The full tree contract, the manifest schema, and the
+rules for anything that reads an exported tree are documented in
+[EXPORT-FORMAT.md](EXPORT-FORMAT.md).
+
 **Never include any of the credentials/sessions/keys/push-subscriptions
 files in a user-facing export.** If you build an "export my data"
 feature on top of Klebb, use `scripts/export-embed.js` or mirror its
