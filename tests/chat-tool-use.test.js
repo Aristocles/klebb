@@ -230,7 +230,7 @@ describe('chat proxy tool-calling agent loop', () => {
     assert.match(toolMsg.content, /"error":"unknown manifest: does-not-exist"/);
   });
 
-  test('C — runaway loop capped at MAX_ITERS (5) with a graceful reply', async () => {
+  test('C — runaway loop capped at the default CHAT_MAX_TURNS (12) with a graceful reply', async () => {
     gateway.reset();
     // Pre-seed the queue with many tool_calls so it never terminates naturally
     for (let i = 0; i < 20; i++) {
@@ -249,9 +249,10 @@ describe('chat proxy tool-calling agent loop', () => {
     assert.equal(res.status, 200, 'cap should yield 200, not 500/504');
     assert.ok(typeof res.json.reply === 'string' && res.json.reply.length > 0,
       'cap fallback should produce a non-empty reply');
+    assert.equal(res.json.capped, true, 'a capped turn must say so machine-readably');
 
     const reqs = gateway.getRequests();
-    assert.equal(reqs.length, 5, `should stop at MAX_ITERS=5, got ${reqs.length}`);
+    assert.equal(reqs.length, 12, `should stop at the default CHAT_MAX_TURNS=12, got ${reqs.length}`);
 
     // Server remains healthy
     const followup = await req(server.baseUrl, '/healthz', { method: 'GET' });
