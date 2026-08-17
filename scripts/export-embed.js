@@ -24,6 +24,8 @@
 //                          history rebuilt from the samples table (#546), which
 //                          cannot ride in db/ because db/ is never staged.
 //   <target>/reports/      markdown reports, verbatim
+//   <target>/klebb-export.json  provenance manifest over everything above,
+//                          written last (contract in docs/EXPORT-FORMAT.md)
 //
 // A card that has never held data exports without a data key; a card whose
 // stored value is null exports with `data: null`. The import inbox records
@@ -37,8 +39,11 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const { decompose } = require('../lib/datastore/shape');
 
 const BACKUP_NAME_RE = /\.json\.[^/\\]+\.json$/i;
+const MANIFEST_NAME = 'klebb-export.json';
 
 function parseArgs(argv) {
   const args = { target: null, includeSecrets: false, help: false };
@@ -90,9 +95,26 @@ function writeJSON(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2));
 }
 
+function sha256(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
+
+// Manifest row count via the datastore's own decomposition: the sum of the
+// container row lengths. A doc, null, or absent value has no rows, and a doc's
+// single __doc__ row deliberately counts as none.
+function countRows(value) {
+  const { shape, containers } = decompose(value);
+  if (shape.kind !== 'array' && shape.kind !== 'object') return 0;
+  let rows = 0;
+  for (const arr of Object.values(containers)) rows += arr.length;
+  return rows;
+}
+
 // Recursive verbatim copy, skipping tmp strays. `skipDirs` holds absolute
-// paths to prune.
-function copyTree(src, dst, skipDirs) {
+// paths to prune. `opts.onCopy` receives each written destination file;
+// `opts.skipReserved` drops any file named klebb-export.json (a restored tree
+// re-exported later must not nest a stale manifest).
+function copyTree(src, dst, skipDirs, opts = {}) {
   const entries = fs.readdirSync(src, { withFileTypes: true });
   fs.mkdirSync(dst, { recursive: true });
   let copied = 0;
@@ -100,10 +122,16 @@ function copyTree(src, dst, skipDirs) {
     const from = path.join(src, ent.name);
     if (ent.isDirectory()) {
       if (skipDirs.has(from)) continue;
-      copied += copyTree(from, path.join(dst, ent.name), skipDirs);
+      copied += copyTree(from, path.join(dst, ent.name), skipDirs, opts);
     } else if (ent.isFile()) {
       if (ent.name.endsWith('.tmp')) continue;
-      fs.copyFileSync(from, path.join(dst, ent.name));
+      if (opts.skipReserved && ent.name === MANIFEST_NAME) {
+        console.warn(`  ! ${MANIFEST_NAME} is a reserved name, not copied: ${from}`);
+        continue;
+      }
+      const to = path.join(dst, ent.name);
+      fs.copyFileSync(from, to);
+      if (opts.onCopy) opts.onCopy(to);
       copied += 1;
     }
   }
@@ -160,6 +188,12 @@ function main() {
   fs.mkdirSync(outData, { recursive: true });
 
   const counts = { embedded: 0, inline: 0, noData: 0, filesCopied: 0, haePushes: 0 };
+  // Provenance manifest inventory (docs/EXPORT-FORMAT.md). Every file the
+  // export writes is recorded here with the sha256 of its bytes as written;
+  // the manifest itself is written last so a torn export never carries one.
+  const inventory = { cards: [], samples: null, reports: [], other: [] };
+  const rel = file => path.relative(target, file).split(path.sep).join('/');
+  const fileEntry = file => ({ file: rel(file), sha256: sha256(file) });
   const skipDirs = new Set();
   // A pre-#546 tree may still hold the old file archive, and a moved-aside copy
   // from the migration. Neither is exported: the samples table is the history
@@ -178,33 +212,53 @@ function main() {
     const from = path.join(PATHS.DATA_DIR, ent.name);
     if (ent.isDirectory()) {
       if (skipDirs.has(from)) continue;
-      counts.filesCopied += copyTree(from, path.join(outData, ent.name), skipDirs);
+      counts.filesCopied += copyTree(from, path.join(outData, ent.name), skipDirs, {
+        skipReserved: true,
+        onCopy: file => inventory.other.push(fileEntry(file)),
+      });
       continue;
     }
     if (!ent.isFile() || ent.name.endsWith('.tmp')) continue;
     if (BACKUP_NAME_RE.test(ent.name)) continue;
+    if (ent.name === MANIFEST_NAME) {
+      console.warn(`  ! ${MANIFEST_NAME} is a reserved name, not copied: ${from}`);
+      continue;
+    }
 
     const card = ent.name.endsWith('.json') ? classifyCard(from) : null;
     if (!card) {
-      fs.copyFileSync(from, path.join(outData, ent.name));
+      const to = path.join(outData, ent.name);
+      fs.copyFileSync(from, to);
+      inventory.other.push(fileEntry(to));
       counts.filesCopied += 1;
       continue;
     }
 
     const envelope = card.parsed;
+    let dataState = 'none';
     if (Object.prototype.hasOwnProperty.call(envelope, 'data')) {
       // Not yet imported (pre-migration file or hand-added block): the file
       // already carries its data. Export it as-is.
       counts.inline += 1;
+      dataState = 'inline';
     } else if (store && store.dataUpdatedAt(card.id) !== null) {
       // A stored record exists; null is a real recorded value here, distinct
       // from "never held data", and must round-trip as data: null.
       envelope.data = store.getData(card.id);
       counts.embedded += 1;
+      dataState = envelope.data === null ? 'null' : 'embedded';
     } else {
       counts.noData += 1;
     }
-    writeJSON(path.join(outData, ent.name), envelope);
+    const to = path.join(outData, ent.name);
+    writeJSON(to, envelope);
+    inventory.cards.push({
+      id: card.id,
+      file: rel(to),
+      data: dataState,
+      rows: countRows(envelope.data),
+      sha256: sha256(to),
+    });
   }
 
   if (fs.existsSync(PATHS.CONFIG_PATH)) {
@@ -215,12 +269,18 @@ function main() {
       console.warn(`  ! config.json unreadable, not exported: ${e.message}`);
     }
     if (cfg && typeof cfg === 'object') {
-      writeJSON(path.join(target, 'config.json'), args.includeSecrets ? cfg : sanitiseConfig(cfg));
+      const to = path.join(target, 'config.json');
+      writeJSON(to, args.includeSecrets ? cfg : sanitiseConfig(cfg));
+      inventory.other.push(fileEntry(to));
     }
   }
 
   if (fs.existsSync(PATHS.REPORTS_DIR)) {
-    counts.filesCopied += copyTree(PATHS.REPORTS_DIR, path.join(target, 'reports'), skipDirs);
+    counts.filesCopied += copyTree(PATHS.REPORTS_DIR, path.join(target, 'reports'), skipDirs, {
+      onCopy: file => inventory.reports.push({
+        file: rel(file), bytes: fs.statSync(file).size, sha256: sha256(file),
+      }),
+    });
   }
 
   // HAE push history. It lives in the samples table inside klebb.db, and db/ is
@@ -233,9 +293,10 @@ function main() {
       const pushes = samples.exportPushes();
       samples.close();
       if (pushes.length) {
-        writeJSON(path.join(target, 'data', 'auto-export', 'samples.json'),
-          { version: 1, pushes });
+        const to = path.join(target, 'data', 'auto-export', 'samples.json');
+        writeJSON(to, { version: 1, pushes });
         counts.haePushes = pushes.length;
+        inventory.samples = { file: rel(to), pushes: pushes.length, sha256: sha256(to) };
       }
     } catch (e) {
       console.warn(`  ! HAE sample history not exported: ${e.message}`);
@@ -243,6 +304,23 @@ function main() {
   }
 
   if (store) store.close();
+
+  // The manifest is the last file written, on purpose: an export that threw
+  // anywhere above leaves a tree with no manifest, which readers treat as
+  // torn and refuse. The `samples` key is absent when no samples file was
+  // exported. Contract: docs/EXPORT-FORMAT.md.
+  writeJSON(path.join(target, MANIFEST_NAME), {
+    format: 'klebb.export.v1',
+    formatVersion: 1,
+    appVersion: require('../package.json').version,
+    exportedAt: new Date().toISOString(),
+    inventory: {
+      cards: inventory.cards,
+      ...(inventory.samples ? { samples: inventory.samples } : {}),
+      reports: inventory.reports,
+      other: inventory.other,
+    },
+  });
 
   const cards = counts.embedded + counts.inline + counts.noData;
   console.log(`Exported ${cards} card(s) to ${target}`);

@@ -7,6 +7,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Every portable export now carries a provenance manifest.**
+  `scripts/export-embed.js` writes `klebb-export.json` into the tree root
+  after every other file, so a tree without one is a torn (or pre-manifest)
+  export and readers refuse it. The manifest inventories the whole tree:
+  per card the data state (`embedded` / `inline` / `null` / `none`) and a
+  row count taken from the datastore's own shape decomposition, the HAE
+  push count when sample history was exported, report byte sizes, and the
+  SHA-256 of every written file. `klebb-export.json` is now a reserved name
+  inside `data/`: a restored-then-re-exported tree would otherwise nest its
+  stale manifest as data, so the export skips such files with a warning.
+  The tree contract lives in `docs/EXPORT-FORMAT.md`. (Fixes #592)
+
 ### Fixed
 
 - **Subscribing a card to a metric the HAE catalogue does not know is now an
