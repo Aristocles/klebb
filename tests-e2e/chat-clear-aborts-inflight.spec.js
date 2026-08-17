@@ -51,7 +51,8 @@ test.describe('#325: clear chat aborts in-flight reply', () => {
     // Textarea should be disabled while the request is in flight.
     await expect(input).toBeDisabled();
 
-    // Click the "new chat" button. It's the 📝 button in the header.
+    // "New chat" lives in the conversation drawer now (#607).
+    await widget.locator('button[aria-label="Conversations"]').click();
     await widget.locator('button[aria-label="New chat"]').click();
 
     // Textarea must re-enable immediately, without waiting for the

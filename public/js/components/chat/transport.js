@@ -92,6 +92,31 @@ export async function createConversation() {
   return (await res.json()).conversation;
 }
 
+export async function listConversations() {
+  const res = await fetch('/api/conversations', { cache: 'no-store' });
+  if (!res.ok) return [];
+  const body = await res.json();
+  return Array.isArray(body?.conversations) ? body.conversations : [];
+}
+
+export async function renameConversation(id, title) {
+  const res = await fetch(`/api/conversations/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+    cache: 'no-store',
+  });
+  return res.ok;
+}
+
+export async function deleteConversation(id) {
+  const res = await fetch(`/api/conversations/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    cache: 'no-store',
+  });
+  return res.ok;
+}
+
 export async function getConversation(id) {
   const res = await fetch(`/api/conversations/${encodeURIComponent(id)}`, { cache: 'no-store' });
   if (!res.ok) return null;

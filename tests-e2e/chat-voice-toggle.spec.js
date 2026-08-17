@@ -147,7 +147,8 @@ test.describe('#606 speak-replies toggle + audio row', () => {
     const widget = await openChat(page);
     // The sandbox server keeps chat history across tests in this file;
     // start from a clean transcript so counts below are unambiguous.
-    await widget.locator('button[aria-label="New chat"]').click();
+    await widget.locator('button[aria-label="Conversations"]').click();
+  await widget.locator('button[aria-label="New chat"]').click();
     await expect(widget.locator('.msg.user')).toHaveCount(0);
 
     await expect(widget.locator('button[aria-label="Speak replies"]')).toHaveAttribute('aria-pressed', 'false');
@@ -187,7 +188,8 @@ test.describe('#606 speak-replies toggle + audio row', () => {
       navigator.mediaDevices.getUserMedia = async () => ({ getTracks: () => [] });
     });
     const widget = await openChat(page);
-    await widget.locator('button[aria-label="New chat"]').click();
+    await widget.locator('button[aria-label="Conversations"]').click();
+  await widget.locator('button[aria-label="New chat"]').click();
     await expect(widget.locator('.msg.user')).toHaveCount(0);
 
     await widget.locator('button[aria-label="start recording"]').click();

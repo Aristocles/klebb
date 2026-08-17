@@ -28,6 +28,7 @@ import {
   streamChat, reattachTurn, stopTurn,
   createConversation, getConversation, putConversationMessages,
 } from './chat/transport.js';
+import './chat/chat-drawer.js';
 
 // Human copy for the live status line while the agent works a tool.
 // Falls back to a generic label so a new tool is never a blank line.
@@ -80,6 +81,7 @@ class HealthChat extends LitElement {
     _speakReplies: { state: true },
     _statusText: { state: true },
     _streamTail: { state: true },
+    _drawerOpen: { state: true },
     _agentName: { state: true },
     _agentEmoji: { state: true },
     _expanded: { state: true },
@@ -685,6 +687,7 @@ class HealthChat extends LitElement {
     this._conversationId = localStorage.getItem('klebb-active-conversation') || null;
     this._statusText = '';
     this._streamTail = '';
+    this._drawerOpen = false;
     this._checkVoiceAvailability();
     this._checkChatConfigured();
     this._loadInstance();
@@ -915,16 +918,33 @@ class HealthChat extends LitElement {
     await putConversationMessages(this._conversationId, keep);
   }
 
-  // "New chat": park the current conversation (it stays on the server)
-  // and start fresh. Any in-flight turn is stopped server-side too, so
-  // the one-turn lock releases and no orphan reply lands later.
+  // "New chat": park the current conversation (it stays on the server,
+  // reachable from the drawer) and start fresh. Any in-flight turn is
+  // stopped server-side too, so the one-turn lock releases and no orphan
+  // reply lands later.
   async _clearHistory() {
+    if (this._loading && this._conversationId) stopTurn(this._conversationId);
+    this._resetLocalConversationState();
+    this._conversationId = null;
+    localStorage.removeItem('klebb-active-conversation');
+    // Refocus the textarea so the user can type the next message right
+    // away. Desktop only: touch keyboards re-popping is jarring.
+    this.updateComplete.then(() => {
+      if (this._recording) return;
+      if (matchMedia('(max-width: 480px)').matches) return;
+      const input = this.shadowRoot?.querySelector('.chat-input');
+      if (input && !input.disabled) input.focus();
+    });
+  }
+
+  // Reset every piece of per-conversation local state. The transcript
+  // itself lives server-side; this is view state.
+  _resetLocalConversationState() {
     if (this._abortController) {
       this._userAbortedChat = true;
       this._abortController.abort();
       this._abortController = null;
     }
-    if (this._loading && this._conversationId) stopTurn(this._conversationId);
     this._loading = false;
     this._statusText = '';
     this._streamTail = '';
@@ -935,17 +955,30 @@ class HealthChat extends LitElement {
     this._playingMsgId = null;
     this._isAudioPlaying = false;
     this._audioPos = null;
+    if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
+  }
+
+  // Switch to another conversation from the drawer. A turn running in the
+  // one we leave is NOT stopped: it finishes server-side (#602) and is
+  // waiting, complete, when the user switches back.
+  async _switchConversation(id) {
+    this._drawerOpen = false;
+    if (!id || id === this._conversationId) return;
+    this._resetLocalConversationState();
+    this._conversationId = id;
+    localStorage.setItem('klebb-active-conversation', id);
+    const convo = await getConversation(id);
+    if (convo) this._adoptMessages(convo.messages);
+    this._pendingScrollToBottom = true;
+    this._reattachIfRunning();
+  }
+
+  // The active conversation was deleted in the drawer: drop to a fresh
+  // chat without touching the server (the row is already gone).
+  _activeConversationDeleted() {
+    this._resetLocalConversationState();
     this._conversationId = null;
     localStorage.removeItem('klebb-active-conversation');
-    if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
-    // Refocus the textarea so the user can type the next message right
-    // away. Desktop only: touch keyboards re-popping is jarring.
-    this.updateComplete.then(() => {
-      if (this._recording) return;
-      if (matchMedia('(max-width: 480px)').matches) return;
-      const input = this.shadowRoot?.querySelector('.chat-input');
-      if (input && !input.disabled) input.focus();
-    });
   }
 
   async _checkVoiceAvailability() {
@@ -1119,7 +1152,9 @@ class HealthChat extends LitElement {
     super.connectedCallback();
     this._onGlobalKeydown = (e) => {
       if (e.key === 'Escape' && this._open && !this._recording) {
-        this._setOpen(false);
+        // Escape unwinds one layer at a time: drawer first, then panel.
+        if (this._drawerOpen) this._drawerOpen = false;
+        else this._setOpen(false);
       }
     };
     window.addEventListener('keydown', this._onGlobalKeydown);
@@ -1811,6 +1846,12 @@ class HealthChat extends LitElement {
             @pointercancel=${this._headerPointerUp}
           >
             <div class="grab-handle" aria-hidden="true"></div>
+            <button
+              class="hdr-btn"
+              @click=${() => { this._drawerOpen = true; }}
+              aria-label="Conversations"
+              title="Conversations"
+            >\u2630</button>
             <span class="chat-header-icon">${this._agentEmoji}</span>
             <span class="chat-header-text">${this._agentName}</span>
             <div class="hdr-actions">
@@ -1823,18 +1864,20 @@ class HealthChat extends LitElement {
               >${this._expanded ? '\u2922' : '\u2921'}</button>
               <button
                 class="hdr-btn"
-                @click=${this._clearHistory}
-                aria-label="New chat"
-                title="New chat"
-              >\u{1F4DD}</button>
-              <button
-                class="hdr-btn"
                 @click=${this._toggle}
                 aria-label="Close chat"
                 title="Close"
               >\u2715</button>
             </div>
           </div>
+          <chat-drawer
+            ?open=${this._drawerOpen}
+            active-id=${this._conversationId || ''}
+            @drawer-close=${() => { this._drawerOpen = false; }}
+            @drawer-new=${() => { this._drawerOpen = false; this._clearHistory(); }}
+            @drawer-select=${(e) => this._switchConversation(e.detail.id)}
+            @drawer-deleted=${(e) => { if (e.detail.id === this._conversationId) this._activeConversationDeleted(); }}
+          ></chat-drawer>
           <div class="chat-messages">${this._renderMessages()}</div>
           ${this._recording ? html`
             <div class="recording-banner">

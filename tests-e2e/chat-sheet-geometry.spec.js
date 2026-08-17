@@ -38,7 +38,7 @@ test.describe('#604 chat sheet geometry', () => {
     expect(panel.height).toBeGreaterThanOrEqual(PHONE.height - 1);
     expect(Math.abs(panel.y)).toBeLessThanOrEqual(1);
 
-    for (const label of ['Close chat', 'New chat']) {
+    for (const label of ['Close chat', 'Conversations']) {
       const box = await widget.locator(`button[aria-label="${label}"]`).boundingBox();
       expect(box.width, `${label} width`).toBeGreaterThanOrEqual(44);
       expect(box.height, `${label} height`).toBeGreaterThanOrEqual(44);
