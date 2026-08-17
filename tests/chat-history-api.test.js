@@ -69,6 +69,22 @@ describe('chat history API', () => {
     assert.deepEqual(get.json.messages, []);
   });
 
+  test('hasVoice round-trips so a spoken reply keeps its player after reload (#606)', async () => {
+    const put = await req(server.baseUrl, '/api/chat/history', {
+      method: 'PUT',
+      cookie: auth.cookie,
+      body: { messages: [
+        { id: 'v1', role: 'assistant', content: 'spoken', hasVoice: true },
+        { id: 'v2', role: 'assistant', content: 'typed', hasVoice: 'yes' },
+      ] },
+    });
+    assert.equal(put.status, 200);
+    const get = await req(server.baseUrl, '/api/chat/history', { cookie: auth.cookie });
+    assert.equal(get.json.messages[0].hasVoice, true);
+    assert.equal(get.json.messages[1].hasVoice, undefined,
+      'only a literal true survives; truthy junk does not');
+  });
+
   test('PUT strips messages with unknown roles and non-string content', async () => {
     const put = await req(server.baseUrl, '/api/chat/history', {
       method: 'PUT',
