@@ -24,6 +24,44 @@ import { renderMarkdown } from './chat/markdown.js';
 import {
   getSharedAudio, primeSharedAudio, stopSharedAudio, peekSharedAudio,
 } from './chat/shared-audio.js';
+import {
+  streamChat, reattachTurn, stopTurn,
+  createConversation, getConversation, putConversationMessages,
+} from './chat/transport.js';
+
+// Human copy for the live status line while the agent works a tool.
+// Falls back to a generic label so a new tool is never a blank line.
+const TOOL_LABELS = {
+  create_manifest: 'Creating a card',
+  validate_manifest: 'Checking a card design',
+  delete_manifest: 'Removing a card',
+  patch_manifest: 'Updating a card',
+  hide_card: 'Hiding a card',
+  show_card: 'Showing a card',
+  list_manifests: 'Looking over your cards',
+  read_manifest: 'Reading a card',
+  read_manifest_meta: 'Reading a card',
+  read_manifest_rows: 'Reading your data',
+  write_manifest_data: 'Rewriting card data',
+  append_row: 'Logging your data',
+  update_row: 'Updating an entry',
+  remove_row: 'Removing an entry',
+  reorder_rows: 'Reordering entries',
+  get_recent_activity: 'Checking recent activity',
+  hygiene_scan: 'Checking your cards',
+  orphan_report: 'Checking data fields',
+  rename_data_field: 'Renaming a data field',
+  read_doc: 'Reading the manual',
+  read_report: 'Reading a report',
+  set_notification: 'Setting a reminder',
+  remove_notification: 'Removing a reminder',
+  note_feature_request: 'Noting your request',
+};
+
+function toolLabel(tool, id) {
+  const base = TOOL_LABELS[tool] || 'Working on it';
+  return id ? `${base} (${id})…` : `${base}…`;
+}
 
 class HealthChat extends LitElement {
   static properties = {
@@ -40,6 +78,8 @@ class HealthChat extends LitElement {
     _isAudioPlaying: { state: true },
     _audioPos: { state: true },
     _speakReplies: { state: true },
+    _statusText: { state: true },
+    _streamTail: { state: true },
     _agentName: { state: true },
     _agentEmoji: { state: true },
     _expanded: { state: true },
@@ -512,6 +552,38 @@ class HealthChat extends LitElement {
     }
     .embellish-chips { justify-content: flex-start; margin-top: 0; }
 
+    /* Provisional text streaming in: plain text on purpose. Markdown is
+       re-rendered once on the final reply; re-parsing the whole bubble on
+       every token is the classic streaming jank. */
+    .msg.assistant.streaming {
+      white-space: pre-wrap;
+      opacity: 0.9;
+    }
+
+    /* Live tool activity while the agent works. */
+    .status-line {
+      align-self: flex-start;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding: 4px 14px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: rec-pulse 1.2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    .send-btn.stop {
+      background: #ff4466;
+      font-size: 12px;
+    }
+
     .typing {
       align-self: flex-start;
       padding: 8px 14px;
@@ -608,10 +680,15 @@ class HealthChat extends LitElement {
     this._saveTimer = null;
     this._starterChips = null;
     this._hygieneFindings = null;
+    // The active conversation follows the device: the server owns the
+    // transcript, this is just the pointer into it.
+    this._conversationId = localStorage.getItem('klebb-active-conversation') || null;
+    this._statusText = '';
+    this._streamTail = '';
     this._checkVoiceAvailability();
     this._checkChatConfigured();
     this._loadInstance();
-    this._loadHistory();
+    this._loadConversation();
     this._loadStarterChips();
     this._loadHygiene();
   }
@@ -705,33 +782,92 @@ class HealthChat extends LitElement {
     } catch {}
   }
 
-  // ---------- History persistence ----------
+  // ---------- Conversation persistence ----------
   //
-  // Chat history is kept on the server at /api/chat/history so it follows
-  // the user across devices. Saves are debounced so a flurry of updates
-  // during a reply (e.g. streaming placeholder patches) become one PUT.
+  // The server owns the transcript (#603): the active conversation id is
+  // the only client-side pointer, and the server appends both sides of
+  // every turn itself. The client still PUTs the message list after local
+  // mutations (chip consumption, and as a belt-and-braces sync after each
+  // turn), debounced so a flurry becomes one write.
 
-  async _loadHistory() {
+  _adoptMessages(raw) {
+    const clean = (Array.isArray(raw) ? raw : []).filter(m =>
+      m && typeof m === 'object' &&
+      (m.role === 'user' || m.role === 'assistant') &&
+      typeof m.content === 'string'
+    );
+    // Only adopt server state if nothing's been added locally in the
+    // meantime (pathological: user typed before the initial GET landed).
+    if (this._messages.length === 0) {
+      this._messages = clean;
+      this._msgCounter = clean.reduce((max, m) => {
+        const n = parseInt(String(m.id).match(/^m(\d+)/)?.[1] || '0', 10);
+        return n > max ? n : max;
+      }, 0);
+    }
+  }
+
+  async _loadConversation() {
     try {
-      const r = await fetch('/api/chat/history', { cache: 'no-store' });
-      if (!r.ok) return;
-      const j = await r.json();
-      const arr = Array.isArray(j.messages) ? j.messages : [];
-      const clean = arr.filter(m =>
-        m && typeof m === 'object' &&
-        (m.role === 'user' || m.role === 'assistant') &&
-        typeof m.content === 'string'
-      );
-      // Only adopt server state if nothing's been added locally in the
-      // meantime (pathological: user typed before the initial GET landed).
-      if (this._messages.length === 0) {
-        this._messages = clean;
-        this._msgCounter = clean.reduce((max, m) => {
-          const n = parseInt(String(m.id).match(/^m(\d+)/)?.[1] || '0', 10);
-          return n > max ? n : max;
-        }, 0);
+      if (this._conversationId) {
+        const convo = await getConversation(this._conversationId);
+        if (convo) {
+          this._adoptMessages(convo.messages);
+          // An answer may have finished (or still be running) while the
+          // app was closed: pick it up.
+          this._reattachIfRunning();
+          return;
+        }
+        // The conversation was pruned or deleted elsewhere.
+        this._conversationId = null;
+        localStorage.removeItem('klebb-active-conversation');
       }
+      await this._importLegacyHistory();
     } catch {}
+  }
+
+  // One-time fold of the pre-conversations transcript into a conversation.
+  // Loses nothing: the create must succeed before the legacy file is
+  // cleared, and a failure just leaves everything for the next load.
+  async _importLegacyHistory() {
+    const r = await fetch('/api/chat/history', { cache: 'no-store' });
+    if (!r.ok) return;
+    const j = await r.json();
+    const msgs = Array.isArray(j?.messages) ? j.messages : [];
+    if (!msgs.length) return;
+    const created = await fetch('/api/conversations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: msgs }),
+      cache: 'no-store',
+    });
+    if (!created.ok) return;
+    const convo = (await created.json()).conversation;
+    this._conversationId = convo.id;
+    localStorage.setItem('klebb-active-conversation', convo.id);
+    this._adoptMessages(convo.messages);
+    try { await fetch('/api/chat/history', { method: 'DELETE', cache: 'no-store' }); } catch {}
+  }
+
+  async _ensureConversation() {
+    if (this._conversationId) return this._conversationId;
+    const convo = await createConversation();
+    this._conversationId = convo.id;
+    localStorage.setItem('klebb-active-conversation', convo.id);
+    return convo.id;
+  }
+
+  // Pull the server's copy when it is ahead of ours (a turn finished
+  // while the app was backgrounded or closed).
+  async _refreshConversation() {
+    if (!this._conversationId) return;
+    const convo = await getConversation(this._conversationId);
+    if (!convo) return;
+    const localCount = this._messages.filter(m => m.role !== 'error').length;
+    if (convo.messages.length > localCount) {
+      this._messages = convo.messages;
+      this._scrollToBottom();
+    }
   }
 
   // Unpack a /api/chat response's followup block into the extra fields
@@ -757,40 +893,41 @@ class HealthChat extends LitElement {
     // The play affordance survives reloads; the audio itself
     // re-synthesises on demand.
     if (m.hasVoice === true) out.hasVoice = true;
+    // So a reloaded transcript can still offer "keep going".
+    if (m.capped === true) out.capped = true;
     return out;
   }
 
   _saveHistory() {
     if (this._saveTimer) clearTimeout(this._saveTimer);
-    this._saveTimer = setTimeout(() => this._flushHistory(), 500);
+    this._saveTimer = setTimeout(() => this._flushConversation(), 500);
   }
 
-  async _flushHistory() {
+  async _flushConversation() {
     this._saveTimer = null;
+    // Never race a running turn: the server is appending to the same
+    // conversation, and a whole-replace mid-turn would clobber it.
+    if (!this._conversationId || this._loading) return;
     const keep = this._messages
       .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.voiceUnconfiguredNotice)
       .map(m => ({ id: m.id, role: m.role, content: m.content, ...this._persistExtras(m) }))
       .slice(-200);
-    try {
-      await fetch('/api/chat/history', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: keep }),
-        cache: 'no-store',
-      });
-    } catch {}
+    await putConversationMessages(this._conversationId, keep);
   }
 
+  // "New chat": park the current conversation (it stays on the server)
+  // and start fresh. Any in-flight turn is stopped server-side too, so
+  // the one-turn lock releases and no orphan reply lands later.
   async _clearHistory() {
-    // If a reply is in flight, abort it so the textarea re-enables
-    // immediately. The flag is read by _sendText / _handleRecordedBlob's
-    // catch blocks so they don't push a stale error into the cleared chat.
     if (this._abortController) {
       this._userAbortedChat = true;
       this._abortController.abort();
       this._abortController = null;
     }
+    if (this._loading && this._conversationId) stopTurn(this._conversationId);
     this._loading = false;
+    this._statusText = '';
+    this._streamTail = '';
     stopSharedAudio();
     this._audioCache.forEach(v => { try { URL.revokeObjectURL(v.url); } catch {} });
     this._audioCache.clear();
@@ -798,6 +935,8 @@ class HealthChat extends LitElement {
     this._playingMsgId = null;
     this._isAudioPlaying = false;
     this._audioPos = null;
+    this._conversationId = null;
+    localStorage.removeItem('klebb-active-conversation');
     if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
     // Refocus the textarea so the user can type the next message right
     // away. Desktop only: touch keyboards re-popping is jarring.
@@ -807,9 +946,6 @@ class HealthChat extends LitElement {
       const input = this.shadowRoot?.querySelector('.chat-input');
       if (input && !input.disabled) input.focus();
     });
-    try {
-      await fetch('/api/chat/history', { method: 'DELETE', cache: 'no-store' });
-    } catch {}
   }
 
   async _checkVoiceAvailability() {
@@ -1022,11 +1158,22 @@ class HealthChat extends LitElement {
       if (typeof id === 'string' && id) this._viewedCardId = id;
     };
     window.addEventListener('klebb-card-focused', this._onCardFocused);
+
+    // Coming back to the foreground: iOS killed any in-flight fetch when
+    // the app backgrounded, but the turn kept running server-side (#602).
+    // Reattach to a live stream, or pull the finished reply.
+    this._onVisibility = () => {
+      if (document.visibilityState === 'visible') this._reattachIfRunning();
+    };
+    document.addEventListener('visibilitychange', this._onVisibility);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this._releaseSheet();
+    if (this._onVisibility) {
+      document.removeEventListener('visibilitychange', this._onVisibility);
+    }
     if (this._onGlobalKeydown) {
       window.removeEventListener('keydown', this._onGlobalKeydown);
     }
@@ -1049,26 +1196,153 @@ class HealthChat extends LitElement {
   }
 
   // ---------- Chat pipeline ----------
+  //
+  // A turn is one streamed POST (#601/#605): status events feed the live
+  // status line, token events accumulate into a provisional bubble, and
+  // the reply event carries the same final payload the buffered mode
+  // returns. The server persists both sides and keeps the turn running if
+  // this client vanishes (#602); a plain JSON response is handled too, so
+  // pre-stream errors and stripped-SSE proxies degrade gracefully.
 
-  async _fetchChat(messages, voiceMode, timeoutMs = 600000) {
+  _onTurnEvent(ev) {
+    if (ev.event === 'status') {
+      this._statusText = ev.data.phase === 'tool' ? toolLabel(ev.data.tool, ev.data.id) : '';
+    } else if (ev.event === 'token') {
+      this._streamTail = (this._streamTail || '') + (ev.data.text || '');
+      this._scrollToBottom();
+    } else if (ev.event === 'reset') {
+      this._streamTail = '';
+    } else if (ev.event === 'reply') {
+      this._turnReply = ev.data;
+    } else if (ev.event === 'error') {
+      this._turnError = ev.data;
+    } else if (ev.event === 'stopped') {
+      this._turnStopped = true;
+    }
+  }
+
+  // Run one turn against the active conversation and fold the outcome
+  // into the transcript. Shared by the typed and mic paths.
+  async _runTurn(userText, useVoice) {
     if (this._abortController) this._abortController.abort();
     this._abortController = new AbortController();
-    const timeoutId = setTimeout(() => this._abortController?.abort(), timeoutMs);
+    this._turnReply = null;
+    this._turnError = null;
+    this._turnStopped = false;
+    this._statusText = '';
+    this._streamTail = '';
+    let aborted = false;
     try {
-      const body = { messages, voiceMode };
+      const conversationId = await this._ensureConversation();
+      const body = {
+        conversationId,
+        messages: [{ role: 'user', content: userText }],
+        voiceMode: useVoice,
+      };
       if (this._viewedCardId) body.viewedCardId = this._viewedCardId;
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Connection': 'close' },
-        body: JSON.stringify(body),
+      const outcome = await streamChat({
+        body,
         signal: this._abortController.signal,
-        cache: 'no-store',
+        onEvent: (ev) => this._onTurnEvent(ev),
       });
-      clearTimeout(timeoutId);
-      return await res.json();
+      if (outcome.kind === 'json') {
+        // Pre-stream refusal, or a proxy stripped the stream down to the
+        // buffered reply. Either way the JSON speaks for itself.
+        if (outcome.status === 409) {
+          this._pushError('Still finishing the previous reply. Give it a moment.');
+          this._reattachIfRunning();
+        } else if (outcome.json?.error) {
+          this._pushError(outcome.json.error);
+        } else if (outcome.json?.reply) {
+          this._turnReply = outcome.json;
+        }
+      }
     } catch (e) {
-      clearTimeout(timeoutId);
-      throw e;
+      if (this._userAbortedChat) {
+        this._userAbortedChat = false;
+        aborted = true;
+      } else {
+        this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
+      }
+    }
+    this._statusText = '';
+    this._streamTail = '';
+    this._abortController = null;
+    if (!aborted) await this._applyTurnOutcome(useVoice);
+    this._loading = false;
+    this._scrollToBottom();
+    this._saveHistory();
+  }
+
+  async _applyTurnOutcome(useVoice) {
+    if (this._turnError) {
+      this._pushError(this._turnError.error || 'Something went wrong.');
+      return;
+    }
+    if (this._turnStopped || !this._turnReply) return;
+    const data = this._turnReply;
+    const extra = this._followupExtras(data);
+    if (data.capped) extra.capped = true;
+    if (useVoice || data.speak) {
+      const speakText = data.speak || data.reply;
+      const displayText = data.reply || data.display || data.speak || '';
+      const msgId = this._addMsg('assistant', displayText, { ...extra, speakText, hasVoice: true });
+      this._scrollToBottom();
+      if (useVoice) await this._generateAndAutoplay(msgId, speakText);
+    } else {
+      this._addMsg('assistant', data.reply, extra);
+    }
+  }
+
+  // Stop watching AND stop the turn: the server halts the loop at its
+  // next checkpoint, the one-turn lock releases, and no reply is
+  // persisted. The user's message stays.
+  _stopTurn() {
+    if (!this._loading) return;
+    if (this._conversationId) stopTurn(this._conversationId);
+    if (this._abortController) {
+      this._userAbortedChat = true;
+      this._abortController.abort();
+    }
+    this._loading = false;
+    this._statusText = '';
+    this._streamTail = '';
+  }
+
+  // On returning to the foreground (or booting into an active
+  // conversation), pick up whatever happened while we were away: a
+  // still-running turn resumes its event stream, a finished one is
+  // already in the conversation.
+  async _reattachIfRunning() {
+    if (!this._conversationId || this._loading || this._reattaching) return;
+    this._reattaching = true;
+    try {
+      this._turnReply = null;
+      this._turnError = null;
+      this._turnStopped = false;
+      const result = await reattachTurn({
+        conversationId: this._conversationId,
+        onEvent: (ev) => this._onTurnEvent(ev),
+      });
+      if (result === 'none') {
+        await this._refreshConversation();
+        return;
+      }
+      this._statusText = '';
+      this._streamTail = '';
+      // The replayed reply may already be in our transcript (we saw it
+      // before backgrounding); only fold it in when it is genuinely new.
+      if (this._turnReply) {
+        const last = this._messages.filter(m => m.role === 'assistant').at(-1);
+        if (!last || last.content !== (this._turnReply.reply || '')) {
+          // No autoplay on reattach: there is no user gesture to ride.
+          await this._applyTurnOutcome(false);
+        }
+      }
+      this._saveHistory();
+    } catch {} finally {
+      this._reattaching = false;
+      this._loading = false;
     }
   }
 
@@ -1083,39 +1357,11 @@ class HealthChat extends LitElement {
     });
     this._loading = true;
     this._scrollToBottom();
-    const chatMessages = this._messages.filter(m => m.role !== 'error');
     // Reply modality is the speak-replies toggle, nothing else: on means
     // every reply comes back voice-shaped and autoplays, off means text.
     const useVoice = this._speakReplies && this._voiceAvailable;
     if (useVoice) primeSharedAudio();
-    try {
-      // Single request, generous timeout. Earlier two-phase retry was meant
-      // for stale TCP sockets after visibility-change; in practice it caused
-      // confusing "Gateway unavailable" errors on slow (tool-using) replies.
-      const data = await this._fetchChat(chatMessages, useVoice);
-      if (data.error) this._pushError(data.error);
-      else {
-        const extra = this._followupExtras(data);
-        if (useVoice) {
-          const speakText = data.speak || data.reply;
-          const displayText = data.reply || data.display || data.speak || '';
-          const msgId = this._addMsg('assistant', displayText, { ...extra, speakText, hasVoice: true });
-          this._scrollToBottom();
-          await this._generateAndAutoplay(msgId, speakText);
-        } else {
-          this._addMsg('assistant', data.reply, extra);
-        }
-      }
-    } catch (e) {
-      if (this._userAbortedChat) {
-        this._userAbortedChat = false;
-      } else {
-        this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
-      }
-    }
-    this._loading = false;
-    this._abortController = null;
-    this._scrollToBottom();
+    await this._runTurn(text, useVoice);
     // Input lost focus because it was disabled while loading. Put it
     // back so the user can type the next message without re-clicking.
     // Skip on mobile: touch keyboards re-opening uninvited is jarring.
@@ -1262,35 +1508,11 @@ class HealthChat extends LitElement {
       // Spoken input no longer implies a spoken reply: the speak-replies
       // toggle decides for every send. First mic use flipped it on in
       // _micTap, so the default voice-in/voice-out flow still holds.
-      const useVoice = this._speakReplies;
-      const chatMessages = this._messages.filter(m => m.role !== 'error');
-      let replyData;
-      try { replyData = await this._fetchChat(chatMessages, useVoice); }
-      catch (e) {
-        if (this._userAbortedChat) {
-          this._userAbortedChat = false;
-        } else {
-          this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
-        }
-        return;
-      }
-
-      if (replyData.error) {
-        this._pushError(replyData.error);
-      } else if (useVoice) {
-        const speakText = replyData.speak || replyData.reply;
-        const displayText = replyData.reply || replyData.display || replyData.speak || '';
-        const msgId = this._addMsg('assistant', displayText, { ...this._followupExtras(replyData), speakText, hasVoice: true });
-        this._scrollToBottom();
-        // Fetch TTS + auto-play
-        await this._generateAndAutoplay(msgId, speakText);
-      } else {
-        this._addMsg('assistant', replyData.reply, this._followupExtras(replyData));
-      }
+      await this._runTurn(text, this._speakReplies);
     } catch (e) {
       this._pushError(`Voice error: ${e.message}`);
-    } finally {
       this._loading = false;
+    } finally {
       this._scrollToBottom();
     }
   }
@@ -1463,6 +1685,7 @@ class HealthChat extends LitElement {
         </div>
       `;
     }
+    const lastMsg = this._messages.at(-1);
     return html`
       ${this._messages.map(m => {
         if (m.role === 'assistant') {
@@ -1473,10 +1696,19 @@ class HealthChat extends LitElement {
           const chips = Array.isArray(m.embellishments) && m.embellishments.length
             ? this._renderEmbellishChips(m)
             : '';
+          // A capped reply on the tail of the transcript offers to resume
+          // the turn: the loop ran out of budget, not the answer.
+          const keepGoing = m.capped && m === lastMsg && !this._loading
+            ? html`
+              <div class="suggestions embellish-chips">
+                <span class="suggestion" @click=${() => this._useSuggestion('keep going')}>▶ Keep going</span>
+              </div>`
+            : '';
           return html`
             <div class="msg assistant">
               ${unsafeHTML(renderMarkdown(m.content))}
               ${chips}
+              ${keepGoing}
               ${hasAudio ? this._renderAudioRow(m) : ''}
             </div>
           `;
@@ -1484,7 +1716,14 @@ class HealthChat extends LitElement {
         if (m.role === 'error') return html`<div class="msg error">${m.content}</div>`;
         return html`<div class="msg user">${m.content}</div>`;
       })}
-      ${this._loading ? html`<div class="typing"><div class="typing-dots"><span></span><span></span><span></span></div></div>` : ''}
+      ${this._loading && this._streamTail ? html`
+        <div class="msg assistant streaming">${this._streamTail}</div>
+      ` : ''}
+      ${this._loading ? (this._statusText ? html`
+        <div class="status-line"><span class="status-dot"></span>${this._statusText}</div>
+      ` : (!this._streamTail ? html`
+        <div class="typing"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+      ` : '')) : ''}
     `;
   }
 
@@ -1638,7 +1877,16 @@ class HealthChat extends LitElement {
               @keydown=${this._handleKeydown}
               ?disabled=${this._loading || this._recording || this._chatConfigured === false}
             ></textarea>
-            <button class="send-btn" @click=${this._sendText} ?disabled=${this._loading || this._recording || !this._input.trim() || this._chatConfigured === false}>\u2191</button>
+            ${this._loading ? html`
+              <button
+                class="send-btn stop"
+                @click=${this._stopTurn}
+                aria-label="Stop"
+                title="Stop generating"
+              >\u25fc</button>
+            ` : html`
+              <button class="send-btn" @click=${this._sendText} aria-label="Send" ?disabled=${this._recording || !this._input.trim() || this._chatConfigured === false}>\u2191</button>
+            `}
           </div>
         </div>
       ` : ''}

@@ -39,6 +39,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **The chat shows what it is doing, streams its answers, and can be
+  stopped.** Turns now ride the event stream: the model's text appears
+  as it generates, a live status line names the tool being worked
+  ("Creating a card (sleep)…"), and the send button becomes a stop
+  button that genuinely halts the server-side loop (the user's message
+  stays, no reply is invented, the next send goes straight through).
+  Capped turns offer a "keep going" chip that survives reloads. The
+  transcript now lives in a server-side conversation: it follows the
+  user across devices, survives the phone backgrounding mid-turn (the
+  answer is waiting on return), and a pre-existing history file is
+  folded into a conversation the first time the new client loads.
+  (#605, with #601/#602/#603 underneath)
 - **A speak-replies toggle decides reply modality.** A speaker button
   beside the mic: on means every reply (typed or spoken) comes back
   voice-shaped and autoplays, off means text only. Off by default; the
