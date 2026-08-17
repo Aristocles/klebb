@@ -39,6 +39,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Chat gateway token and cache counters are now recorded.** Both
+  gateway paths threw the response's `usage` block away: the buffered
+  path parsed it and dropped it, and the streaming assembler rebuilt a
+  synthetic response that never carried it. Each agent-loop step now
+  logs prompt, completion, cached and cache-write token counts (plus
+  upstream cost where the gateway reports one), so the cost of a chat
+  turn is measurable instead of inferred. Streaming needed
+  `stream_options.include_usage` to return the block at all, and the
+  counters arrive on a trailing chunk whose `choices` array is empty,
+  which the assembler previously skipped. Reader normalises the two
+  field layouts the supported gateways use, since one reports cache
+  counters only under `prompt_tokens_details` and reading just the
+  top-level names reports a confident zero. `usage=none` stays distinct
+  from a row of zeroes: a gateway reporting nothing and one reporting a
+  genuine zero hit rate are different faults. (#636)
 - **Bug reports and feature requests, from inside the chat.** The
   unmet-capability tool grew into `note_feedback(kind, intent)`: telling
   Klebbius "report a bug: the chart went blank" or "I wish it could…"
