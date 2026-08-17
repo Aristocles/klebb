@@ -214,6 +214,29 @@ describe('import inbox: convergence', { skip }, () => {
     );
   });
 
+  test('a fresh importer starts with a clean boot set: deliberate re-import stays quiet', () => {
+    // The wipe-then-reimport flow re-imports ids the first importer already
+    // saw. Isolation is per createImporter instance (the set lives in its
+    // closure), so a fresh importer must not fire the strip-not-sticking
+    // warning for them.
+    const file = writeCard('mood.json', manifest('mood', [{ date: '2026-05-01', mood: 3 }]));
+    const original = fs.readFileSync(file, 'utf8');
+    const warnings = [];
+    const realWarn = console.warn;
+    console.warn = (...args) => { warnings.push(args.join(' ')); };
+    try {
+      importFile(file);
+      fs.writeFileSync(file, original);
+      importer = createImporter(store);
+      const res = importFile(file);
+      assert.strictEqual(res.imported, true);
+    } finally {
+      console.warn = realWarn;
+    }
+    assert.deepStrictEqual(warnings, [],
+      'a fresh importer warned about an id only the previous importer had seen');
+  });
+
   test('importer rejects a parsed value without meta.id', () => {
     assert.throws(() => importer.importParsedFile('x.json', { data: [] }), /meta\.id required/);
     assert.throws(() => importer.importParsedFile('x.json', null), /parsed manifest object required/);

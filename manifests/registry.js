@@ -371,9 +371,9 @@ function _loadAll() {
   }
 }
 
-function init() {
-  _loadAll();
-  // Watch for changes (debounced)
+// Watch for changes (debounced). Shared by init() and resumeWatch() so the
+// two registration paths can never drift.
+function _startWatcher() {
   try {
     if (_watcher) { _watcher.close(); _watcher = null; }
     _watcher = fs.watch(PATHS.DATA_DIR, { persistent: false }, _onFsChange);
@@ -381,6 +381,11 @@ function init() {
     // fs.watch can fail on some filesystems; fall back to manual reload calls
     console.warn('[manifest] fs.watch unavailable:', e.message);
   }
+}
+
+function init() {
+  _loadAll();
+  _startWatcher();
   return { count: _entries.size, errors: _errors.length };
 }
 
@@ -391,6 +396,28 @@ function _onFsChange() {
     _reloadTimer = null;
     reload();
   }, 250);
+}
+
+// Quiesce the watch pipeline before a bulk mutation (wipe-then-reimport).
+// Closing the watcher alone is not enough: an fs event from just before the
+// stop leaves a debounced reload queued, and that timer would fire a reload
+// mid-wipe. Returns true when a pending reload was cancelled, so a caller can
+// tell the quiesce caught one in flight. Manual reload() stays callable.
+function stopWatch() {
+  if (_watcher) {
+    try { _watcher.close(); } catch {}
+    _watcher = null;
+  }
+  const pending = _reloadTimer !== null;
+  if (pending) {
+    clearTimeout(_reloadTimer);
+    _reloadTimer = null;
+  }
+  return pending;
+}
+
+function resumeWatch() {
+  _startWatcher();
 }
 
 function reload() {
@@ -1028,6 +1055,8 @@ function deleteManifest(id) {
 module.exports = {
   init,
   closeStore,
+  stopWatch,
+  resumeWatch,
   reload,
   list,
   listForView,

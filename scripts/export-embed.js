@@ -152,26 +152,29 @@ function classifyCard(file) {
   return { id, parsed };
 }
 
-function main() {
-  const args = parseArgs(process.argv.slice(2));
-  if (!args) { usage(); return 2; }
-  if (args.help) { usage(); return 0; }
-  if (!args.target) { console.error('error: target directory required'); usage(); return 2; }
-
+// The whole export, lifted out of main() so an in-process caller (the import
+// wizard's pre-import safety export) can run it inside a live server. Throws
+// on failure instead of exiting; main() translates to the CLI's exit codes.
+// opts: { includeSecrets = false }. Returns { target, counts }.
+//
+// Handle discipline: exportTo closes only the handles it opens (its own
+// read-only datastore view). The HAE samples module is a lazy process-wide
+// singleton whose handle belongs to whoever else is alive in the process (a
+// live server's ingest path), so exportTo reads through it and leaves it
+// open; the CLI wrapper closes it before exiting.
+function exportTo(targetDir, opts = {}) {
+  const { includeSecrets = false } = opts;
   const PATHS = require('../config/paths');
-  const target = path.resolve(args.target);
+  const target = path.resolve(targetDir);
 
   if ((target + path.sep).startsWith(PATHS.DATA_DIR + path.sep) || target === PATHS.DATA_DIR) {
-    console.error(`error: target must not sit inside the data dir (${PATHS.DATA_DIR})`);
-    return 2;
+    throw new Error(`target must not sit inside the data dir (${PATHS.DATA_DIR})`);
   }
   if (fs.existsSync(target) && fs.readdirSync(target).length > 0) {
-    console.error(`error: target ${target} exists and is not empty`);
-    return 2;
+    throw new Error(`target ${target} exists and is not empty`);
   }
   if (!fs.existsSync(PATHS.DATA_DIR)) {
-    console.error(`error: no data dir at ${PATHS.DATA_DIR}`);
-    return 2;
+    throw new Error(`no data dir at ${PATHS.DATA_DIR}`);
   }
 
   // Read-only view of the datastore. A missing DB is a valid state (fresh or
@@ -184,144 +187,172 @@ function main() {
     store.load();
   }
 
-  const outData = path.join(target, 'data');
-  fs.mkdirSync(outData, { recursive: true });
+  try {
+    const outData = path.join(target, 'data');
+    fs.mkdirSync(outData, { recursive: true });
 
-  const counts = { embedded: 0, inline: 0, noData: 0, filesCopied: 0, haePushes: 0 };
-  // Provenance manifest inventory (docs/EXPORT-FORMAT.md). Every file the
-  // export writes is recorded here with the sha256 of its bytes as written;
-  // the manifest itself is written last so a torn export never carries one.
-  const inventory = { cards: [], samples: null, reports: [], other: [] };
-  const rel = file => path.relative(target, file).split(path.sep).join('/');
-  const fileEntry = file => ({ file: rel(file), sha256: sha256(file) });
-  const skipDirs = new Set();
-  // A pre-#546 tree may still hold the old file archive, and a moved-aside copy
-  // from the migration. Neither is exported: the samples table is the history
-  // now, and copying hundreds of MB of superseded duplicates into a customer's
-  // archive would be worse than useless.
-  skipDirs.add(path.join(PATHS.AUTO_EXPORT_DIR, 'raw'));
-  if (fs.existsSync(PATHS.AUTO_EXPORT_DIR)) {
-    for (const name of fs.readdirSync(PATHS.AUTO_EXPORT_DIR)) {
-      if (name.startsWith('raw.migrated-')) {
-        skipDirs.add(path.join(PATHS.AUTO_EXPORT_DIR, name));
+    const counts = { embedded: 0, inline: 0, noData: 0, filesCopied: 0, haePushes: 0 };
+    // Provenance manifest inventory (docs/EXPORT-FORMAT.md). Every file the
+    // export writes is recorded here with the sha256 of its bytes as written;
+    // the manifest itself is written last so a torn export never carries one.
+    const inventory = { cards: [], samples: null, reports: [], other: [] };
+    const rel = file => path.relative(target, file).split(path.sep).join('/');
+    const fileEntry = file => ({ file: rel(file), sha256: sha256(file) });
+    const skipDirs = new Set();
+    // A pre-#546 tree may still hold the old file archive, and a moved-aside copy
+    // from the migration. Neither is exported: the samples table is the history
+    // now, and copying hundreds of MB of superseded duplicates into a customer's
+    // archive would be worse than useless.
+    skipDirs.add(path.join(PATHS.AUTO_EXPORT_DIR, 'raw'));
+    if (fs.existsSync(PATHS.AUTO_EXPORT_DIR)) {
+      for (const name of fs.readdirSync(PATHS.AUTO_EXPORT_DIR)) {
+        if (name.startsWith('raw.migrated-')) {
+          skipDirs.add(path.join(PATHS.AUTO_EXPORT_DIR, name));
+        }
       }
     }
-  }
 
-  for (const ent of fs.readdirSync(PATHS.DATA_DIR, { withFileTypes: true })) {
-    const from = path.join(PATHS.DATA_DIR, ent.name);
-    if (ent.isDirectory()) {
-      if (skipDirs.has(from)) continue;
-      counts.filesCopied += copyTree(from, path.join(outData, ent.name), skipDirs, {
-        skipReserved: true,
-        onCopy: file => inventory.other.push(fileEntry(file)),
-      });
-      continue;
-    }
-    if (!ent.isFile() || ent.name.endsWith('.tmp')) continue;
-    if (BACKUP_NAME_RE.test(ent.name)) continue;
-    if (ent.name === MANIFEST_NAME) {
-      console.warn(`  ! ${MANIFEST_NAME} is a reserved name, not copied: ${from}`);
-      continue;
-    }
+    for (const ent of fs.readdirSync(PATHS.DATA_DIR, { withFileTypes: true })) {
+      const from = path.join(PATHS.DATA_DIR, ent.name);
+      if (ent.isDirectory()) {
+        if (skipDirs.has(from)) continue;
+        counts.filesCopied += copyTree(from, path.join(outData, ent.name), skipDirs, {
+          skipReserved: true,
+          onCopy: file => inventory.other.push(fileEntry(file)),
+        });
+        continue;
+      }
+      if (!ent.isFile() || ent.name.endsWith('.tmp')) continue;
+      if (BACKUP_NAME_RE.test(ent.name)) continue;
+      if (ent.name === MANIFEST_NAME) {
+        console.warn(`  ! ${MANIFEST_NAME} is a reserved name, not copied: ${from}`);
+        continue;
+      }
 
-    const card = ent.name.endsWith('.json') ? classifyCard(from) : null;
-    if (!card) {
+      const card = ent.name.endsWith('.json') ? classifyCard(from) : null;
+      if (!card) {
+        const to = path.join(outData, ent.name);
+        fs.copyFileSync(from, to);
+        inventory.other.push(fileEntry(to));
+        counts.filesCopied += 1;
+        continue;
+      }
+
+      const envelope = card.parsed;
+      let dataState = 'none';
+      if (Object.prototype.hasOwnProperty.call(envelope, 'data')) {
+        // Not yet imported (pre-migration file or hand-added block): the file
+        // already carries its data. Export it as-is.
+        counts.inline += 1;
+        dataState = 'inline';
+      } else if (store && store.dataUpdatedAt(card.id) !== null) {
+        // A stored record exists; null is a real recorded value here, distinct
+        // from "never held data", and must round-trip as data: null.
+        envelope.data = store.getData(card.id);
+        counts.embedded += 1;
+        dataState = envelope.data === null ? 'null' : 'embedded';
+      } else {
+        counts.noData += 1;
+      }
       const to = path.join(outData, ent.name);
-      fs.copyFileSync(from, to);
-      inventory.other.push(fileEntry(to));
-      counts.filesCopied += 1;
-      continue;
+      writeJSON(to, envelope);
+      inventory.cards.push({
+        id: card.id,
+        file: rel(to),
+        data: dataState,
+        rows: countRows(envelope.data),
+        sha256: sha256(to),
+      });
     }
 
-    const envelope = card.parsed;
-    let dataState = 'none';
-    if (Object.prototype.hasOwnProperty.call(envelope, 'data')) {
-      // Not yet imported (pre-migration file or hand-added block): the file
-      // already carries its data. Export it as-is.
-      counts.inline += 1;
-      dataState = 'inline';
-    } else if (store && store.dataUpdatedAt(card.id) !== null) {
-      // A stored record exists; null is a real recorded value here, distinct
-      // from "never held data", and must round-trip as data: null.
-      envelope.data = store.getData(card.id);
-      counts.embedded += 1;
-      dataState = envelope.data === null ? 'null' : 'embedded';
-    } else {
-      counts.noData += 1;
-    }
-    const to = path.join(outData, ent.name);
-    writeJSON(to, envelope);
-    inventory.cards.push({
-      id: card.id,
-      file: rel(to),
-      data: dataState,
-      rows: countRows(envelope.data),
-      sha256: sha256(to),
-    });
-  }
-
-  if (fs.existsSync(PATHS.CONFIG_PATH)) {
-    let cfg = null;
-    try {
-      cfg = JSON.parse(fs.readFileSync(PATHS.CONFIG_PATH, 'utf8'));
-    } catch (e) {
-      console.warn(`  ! config.json unreadable, not exported: ${e.message}`);
-    }
-    if (cfg && typeof cfg === 'object') {
-      const to = path.join(target, 'config.json');
-      writeJSON(to, args.includeSecrets ? cfg : sanitiseConfig(cfg));
-      inventory.other.push(fileEntry(to));
-    }
-  }
-
-  if (fs.existsSync(PATHS.REPORTS_DIR)) {
-    counts.filesCopied += copyTree(PATHS.REPORTS_DIR, path.join(target, 'reports'), skipDirs, {
-      onCopy: file => inventory.reports.push({
-        file: rel(file), bytes: fs.statSync(file).size, sha256: sha256(file),
-      }),
-    });
-  }
-
-  // HAE push history. It lives in the samples table inside klebb.db, and db/ is
-  // never staged (a live WAL copy can be torn, and the staged tree goes to a
-  // customer), so it is written out as payloads: the same shape the ingest
-  // endpoint accepts, so restoring is the ordinary ingest path.
-  if (fs.existsSync(PATHS.DB_FILE)) {
-    try {
-      const samples = require('../health-auto-export/samples');
-      const pushes = samples.exportPushes();
-      samples.close();
-      if (pushes.length) {
-        const to = path.join(target, 'data', 'auto-export', 'samples.json');
-        writeJSON(to, { version: 1, pushes });
-        counts.haePushes = pushes.length;
-        inventory.samples = { file: rel(to), pushes: pushes.length, sha256: sha256(to) };
+    if (fs.existsSync(PATHS.CONFIG_PATH)) {
+      let cfg = null;
+      try {
+        cfg = JSON.parse(fs.readFileSync(PATHS.CONFIG_PATH, 'utf8'));
+      } catch (e) {
+        console.warn(`  ! config.json unreadable, not exported: ${e.message}`);
       }
-    } catch (e) {
-      console.warn(`  ! HAE sample history not exported: ${e.message}`);
+      if (cfg && typeof cfg === 'object') {
+        const to = path.join(target, 'config.json');
+        writeJSON(to, includeSecrets ? cfg : sanitiseConfig(cfg));
+        inventory.other.push(fileEntry(to));
+      }
     }
+
+    if (fs.existsSync(PATHS.REPORTS_DIR)) {
+      counts.filesCopied += copyTree(PATHS.REPORTS_DIR, path.join(target, 'reports'), skipDirs, {
+        onCopy: file => inventory.reports.push({
+          file: rel(file), bytes: fs.statSync(file).size, sha256: sha256(file),
+        }),
+      });
+    }
+
+    // HAE push history. It lives in the samples table inside klebb.db, and db/ is
+    // never staged (a live WAL copy can be torn, and the staged tree goes to a
+    // customer), so it is written out as payloads: the same shape the ingest
+    // endpoint accepts, so restoring is the ordinary ingest path.
+    //
+    // Read through the module singleton and leave it OPEN: closing here would
+    // take a live server's own handle down with it. The CLI wrapper closes it.
+    if (fs.existsSync(PATHS.DB_FILE)) {
+      try {
+        const samples = require('../health-auto-export/samples');
+        const pushes = samples.exportPushes();
+        if (pushes.length) {
+          const to = path.join(target, 'data', 'auto-export', 'samples.json');
+          writeJSON(to, { version: 1, pushes });
+          counts.haePushes = pushes.length;
+          inventory.samples = { file: rel(to), pushes: pushes.length, sha256: sha256(to) };
+        }
+      } catch (e) {
+        console.warn(`  ! HAE sample history not exported: ${e.message}`);
+      }
+    }
+
+    // The manifest is the last file written, on purpose: an export that threw
+    // anywhere above leaves a tree with no manifest, which readers treat as
+    // torn and refuse. The `samples` key is absent when no samples file was
+    // exported. Contract: docs/EXPORT-FORMAT.md.
+    writeJSON(path.join(target, MANIFEST_NAME), {
+      format: 'klebb.export.v1',
+      formatVersion: 1,
+      appVersion: require('../package.json').version,
+      exportedAt: new Date().toISOString(),
+      inventory: {
+        cards: inventory.cards,
+        ...(inventory.samples ? { samples: inventory.samples } : {}),
+        reports: inventory.reports,
+        other: inventory.other,
+      },
+    });
+
+    return { target, counts };
+  } finally {
+    if (store) store.close();
+  }
+}
+
+function main() {
+  const args = parseArgs(process.argv.slice(2));
+  if (!args) { usage(); return 2; }
+  if (args.help) { usage(); return 0; }
+  if (!args.target) { console.error('error: target directory required'); usage(); return 2; }
+
+  let result;
+  try {
+    result = exportTo(args.target, { includeSecrets: args.includeSecrets });
+  } catch (e) {
+    console.error(`error: ${e.message}`);
+    return 2;
+  } finally {
+    // exportTo leaves the samples module singleton open on purpose (an
+    // in-process caller shares that handle with a live server). The CLI owns
+    // the whole process, so it closes and WAL-checkpoints here. Safe to call
+    // having never opened.
+    require('../health-auto-export/samples').close();
   }
 
-  if (store) store.close();
-
-  // The manifest is the last file written, on purpose: an export that threw
-  // anywhere above leaves a tree with no manifest, which readers treat as
-  // torn and refuse. The `samples` key is absent when no samples file was
-  // exported. Contract: docs/EXPORT-FORMAT.md.
-  writeJSON(path.join(target, MANIFEST_NAME), {
-    format: 'klebb.export.v1',
-    formatVersion: 1,
-    appVersion: require('../package.json').version,
-    exportedAt: new Date().toISOString(),
-    inventory: {
-      cards: inventory.cards,
-      ...(inventory.samples ? { samples: inventory.samples } : {}),
-      reports: inventory.reports,
-      other: inventory.other,
-    },
-  });
-
+  const { target, counts } = result;
   const cards = counts.embedded + counts.inline + counts.noData;
   console.log(`Exported ${cards} card(s) to ${target}`);
   console.log(`  data embedded from store: ${counts.embedded}`);
@@ -336,5 +367,5 @@ function main() {
 if (require.main === module) {
   process.exit(main());
 } else {
-  module.exports = { sanitiseConfig };
+  module.exports = { exportTo, sanitiseConfig };
 }

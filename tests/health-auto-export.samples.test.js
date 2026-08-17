@@ -286,6 +286,27 @@ describe('HAE sample store', () => {
     assert.equal(byMetric.vo2_max.samples, 1);
   });
 
+  test('wipeAll empties both tables and restarts push_seq at 1', () => {
+    samples.recordPush(metricPush('step_count', [{ date: '2026-05-06', qty: 7 }]),
+      { receivedAt: 't1', dbFile });
+    const second = samples.recordPush(metricPush('step_count', [{ date: '2026-05-07', qty: 9 }]),
+      { receivedAt: 't2', dbFile });
+    assert.equal(second.pushSeq, 2);
+
+    samples.wipeAll({ dbFile });
+    assert.equal(samples.pushCount({ dbFile }), 0);
+    assert.equal(samples.sampleCount({ dbFile }), 0);
+
+    // Pinned on purpose: replay consumes (last_push, push_ord) order, so a
+    // reimport must number its pushes from 1 exactly like the original
+    // history did, not carry on from the wiped table's sequence.
+    const next = samples.recordPush(metricPush('step_count', [{ date: '2026-05-08', qty: 3 }]),
+      { receivedAt: 't3', dbFile });
+    assert.equal(next.pushSeq, 1, 'push_seq did not restart at 1 after wipeAll');
+    assert.deepStrictEqual(
+      samples.forMetric('step_count', { dbFile }).map(r => r.last_push), [1]);
+  });
+
   test('the store survives a close and reopen', () => {
     samples.recordPush(metricPush('step_count', [{ date: '2026-05-06', qty: 7 }]),
       { receivedAt: 't1', dbFile });

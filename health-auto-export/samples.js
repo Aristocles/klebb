@@ -385,6 +385,28 @@ function importPushes(list, opts = {}) {
   return { pushes, inserted };
 }
 
+// Drop the whole push history in one transaction: samples, pushes, and the
+// AUTOINCREMENT bookkeeping row, so the next recordPush gets push_seq 1.
+// Resetting the sequence is load-bearing, not cosmetic: replay consumes
+// samples ordered by (last_push, push_ord), and a reimport into a table whose
+// sequence kept counting would interleave differently with any later live
+// pushes than the original history did.
+function wipeAll(opts = {}) {
+  const db = _open(opts.dbFile || null);
+  db.exec('BEGIN');
+  try {
+    db.exec('DELETE FROM hae_samples');
+    db.exec('DELETE FROM hae_pushes');
+    // sqlite_sequence exists from the moment hae_pushes (AUTOINCREMENT) is
+    // created, so this never hits a missing table.
+    db.exec("DELETE FROM sqlite_sequence WHERE name = 'hae_pushes'");
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+}
+
 // Closing checkpoints the WAL into the main database file, so a copy of
 // klebb.db alone is complete. Safe to call having never opened.
 function close() {
@@ -403,7 +425,7 @@ function close() {
 
 module.exports = {
   recordPush, forMetric, pushCount, sampleCount, metricSummary, close,
-  exportPushes, importPushes,
+  exportPushes, importPushes, wipeAll,
   // Exported for tests and for the migration's own hashing.
   canonical, sampleHash, flatten, guessDate,
 };
