@@ -178,6 +178,31 @@ Without a `conversationId` the endpoint behaves exactly as before
 (client-supplied transcript, nothing persisted server-side). The legacy
 `/api/chat/history` endpoints remain until the client cutover.
 
+### Detached turns and reattach (`/api/chat/turn/:conversationId`)
+
+A conversation turn is a server-side job that survives its client: iOS
+suspends a backgrounded tab and aborts its fetches, and without this an
+in-flight turn's reply had nowhere to go. Mechanics:
+
+- One turn at a time per conversation. A concurrent `POST /api/chat`
+  for the same conversation answers **409** before its message is
+  persisted, so a retry after the running turn cannot double up the
+  transcript.
+- Every event of a conversation turn is buffered with an id (streamed
+  and buffered requests alike) and fanned out to any number of attached
+  event streams.
+- `GET /api/chat/turn/:conversationId` reattaches: buffered events
+  replay from `Last-Event-ID` (or `?after=N`), then the stream stays
+  live until `done`. **204** means there is nothing to attach to: read
+  the conversation, where any completed reply is already persisted.
+- Completed turns linger for 30s so a client that missed `done` can
+  still replay; after that the conversation is the durable copy. A
+  replay that lost its head to the per-turn event cap (5000) starts
+  with a `reset`.
+
+The intended client loop: on `visibilitychange` back to visible, hit
+the reattach endpoint; on 204, refresh the conversation.
+
 ### Legacy env vars
 
 Older deploys used `CHAT_GATEWAY_HOST` + `CHAT_GATEWAY_PORT` +

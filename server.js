@@ -220,9 +220,10 @@ function startEventStream(res) {
     if (!res.writableEnded && !res.destroyed) res.write(': ping\n\n');
   }, 15000);
   return {
-    send(event, data) {
+    send(event, data, id) {
       if (res.writableEnded || res.destroyed) return false;
-      res.write(`event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`);
+      const idLine = Number.isInteger(id) ? `id: ${id}\n` : '';
+      res.write(`${idLine}event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`);
       return true;
     },
     end() {
@@ -230,6 +231,63 @@ function startEventStream(res) {
       if (!res.writableEnded && !res.destroyed) res.end();
     },
   };
+}
+
+// === Detached chat turns (#602) ===
+// A conversation turn runs as a server-side job that survives its client:
+// iOS suspends a backgrounded tab and aborts its fetches, and without this
+// the reply of an in-flight turn had nowhere to go. Every event is
+// buffered per turn with an id, fanned out to each attached event stream,
+// and replayable from any point, so a client that comes back mid-turn
+// resumes exactly where it dropped; the reply itself is persisted to the
+// conversation by the normal path whether anyone is listening or not.
+// Completed turns linger briefly so a client that missed `done` can still
+// replay, then evaporate; the durable copy is the conversation.
+const TURN_EVENT_CAP = 5000;
+const TURN_LINGER_MS = 30000;
+const _activeTurns = new Map(); // conversationId -> hub
+
+function createTurnHub(conversationId) {
+  const hub = {
+    seq: 0,
+    firstKept: 1,
+    events: [],
+    listeners: new Set(),
+    done: false,
+    emit(event, data) {
+      hub.seq += 1;
+      hub.events.push({ id: hub.seq, event, data });
+      if (hub.events.length > TURN_EVENT_CAP) {
+        hub.events.shift();
+        hub.firstKept = hub.events[0].id;
+      }
+      for (const es of [...hub.listeners]) {
+        if (!es.send(event, data, hub.seq)) hub.listeners.delete(es);
+      }
+      return true;
+    },
+    attach(es, afterId = 0) {
+      // A replay that lost its head to the event cap starts with a reset,
+      // so the client drops provisional text before the surviving tail.
+      if (afterId < hub.firstKept - 1) es.send('reset', {}, hub.firstKept - 1);
+      for (const ev of hub.events) {
+        if (ev.id > afterId) es.send(ev.event, ev.data, ev.id);
+      }
+      if (hub.done) return es.end();
+      hub.listeners.add(es);
+    },
+    finish() {
+      hub.done = true;
+      for (const es of [...hub.listeners]) es.end();
+      hub.listeners.clear();
+      const t = setTimeout(() => {
+        if (_activeTurns.get(conversationId) === hub) _activeTurns.delete(conversationId);
+      }, TURN_LINGER_MS);
+      if (typeof t.unref === 'function') t.unref();
+    },
+  };
+  _activeTurns.set(conversationId, hub);
+  return hub;
 }
 
 // Server-local "today" in the configured TZ (Node already honours process.env.TZ,
@@ -1585,6 +1643,26 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // GET /api/chat/turn/:conversationId — reattach to a turn (#602). A
+    // client that backgrounded mid-turn reconnects here: buffered events
+    // replay from Last-Event-ID (or ?after=N), then the stream goes live.
+    // 204 means no turn to attach to: the client reads the conversation,
+    // where any completed reply is already persisted.
+    if (parts[0] === 'chat' && parts[1] === 'turn' && parts.length === 3 && req.method === 'GET') {
+      const hub = _activeTurns.get(parts[2]);
+      if (!hub) {
+        res.writeHead(204);
+        return res.end();
+      }
+      const afterRaw = req.headers['last-event-id']
+        || new URL(req.url, 'http://local').searchParams.get('after')
+        || '0';
+      const after = Number.parseInt(afterRaw, 10);
+      const es = startEventStream(res);
+      hub.attach(es, Number.isFinite(after) && after > 0 ? after : 0);
+      return;
+    }
+
     // /api/chat/history — per-instance chat transcript so it follows the
     // user across devices. Single-user-per-instance model (WebAuthn auth),
     // so no per-user keying is needed.
@@ -1845,11 +1923,24 @@ Original system prompt follows:
           const turnStart = Date.now();
           chatLog(reqId, `start turns=${messages.length} voice=${!!voiceMode} stream=${wantStream} convo=${convo ? convo.id.slice(0, 8) : '-'}`);
 
+          // One turn at a time per conversation: the second sender gets a
+          // 409 BEFORE its message is persisted, so a retry after the
+          // running turn finishes does not double up the transcript. The
+          // check, the persist and the hub creation share one synchronous
+          // span, so they cannot interleave.
+          let hub = null;
           let loopMessages = messages;
           if (convo) {
+            const existing = _activeTurns.get(convo.id);
+            if (existing && !existing.done) {
+              return sendJSON(res, {
+                error: 'A reply is already being generated for this conversation.',
+              }, 409);
+            }
             try { conversationsStore().appendMessages(convo.id, messages); }
             catch (e) { chatLog(reqId, `convo persist failed ${e.message}`); }
             loopMessages = windowTranscript(conversationsStore().get(convo.id).messages);
+            hub = createTurnHub(convo.id);
           }
 
           // Fire-and-forget: a conversation gets its title after the first
@@ -1930,13 +2021,20 @@ Original system prompt follows:
             return { status: 500, error: 'The AI service returned something unreadable. Try again in a moment.' };
           };
 
+          // Conversation turns emit through the hub (buffered, replayable,
+          // fanned out to every attached stream); plain turns emit straight
+          // to their own stream, or nowhere on the buffered path. Tokens
+          // stream for any consumer that could see them, including a
+          // buffered conversation turn whose client may reattach mid-turn.
           if (wantStream) {
             // The stream is already 200 by the time the loop fails, so the
             // would-have-been status rides inside the error event. A client
             // that disappears mid-turn only mutes the events: the loop runs
             // to completion, same as the buffered path.
             const es = startEventStream(res);
-            runAgentLoop({ systemPrompt, userMessages: loopMessages, reqId, emit: es.send, streamTokens: !voiceMode })
+            if (hub) hub.attach(es);
+            const emit = hub ? hub.emit : es.send;
+            runAgentLoop({ systemPrompt, userMessages: loopMessages, reqId, emit, streamTokens: !voiceMode })
               .then((out) => {
                 logDone(out);
                 const payload = shapeReply(out);
@@ -1945,28 +2043,44 @@ Original system prompt follows:
                 // the conversation, and a client that vanished mid-turn
                 // still gets its answer stored.
                 persistReply(payload);
-                es.send('reply', payload);
-                es.send('done', {});
-                es.end();
+                emit('reply', payload);
+                emit('done', {});
+                if (hub) hub.finish(); else es.end();
               })
               .catch((e) => {
                 const { status, error } = mapError(e);
-                es.send('error', { error, status });
-                es.send('done', {});
-                es.end();
+                emit('error', { error, status });
+                emit('done', {});
+                if (hub) hub.finish(); else es.end();
               });
             return;
           }
 
-          runAgentLoop({ systemPrompt, userMessages: loopMessages, reqId })
+          runAgentLoop({
+            systemPrompt,
+            userMessages: loopMessages,
+            reqId,
+            emit: hub ? hub.emit : undefined,
+            streamTokens: !!hub && !voiceMode,
+          })
             .then((out) => {
               logDone(out);
               const payload = shapeReply(out);
               persistReply(payload);
+              if (hub) {
+                hub.emit('reply', payload);
+                hub.emit('done', {});
+                hub.finish();
+              }
               sendJSON(res, payload);
             })
             .catch((e) => {
               const { status, error } = mapError(e);
+              if (hub) {
+                hub.emit('error', { error, status });
+                hub.emit('done', {});
+                hub.finish();
+              }
               if (!res.headersSent) sendJSON(res, { error }, status);
             });
         } catch (e) {
