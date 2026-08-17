@@ -71,6 +71,11 @@ const REPORTS_ARCHIVE_DIR = path.join(REPORTS_CANONICAL, '_archive');
 const INBOX_DIR = process.env.HEALTH_INBOX_DIR || path.join(HEALTH_HOME, 'inbox');
 const INBOX_FAILED_DIR = path.join(INBOX_DIR, '_failed');
 
+// Import wizard working area: staged upload.zip, extracted trees, job.json,
+// rollback snapshots. Deliberately outside data/ so nothing in it is ever
+// scanned as a card.
+const IMPORT_DIR = path.join(HEALTH_HOME, 'import');
+
 const AUTO_EXPORT_DIR = process.env.HEALTH_AUTO_EXPORT_DIR || path.join(DATA_DIR, 'auto-export');
 const SESSIONS_DIR = process.env.HEALTH_SESSIONS_DIR || path.join(HEALTH_HOME, 'sessions');
 const CREDENTIALS_DIR = process.env.HEALTH_CREDENTIALS_DIR || path.join(HEALTH_HOME, 'credentials');
@@ -127,7 +132,7 @@ const WEBAUTHN_SESSIONS_FILE = resolveWebauthnSessionsFile();
 // Ensure directories exist where we expect to write.
 // Does NOT create HEALTH_HOME itself (bootstrap responsibility).
 function ensureWritableDirs() {
-  const toEnsure = [DATA_DIR, CHAT_DIR, REPORTS_CANONICAL, REPORTS_ARCHIVE_DIR, INBOX_DIR, INBOX_FAILED_DIR];
+  const toEnsure = [DATA_DIR, CHAT_DIR, REPORTS_CANONICAL, REPORTS_ARCHIVE_DIR, INBOX_DIR, INBOX_FAILED_DIR, IMPORT_DIR];
   if (WEBAUTHN_CREDENTIALS_FILE.startsWith(CREDENTIALS_DIR)) toEnsure.push(CREDENTIALS_DIR);
   if (WEBAUTHN_SESSIONS_FILE.startsWith(SESSIONS_DIR)) toEnsure.push(SESSIONS_DIR);
   for (const dir of toEnsure) {
@@ -142,6 +147,7 @@ module.exports = {
   REPORTS_ARCHIVE_DIR,
   INBOX_DIR,
   INBOX_FAILED_DIR,
+  IMPORT_DIR,
   AUTO_EXPORT_DIR,
   DB_DIR,
   DB_FILE,

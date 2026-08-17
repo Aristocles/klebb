@@ -53,6 +53,9 @@ const notificationsState = require('./lib/notifications-state');
 const notificationsScheduler = require('./lib/notifications-scheduler');
 const webPushSend = require('./lib/web-push-send');
 const notificationRoutes = require('./routes/notifications');
+const dataRoutes = require('./routes/data');
+const importFreeze = require('./lib/import/freeze');
+const { recoverAtBoot } = require('./lib/import/recover');
 const { CATEGORIES: MANIFEST_CATEGORIES } = require('./config/categories');
 const ccSuggestions = require('./meta/cc-suggestions');
 const { describeCcSchema } = require('./chat/describe-cc-schema');
@@ -695,9 +698,51 @@ function serveStaticFile(res, filePath, extraHeaders = {}) {
   return true;
 }
 
+// Set when boot-time import recovery had to give up (lib/import/recover.js
+// 'refuse'): neither the staged tree nor the rollback snapshot survived a
+// crash mid-apply, so the home is half-applied and must not be served or
+// seeded over as if it were truth.
+let importRecoveryRefusedReason = null;
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname;
+
+  // === Import write freeze (#617) ===
+  // One structural gate at the top of dispatch: while the import pipeline
+  // holds the freeze, everything that is not a plain GET answers 503,
+  // structural-by-construction so no future mutating route can be forgotten
+  // off an allowlist. GET /api/export is ALSO blocked, deliberately: it
+  // would zip a mid-wipe tree. Exempt: /healthz (liveness must never lie)
+  // and /api/import/* (status/apply/rollback must work mid-job).
+  if (importFreeze.frozen() !== null
+      && pathname !== '/healthz'
+      && !pathname.startsWith('/api/import/')
+      && (req.method !== 'GET' || pathname === '/api/export')) {
+    res.writeHead(503, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'import in progress', code: 'IMPORT_FROZEN' }));
+    req.resume();
+    return;
+  }
+
+  // === Import recovery refusal (#617) ===
+  // A refused boot serves nothing that would present the half-applied home
+  // as truth: every /api route 503s except import status (see the wreckage)
+  // and rollback (the way out, when a snapshot ever reappears). /healthz
+  // stays live so the container is reachable rather than flapping.
+  if (importRecoveryRefusedReason !== null
+      && pathname.startsWith('/api/')
+      && pathname !== '/api/import/status'
+      && pathname !== '/api/import/rollback') {
+    res.writeHead(503, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      error: 'an interrupted import could not be recovered at boot; this instance refuses to serve',
+      code: 'IMPORT_RECOVERY_FAILED',
+      reason: importRecoveryRefusedReason,
+    }));
+    req.resume();
+    return;
+  }
 
   // Liveness probe — dependency-free, no auth, no FS reads.
   // Used by container healthchecks and external monitors. Must stay cheap.
@@ -2144,6 +2189,12 @@ Original system prompt follows:
       if (handled) return;
     }
 
+    // === Export download + import routes (#617) ===
+    if (dataRoutes.ROUTE_PREFIXES.includes(parts[0])) {
+      const handled = await dataRoutes.handle(req, res, parts);
+      if (handled) return;
+    }
+
     // === Voice endpoints ===
 
     // GET /api/instance — branding + runtime identity (for frontend)
@@ -2769,51 +2820,82 @@ server.listen(PORT, HOST, () => {
     }
   } catch {}
 
-  // First-boot welcome card. Only seeds when HEALTH_HOME/data is empty.
+  // Import crash recovery (#617). MUST run before first-boot seeding and
+  // before the samples drain: a crash mid-apply leaves a half-wiped or
+  // half-copied tree, and a boot that seeded a welcome card over it (or
+  // drained a half-staged samples file) would present the wreckage as
+  // truth. On 'refuse', the rest of boot is skipped and the request gate
+  // above serves 503 IMPORT_RECOVERY_FAILED for everything but /healthz,
+  // import status and rollback.
   try {
-    runFirstBoot({ dataDir: PATHS.DATA_DIR });
+    const rec = recoverAtBoot({ home: PATHS.HEALTH_HOME });
+    if (rec.action === 'refuse') {
+      importRecoveryRefusedReason = rec.reason;
+      console.error('[import] BOOT RECOVERY FAILED:', rec.reason);
+      console.error('[import] refusing to serve; only /healthz, /api/import/status and /api/import/rollback answer');
+    } else if (rec.action === 'resumed') {
+      console.log(`[import] resumed an interrupted import from the ${rec.source}: ${rec.result.state}`);
+    }
   } catch (e) {
-    console.warn('[first-boot] error (continuing):', e.message);
+    importRecoveryRefusedReason = `boot recovery threw: ${e.message}`;
+    console.error('[import] BOOT RECOVERY FAILED:', e.message);
+  }
+
+  // First-boot welcome card. Only seeds when HEALTH_HOME/data is empty.
+  if (!importRecoveryRefusedReason) {
+    try {
+      runFirstBoot({ dataDir: PATHS.DATA_DIR });
+    } catch (e) {
+      console.warn('[first-boot] error (continuing):', e.message);
+    }
   }
 
   // HAE push history from an exported tree: data/auto-export/samples.json is a
   // one-way import inbox, exactly like a card file's `data` block. Runs BEFORE
   // registry.init(), because init replays HAE-backed cards from the samples
   // table and would otherwise find it empty on the first boot of a restore.
-  try {
-    const imported = haeSamplesInbox.drain();
-    if (imported) {
-      console.log(`[hae] imported ${imported.pushes} push(es) from samples.json; `
-        + `${imported.inserted} new sample(s)`);
+  if (!importRecoveryRefusedReason) {
+    try {
+      const imported = haeSamplesInbox.drain();
+      if (imported) {
+        console.log(`[hae] imported ${imported.pushes} push(es) from samples.json; `
+          + `${imported.inserted} new sample(s)`);
+      }
+    } catch (e) {
+      console.warn('[hae] samples import failed:', e.message);
     }
-  } catch (e) {
-    console.warn('[hae] samples import failed:', e.message);
   }
 
-  // Initialise manifest registry (discovers + watches data files)
-  try {
-    const stats = registry.init();
-    console.log(`[manifest] loaded ${stats.count} card(s); ${stats.errors} error(s)`);
-  } catch (e) {
-    console.error('[manifest] init failed:', e.message);
+  // Initialise manifest registry (discovers + watches data files). Skipped
+  // on a refused boot: loading the half-applied cards would dress the
+  // wreckage up as a working registry behind the 503 gate.
+  if (!importRecoveryRefusedReason) {
+    try {
+      const stats = registry.init();
+      console.log(`[manifest] loaded ${stats.count} card(s); ${stats.errors} error(s)`);
+    } catch (e) {
+      console.error('[manifest] init failed:', e.message);
+    }
   }
 
   // Drain the inbox: anything left behind by a crash mid-extract, plus the
   // operator door (`docker cp` + restart). Uploads enqueue directly.
   // Failures inside the pipeline land in inbox/_failed/, so a bad file
   // should never wedge boot.
-  try {
-    const { queued } = inbox.start();
-    console.log(`[ingest] inbox drained; ${queued} file(s) queued`);
-  } catch (e) {
-    console.warn('[ingest] drain failed:', e.message);
+  if (!importRecoveryRefusedReason) {
+    try {
+      const { queued } = inbox.start();
+      console.log(`[ingest] inbox drained; ${queued} file(s) queued`);
+    } catch (e) {
+      console.warn('[ingest] drain failed:', e.message);
+    }
   }
 
   // Notifications scheduler: 1-minute tick, evaluates triggers, fires
   // due notifications. Disabled in demo mode (the demo doesn't deliver
   // push). The dispatch path is logging-only in v3.0.0; PR #386 wires
   // up the real Web Push send.
-  if (!ENV.KLEBB_DEMO) {
+  if (!ENV.KLEBB_DEMO && !importRecoveryRefusedReason) {
     try {
       registry.onDelete((id) => notificationsState.pruneCard(id));
       notificationsScheduler.setDispatch(webPushSend.dispatch);

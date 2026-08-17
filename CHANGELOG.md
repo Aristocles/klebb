@@ -51,6 +51,27 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   answer is waiting on return), and a pre-existing history file is
   folded into a conversation the first time the new client loads.
   (#605, with #601/#602/#603 underneath)
+- **Export download and import over HTTP** (`routes/data.js`).
+  `GET /api/export` stages a portable export, zips it with the vendored
+  writer and streams it as an attachment (`<instance>-export-<stamp>.zip`),
+  one at a time (a concurrent request answers 409), staging removed when
+  the response ends. The import wizard gains its HTTP surface under
+  `/api/import/`: `upload` (raw zip streamed through a dot-prefixed part
+  file, mid-stream byte cap from `KLEBB_IMPORT_MAX_TREE_MB`, a free-space
+  check demanding three times the cap), `start` (extracts through the
+  hardened zip reader with the env caps, hostile archives 422 with the
+  reader's code), `scan-tree` (operator door for a tree extracted by hand
+  into `$HEALTH_HOME/import/tree`), `status`, `apply` (the populated-target
+  confirmation nonce enforced with 428), `rollback` and `abort`. Mutating
+  routes are origin-checked; demo mode 403s the whole surface. While the
+  pipeline holds the write freeze, a single structural gate at the top of
+  dispatch 503s everything that is not a plain GET (plus `GET /api/export`,
+  which would zip a mid-wipe tree), exempting `/healthz` and
+  `/api/import/*`. Boot now runs import crash recovery before first-boot
+  seeding and the samples drain; when neither the staged tree nor the
+  snapshot survives, the instance refuses to serve (503
+  `IMPORT_RECOVERY_FAILED` on every API route except import status and
+  rollback) rather than seed over a half-applied home. (Fixes #617)
 - **A speak-replies toggle decides reply modality.** A speaker button
   beside the mic: on means every reply (typed or spoken) comes back
   voice-shaped and autoplays, off means text only. Off by default; the
