@@ -29,27 +29,29 @@ const { exportTo } = require('../../scripts/export-embed');
 const { createImporter } = require('../../lib/datastore/import');
 const { recoverAtBoot } = require('../../lib/import/recover');
 
-const out = recoverAtBoot({
-  home,
-  registry,
-  store: registry.store(),
-  samples,
-  samplesInbox,
-  exportTo,
-  importerFactory: createImporter,
-});
+(async () => {
+  const out = await recoverAtBoot({
+    home,
+    registry,
+    store: registry.store(),
+    samples,
+    samplesInbox,
+    exportTo,
+    importerFactory: createImporter,
+  });
 
-console.log('RECOVER_RESULT ' + JSON.stringify({
-  action: out.action,
-  source: out.source || null,
-  cleared: out.cleared || false,
-  reason: out.reason || null,
-  state: out.result ? out.result.state : null,
-  verified: out.result ? out.result.verified : null,
-  refusalCodes: out.result
-    ? out.result.findings.filter(f => f.severity === 'refusal').map(f => f.code)
-    : [],
-}));
-samples.close();
-registry.closeStore();
-process.exit(0);
+  console.log('RECOVER_RESULT ' + JSON.stringify({
+    action: out.action,
+    source: out.source || null,
+    cleared: out.cleared || false,
+    reason: out.reason || null,
+    state: out.result ? out.result.state : null,
+    verified: out.result ? out.result.verified : null,
+    refusalCodes: out.result
+      ? out.result.findings.filter(f => f.severity === 'refusal').map(f => f.code)
+      : [],
+  }));
+  samples.close();
+  registry.closeStore();
+  process.exit(0);
+})();

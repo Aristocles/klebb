@@ -268,7 +268,9 @@ describe('import-tree', { skip }, () => {
     test('a simulated next boot drains nothing and push count holds', () => {
       const script = `
         const inbox = require(${JSON.stringify(path.join(REPO_ROOT, 'health-auto-export', 'samples-inbox.js'))});
-        console.log('drained:' + JSON.stringify(inbox.drain()));
+        (async () => {
+          console.log('drained:' + JSON.stringify(await inbox.drain()));
+        })();
       `;
       const r = runNode(['-e', script], { HEALTH_HOME: home });
       assert.strictEqual(r.code, 0, r.out);
@@ -280,11 +282,11 @@ describe('import-tree', { skip }, () => {
   describe('applyTree in-process', () => {
     const { applyTree } = require('../lib/import/apply');
 
-    test('config keep-existing leaves the target config and says so', () => {
+    test('config keep-existing leaves the target config and says so', async () => {
       const home = freshHome();
       const mine = JSON.stringify({ display: { theme: 'light' }, mine: true }, null, 2);
       fs.writeFileSync(path.join(home, 'config.json'), mine);
-      const res = applyTree(tree, home);
+      const res = await applyTree(tree, home);
       assert.strictEqual(res.status, 'ok',
         JSON.stringify(res.findings, null, 2));
       const kept = res.findings.find(f => f.code === 'APPLY_CONFIG_KEPT');
@@ -294,14 +296,14 @@ describe('import-tree', { skip }, () => {
       assert.deepStrictEqual(res.verified, { cards: 4, pushes: 2, reports: 1 });
     });
 
-    test('APPLY_DB_BUSY: a held datastore refuses before any write', () => {
+    test('APPLY_DB_BUSY: a held datastore refuses before any write', async () => {
       const home = freshHome();
       withStore(home, () => {});
       const { DatabaseSync } = require('node:sqlite');
       const holder = new DatabaseSync(path.join(home, 'db', 'klebb.db'));
       holder.exec('BEGIN IMMEDIATE');
       try {
-        const res = applyTree(tree, home);
+        const res = await applyTree(tree, home);
         assert.strictEqual(res.status, 'refused');
         const busy = res.findings.find(f => f.code === 'APPLY_DB_BUSY');
         assert.ok(busy, JSON.stringify(res.findings, null, 2));
@@ -316,7 +318,7 @@ describe('import-tree', { skip }, () => {
       }
     });
 
-    test('verify mismatch: status partial, backups retained, no auto-repair', () => {
+    test('verify mismatch: status partial, backups retained, no auto-repair', async () => {
       const importPath = require.resolve('../lib/datastore/import.js');
       const applyPath = require.resolve('../lib/import/apply.js');
       const realExports = require.cache[importPath].exports;
@@ -340,7 +342,7 @@ describe('import-tree', { skip }, () => {
       try {
         const { applyTree: patched } = require(applyPath);
         const home = freshHome();
-        const res = patched(tree, home);
+        const res = await patched(tree, home);
         assert.strictEqual(res.status, 'partial');
         const mismatch = res.findings.filter(f => f.code === 'VERIFY_CARD_MISMATCH');
         assert.strictEqual(mismatch.length, 1, JSON.stringify(res.findings, null, 2));
@@ -370,10 +372,12 @@ describe('import-tree', { skip }, () => {
       fs.cpSync(path.join(tree, 'data'), path.join(home, 'data'), { recursive: true });
 
       const bootScript = `
-        require(${JSON.stringify(path.join(REPO_ROOT, 'health-auto-export', 'samples-inbox.js'))}).drain();
-        const stats = require(${JSON.stringify(path.join(REPO_ROOT, 'manifests', 'registry.js'))}).init();
-        console.log('loaded:' + stats.count + ' errors:' + stats.errors);
-        process.exit(0);
+        (async () => {
+          await require(${JSON.stringify(path.join(REPO_ROOT, 'health-auto-export', 'samples-inbox.js'))}).drain();
+          const stats = require(${JSON.stringify(path.join(REPO_ROOT, 'manifests', 'registry.js'))}).init();
+          console.log('loaded:' + stats.count + ' errors:' + stats.errors);
+          process.exit(0);
+        })();
       `;
       const boot = runNode(['-e', bootScript], { HEALTH_HOME: home });
       assert.strictEqual(boot.code, 0, boot.out);
