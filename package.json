@@ -13,6 +13,7 @@
     "start": "node server.js",
     "invite": "node scripts/invite.js",
     "export": "node scripts/export-embed.js",
+    "import": "node scripts/import-tree.js",
     "revoke": "node scripts/revoke.js",
     "list": "node scripts/list.js",
     "migrate-schema": "node scripts/migrate-to-klebb.js",
