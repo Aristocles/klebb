@@ -28,8 +28,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   conversations with the least-recently-active pruned, 200 messages each,
   512KB per write. Messages keep the legacy history sanitisation rules
   plus a `hasVoice` flag so spoken replies keep their player across
-  reloads. The legacy `/api/chat/history` endpoint is unchanged until the
-  client cutover. (#603)
+  reloads. `POST /api/chat` accepts a `conversationId`: the server then
+  owns the transcript (the client sends only the new turn), persists the
+  user message before the loop and the reply after it (connected or not),
+  forwards a ~24k-character window instead of the whole history (per-turn
+  cost stops growing with conversation length), and titles an untitled
+  conversation with an async model side-call after the first exchange.
+  The legacy `/api/chat/history` endpoint is unchanged until the client
+  cutover. (#603)
 - **Chat turns can stream.** `POST /api/chat` with `stream: true` answers
   with server-sent events: `status` (loop phase and live tool activity),
   `token` (assistant text fragments), `reset` (retract provisional text
