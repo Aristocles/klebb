@@ -131,7 +131,6 @@ function validateIngest(parsed, { strict = false } = {}) {
 }
 
 const SUPPORTED_SCHEMAS = ['klebb.datafile.v1'];
-const RESERVED_DIR_PREFIX = '_';
 
 // Id sanitisation rules — shared between the create endpoint and any caller
 // that wants to validate a manifest shape without hitting disk.
@@ -197,6 +196,17 @@ function onDelete(fn) {
 // regex captures without hard-coding every known suffix. See #197.
 const BACKUP_NAME_RE = /\.json\.[^/\\]+\.json$/i;
 
+// Card-file name rules, shared with lib/import/validate.js so import
+// enumeration can never disagree with the live scan: a mismatch would make
+// the seeded welcome card's `.pre-import-` backup read as instance data and
+// mark every factory-fresh instance as non-fresh.
+function isCardFileName(name) {
+  if (name.startsWith('.')) return false;
+  if (!name.endsWith('.json')) return false;
+  if (BACKUP_NAME_RE.test(name)) return false;
+  return true;
+}
+
 function _scanDir(dir) {
   const found = [];
   let entries;
@@ -206,15 +216,10 @@ function _scanDir(dir) {
     return found;
   }
   for (const ent of entries) {
-    if (ent.name.startsWith('.')) continue;
-    if (ent.isDirectory()) {
-      if (ent.name.startsWith(RESERVED_DIR_PREFIX)) continue; // _virtual, _archive, _meta
-      // No recursion for now — manifest files live at data/ top level.
-      // Sub-dirs (auto-export/etc) are handled separately.
-      continue;
-    }
-    if (!ent.name.endsWith('.json')) continue;
-    if (BACKUP_NAME_RE.test(ent.name)) continue;
+    // No recursion — manifest files live at data/ top level. Sub-dirs
+    // (auto-export/, _virtual/, _archive/, _meta/) are handled separately.
+    if (ent.isDirectory()) continue;
+    if (!isCardFileName(ent.name)) continue;
     found.push(path.join(dir, ent.name));
   }
   return found;
@@ -1053,4 +1058,8 @@ module.exports = {
   ID_MAX_LENGTH,
   RESERVED_IDS,
   CADENCE_MAX_DAYS,
+  // File-enumeration rules, exported so lib/import/validate.js counts the
+  // same set of card files the live scan would load.
+  BACKUP_NAME_RE,
+  isCardFileName,
 };
