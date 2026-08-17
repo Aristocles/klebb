@@ -30,6 +30,7 @@ const haeTokenStore = require('./health-auto-export/token-store');
 const haeSamples = require('./health-auto-export/samples');
 const haeSamplesInbox = require('./health-auto-export/samples-inbox');
 const conversationsLib = require('./lib/conversations');
+const { generateTitle } = require('./chat/title');
 
 // Opened on first use: an instance whose user never opens the chat pays
 // nothing. Holds its own handle on the shared database file (the samples
@@ -345,6 +346,26 @@ function extractJsonReply(raw) {
 // can reach the gateway from ingest/ without requiring this file back.
 // Unchanged in behaviour, including the load-bearing error-string prefixes the
 // /api/chat catch below matches on.
+
+// Context window for conversation-aware turns: the newest stored messages
+// that fit a character budget (characters are a good-enough token proxy at
+// this scale). Bounds per-turn gateway cost, which otherwise grows linearly
+// with conversation length; the model re-reads older state through its
+// tools when it genuinely needs it. The newest message always goes through,
+// however large.
+const CHAT_CONTEXT_CHAR_BUDGET = 24000;
+function windowTranscript(stored) {
+  const out = [];
+  let used = 0;
+  for (let i = stored.length - 1; i >= 0; i--) {
+    const m = stored[i];
+    const len = (m.content || '').length;
+    if (out.length && used + len > CHAT_CONTEXT_CHAR_BUDGET) break;
+    out.unshift({ role: m.role, content: m.content });
+    used += len;
+  }
+  return out;
+}
 
 // Run the OpenAI-compatible tool-calling loop. Each iteration:
 //   1. call the gateway with current messages (+ TOOL_DEFS)
@@ -1684,6 +1705,19 @@ const server = http.createServer(async (req, res) => {
             return sendJSON(res, payload);
           }
 
+          // Conversation-aware turns (#603): with a conversationId the
+          // server owns the transcript. The incoming messages are just the
+          // new turn: they are persisted before the loop runs (a failed
+          // turn still shows the user's message on reattach), the loop is
+          // fed a context window over the stored transcript instead of
+          // whatever the client resent, and the shaped reply is appended
+          // after the turn, client connected or not.
+          let convo = null;
+          if (typeof parsed.conversationId === 'string' && parsed.conversationId) {
+            convo = conversationsStore().get(parsed.conversationId);
+            if (!convo) return send404(res, 'Unknown conversation');
+          }
+
           // Build a compact card list from the live registry, so the agent
           // always knows what cards exist right now without having to call
           // /api/manifests. Keeps the system prompt self-describing.
@@ -1809,7 +1843,42 @@ Original system prompt follows:
 
           const reqId = crypto.randomBytes(3).toString('hex');
           const turnStart = Date.now();
-          chatLog(reqId, `start turns=${messages.length} voice=${!!voiceMode} stream=${wantStream}`);
+          chatLog(reqId, `start turns=${messages.length} voice=${!!voiceMode} stream=${wantStream} convo=${convo ? convo.id.slice(0, 8) : '-'}`);
+
+          let loopMessages = messages;
+          if (convo) {
+            try { conversationsStore().appendMessages(convo.id, messages); }
+            catch (e) { chatLog(reqId, `convo persist failed ${e.message}`); }
+            loopMessages = windowTranscript(conversationsStore().get(convo.id).messages);
+          }
+
+          // Fire-and-forget: a conversation gets its title after the first
+          // exchange completes, the turn never waits for it, and a failed
+          // side-call just leaves it untitled for the next turn to retry.
+          const maybeTitle = (payload) => {
+            if (convo.title) return;
+            const firstUser = messages.find(m => m.role === 'user');
+            generateTitle({ userText: firstUser?.content, replyText: payload.reply, callGatewayFn: callGateway })
+              .then((title) => {
+                if (title && conversationsStore().rename(convo.id, title)) {
+                  chatLog(reqId, `titled convo=${convo.id.slice(0, 8)}`);
+                }
+              })
+              .catch((e) => chatLog(reqId, `title failed ${String(e.message || e).split(':')[0]}`));
+          };
+          const persistReply = (payload) => {
+            if (!convo) return;
+            const assistantMsg = { role: 'assistant', content: payload.reply };
+            if (payload.followup?.text) assistantMsg.followupText = payload.followup.text;
+            if (Array.isArray(payload.followup?.embellishments) && payload.followup.embellishments.length) {
+              assistantMsg.embellishments = payload.followup.embellishments;
+            }
+            if (voiceMode) assistantMsg.hasVoice = true;
+            if (payload.capped) assistantMsg.capped = true;
+            try { conversationsStore().appendMessages(convo.id, [assistantMsg]); }
+            catch (e) { chatLog(reqId, `convo persist failed ${e.message}`); }
+            maybeTitle(payload);
+          };
 
           // The buffered and streamed paths share one reply shaper and one
           // error mapper, so the SSE protocol can never drift from the JSON
@@ -1867,10 +1936,16 @@ Original system prompt follows:
             // that disappears mid-turn only mutes the events: the loop runs
             // to completion, same as the buffered path.
             const es = startEventStream(res);
-            runAgentLoop({ systemPrompt, userMessages: messages, reqId, emit: es.send, streamTokens: !voiceMode })
+            runAgentLoop({ systemPrompt, userMessages: loopMessages, reqId, emit: es.send, streamTokens: !voiceMode })
               .then((out) => {
                 logDone(out);
-                es.send('reply', shapeReply(out));
+                const payload = shapeReply(out);
+                // Persist BEFORE the events go out: a client that
+                // reconnects the moment done lands must find the reply in
+                // the conversation, and a client that vanished mid-turn
+                // still gets its answer stored.
+                persistReply(payload);
+                es.send('reply', payload);
                 es.send('done', {});
                 es.end();
               })
@@ -1883,10 +1958,12 @@ Original system prompt follows:
             return;
           }
 
-          runAgentLoop({ systemPrompt, userMessages: messages, reqId })
+          runAgentLoop({ systemPrompt, userMessages: loopMessages, reqId })
             .then((out) => {
               logDone(out);
-              sendJSON(res, shapeReply(out));
+              const payload = shapeReply(out);
+              persistReply(payload);
+              sendJSON(res, payload);
             })
             .catch((e) => {
               const { status, error } = mapError(e);

@@ -147,6 +147,37 @@ Comment heartbeats (`: ping`) are sent every 15s, and the response sets
 stream. A client that disconnects mid-turn only mutes the events: the
 loop runs to completion, matching the buffered path's semantics.
 
+### Conversations (`conversationId`)
+
+`/api/conversations` stores named transcripts in the per-instance
+database (list by recency / create / fetch / rename / replace messages /
+delete; hard caps of 100 conversations and 200 messages each). When
+`POST /api/chat` carries a `conversationId`, the server owns the
+transcript:
+
+- The request's `messages` are just the new turn. They are persisted
+  before the loop runs, so a failed turn still shows the user's message
+  when the conversation is reopened.
+- The loop is fed a window over the stored transcript: the newest
+  messages that fit a ~24k-character budget (the newest always goes
+  through). Per-turn gateway cost stops growing with conversation
+  length; the model re-reads older state through its tools when it
+  needs it.
+- The shaped reply is appended after the turn, whether or not the
+  client is still connected. Voice replies persist `hasVoice`; capped
+  replies persist `capped`, so a reloaded client can re-offer play and
+  keep-going.
+- An untitled conversation gets a short model-generated title from an
+  async side-call after the exchange completes (2-6 words, quotes
+  stripped, 60-char cap). It never blocks or fails the turn; an
+  unnamed conversation just stays unnamed until a later turn retries.
+  The call rides the same gateway and counts against the normal chat
+  allowance.
+
+Without a `conversationId` the endpoint behaves exactly as before
+(client-supplied transcript, nothing persisted server-side). The legacy
+`/api/chat/history` endpoints remain until the client cutover.
+
 ### Legacy env vars
 
 Older deploys used `CHAT_GATEWAY_HOST` + `CHAT_GATEWAY_PORT` +
