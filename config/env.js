@@ -221,7 +221,10 @@ function intEnv(name, fallback) {
   return n;
 }
 const IMPORT_MAX_TREE_MB = intEnv('KLEBB_IMPORT_MAX_TREE_MB', 512);
-const IMPORT_MAX_FILE_MB = intEnv('KLEBB_IMPORT_MAX_FILE_MB', 64);
+// A long-lived instance's samples.json legitimately reaches tens of MB
+// (hundreds of thousands of HAE samples re-expanded to JSON), so the
+// per-file cap sits well above it.
+const IMPORT_MAX_FILE_MB = intEnv('KLEBB_IMPORT_MAX_FILE_MB', 256);
 const IMPORT_MAX_FILES = intEnv('KLEBB_IMPORT_MAX_FILES', 10000);
 const IMPORT_MAX_ROWS_PER_CARD = intEnv('KLEBB_IMPORT_MAX_ROWS_PER_CARD', 200000);
 const IMPORT_MAX_PUSHES = intEnv('KLEBB_IMPORT_MAX_PUSHES', 10000);
