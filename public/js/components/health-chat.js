@@ -19,85 +19,11 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { unsafeHTML } from 'https://esm.sh/lit@3/directives/unsafe-html.js';
-import { marked } from 'https://esm.sh/marked@15.0.7';
-import DOMPurify from 'https://esm.sh/dompurify@3.2.4';
 import { pickStarterPrompts } from '../lib/starter-prompts.esm.js';
-
-// Same parser + flags as the server (server.js uses marked w/ gfm + breaks).
-// GFM gets us tables, task lists, strikethrough, autolinks.
-marked.setOptions({ gfm: true, breaks: true });
-
-// Assistant text is untrusted (model output). marked emits raw HTML for
-// anything that looks like HTML; DOMPurify strips scripts, event handlers,
-// and javascript:/data: URLs before we hand the result to unsafeHTML().
-DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.tagName === 'A') {
-    node.setAttribute('target', '_blank');
-    node.setAttribute('rel', 'noopener noreferrer');
-  }
-});
-
-function renderMarkdown(src) {
-  const raw = marked.parse(src ?? '');
-  return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
-}
-
-// ---------- Module-level persistent audio element ----------
-// This is THE element iOS unlocks on first user gesture. We reuse it forever;
-// we only mutate its .src when we want to play a different clip.
-let _sharedAudio = null;
-function getSharedAudio() {
-  if (_sharedAudio) return _sharedAudio;
-  const el = document.createElement('audio');
-  el.preload = 'auto';
-  el.controls = true;
-  el.playsInline = true;
-  el.setAttribute('playsinline', 'playsinline');
-  el.setAttribute('webkit-playsinline', 'webkit-playsinline');
-  // Silent ~50ms mp3 so the very first .play() (inside the user-gesture mic tap)
-  // has actual content to satisfy iOS's "activate this element" requirement.
-  el.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAADAAAB7wCTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5PKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr///////////////////////////////////////////8AAAAATGF2YzYwLjMxAAAAAAAAAAAAAAAAJAKjAAAAAAAAAe8wbOiSAAAAAAD/+xDEAAPAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/7EsQpg8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/7EMRTg8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
-  // Park it off-screen (we move it into message bubbles when playing).
-  el.style.position = 'fixed';
-  el.style.left = '-9999px';
-  el.style.top = '0';
-  el.style.width = '1px';
-  el.style.height = '1px';
-  document.body.appendChild(el);
-  _sharedAudio = el;
-  return el;
-}
-
-// Try to prime the shared element inside a user gesture.
-// Safe to call repeatedly; iOS treats it as "activated" once.
-function primeSharedAudio() {
-  const el = getSharedAudio();
-  try {
-    const p = el.play();
-    if (p && typeof p.then === 'function') {
-      p.then(() => { try { el.pause(); el.currentTime = 0; } catch {} })
-       .catch(() => {});
-    } else {
-      try { el.pause(); } catch {}
-    }
-  } catch {}
-}
-
-// Pause the shared audio and detach it from whatever bubble it's parked in.
-function stopSharedAudio() {
-  const el = _sharedAudio;
-  if (!el) return;
-  try { el.pause(); } catch {}
-  // Move back to body (off-screen) so we don't leave a blank controls bar in a bubble.
-  if (el.parentNode && el.parentNode !== document.body) {
-    document.body.appendChild(el);
-    el.style.position = 'fixed';
-    el.style.left = '-9999px';
-    el.style.top = '0';
-    el.style.width = '1px';
-    el.style.height = '1px';
-  }
-}
+import { renderMarkdown } from './chat/markdown.js';
+import {
+  getSharedAudio, primeSharedAudio, stopSharedAudio, peekSharedAudio,
+} from './chat/shared-audio.js';
 
 class HealthChat extends LitElement {
   static properties = {
@@ -206,29 +132,6 @@ class HealthChat extends LitElement {
       outline-offset: -2px;
     }
 
-    /* Floating action button — fallback for browsers without :popover-open support */
-    .fab {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: var(--text-inverse, white);
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      box-shadow: 0 4px 16px rgba(14, 165, 233, 0.2);
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.2s, background 0.2s;
-    }
-    .fab:hover { transform: scale(1.1); }
-    .fab.open { background: #ff4466; }
-
     /* Chat panel */
     .chat-panel {
       position: fixed;
@@ -254,12 +157,16 @@ class HealthChat extends LitElement {
     }
 
     .chat-header {
-      padding: 14px 18px;
+      position: relative;
+      padding: 10px 12px 10px 18px;
       background: var(--bg-card);
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 10px;
+      /* The header doubles as the swipe-down handle on mobile; vertical
+         pans belong to us, not the scroller behind. */
+      touch-action: none;
     }
     .chat-header-icon { font-size: 18px; }
     .chat-header-text { font-size: 14px; font-weight: 600; color: var(--text-primary); }
@@ -268,23 +175,50 @@ class HealthChat extends LitElement {
       color: var(--text-muted, var(--text-secondary));
       margin-left: auto;
     }
-    .speed-btn {
+    /* Visual swipe affordance, mobile sheet only. */
+    .grab-handle {
+      display: none;
+      position: absolute;
+      top: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 36px;
+      height: 5px;
+      border-radius: 3px;
+      background: var(--border);
+    }
+    .hdr-actions {
       margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hdr-btn {
       background: transparent;
       border: 1px solid var(--border);
       color: var(--text-secondary);
-      padding: 3px 8px;
+      min-width: 34px;
+      height: 30px;
+      padding: 0 8px;
       border-radius: 12px;
       cursor: pointer;
-      font-size: 10px;
+      font-size: 12px;
       font-family: inherit;
       font-variant-numeric: tabular-nums;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    .speed-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .hdr-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .hdr-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
     .chat-messages {
       flex: 1;
       overflow-y: auto;
+      /* Reaching the top or bottom of the transcript must not hand the
+         scroll to the page behind the panel (or trigger its
+         pull-to-refresh). */
+      overscroll-behavior: contain;
       padding: 14px;
       display: flex;
       flex-direction: column;
@@ -572,36 +506,49 @@ class HealthChat extends LitElement {
       30%           { opacity: 1;   transform: translateY(-3px); }
     }
 
+    /* Mobile: a true full-screen sheet. 100dvh (the dynamic viewport unit)
+       tracks browser chrome as it collapses; 100vh on iOS is the LARGE
+       viewport and pushed the old panel's header up under the status bar,
+       where taps belong to the OS, not the page (#598). The safe-area
+       insets keep every control below the notch and above the home
+       indicator, and --kb (set from visualViewport while the keyboard is
+       up) lifts the composer above the keyboard, which iOS overlays over
+       the page rather than resizing it. */
     @media (max-width: 480px) {
-      .chat-panel {
-        width: 100vw;
-        right: 0;
-        left: 0;
-        bottom: calc(56px + env(safe-area-inset-bottom, 0px));
-        max-width: 100vw;
-        max-height: calc(100vh - 56px - env(safe-area-inset-bottom, 0px));
-        border-radius: 16px 16px 0 0;
-      }
-      /* On mobile, width is already maxed; 'expanded' grows vertically.
-         The small-state max-height already clamps to the viewport, so
-         expanded on mobile just matches it; no overflow possible. */
+      .chat-panel,
       .chat-panel.expanded {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: auto;
         width: 100vw;
         max-width: 100vw;
-        max-height: calc(100vh - 56px - env(safe-area-inset-bottom, 0px));
+        height: 100dvh;
+        max-height: 100dvh;
+        border-radius: 0;
+        border: none;
+        padding-bottom: var(--kb, 0px);
       }
+      .chat-messages,
       .chat-panel.expanded .chat-messages {
-        max-height: calc(100vh - 200px - env(safe-area-inset-bottom, 0px));
+        max-height: none;
       }
-      .fab { bottom: 14px; right: 14px; width: 50px; height: 50px; font-size: 20px; }
-    }
-
-    /* Older browsers that don't support :popover-open → fall back to FAB.
-       Modern browsers hide the FAB (we use the peek bar + panel instead). */
-    .fab { display: none; }
-    @supports not selector(:popover-open) {
-      .peek-bar { display: none; }
-      .fab { display: flex; }
+      .chat-header {
+        padding-top: max(env(safe-area-inset-top, 0px), 14px);
+      }
+      .grab-handle { display: block; }
+      /* Full-screen already; nothing to expand into. */
+      .expand-btn { display: none; }
+      .hdr-btn {
+        min-width: 44px;
+        height: 44px;
+        font-size: 15px;
+        border-radius: 14px;
+      }
+      .chat-input-bar {
+        padding-bottom: max(env(safe-area-inset-bottom, 0px), 10px);
+      }
+      .mic-btn, .send-btn { width: 44px; height: 44px; }
     }
   `;
 
@@ -888,18 +835,105 @@ class HealthChat extends LitElement {
     this._messages = [...this._messages, { role: 'error', content }];
   }
 
+  _isMobile() {
+    return matchMedia('(max-width: 480px)').matches;
+  }
+
   _toggle() {
-    this._open = !this._open;
-    // When opening, auto-focus the text input after render.
-    // Scroll-to-bottom is handled in updated() so it also fires after
-    // async history load races the panel open.
-    if (this._open) {
+    this._setOpen(!this._open);
+  }
+
+  _setOpen(open) {
+    if (this._open === open) return;
+    this._open = open;
+    if (open) {
+      // Scroll-to-bottom is handled in updated() so it also fires after
+      // async history load races the panel open.
       this._pendingScrollToBottom = true;
-      this.updateComplete.then(() => {
-        const input = this.shadowRoot?.querySelector('.chat-input');
-        if (input && !this._recording) input.focus();
-      });
+      if (this._isMobile()) {
+        // The sheet owns the screen: lock the page behind it so scrolling
+        // the transcript cannot rubber-band the dashboard, and flag the
+        // open sheet for the pull-to-refresh handler in index.html.
+        document.body.dataset.klebbSheetOpen = '1';
+        document.documentElement.style.overflow = 'hidden';
+        this._attachViewportWatch();
+        // No autofocus on mobile: the keyboard popping over a just-opened
+        // sheet is jarring; the user taps the input when they want it.
+      } else {
+        this.updateComplete.then(() => {
+          const input = this.shadowRoot?.querySelector('.chat-input');
+          if (input && !this._recording) input.focus();
+        });
+      }
+    } else {
+      this._releaseSheet();
     }
+  }
+
+  _releaseSheet() {
+    delete document.body.dataset.klebbSheetOpen;
+    document.documentElement.style.overflow = '';
+    this._detachViewportWatch();
+    this.style.removeProperty('--kb');
+  }
+
+  // iOS overlays the keyboard instead of resizing the layout viewport, so
+  // a bottom-anchored composer disappears behind it. visualViewport is the
+  // only signal that works there: its height/offset shrink to the visible
+  // region, and the difference becomes bottom padding on the sheet.
+  _attachViewportWatch() {
+    if (!window.visualViewport || this._vvHandler) return;
+    this._vvHandler = () => {
+      const vv = window.visualViewport;
+      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      if (kb > 0) {
+        this.style.setProperty('--kb', `${kb}px`);
+        this._scrollToBottom();
+      } else {
+        this.style.removeProperty('--kb');
+      }
+    };
+    window.visualViewport.addEventListener('resize', this._vvHandler);
+    window.visualViewport.addEventListener('scroll', this._vvHandler);
+  }
+
+  _detachViewportWatch() {
+    if (!this._vvHandler || !window.visualViewport) { this._vvHandler = null; return; }
+    window.visualViewport.removeEventListener('resize', this._vvHandler);
+    window.visualViewport.removeEventListener('scroll', this._vvHandler);
+    this._vvHandler = null;
+  }
+
+  // Swipe-down on the header closes the sheet (mobile). Pointer events so
+  // a mouse drag works the same way, which is also what the e2e drives.
+  _headerPointerDown(e) {
+    if (!this._isMobile() || this._recording) return;
+    if (e.target.closest('.hdr-btn')) return;
+    this._dragStartY = e.clientY;
+    this._dragging = true;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+  }
+
+  _headerPointerMove(e) {
+    if (!this._dragging) return;
+    const dy = Math.max(0, e.clientY - this._dragStartY);
+    const panel = this.shadowRoot?.querySelector('.chat-panel');
+    if (panel) {
+      panel.style.transform = dy > 0 ? `translateY(${dy}px)` : '';
+      panel.style.transition = 'none';
+    }
+  }
+
+  _headerPointerUp(e) {
+    if (!this._dragging) return;
+    this._dragging = false;
+    const dy = Math.max(0, e.clientY - this._dragStartY);
+    const panel = this.shadowRoot?.querySelector('.chat-panel');
+    if (panel) {
+      panel.style.transition = '';
+      panel.style.transform = '';
+    }
+    if (dy > 90) this._setOpen(false);
   }
 
   updated(changed) {
@@ -919,7 +953,7 @@ class HealthChat extends LitElement {
     super.connectedCallback();
     this._onGlobalKeydown = (e) => {
       if (e.key === 'Escape' && this._open && !this._recording) {
-        this._open = false;
+        this._setOpen(false);
       }
     };
     window.addEventListener('keydown', this._onGlobalKeydown);
@@ -960,6 +994,7 @@ class HealthChat extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this._releaseSheet();
     if (this._onGlobalKeydown) {
       window.removeEventListener('keydown', this._onGlobalKeydown);
     }
@@ -1311,7 +1346,7 @@ class HealthChat extends LitElement {
     const idx = speeds.indexOf(this._playbackSpeed);
     this._playbackSpeed = speeds[(idx + 1) % speeds.length];
     localStorage.setItem('klebb-playback-speed', String(this._playbackSpeed));
-    const audio = _sharedAudio;
+    const audio = peekSharedAudio();
     if (audio) audio.playbackRate = this._playbackSpeed;
   }
 
@@ -1437,34 +1472,40 @@ class HealthChat extends LitElement {
     return html`
       ${this._open ? html`
         <div class="chat-panel ${this._expanded ? 'expanded' : ''}">
-          <div class="chat-header">
+          <div
+            class="chat-header"
+            @pointerdown=${this._headerPointerDown}
+            @pointermove=${this._headerPointerMove}
+            @pointerup=${this._headerPointerUp}
+            @pointercancel=${this._headerPointerUp}
+          >
+            <div class="grab-handle" aria-hidden="true"></div>
             <span class="chat-header-icon">${this._agentEmoji}</span>
             <span class="chat-header-text">${this._agentName}</span>
-            ${this._voiceAvailable ? html`
-              <button class="speed-btn" @click=${this._cyclePlaybackSpeed} title="Playback speed">${this._playbackSpeed}x</button>
-            ` : html`<span class="chat-header-sub">Health Assistant</span>`}
-            <button
-              class="speed-btn"
-              @click=${this._toggleExpanded}
-              aria-label=${this._expanded ? 'Shrink chat' : 'Expand chat'}
-              aria-pressed=${this._expanded}
-              title=${this._expanded ? 'Shrink' : 'Expand'}
-              style="margin-left: 6px; min-width: 28px;"
-            >${this._expanded ? '\u2922' : '\u2921'}</button>
-            <button
-              class="speed-btn"
-              @click=${this._clearHistory}
-              aria-label="New chat"
-              title="New chat"
-              style="margin-left: 6px; min-width: 28px;"
-            >\u{1F4DD}</button>
-            <button
-              class="speed-btn"
-              @click=${this._toggle}
-              aria-label="Close chat"
-              title="Close"
-              style="margin-left: 6px; min-width: 28px;"
-            >\u2715</button>
+            <div class="hdr-actions">
+              ${this._voiceAvailable ? html`
+                <button class="hdr-btn" @click=${this._cyclePlaybackSpeed} title="Playback speed">${this._playbackSpeed}x</button>
+              ` : ''}
+              <button
+                class="hdr-btn expand-btn"
+                @click=${this._toggleExpanded}
+                aria-label=${this._expanded ? 'Shrink chat' : 'Expand chat'}
+                aria-pressed=${this._expanded}
+                title=${this._expanded ? 'Shrink' : 'Expand'}
+              >${this._expanded ? '\u2922' : '\u2921'}</button>
+              <button
+                class="hdr-btn"
+                @click=${this._clearHistory}
+                aria-label="New chat"
+                title="New chat"
+              >\u{1F4DD}</button>
+              <button
+                class="hdr-btn"
+                @click=${this._toggle}
+                aria-label="Close chat"
+                title="Close"
+              >\u2715</button>
+            </div>
           </div>
           <div class="chat-messages">${this._renderMessages()}</div>
           ${this._recording ? html`
@@ -1532,9 +1573,6 @@ class HealthChat extends LitElement {
         <span class="peek-arrow" aria-hidden="true">\u25B2</span>
       </button>
       `}
-      <button class="fab ${this._open ? 'open' : ''}" @click=${this._toggle}>
-        ${this._open ? '\u2715' : '\u{1F9E0}'}
-      </button>
     `;
   }
 }
