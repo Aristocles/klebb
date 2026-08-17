@@ -37,6 +37,9 @@ class HealthChat extends LitElement {
     _recordingStarted: { state: true },
     _playbackSpeed: { state: true },
     _playingMsgId: { state: true },
+    _isAudioPlaying: { state: true },
+    _audioPos: { state: true },
+    _speakReplies: { state: true },
     _agentName: { state: true },
     _agentEmoji: { state: true },
     _expanded: { state: true },
@@ -308,24 +311,21 @@ class HealthChat extends LitElement {
       border-radius: 10px;
     }
 
-    /* Message-level audio slot. The shared <audio> element is moved into
-       this slot for the currently playing/queued message. */
-    .audio-slot {
+    /* Message-level audio row: ONE play/pause control per voice reply,
+       plus progress while playing and the speed cycler. The shared
+       <audio> engine never renders here (#599). */
+    .audio-row {
       margin-top: 6px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
-    .audio-slot audio {
-      width: 100%;
-      height: 32px;
-    }
-    .audio-slot .play-btn {
+    .audio-row .play-btn {
       background: var(--accent);
       color: var(--text-inverse, white);
       border: none;
-      width: 30px;
-      height: 30px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       font-size: 12px;
       cursor: pointer;
@@ -334,15 +334,32 @@ class HealthChat extends LitElement {
       align-items: center;
       justify-content: center;
     }
-    .audio-slot .play-btn[disabled] { opacity: 0.5; cursor: wait; }
-    .audio-slot .spinner {
-      width: 12px; height: 12px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: audio-spin 0.6s linear infinite;
+    .audio-row .seek {
+      flex: 1;
+      min-width: 60px;
+      accent-color: var(--accent);
+      height: 4px;
     }
-    @keyframes audio-spin { to { transform: rotate(360deg); } }
+    .audio-row .audio-time {
+      font-size: 10px;
+      color: var(--text-muted, var(--text-secondary));
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .speed-chip {
+      margin-left: auto;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 3px 8px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 10px;
+      font-family: inherit;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .speed-chip:hover { border-color: var(--accent); color: var(--accent); }
 
     /* Recording banner */
     .recording-banner {
@@ -375,7 +392,7 @@ class HealthChat extends LitElement {
       border-top: 1px solid var(--border);
       align-items: center;
     }
-    .mic-btn {
+    .mic-btn, .speak-toggle {
       width: 36px;
       height: 36px;
       border-radius: 50%;
@@ -389,6 +406,12 @@ class HealthChat extends LitElement {
       justify-content: center;
       flex-shrink: 0;
       transition: all 0.15s;
+    }
+    .speak-toggle:hover { border-color: var(--accent); color: var(--accent); }
+    .speak-toggle.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--text-inverse, white);
     }
     .mic-btn:hover:not(:disabled):not(.unconfigured) { border-color: var(--accent); color: var(--accent); }
     .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -548,7 +571,7 @@ class HealthChat extends LitElement {
       .chat-input-bar {
         padding-bottom: max(env(safe-area-inset-bottom, 0px), 10px);
       }
-      .mic-btn, .send-btn { width: 44px; height: 44px; }
+      .mic-btn, .send-btn, .speak-toggle { width: 44px; height: 44px; }
     }
   `;
 
@@ -568,6 +591,12 @@ class HealthChat extends LitElement {
     this._recordedChunks = [];
     this._playbackSpeed = parseFloat(localStorage.getItem('klebb-playback-speed') || '1');
     this._playingMsgId = null;
+    this._isAudioPlaying = false;
+    this._audioPos = null;
+    // Whether replies are spoken, for typed and mic input alike. Off until
+    // the user opts in; the first mic use flips it on once (a voice-first
+    // user clearly wants speak-back), after which it is fully manual.
+    this._speakReplies = localStorage.getItem('klebb-speak-replies') === '1';
     this._msgCounter = 0;
     // msgId -> { url, autoplayed }
     // Not persisted: blob URLs don't survive a reload and re-synthesise on
@@ -579,9 +608,6 @@ class HealthChat extends LitElement {
     this._saveTimer = null;
     this._starterChips = null;
     this._hygieneFindings = null;
-    // One-shot voice arming: set when a starter prompt is pasted in,
-    // consumed (and disarmed) by the next _sendText.
-    this._voiceArmed = false;
     this._checkVoiceAvailability();
     this._checkChatConfigured();
     this._loadInstance();
@@ -728,6 +754,9 @@ class HealthChat extends LitElement {
     if (Array.isArray(m.embellishments) && m.embellishments.length) {
       out.embellishments = m.embellishments;
     }
+    // The play affordance survives reloads; the audio itself
+    // re-synthesises on demand.
+    if (m.hasVoice === true) out.hasVoice = true;
     return out;
   }
 
@@ -767,7 +796,8 @@ class HealthChat extends LitElement {
     this._audioCache.clear();
     this._messages = [];
     this._playingMsgId = null;
-    this._voiceArmed = false;
+    this._isAudioPlaying = false;
+    this._audioPos = null;
     if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
     // Refocus the textarea so the user can type the next message right
     // away. Desktop only: touch keyboards re-popping is jarring.
@@ -965,9 +995,11 @@ class HealthChat extends LitElement {
       const text = e.detail?.text || '';
       // Starter prompts are explicit "new workflow" entry points; carrying
       // prior conversation into them bleeds stale context into the reply.
+      // Reply modality follows the speak-replies toggle like any other
+      // send; the old one-shot voice arming for pastes (#310) is
+      // superseded by it.
       this._clearHistory();
       this._input = text;
-      this._voiceArmed = true;
       if (!this._open) this._toggle();
       this.updateComplete.then(() => {
         const input = this.shadowRoot?.querySelector('.chat-input');
@@ -1052,12 +1084,9 @@ class HealthChat extends LitElement {
     this._loading = true;
     this._scrollToBottom();
     const chatMessages = this._messages.filter(m => m.role !== 'error');
-    // Consume the one-shot voice arming. A starter prompt paste sets
-    // _voiceArmed; the next send routes through voice mode if Fish
-    // Audio is configured. Disarm immediately so a follow-up send is
-    // text-only.
-    const useVoice = this._voiceArmed && this._voiceAvailable;
-    this._voiceArmed = false;
+    // Reply modality is the speak-replies toggle, nothing else: on means
+    // every reply comes back voice-shaped and autoplays, off means text.
+    const useVoice = this._speakReplies && this._voiceAvailable;
     if (useVoice) primeSharedAudio();
     try {
       // Single request, generous timeout. Earlier two-phase retry was meant
@@ -1070,7 +1099,7 @@ class HealthChat extends LitElement {
         if (useVoice) {
           const speakText = data.speak || data.reply;
           const displayText = data.reply || data.display || data.speak || '';
-          const msgId = this._addMsg('assistant', displayText, { ...extra, speakText });
+          const msgId = this._addMsg('assistant', displayText, { ...extra, speakText, hasVoice: true });
           this._scrollToBottom();
           await this._generateAndAutoplay(msgId, speakText);
         } else {
@@ -1140,6 +1169,15 @@ class HealthChat extends LitElement {
     // CRITICAL: prime the shared audio element inside THIS gesture.
     // Every tap primes it (safe, idempotent on iOS).
     primeSharedAudio();
+
+    // First mic use opts into spoken replies once: a voice-first user
+    // clearly wants speak-back, and a typed-first user is never surprised
+    // by sound. Only when the preference has never been set; after this
+    // the toggle is fully manual.
+    if (localStorage.getItem('klebb-speak-replies') === null) {
+      this._speakReplies = true;
+      localStorage.setItem('klebb-speak-replies', '1');
+    }
 
     if (this._recording) {
       await this._stopRecording();
@@ -1221,10 +1259,13 @@ class HealthChat extends LitElement {
       this._addMsg('user', text);
       this._scrollToBottom();
 
-      // Chat (voice mode)
+      // Spoken input no longer implies a spoken reply: the speak-replies
+      // toggle decides for every send. First mic use flipped it on in
+      // _micTap, so the default voice-in/voice-out flow still holds.
+      const useVoice = this._speakReplies;
       const chatMessages = this._messages.filter(m => m.role !== 'error');
       let replyData;
-      try { replyData = await this._fetchChat(chatMessages, true); }
+      try { replyData = await this._fetchChat(chatMessages, useVoice); }
       catch (e) {
         if (this._userAbortedChat) {
           this._userAbortedChat = false;
@@ -1236,13 +1277,15 @@ class HealthChat extends LitElement {
 
       if (replyData.error) {
         this._pushError(replyData.error);
-      } else {
+      } else if (useVoice) {
         const speakText = replyData.speak || replyData.reply;
         const displayText = replyData.reply || replyData.display || replyData.speak || '';
-        const msgId = this._addMsg('assistant', displayText, { ...this._followupExtras(replyData), speakText });
+        const msgId = this._addMsg('assistant', displayText, { ...this._followupExtras(replyData), speakText, hasVoice: true });
         this._scrollToBottom();
         // Fetch TTS + auto-play
         await this._generateAndAutoplay(msgId, speakText);
+      } else {
+        this._addMsg('assistant', replyData.reply, this._followupExtras(replyData));
       }
     } catch (e) {
       this._pushError(`Voice error: ${e.message}`);
@@ -1274,13 +1317,39 @@ class HealthChat extends LitElement {
     }
   }
 
-  // Play (or pause if already playing) the audio attached to a message.
+  // One set of listeners on the shared engine drives the custom controls:
+  // the play/pause glyph tracks real playback state instead of staying a
+  // permanent play arrow, and timeupdate feeds the progress strip.
+  _wireSharedAudio() {
+    if (this._audioWired) return;
+    const audio = getSharedAudio();
+    audio.addEventListener('play', () => { this._isAudioPlaying = true; });
+    audio.addEventListener('pause', () => { this._isAudioPlaying = false; });
+    audio.addEventListener('ended', () => {
+      this._isAudioPlaying = false;
+      this._playingMsgId = null;
+      this._audioPos = null;
+    });
+    audio.addEventListener('timeupdate', () => {
+      if (!this._playingMsgId) return;
+      this._audioPos = {
+        t: audio.currentTime || 0,
+        d: Number.isFinite(audio.duration) ? audio.duration : 0,
+      };
+    });
+    this._audioWired = true;
+  }
+
+  // Play, pause, or resume the audio attached to a message. The shared
+  // element stays parked off-screen: it is an engine, not UI (#599).
   async _playMessage(msgId, fromAutoplay = false) {
     const msg = this._messages.find(m => m.id === msgId);
     if (!msg) return;
+    this._wireSharedAudio();
     const cached = this._audioCache.get(msgId);
     if (!cached || !cached.url) {
-      // Not cached yet — fetch now, then play (manual user-tap path)
+      // Not cached yet — fetch now, then play (manual user-tap path, or
+      // a reloaded message whose hasVoice survived but whose blob didn't)
       if (msg.speakText || msg.content) {
         await this._generateAndAutoplay(msgId, msg.speakText || msg.content);
       }
@@ -1292,45 +1361,43 @@ class HealthChat extends LitElement {
     }
 
     const audio = getSharedAudio();
-    // If currently playing this message, toggle pause.
-    if (this._playingMsgId === msgId && !audio.paused) {
-      audio.pause();
+    // Same message: toggle pause/resume without restarting the clip.
+    if (this._playingMsgId === msgId) {
+      if (audio.paused) {
+        try { await audio.play(); } catch {}
+      } else {
+        audio.pause();
+      }
       return;
-    }
-
-    // Move the shared <audio> into this message's slot.
-    await this.updateComplete;
-    const slot = this.renderRoot?.querySelector(`[data-audio-slot="${msgId}"]`);
-    if (slot) {
-      // Ensure audio element is un-hidden + in the DOM where the user can see it.
-      audio.style.position = '';
-      audio.style.left = '';
-      audio.style.top = '';
-      audio.style.width = '100%';
-      audio.style.height = '32px';
-      slot.appendChild(audio);
     }
 
     audio.src = cached.url;
     audio.playbackRate = this._playbackSpeed;
     this._playingMsgId = msgId;
-
-    const onEnded = () => {
-      audio.removeEventListener('ended', onEnded);
-      this._playingMsgId = null;
-      this.requestUpdate();
-    };
-    audio.addEventListener('ended', onEnded);
+    this._audioPos = null;
 
     try {
       await audio.play();
       cached.autoplayed = true;
-      this.requestUpdate();
     } catch (e) {
       console.warn('[voice] play rejected', e.message);
       this._playingMsgId = null;
-      this.requestUpdate();
     }
+  }
+
+  _seekAudio(msgId, seconds) {
+    if (this._playingMsgId !== msgId) return;
+    const audio = peekSharedAudio();
+    if (!audio) return;
+    try { audio.currentTime = seconds; } catch {}
+  }
+
+  _toggleSpeakReplies() {
+    this._speakReplies = !this._speakReplies;
+    localStorage.setItem('klebb-speak-replies', this._speakReplies ? '1' : '0');
+    // Turning it on is a user gesture: prime now so the autoplay of the
+    // next reply is already authorised on iOS.
+    if (this._speakReplies) primeSharedAudio();
   }
 
   _toggleExpanded() {
@@ -1399,10 +1466,10 @@ class HealthChat extends LitElement {
     return html`
       ${this._messages.map(m => {
         if (m.role === 'assistant') {
-          // Only show the audio play button on messages that were
-          // produced in response to voice input (speakText set). Typed
-          // input gets a text-only reply — no audio UI.
-          const hasAudio = m.id && this._voiceAvailable && m.speakText;
+          // Voice replies carry an audio row. speakText covers this
+          // session; hasVoice survives a reload (the audio itself
+          // re-synthesises on demand).
+          const hasAudio = m.id && this._voiceAvailable && (m.speakText || m.hasVoice);
           const chips = Array.isArray(m.embellishments) && m.embellishments.length
             ? this._renderEmbellishChips(m)
             : '';
@@ -1410,7 +1477,7 @@ class HealthChat extends LitElement {
             <div class="msg assistant">
               ${unsafeHTML(renderMarkdown(m.content))}
               ${chips}
-              ${hasAudio ? this._renderAudioSlot(m) : ''}
+              ${hasAudio ? this._renderAudioRow(m) : ''}
             </div>
           `;
         }
@@ -1443,19 +1510,44 @@ class HealthChat extends LitElement {
     this._sendText();
   }
 
-  _renderAudioSlot(msg) {
-    const cached = this._audioCache.get(msg.id);
-    const isGenerating = this._playingMsgId === msg.id && !cached;
+  _renderAudioRow(msg) {
+    const isCurrent = this._playingMsgId === msg.id;
+    const playing = isCurrent && this._isAudioPlaying;
+    const pos = isCurrent && this._audioPos && this._audioPos.d ? this._audioPos : null;
     return html`
-      <div class="audio-slot" data-audio-slot="${msg.id}">
+      <div class="audio-row">
         <button
           class="play-btn"
           @click=${() => this._playMessage(msg.id, false)}
-          ?disabled=${isGenerating}
-          title="Play"
-        >${isGenerating ? html`<span class="spinner"></span>` : '\u25B6'}</button>
+          aria-label=${playing ? 'Pause' : 'Play'}
+          title=${playing ? 'Pause' : 'Play'}
+        >${playing ? '\u23F8' : '\u25B6'}</button>
+        ${pos ? html`
+          <input
+            class="seek"
+            type="range"
+            min="0"
+            max=${pos.d}
+            step="0.1"
+            .value=${String(pos.t)}
+            aria-label="Seek"
+            @input=${(e) => this._seekAudio(msg.id, parseFloat(e.target.value))}
+          />
+          <span class="audio-time">${this._fmtTime(pos.t)} / ${this._fmtTime(pos.d)}</span>
+        ` : ''}
+        <button
+          class="speed-chip"
+          @click=${this._cyclePlaybackSpeed}
+          aria-label="Playback speed"
+          title="Playback speed"
+        >${this._playbackSpeed}x</button>
       </div>
     `;
+  }
+
+  _fmtTime(seconds) {
+    const s = Math.max(0, Math.floor(seconds));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   }
 
   _renderRecordTime() {
@@ -1483,9 +1575,6 @@ class HealthChat extends LitElement {
             <span class="chat-header-icon">${this._agentEmoji}</span>
             <span class="chat-header-text">${this._agentName}</span>
             <div class="hdr-actions">
-              ${this._voiceAvailable ? html`
-                <button class="hdr-btn" @click=${this._cyclePlaybackSpeed} title="Playback speed">${this._playbackSpeed}x</button>
-              ` : ''}
               <button
                 class="hdr-btn expand-btn"
                 @click=${this._toggleExpanded}
@@ -1516,6 +1605,17 @@ class HealthChat extends LitElement {
             </div>
           ` : ''}
           <div class="chat-input-bar">
+            ${this._voiceAvailable ? html`
+              <button
+                class="speak-toggle ${this._speakReplies ? 'active' : ''}"
+                @click=${this._toggleSpeakReplies}
+                aria-label="Speak replies"
+                aria-pressed=${this._speakReplies}
+                title=${this._speakReplies
+                  ? 'Replies are spoken. Tap for text-only replies.'
+                  : 'Tap to have every reply spoken aloud.'}
+              >${this._speakReplies ? '\u{1F50A}' : '\u{1F507}'}</button>
+            ` : ''}
             <button
               class="mic-btn ${this._recording ? 'recording' : ''} ${!this._voiceAvailable ? 'unconfigured' : ''}"
               @click=${this._micTap}
