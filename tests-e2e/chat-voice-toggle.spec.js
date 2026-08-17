@@ -104,8 +104,10 @@ test.describe('#606 speak-replies toggle + audio row', () => {
 
     await widget.locator('button[aria-label="Speak replies"]').click();
     await widget.locator('.chat-input').fill('remember me');
+    // The transcript now persists to the conversation (#603/#605), not
+    // the legacy history file.
     const savedHistory = page.waitForResponse(r =>
-      r.url().includes('/api/chat/history') && r.request().method() === 'PUT' && r.ok());
+      /\/api\/conversations\/[^/]+\/messages/.test(r.url()) && r.request().method() === 'PUT' && r.ok());
     await widget.locator('.chat-input').press('Enter');
     await expect(widget.locator('.msg.assistant .audio-row')).toHaveCount(1);
     await savedHistory;

@@ -203,6 +203,18 @@ in-flight turn's reply had nowhere to go. Mechanics:
 The intended client loop: on `visibilitychange` back to visible, hit
 the reattach endpoint; on 204, refresh the conversation.
 
+`DELETE /api/chat/turn/:conversationId` stops the running turn: the
+loop halts at its next checkpoint (between round-trips or tool calls),
+the user's message stays, no reply is persisted, the streamed response
+ends with a `stopped` event (buffered callers get `{stopped: true}`),
+and the one-turn lock releases. 404 when nothing is running.
+
+The shipped widget uses all of this: turns are streamed conversation
+requests (the send button becomes a stop button mid-turn), a legacy
+`chat/history.json` transcript is folded into a conversation the first
+time the new client loads, and the legacy endpoints remain only for
+that import path.
+
 ### Legacy env vars
 
 Older deploys used `CHAT_GATEWAY_HOST` + `CHAT_GATEWAY_PORT` +

@@ -36,11 +36,18 @@ describe('#463: both send paths ride followup chips onto the message', () => {
     assert.match(SRC, /_followupExtras\(data\)/);
   });
 
-  test('typed send path (_sendText) uses the shared helper', () => {
-    assert.match(methodBody('async _sendText()'), /_followupExtras\(/);
+  // The #605 rework strengthened the original fix: both paths now funnel
+  // through one turn runner, and only its outcome handler unpacks the
+  // followup, so the two paths cannot drift apart by construction.
+  test('typed send path (_sendText) funnels through the shared turn runner', () => {
+    assert.match(methodBody('async _sendText()'), /_runTurn\(/);
   });
 
-  test('recorded-voice path (_handleRecordedBlob) uses the shared helper', () => {
-    assert.match(methodBody('async _handleRecordedBlob(blob)'), /_followupExtras\(/);
+  test('recorded-voice path (_handleRecordedBlob) funnels through the shared turn runner', () => {
+    assert.match(methodBody('async _handleRecordedBlob(blob)'), /_runTurn\(/);
+  });
+
+  test('the shared outcome handler is what unpacks the followup', () => {
+    assert.match(methodBody('async _applyTurnOutcome(useVoice)'), /_followupExtras\(/);
   });
 });
