@@ -30,6 +30,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   as the buffered path. The gateway leg streams too, with the per-step
   timeout acting as an idle timeout. The buffered response is unchanged
   and remains the default. (#601)
+- **Vendored stdlib zip reader and writer** (`lib/zip/read.js`,
+  `lib/zip/write.js`) to carry the import upload and export download with
+  zero new dependencies. The reader is central-directory-driven and refuses
+  hostile archives outright with stable error codes: encrypted entries,
+  zip64 in any form, compression methods other than store/deflate, symlink
+  attributes, and unsafe names (dot-dot, absolute, backslash, drive letter,
+  control characters), plus caller-set caps on entry count and declared
+  bytes; extraction inflates asynchronously, aborts the moment output
+  exceeds the declared size, verifies CRC-32, and stages via a temp
+  directory so a refused archive leaves nothing behind. The writer emits
+  store-or-deflate archives with sizes and CRCs in the local headers (no
+  data descriptors, so stock extractors accept them) and refuses past the
+  classic 4GB/65535-entry limits rather than emitting zip64. (#614)
+
 - **A portable export can now be imported back with one command.**
   `npm run import -- <tree> [--apply] [--target <home>]` restores an
   extracted export tree into a fresh instance. Dry-run is the default: the
