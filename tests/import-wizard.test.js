@@ -109,7 +109,7 @@ describe('import wizard', { skip }, () => {
     });
   });
 
-  test('fresh target: no confirm ceremony, applies end to end, serves live', () => {
+  test('fresh target: no confirm ceremony, applies end to end, serves live', async () => {
     gen = targetGen(seedHome(newHome(), { welcome: true }));
     const wizard = gen.wizardMod.createWizard(gen.deps);
 
@@ -121,7 +121,7 @@ describe('import wizard', { skip }, () => {
       { cards: 4, cardsWithData: 2, samplesPushes: 2, reports: 1 },
       'the status snapshot carries the plan counts for the confirm preview');
 
-    const res = wizard.confirmAndApply({});
+    const res = await wizard.confirmAndApply({});
     assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
     assert.deepStrictEqual(res.verified, STANDARD_VERIFIED);
     assert.strictEqual(res.snapshotPath, null, 'a fresh target must not be snapshotted');
@@ -141,7 +141,7 @@ describe('import wizard', { skip }, () => {
     assert.strictEqual(gen.freeze.frozen(), null, 'freeze must be released after done');
   });
 
-  test('populated target: nonce delivered exactly once, wrong nonce holds, right nonce replaces everything', () => {
+  test('populated target: nonce delivered exactly once, wrong nonce holds, right nonce replaces everything', async () => {
     gen = targetGen(seedHome(newHome(), populatedSeed()));
     const wizard = gen.wizardMod.createWizard(gen.deps);
 
@@ -155,14 +155,14 @@ describe('import wizard', { skip }, () => {
     const st2 = wizard.status();
     assert.ok(!('confirmNonce' in st2), 'the nonce is delivered exactly once');
 
-    const wrong = wizard.confirmAndApply({ nonce: 'not-it' });
+    const wrong = await wizard.confirmAndApply({ nonce: 'not-it' });
     assert.strictEqual(wrong.code, 'CONFIRM_REQUIRED');
-    const missing = wizard.confirmAndApply({});
+    const missing = await wizard.confirmAndApply({});
     assert.strictEqual(missing.code, 'CONFIRM_REQUIRED');
     assert.strictEqual(wizard.status().state, 'awaiting-confirm', 'a refused confirm must not move the job');
     assert.deepStrictEqual(norm(gen.registry.get('old').data), norm(OLD_ROWS), 'a refused confirm must not touch data');
 
-    const res = wizard.confirmAndApply({ nonce: st1.confirmNonce });
+    const res = await wizard.confirmAndApply({ nonce: st1.confirmNonce });
     assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
     assert.deepStrictEqual(res.verified, STANDARD_VERIFIED);
 
@@ -180,7 +180,7 @@ describe('import wizard', { skip }, () => {
     assert.deepStrictEqual(norm(snapCard.data), norm(OLD_ROWS));
   });
 
-  test('verify failure: failed with findings, backups kept, rollback restores pre-import state deep-equal', () => {
+  test('verify failure: failed with findings, backups kept, rollback restores pre-import state deep-equal', async () => {
     const home = newHome();
     gen = targetGen(seedHome(home, { ...populatedSeed(), config: { mine: true } }));
     // Corrupt one card between import and verify, through the same store
@@ -200,7 +200,7 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(tree);
-    const res = wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
+    const res = await wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
 
     assert.strictEqual(res.state, 'failed');
     const mismatch = res.findings.filter(f => f.code === 'VERIFY_CARD_MISMATCH');
@@ -212,7 +212,7 @@ describe('import wizard', { skip }, () => {
     assert.strictEqual(readJobFile(home).state, 'failed');
 
     // Rollback: the same pipeline fed the snapshot, no nonce, no new snapshot.
-    const rb = wizard.rollback();
+    const rb = await wizard.rollback();
     assert.strictEqual(rb.state, 'done', JSON.stringify(rb.findings, null, 2));
     assert.strictEqual(rb.rolledBack, true);
     assert.deepStrictEqual(norm(gen.registry.get('old').data), norm(OLD_ROWS));
@@ -222,7 +222,7 @@ describe('import wizard', { skip }, () => {
       { mine: true }, 'the pre-import config must survive');
   });
 
-  test('rollback without a snapshot fails cleanly', () => {
+  test('rollback without a snapshot fails cleanly', async () => {
     gen = targetGen(seedHome(newHome(), { welcome: true }));
     const deps = {
       ...gen.deps,
@@ -239,14 +239,14 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(tree);
-    const res = wizard.confirmAndApply({});
+    const res = await wizard.confirmAndApply({});
     assert.strictEqual(res.state, 'failed');
-    const rb = wizard.rollback();
+    const rb = await wizard.rollback();
     assert.strictEqual(rb.code, 'NO_SNAPSHOT');
     assert.strictEqual(wizard.status().state, 'failed', 'a refused rollback must not move the job');
   });
 
-  test('single job at a time: JOB_ACTIVE on a second start, abort clears', () => {
+  test('single job at a time: JOB_ACTIVE on a second start, abort clears', async () => {
     gen = targetGen(seedHome(newHome(), { welcome: true }));
     const wizard = gen.wizardMod.createWizard(gen.deps);
 
@@ -263,14 +263,14 @@ describe('import wizard', { skip }, () => {
 
     const again = wizard.startFromTree(tree);
     assert.strictEqual(again.state, 'awaiting-confirm');
-    const done = wizard.confirmAndApply({});
+    const done = await wizard.confirmAndApply({});
     assert.strictEqual(done.state, 'done');
     assert.strictEqual(wizard.startFromTree(tree).code, 'JOB_ACTIVE',
       'a done job still blocks a new start until abort');
     assert.strictEqual(wizard.abort().ok, true, 'abort from done clears the record');
   });
 
-  test('a tree that fails validation ends the job failed, and cannot be retried', () => {
+  test('a tree that fails validation ends the job failed, and cannot be retried', async () => {
     gen = targetGen(seedHome(newHome(), { welcome: true }));
     const wizard = gen.wizardMod.createWizard(gen.deps);
     const badTree = fs.mkdtempSync(path.join(os.tmpdir(), 'eh-wiz-bad-'));
@@ -280,12 +280,12 @@ describe('import wizard', { skip }, () => {
     const res = wizard.startFromTree(badTree);
     assert.strictEqual(res.state, 'failed');
     assert.ok(res.findings.some(f => f.code === 'VAL_NO_MANIFEST'), JSON.stringify(res.findings));
-    assert.strictEqual(wizard.confirmAndApply({}).code, 'BAD_STATE');
-    assert.strictEqual(wizard.rollback().code, 'NO_SNAPSHOT');
+    assert.strictEqual((await wizard.confirmAndApply({})).code, 'BAD_STATE');
+    assert.strictEqual((await wizard.rollback()).code, 'NO_SNAPSHOT');
     assert.strictEqual(wizard.abort().ok, true);
   });
 
-  test('freeze engages around apply and releases on the failed finally path', () => {
+  test('freeze engages around apply and releases on the failed finally path', async () => {
     gen = targetGen(seedHome(newHome(), populatedSeed()));
     const frozenAt = {};
     let throwAtCopy = true;
@@ -301,7 +301,7 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(tree);
-    const res = wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
+    const res = await wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
 
     assert.strictEqual(res.state, 'failed');
     assert.ok(res.findings.some(f => f.code === 'APPLY_ERROR' && /injected copy failure/.test(f.message)));
@@ -311,7 +311,7 @@ describe('import wizard', { skip }, () => {
     assert.strictEqual(gen.freeze.frozen(), null, 'freeze must be released by the finally path');
 
     // And the retry (full pipeline again) completes behind the freeze too.
-    const retry = wizard.confirmAndApply({});
+    const retry = await wizard.confirmAndApply({});
     assert.strictEqual(retry.state, 'done', JSON.stringify(retry.findings, null, 2));
     assert.strictEqual(frozenAt.drain, 'import');
     assert.strictEqual(frozenAt.import, 'import');
@@ -319,7 +319,7 @@ describe('import wizard', { skip }, () => {
     assert.strictEqual(gen.freeze.frozen(), null, 'freeze must be released after done');
   });
 
-  test('retry after a mid-pipeline failure re-runs the FULL wipe: no doubled pushes or rows', () => {
+  test('retry after a mid-pipeline failure re-runs the FULL wipe: no doubled pushes or rows', async () => {
     const home = newHome();
     gen = targetGen(seedHome(home, populatedSeed()));
     let failImport = true;
@@ -340,13 +340,13 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(tree);
-    const first = wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
+    const first = await wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
     assert.strictEqual(first.state, 'failed');
     // The failed run already drained the tree's pushes: the exact state a
     // wipe-less retry would double.
     assert.strictEqual(Number(gen.samples.pushCount()), 2);
 
-    const retry = wizard.confirmAndApply({});
+    const retry = await wizard.confirmAndApply({});
     assert.strictEqual(retry.state, 'done', JSON.stringify(retry.findings, null, 2));
     assert.deepStrictEqual(retry.verified, STANDARD_VERIFIED);
     assert.strictEqual(Number(gen.samples.pushCount()), 2, 'pushes doubled: the retry skipped the wipe');
@@ -356,7 +356,7 @@ describe('import wizard', { skip }, () => {
     assert.strictEqual(countSql(home, 'SELECT COUNT(*) AS n FROM hae_samples'), 2);
   });
 
-  test('sweep removes exactly the backup paths this run created', () => {
+  test('sweep removes exactly the backup paths this run created', async () => {
     const home = newHome();
     gen = targetGen(seedHome(home, { welcome: true }));
     const decoy = 'decoy.json.pre-import-20260101T000000000Z.json';
@@ -370,7 +370,7 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(tree);
-    const res = wizard.confirmAndApply({});
+    const res = await wizard.confirmAndApply({});
     assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
     assert.ok(res.findings.some(f => f.code === 'APPLY_BACKUPS_SWEPT'));
     assert.deepStrictEqual(preImportBackups(home), [decoy],
@@ -380,7 +380,7 @@ describe('import wizard', { skip }, () => {
     assert.strictEqual(audit.length, 1, 'the drain audit file must survive the sweep');
   });
 
-  test('hole 12: an HAE-backed card without a data key verifies ok even when replay backfilled it', () => {
+  test('hole 12: an HAE-backed card without a data key verifies ok even when replay backfilled it', async () => {
     const { tree: haeTree } = buildSourceTree({
       cards: { 'steps.json': card('steps', { meta: { ingest: { source: 'hae', metric: 'step_count' } } }) },
       pushes: TREE_PUSHES,
@@ -396,13 +396,13 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(haeTree);
-    const res = wizard.confirmAndApply({});
+    const res = await wizard.confirmAndApply({});
     assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
     assert.deepStrictEqual(res.verified, { cards: 1, pushes: 2, reports: 0 });
     assert.ok(!res.findings.some(f => f.code === 'VERIFY_CARD_MISMATCH'));
   });
 
-  test('hole 12 is scoped: a non-HAE card that grew data still mismatches', () => {
+  test('hole 12 is scoped: a non-HAE card that grew data still mismatches', async () => {
     const { tree: mixedTree } = buildSourceTree({
       cards: {
         'steps.json': card('steps', { meta: { ingest: { source: 'hae', metric: 'step_count' } } }),
@@ -422,19 +422,19 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(mixedTree);
-    const res = wizard.confirmAndApply({});
+    const res = await wizard.confirmAndApply({});
     assert.strictEqual(res.state, 'failed');
     const mismatch = res.findings.filter(f => f.code === 'VERIFY_CARD_MISMATCH');
     assert.strictEqual(mismatch.length, 1, JSON.stringify(res.findings, null, 2));
     assert.strictEqual(mismatch[0].ref, 'data/plain.json', 'only the non-HAE card may mismatch');
   });
 
-  test('config keep-existing: a populated target keeps its config and the finding says so', () => {
+  test('config keep-existing: a populated target keeps its config and the finding says so', async () => {
     const home = newHome();
     gen = targetGen(seedHome(home, { ...populatedSeed(), config: { mine: true } }));
     const wizard = gen.wizardMod.createWizard(gen.deps);
     wizard.startFromTree(tree);
-    const res = wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
+    const res = await wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
     assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
     assert.ok(res.findings.some(f => f.code === 'APPLY_CONFIG_KEPT'));
     assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8')),
