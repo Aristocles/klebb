@@ -65,6 +65,30 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   leaves the shared HAE samples handle open (inside a live server it belongs
   to the ingest path); the CLI is a thin wrapper with identical behaviour.
   (Fixes #615)
+- **A wipe-first import job engine with boot-time crash recovery**
+  (`lib/import/wizard.js`, `lib/import/freeze.js`, `lib/import/recover.js`),
+  the library layer for the upcoming in-app import. One job at a time,
+  persisted to `$HEALTH_HOME/import/job.json` at every transition. A
+  populated target is not refused: the job parks awaiting confirmation
+  behind a crypto-random nonce that `status()` hands out exactly once. The
+  apply pipeline snapshots the current state via the portable export
+  (populated targets only, pruned to the newest), engages a process-wide
+  write freeze, quiesces the manifest watcher, wipes everything (registered
+  cards through `deleteManifest` so delete hooks fire, leftover card files,
+  orphaned rows, the HAE sample history, backup/tmp strays, reports),
+  copies the tree in, drains the sample inbox, imports each card through
+  the boot importer, reloads the live registry so the imported set serves
+  without a restart, verifies against the pristine tree (per-card
+  deep-equal from durable state, push counts, report hashes; an HAE-backed
+  card that grew replayed data is not a mismatch), and sweeps exactly the
+  backup paths it created. Any retry re-runs the full wipe first, so a
+  failed attempt can never stack rows or double HAE pushes. `rollback()`
+  re-runs the same pipeline from the snapshot. At boot, `recoverAtBoot()`
+  runs before first-boot seeding and the samples drain: a job caught
+  mid-apply resumes from the staged tree, falls back to the snapshot, or
+  refuses to serve rather than let a half-applied home be seeded over and
+  presented as truth. Proven with subprocess SIGKILLs at each pipeline
+  stage, each kill verified to have landed mid-apply. (Fixes #616)
 
 - **A portable export can now be imported back with one command.**
   `npm run import -- <tree> [--apply] [--target <home>]` restores an

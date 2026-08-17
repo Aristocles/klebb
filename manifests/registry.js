@@ -183,6 +183,14 @@ function closeStore() {
   return true;
 }
 
+// The registry's own datastore handle, for callers that must mutate the data
+// plane in lockstep with the served values (the import wizard's wipe and
+// reimport). A separate handle on the same file would move the SQLite rows
+// while this module's in-memory Map kept serving the stale ones.
+function store() {
+  return _ensureStore();
+}
+
 // Register a callback to fire after deleteManifest succeeds. Used by
 // notifications-state to prune sidecar entries for a removed card.
 function onDelete(fn) {
@@ -1055,6 +1063,7 @@ function deleteManifest(id) {
 module.exports = {
   init,
   closeStore,
+  store,
   stopWatch,
   resumeWatch,
   reload,
