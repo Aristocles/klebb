@@ -21,6 +21,25 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **A portable export can now be imported back with one command.**
+  `npm run import -- <tree> [--apply] [--target <home>]` restores an
+  extracted export tree into a fresh instance. Dry-run is the default: the
+  tree is validated end to end (manifest and format version, per-card shape
+  and datastore round trip, checksums against `klebb-export.json`, size and
+  row caps, hostile-content refusals for symlinks and legacy credential
+  file names) and checked against the target, which must be fresh (nothing
+  beyond the seeded welcome card) and, with `--apply`, not held by a running
+  server. Every finding prints with a severity and a code, alongside the
+  apply plan. `--apply` then deletes the seeded welcome card, imports every
+  card through the same inbox a boot uses, drains the HAE sample history so
+  a later boot cannot double-import it, copies reports and config (an
+  existing config always wins), and verifies the result: each card's stored
+  value deep-equals the tree's, push counts match, report bytes are
+  identical. The `.pre-import` backups the import creates are removed only
+  after full verification; on any failure they stay, and the next boot
+  converges by re-importing whatever still carries a `data` key.
+  (Fixes #593, #594)
+
 - **Every portable export now carries a provenance manifest.**
   `scripts/export-embed.js` writes `klebb-export.json` into the tree root
   after every other file, so a tree without one is a torn (or pre-manifest)
