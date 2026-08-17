@@ -13,7 +13,10 @@
 //
 // The import fixture is a REAL export: a seeded source server's
 // /api/export download, saved once in beforeAll. Export on A, import on
-// B, exactly the moving-an-instance recipe.
+// B, exactly the moving-an-instance recipe. The archive then gets a bulk
+// HAE history planted into it: apply detaches into a polled job (#633),
+// and the pushes stretch the pipeline's drain so the progress view
+// reliably renders at least one stage label before the result card.
 
 const fs = require('fs');
 const os = require('os');
@@ -23,7 +26,12 @@ const { test, expect } = require('@playwright/test');
 const {
   createSandbox, cleanupSandbox, spawnServer, fakeAuthState,
 } = require('../tests/helpers/sandbox');
+const { injectPushes, treeZipEntries } = require('../tests/helpers/hae-push-fixture');
+const { openZip } = require('../lib/zip/read');
+const { writeZip } = require('../lib/zip/write');
 const { seedManifests, todayISO } = require('./helpers/seed-manifests');
+
+const FIXTURE_PUSHES = 240;
 
 test.setTimeout(90_000);
 
@@ -121,6 +129,14 @@ test.beforeAll(async () => {
     await src.kill();
     cleanupSandbox(srcHome);
   }
+
+  // Plant the bulk HAE history (inventory-listed) and re-zip in place.
+  const tree = path.join(fixtureDir, 'source-tree');
+  const zip = await openZip(fixtureZip);
+  await zip.extractTo(tree);
+  await zip.close();
+  injectPushes(tree, FIXTURE_PUSHES);
+  await writeZip(fixtureZip, treeZipEntries(tree));
 });
 
 test.afterAll(() => {
@@ -172,17 +188,25 @@ test.describe('#618: Settings > Data', () => {
     const preview = pane.locator('.preview-panel');
     await expect(preview).toBeVisible({ timeout: 20_000 });
     await expect(preview.locator('.plan-counts'))
-      .toContainText('2 cards (2 with data), 0 HAE pushes, 0 reports');
+      .toContainText(`2 cards (2 with data), ${FIXTURE_PUSHES} HAE pushes, 0 reports`);
     await expect(preview.locator('.exclusions'))
       .toContainText('Passkeys, connected devices and chat history stay with the instance');
     await expect(preview.locator('.confirm-input')).toHaveCount(0);
     await expect(preview.locator('.danger-panel')).toHaveCount(0);
 
+    // Apply detaches into a polled job: the progress view renders a live
+    // stage label before the result card appears.
     await preview.locator('.apply-btn').click();
+    const applying = pane.locator('.applying-panel');
+    await expect(applying).toBeVisible({ timeout: 20_000 });
+    await expect(applying.locator('.stage-label')).toContainText(
+      /Saving a rollback snapshot|Clearing this instance|Copying the archive in|Importing history|Importing cards|Reloading|Verifying|Tidying up/);
+    await expect(applying).toContainText('keep this page open');
+
     const result = pane.locator('.result-panel');
-    await expect(result).toBeVisible({ timeout: 30_000 });
+    await expect(result).toBeVisible({ timeout: 60_000 });
     await expect(result.locator('.result-counts'))
-      .toContainText('Import complete: verified 2 cards, 0 HAE pushes, 0 reports.');
+      .toContainText(`Import complete: verified 2 cards, ${FIXTURE_PUSHES} HAE pushes, 0 reports.`);
 
     // Reload the app, then the imported cards render on Today.
     await result.locator('.reload-btn').click();
@@ -238,15 +262,21 @@ test.describe('#618: Settings > Data', () => {
     expect(oldData.status()).toBe(200);
     expect((await oldData.json()).data).toEqual(oldCard().data);
 
-    // The exact word arms Apply; the flow completes end to end.
+    // The exact word arms Apply; the flow completes end to end through the
+    // polled progress view.
     await danger.locator('.confirm-input').fill('REPLACE');
     await expect(applyBtn).toBeEnabled();
     await applyBtn.click();
 
+    const applying = pane.locator('.applying-panel');
+    await expect(applying).toBeVisible({ timeout: 20_000 });
+    await expect(applying.locator('.stage-label')).toContainText(
+      /Saving a rollback snapshot|Clearing this instance|Copying the archive in|Importing history|Importing cards|Reloading|Verifying|Tidying up/);
+
     const result = pane.locator('.result-panel');
-    await expect(result).toBeVisible({ timeout: 30_000 });
+    await expect(result).toBeVisible({ timeout: 60_000 });
     await expect(result.locator('.result-counts'))
-      .toContainText('Import complete: verified 2 cards, 0 HAE pushes, 0 reports.');
+      .toContainText(`Import complete: verified 2 cards, ${FIXTURE_PUSHES} HAE pushes, 0 reports.`);
 
     // The wipe was total and the archive now defines the instance.
     const gone = await page.request.get(`${server.baseUrl}/api/manifests/old-card`);

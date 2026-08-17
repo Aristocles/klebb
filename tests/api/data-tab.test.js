@@ -24,6 +24,7 @@ const {
 } = require('../helpers/sandbox');
 const { openZip } = require('../../lib/zip/read');
 const { writeZip } = require('../../lib/zip/write');
+const { injectPushes } = require('../helpers/hae-push-fixture');
 
 process.env.HEALTH_HOME_WARNED = '1';
 
@@ -81,8 +82,10 @@ function listZipEntries(root, rel = '') {
 
 // Build a real exported tree (source home of plain card files with inline
 // data, run through the export CLI in a subprocess) and zip it with the
-// paired writer. Returns { tree, zipBuf }.
-async function buildTreeZip(cards) {
+// paired writer. opts.pushes plants that many HAE pushes into the tree
+// (inventory-listed), which is what stretches the pipeline's drain stage
+// into an observable applying window. Returns { tree, zipBuf }.
+async function buildTreeZip(cards, opts = {}) {
   const src = scratchDir('eh-data-src-');
   fs.mkdirSync(path.join(src, 'data'), { recursive: true });
   for (const c of cards) {
@@ -91,9 +94,20 @@ async function buildTreeZip(cards) {
   const tree = path.join(scratchDir('eh-data-tree-'), 'tree');
   const r = runNode([EXPORT_CLI, tree], { HEALTH_HOME: src });
   assert.strictEqual(r.code, 0, r.out);
+  if (opts.pushes) injectPushes(tree, opts.pushes);
   const zipFile = path.join(scratchDir('eh-data-zip-'), 'tree.zip');
   await writeZip(zipFile, listZipEntries(tree));
   return { tree, zipBuf: fs.readFileSync(zipFile) };
+}
+
+// Apply and rollback answer 202 and the pipeline settles behind
+// GET /api/import/status polling (#633).
+function pollUntilSettled(baseUrl, cookie) {
+  return waitFor(async () => {
+    const r = await req(baseUrl, '/api/import/status', { cookie });
+    assert.strictEqual(r.status, 200, r.body);
+    return (r.json.state === 'done' || r.json.state === 'failed') ? r.json : null;
+  }, { timeoutMs: 60000, what: 'the import job to settle' });
 }
 
 // One entry named ../escape.txt, hand-assembled because the paired writer
@@ -385,14 +399,13 @@ describe('import over HTTP: fresh target', { skip }, () => {
     assert.ok(fs.readdirSync(path.join(home, 'import')).some(n => n.startsWith('staging-')), 'no staged tree');
   });
 
-  test('apply runs the pipeline; status reports done; cards served deep-equal', async () => {
+  test('apply answers 202 applying; polling reaches done; cards served deep-equal', async () => {
     const r = await req(server.baseUrl, '/api/import/apply', { method: 'POST', cookie: auth.cookie, body: {} });
-    assert.strictEqual(r.status, 200, r.body);
-    assert.strictEqual(r.json.state, 'done');
+    assert.strictEqual(r.status, 202, r.body);
+    assert.strictEqual(r.json.state, 'applying');
 
-    const st = await req(server.baseUrl, '/api/import/status', { cookie: auth.cookie });
-    assert.strictEqual(st.status, 200, st.body);
-    assert.strictEqual(st.json.state, 'done');
+    const st = await pollUntilSettled(server.baseUrl, auth.cookie);
+    assert.strictEqual(st.state, 'done', JSON.stringify(st.findings));
 
     const { entries, dumps } = await captureCards(server.baseUrl, auth.cookie);
     assert.deepStrictEqual(entries.map(e => e.id).sort(), ['notes', 'weight']);
@@ -476,14 +489,17 @@ describe('import over HTTP: populated target, nonce, rollback', { skip }, () => 
     assert.strictEqual(st.json.state, 'awaiting-confirm');
   });
 
-  test('apply with the right nonce replaces everything; the snapshot exists', async () => {
+  test('apply with the right nonce answers 202 and settles done; the snapshot exists', async () => {
     const r = await req(server.baseUrl, '/api/import/apply', {
       method: 'POST', cookie: auth.cookie, body: { nonce },
     });
-    assert.strictEqual(r.status, 200, r.body);
-    assert.strictEqual(r.json.state, 'done');
-    assert.ok(r.json.snapshotPath, 'a populated target took no snapshot');
-    assert.ok(fs.existsSync(r.json.snapshotPath), 'the snapshot is not on disk');
+    assert.strictEqual(r.status, 202, r.body);
+    assert.strictEqual(r.json.state, 'applying');
+
+    const st = await pollUntilSettled(server.baseUrl, auth.cookie);
+    assert.strictEqual(st.state, 'done', JSON.stringify(st.findings));
+    assert.ok(st.snapshotPath, 'a populated target took no snapshot');
+    assert.ok(fs.existsSync(st.snapshotPath), 'the snapshot is not on disk');
 
     const { entries, dumps } = await captureCards(server.baseUrl, auth.cookie);
     assert.deepStrictEqual(entries.map(e => e.id).sort(), ['notes', 'weight']);
@@ -492,11 +508,15 @@ describe('import over HTTP: populated target, nonce, rollback', { skip }, () => 
     assert.strictEqual(gone.status, 404, 'the old card survived the wipe');
   });
 
-  test('rollback over HTTP restores the pre-import state deep-equal', async () => {
+  test('rollback answers 202 and polling restores the pre-import state deep-equal', async () => {
     const r = await req(server.baseUrl, '/api/import/rollback', { method: 'POST', cookie: auth.cookie, body: {} });
-    assert.strictEqual(r.status, 200, r.body);
-    assert.strictEqual(r.json.state, 'done');
+    assert.strictEqual(r.status, 202, r.body);
+    assert.strictEqual(r.json.state, 'applying');
     assert.strictEqual(r.json.rolledBack, true);
+
+    const st = await pollUntilSettled(server.baseUrl, auth.cookie);
+    assert.strictEqual(st.state, 'done', JSON.stringify(st.findings));
+    assert.strictEqual(st.rolledBack, true);
 
     const rolled = await captureCards(server.baseUrl, auth.cookie);
     assert.ok(preImport.entries.length > 0, 'empty pre-import state: the comparison would be vacuous');
@@ -513,21 +533,21 @@ describe('import over HTTP: populated target, nonce, rollback', { skip }, () => 
   });
 });
 
-describe('write freeze over HTTP', { skip }, () => {
+describe('detached apply: 202 mid-pipeline, widened freeze gate over HTTP', { skip }, () => {
   let auth;
   let home;
   let server;
   let fixture;
 
   before(async () => {
-    fixture = await buildTreeZip([card('weight', WEIGHT_ROWS)]);
+    // The pipeline only suspends inside the samples drain (#632), so the
+    // observable applying window over HTTP is the drain's duration: 400
+    // pushes measure ~2s on this class of machine, wide enough to land
+    // every probe below mid-run with no test-only hold hook.
+    fixture = await buildTreeZip([card('weight', WEIGHT_ROWS)], { pushes: 400 });
     auth = fakeAuthState();
     home = createSandbox({ credentials: auth.credentials, sessions: auth.sessions });
-    // The pipeline has real await points since #632 (the streaming samples
-    // drain), but their width depends on the fixture; the hold hook engages
-    // the same freeze for a fixed window so the gate can be asserted
-    // deterministically (see routes/data.js).
-    server = await spawnServer(home, { KLEBB_IMPORT_TEST_HOLD_MS: '4000' });
+    server = await spawnServer(home);
     const up = await binPost(server.baseUrl, '/api/import/upload', fixture.zipBuf, auth.cookie);
     assert.strictEqual(up.status, 200, up.body);
     const st = await req(server.baseUrl, '/api/import/start', { method: 'POST', cookie: auth.cookie, body: {} });
@@ -540,39 +560,64 @@ describe('write freeze over HTTP', { skip }, () => {
     cleanupSandbox(home);
   });
 
-  test('mutations 503 IMPORT_FROZEN mid-job; reads and import status stay live', async () => {
-    const applyPromise = req(server.baseUrl, '/api/import/apply', {
+  test('202 answers mid-pipeline; /api reads 503 IMPORT_FROZEN while applying; done reopens everything', async () => {
+    const t0 = Date.now();
+    const applied = await req(server.baseUrl, '/api/import/apply', {
       method: 'POST', cookie: auth.cookie, body: {},
     });
+    const elapsed202 = Date.now() - t0;
+    assert.strictEqual(applied.status, 202, applied.body);
+    assert.strictEqual(applied.json.state, 'applying');
 
-    // Poll until the gate is observably engaged, then run every assertion
-    // inside the hold window.
-    await waitFor(async () => {
-      const r = await req(server.baseUrl, '/api/manifests', {
-        method: 'POST', cookie: auth.cookie, body: card('frozen-probe'),
-      });
-      return r.status === 503 && r.json && r.json.code === 'IMPORT_FROZEN';
-    }, { what: 'the freeze gate to engage' });
+    // The job must still be running when the next request lands: a
+    // blocking apply would have answered done, and every "mid-pipeline"
+    // probe below would be theatre.
+    const live = await req(server.baseUrl, '/api/import/status', { cookie: auth.cookie });
+    assert.strictEqual(live.status, 200, live.body);
+    assert.strictEqual(live.json.state, 'applying',
+      'the pipeline finished before the 202 was even observed; the window is gone');
 
-    const hae = await req(server.baseUrl, '/api/health-auto-export', { method: 'POST', body: {} });
-    assert.strictEqual(hae.status, 503, hae.body);
-    assert.strictEqual(hae.json.code, 'IMPORT_FROZEN');
+    // WHILE APPLYING: every /api read is refused, superseding the old
+    // non-GET-only rule, because mid-pipeline the registry and datastore
+    // are transiently wiped and a read would serve wreckage as truth.
+    const reads = await req(server.baseUrl, '/api/manifests', { cookie: auth.cookie });
+    assert.strictEqual(reads.status, 503,
+      `expected the widened gate to refuse plain GETs mid-pipeline: ${reads.status} ${reads.body}`);
+    assert.strictEqual(reads.json.code, 'IMPORT_FROZEN');
 
     const exp = await req(server.baseUrl, '/api/export', { cookie: auth.cookie });
     assert.strictEqual(exp.status, 503, exp.body);
     assert.strictEqual(exp.json.code, 'IMPORT_FROZEN');
 
-    const reads = await req(server.baseUrl, '/api/manifests', { cookie: auth.cookie });
-    assert.strictEqual(reads.status, 200, reads.body);
+    const hae = await req(server.baseUrl, '/api/health-auto-export', { method: 'POST', body: {} });
+    assert.strictEqual(hae.status, 503, hae.body);
+    assert.strictEqual(hae.json.code, 'IMPORT_FROZEN');
 
-    const st = await req(server.baseUrl, '/api/import/status', { cookie: auth.cookie });
-    assert.strictEqual(st.status, 200, st.body);
+    // The import surface stays live mid-job, answering its own state
+    // codes, never the freeze gate's 503.
+    const second = await req(server.baseUrl, '/api/import/apply', { method: 'POST', cookie: auth.cookie, body: {} });
+    assert.strictEqual(second.status, 409, second.body);
+    assert.strictEqual(second.json.code, 'BAD_STATE');
+    const abort = await req(server.baseUrl, '/api/import/abort', { method: 'POST', cookie: auth.cookie, body: {} });
+    assert.strictEqual(abort.status, 409, abort.body);
+    assert.strictEqual(abort.json.code, 'BAD_STATE');
 
-    const applied = await applyPromise;
-    assert.strictEqual(applied.status, 200, applied.body);
-    assert.strictEqual(applied.json.state, 'done');
+    // Non-vacuous: the job is STILL applying after the probes, so every
+    // one of them (the 503s included) was observed inside the window.
+    const inWindow = await req(server.baseUrl, '/api/import/status', { cookie: auth.cookie });
+    assert.strictEqual(inWindow.json.state, 'applying',
+      'the pipeline settled before the probes finished; grow the fixture');
 
-    // The gate released with the pipeline: the same write now lands.
+    const st = await pollUntilSettled(server.baseUrl, auth.cookie);
+    const settledMs = Date.now() - t0;
+    assert.strictEqual(st.state, 'done', JSON.stringify(st.findings));
+    assert.deepStrictEqual(st.verified, { cards: 1, pushes: 400, reports: 0 });
+    assert.ok(elapsed202 < settledMs / 2,
+      `202 took ${elapsed202}ms of a ${settledMs}ms pipeline; the apply is not detached`);
+
+    // The gate released with the pipeline: reads and writes land again.
+    const reread = await req(server.baseUrl, '/api/manifests', { cookie: auth.cookie });
+    assert.strictEqual(reread.status, 200, reread.body);
     const post = await req(server.baseUrl, '/api/manifests', {
       method: 'POST', cookie: auth.cookie, body: card('post-freeze'),
     });
@@ -687,14 +732,17 @@ describe('boot recovery over HTTP', { skip }, () => {
 
     const server = await spawnServer(home);
     try {
+      // The resume runs detached behind the freeze gate (#633): boot
+      // answers at once, and status is the window into the running job.
+      const st = await pollUntilSettled(server.baseUrl, auth.cookie);
+      assert.strictEqual(st.state, 'done', JSON.stringify(st.findings));
+      assert.strictEqual(st.recovered, true);
+
       const { entries, dumps } = await captureCards(server.baseUrl, auth.cookie);
       assert.deepStrictEqual(entries.map(e => e.id).sort(), ['notes', 'weight']);
       assert.deepStrictEqual(dumps.weight, WEIGHT_ROWS);
       assert.ok(!entries.some(e => e.id === 'welcome'),
         'first-boot seeding ran before recovery: welcome card planted over the import');
-      const st = await req(server.baseUrl, '/api/import/status', { cookie: auth.cookie });
-      assert.strictEqual(st.json.state, 'done');
-      assert.strictEqual(st.json.recovered, true);
     } finally {
       await server.kill();
       cleanupSandbox(home);

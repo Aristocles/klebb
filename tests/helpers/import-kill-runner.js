@@ -54,7 +54,14 @@ const wizard = createWizard({
     console.error(`start did not reach awaiting-confirm: ${JSON.stringify(started)}`);
     process.exit(2);
   }
-  const result = await wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
+  const applied = wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
+  if (applied.code) {
+    console.error(`apply refused: ${JSON.stringify(applied)}`);
+    process.exit(2);
+  }
+  // The apply detaches (#633); the kill must land inside the running
+  // pipeline, so wait for it rather than exiting under it.
+  const result = await wizard.awaitIdle();
   fs.writeFileSync(path.join(markerDir, 'finished'), JSON.stringify(result));
   samples.close();
   registry.closeStore();

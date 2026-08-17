@@ -733,17 +733,22 @@ const server = http.createServer(async (req, res) => {
 
   if (_booting && pathname !== '/healthz') await _bootGate;
 
-  // === Import write freeze (#617) ===
+  // === Import write freeze (#617, widened by #633) ===
   // One structural gate at the top of dispatch: while the import pipeline
-  // holds the freeze, everything that is not a plain GET answers 503,
-  // structural-by-construction so no future mutating route can be forgotten
-  // off an allowlist. GET /api/export is ALSO blocked, deliberately: it
-  // would zip a mid-wipe tree. Exempt: /healthz (liveness must never lie)
-  // and /api/import/* (status/apply/rollback must work mid-job).
+  // holds the freeze, EVERY path under /api/ answers 503, reads included.
+  // The pipeline runs detached now, so plain GETs genuinely land mid-run,
+  // and mid-run the registry and datastore are transiently wiped: serving
+  // any data read would present the wreckage as truth, and GET /api/export
+  // would zip a mid-wipe tree. Refusing loudly beats lying quietly.
+  // Exempt: /healthz (liveness must never lie) and /api/import/* (status is
+  // how a detached job reports progress; the rest answer their own state
+  // codes). Non-API paths (the app shell, static assets, /auth/: sessions
+  // and passkeys are not part of the data plane the pipeline rebuilds)
+  // keep serving, so the settings page and its status polling work mid-job.
   if (importFreeze.frozen() !== null
       && pathname !== '/healthz'
       && !pathname.startsWith('/api/import/')
-      && (req.method !== 'GET' || pathname === '/api/export')) {
+      && pathname.startsWith('/api/')) {
     res.writeHead(503, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'import in progress', code: 'IMPORT_FROZEN' }));
     req.resume();
@@ -2851,35 +2856,50 @@ server.listen(PORT, HOST, async () => {
   // drained a half-staged samples file) would present the wreckage as
   // truth. On 'refuse', the rest of boot is skipped and the request gate
   // above serves 503 IMPORT_RECOVERY_FAILED for everything but /healthz,
-  // import status and rollback.
+  // import status and rollback. On 'resuming' (#633) the pipeline runs
+  // detached with the write freeze already engaged: boot releases its gate
+  // at once so /healthz and /api/import/status answer during a multi-minute
+  // resume, and the data-plane boot steps below wait for the pipeline to
+  // settle (it owns the data plane while it runs: its own samples drain,
+  // registry reload and watcher quiesce; running seeding, the inbox drains
+  // or registry.init() beside it would double-drain the samples inbox,
+  // restart the watcher under the quiesce, and write into a mid-wipe tree).
+  let importResumeSettled = null;
   try {
-    const rec = await recoverAtBoot({ home: PATHS.HEALTH_HOME });
+    const rec = recoverAtBoot({ home: PATHS.HEALTH_HOME });
     if (rec.action === 'refuse') {
       importRecoveryRefusedReason = rec.reason;
       console.error('[import] BOOT RECOVERY FAILED:', rec.reason);
       console.error('[import] refusing to serve; only /healthz, /api/import/status and /api/import/rollback answer');
-    } else if (rec.action === 'resumed') {
-      console.log(`[import] resumed an interrupted import from the ${rec.source}: ${rec.result.state}`);
+    } else if (rec.action === 'resuming') {
+      console.warn(`[import] RESUMING an interrupted import from the ${rec.source}, detached; `
+        + '/api/* answers 503 IMPORT_FROZEN (except /api/import/*) until it settles');
+      // The HTTP surface must serve THIS wizard: a fresh one would read
+      // job.json once and never see the resume progress or its terminal
+      // state, wedging status/rollback/abort until a restart.
+      dataRoutes.adoptWizard(rec.wizard);
+      importResumeSettled = rec.settled;
+      importResumeSettled.then(result => {
+        console.log(`[import] boot resume settled: ${result.state}`);
+      });
     }
   } catch (e) {
     importRecoveryRefusedReason = `boot recovery threw: ${e.message}`;
     console.error('[import] BOOT RECOVERY FAILED:', e.message);
   }
 
-  // First-boot welcome card. Only seeds when HEALTH_HOME/data is empty.
-  if (!importRecoveryRefusedReason) {
+  async function finishDataPlaneBoot() {
+    // First-boot welcome card. Only seeds when HEALTH_HOME/data is empty.
     try {
       runFirstBoot({ dataDir: PATHS.DATA_DIR });
     } catch (e) {
       console.warn('[first-boot] error (continuing):', e.message);
     }
-  }
 
-  // HAE push history from an exported tree: data/auto-export/samples.json is a
-  // one-way import inbox, exactly like a card file's `data` block. Runs BEFORE
-  // registry.init(), because init replays HAE-backed cards from the samples
-  // table and would otherwise find it empty on the first boot of a restore.
-  if (!importRecoveryRefusedReason) {
+    // HAE push history from an exported tree: data/auto-export/samples.json is a
+    // one-way import inbox, exactly like a card file's `data` block. Runs BEFORE
+    // registry.init(), because init replays HAE-backed cards from the samples
+    // table and would otherwise find it empty on the first boot of a restore.
     try {
       const imported = await haeSamplesInbox.drain();
       if (imported) {
@@ -2889,50 +2909,58 @@ server.listen(PORT, HOST, async () => {
     } catch (e) {
       console.warn('[hae] samples import failed:', e.message);
     }
-  }
 
-  // Initialise manifest registry (discovers + watches data files). Skipped
-  // on a refused boot: loading the half-applied cards would dress the
-  // wreckage up as a working registry behind the 503 gate.
-  if (!importRecoveryRefusedReason) {
+    // Initialise manifest registry (discovers + watches data files).
     try {
       const stats = registry.init();
       console.log(`[manifest] loaded ${stats.count} card(s); ${stats.errors} error(s)`);
     } catch (e) {
       console.error('[manifest] init failed:', e.message);
     }
-  }
 
-  // Drain the inbox: anything left behind by a crash mid-extract, plus the
-  // operator door (`docker cp` + restart). Uploads enqueue directly.
-  // Failures inside the pipeline land in inbox/_failed/, so a bad file
-  // should never wedge boot.
-  if (!importRecoveryRefusedReason) {
+    // Drain the inbox: anything left behind by a crash mid-extract, plus the
+    // operator door (`docker cp` + restart). Uploads enqueue directly.
+    // Failures inside the pipeline land in inbox/_failed/, so a bad file
+    // should never wedge boot.
     try {
       const { queued } = inbox.start();
       console.log(`[ingest] inbox drained; ${queued} file(s) queued`);
     } catch (e) {
       console.warn('[ingest] drain failed:', e.message);
     }
+
+    // Notifications scheduler: 1-minute tick, evaluates triggers, fires
+    // due notifications. Disabled in demo mode (the demo doesn't deliver
+    // push). The dispatch path is logging-only in v3.0.0; PR #386 wires
+    // up the real Web Push send.
+    if (!ENV.KLEBB_DEMO) {
+      try {
+        registry.onDelete((id) => notificationsState.pruneCard(id));
+        notificationsScheduler.setDispatch(webPushSend.dispatch);
+        notificationsScheduler.start(registry);
+        console.log('[notifications] scheduler started');
+      } catch (e) {
+        console.warn('[notifications] scheduler init failed:', e.message);
+      }
+    }
   }
 
-  // Notifications scheduler: 1-minute tick, evaluates triggers, fires
-  // due notifications. Disabled in demo mode (the demo doesn't deliver
-  // push). The dispatch path is logging-only in v3.0.0; PR #386 wires
-  // up the real Web Push send.
-  if (!ENV.KLEBB_DEMO && !importRecoveryRefusedReason) {
-    try {
-      registry.onDelete((id) => notificationsState.pruneCard(id));
-      notificationsScheduler.setDispatch(webPushSend.dispatch);
-      notificationsScheduler.start(registry);
-      console.log('[notifications] scheduler started');
-    } catch (e) {
-      console.warn('[notifications] scheduler init failed:', e.message);
+  // Skipped entirely on a refused boot: loading the half-applied cards would
+  // dress the wreckage up as a working registry behind the 503 gate. On a
+  // detached resume the same steps run when the pipeline settles (done or
+  // failed), which is exactly where they ran when boot awaited the resume.
+  if (!importRecoveryRefusedReason) {
+    if (importResumeSettled) {
+      importResumeSettled.then(() => finishDataPlaneBoot());
+    } else {
+      await finishDataPlaneBoot();
     }
   }
 
   // Open the request gate: every block above catches its own failures, so
-  // this line is always reached and parked requests resume in order.
+  // this line is always reached and parked requests resume in order. On a
+  // detached resume the gate opens while the pipeline still runs: the
+  // freeze gate at the top of dispatch answers for the data plane.
   _booting = false;
   _bootSettled();
 });

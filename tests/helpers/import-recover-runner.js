@@ -9,8 +9,11 @@
 //
 //   node import-recover-runner.js <home>
 //
-// Prints one line: RECOVER_RESULT {action, source, cleared, reason, state,
-// verified, refusalCodes}.
+// Prints one line: RECOVER_RESULT {action, source, cleared, reason,
+// promptState, state, verified, refusalCodes}. promptState is the job state
+// at the moment recoverAtBoot RETURNED: 'applying' proves the resume was
+// detached (control came back mid-pipeline, #633); state/verified come from
+// the settled pipeline.
 
 'use strict';
 
@@ -30,7 +33,7 @@ const { createImporter } = require('../../lib/datastore/import');
 const { recoverAtBoot } = require('../../lib/import/recover');
 
 (async () => {
-  const out = await recoverAtBoot({
+  const out = recoverAtBoot({
     home,
     registry,
     store: registry.store(),
@@ -40,15 +43,19 @@ const { recoverAtBoot } = require('../../lib/import/recover');
     importerFactory: createImporter,
   });
 
+  const promptState = out.action === 'resuming' ? out.status.state : null;
+  const result = out.action === 'resuming' ? await out.settled : null;
+
   console.log('RECOVER_RESULT ' + JSON.stringify({
     action: out.action,
     source: out.source || null,
     cleared: out.cleared || false,
     reason: out.reason || null,
-    state: out.result ? out.result.state : null,
-    verified: out.result ? out.result.verified : null,
-    refusalCodes: out.result
-      ? out.result.findings.filter(f => f.severity === 'refusal').map(f => f.code)
+    promptState,
+    state: result ? result.state : null,
+    verified: result ? result.verified : null,
+    refusalCodes: result
+      ? result.findings.filter(f => f.severity === 'refusal').map(f => f.code)
       : [],
   }));
   samples.close();

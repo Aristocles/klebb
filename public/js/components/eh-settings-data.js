@@ -8,15 +8,34 @@
 // (routes/data.js): pick a zip, upload with real progress, preview the
 // plan, confirm destruction on a populated instance, apply, report.
 //
-// The apply call BLOCKS for the whole pipeline: the response IS the final
-// snapshot, so the wizard awaits it rather than polling for progress. The
-// confirmNonce is served exactly once (on whichever start/status response
-// first carries it) and held in component state; re-fetching status for it
-// would come back empty and dead-end the Apply button.
+// Apply and rollback answer 202 immediately and the pipeline runs detached
+// on the server (#633: a blocking apply outlived proxy response ceilings, so
+// the user saw an error while the import quietly succeeded). The component
+// polls GET /api/import/status until the job settles, rendering the current
+// stage; a page that loads while a job is applying lands straight in the
+// progress view from status alone. The confirmNonce is served exactly once
+// (on whichever start/status response first carries it) and held in
+// component state; re-fetching status for it would come back empty and
+// dead-end the Apply button.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 
 const CONFIRM_WORD = 'REPLACE';
+const POLL_INTERVAL_MS = 1500;
+// A transient network blip keeps polling; this many consecutive failures
+// means the instance is genuinely unreachable and honesty beats a spinner.
+const MAX_POLL_FAILURES = 10;
+
+const STAGE_LABELS = {
+  snapshot: 'Saving a rollback snapshot',
+  wipe: 'Clearing this instance',
+  copy: 'Copying the archive in',
+  drain: 'Importing history',
+  import: 'Importing cards',
+  reload: 'Reloading',
+  verify: 'Verifying',
+  sweep: 'Tidying up',
+};
 
 export class EhSettingsData extends LitElement {
   static properties = {
@@ -45,11 +64,18 @@ export class EhSettingsData extends LitElement {
     this._exportBusy = false;
     this._lastFile = null;
     this._retryFn = null;
+    this._polling = false;
+    this._pollFailures = 0;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this._refreshStatus();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._polling = false;
   }
 
   async _refreshStatus() {
@@ -82,7 +108,50 @@ export class EhSettingsData extends LitElement {
       case 'awaiting-confirm': this._phase = 'awaiting-confirm'; break;
       case 'done': this._phase = 'done'; break;
       case 'failed': this._phase = 'failed'; break;
+      case 'applying':
+      case 'verifying':
+        // A fresh page load mid-job lands here too: the progress view and
+        // the poll loop come from status alone, no local history needed.
+        this._phase = 'applying';
+        this._startPolling();
+        break;
       default: this._phase = 'in-progress';
+    }
+  }
+
+  _startPolling() {
+    if (this._polling) return;
+    this._polling = true;
+    this._pollFailures = 0;
+    this._pollLoop();
+  }
+
+  // One chained loop, never overlapping fetches. Ends when the job settles
+  // (done/failed/idle), when the component leaves the DOM, or when the
+  // instance has been unreachable for MAX_POLL_FAILURES polls running.
+  async _pollLoop() {
+    while (this._polling) {
+      await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+      if (!this._polling) return;
+      try {
+        const r = await fetch('/api/import/status');
+        if (!r.ok) throw new Error(`status ${r.status}`);
+        const snap = await r.json();
+        this._pollFailures = 0;
+        this._applySnapshot(snap);
+        if (snap.state === 'done' || snap.state === 'failed' || snap.state === 'idle') {
+          this._polling = false;
+          return;
+        }
+      } catch {
+        this._pollFailures += 1;
+        if (this._pollFailures >= MAX_POLL_FAILURES) {
+          this._polling = false;
+          this._error = 'Lost contact with the instance mid-import; reload this page to see where it landed.';
+          this._canRetry = false;
+          return;
+        }
+      }
     }
   }
 
@@ -106,7 +175,7 @@ export class EhSettingsData extends LitElement {
     } else if (r.status === 409 && body.code === 'JOB_ACTIVE') {
       this._error = 'An import is already in progress on this instance.';
     } else if (r.status === 503 && body.code === 'IMPORT_FROZEN') {
-      this._error = 'An import is running right now; writes are paused until it finishes.';
+      this._error = 'An import is running right now; this instance answers again when it finishes.';
     } else if (r.status === 503 && body.code === 'IMPORT_RECOVERY_FAILED') {
       this._error = `An interrupted import could not be recovered: ${body.reason || body.error || 'see the server log'}`;
     } else {
@@ -202,13 +271,14 @@ export class EhSettingsData extends LitElement {
         await this._syncPhaseKeepError();
         return;
       }
+      // 202: the pipeline is running detached; the snapshot says applying
+      // and _applySnapshot starts the status polling.
       this._applySnapshot(await r.json());
     } catch {
-      // The connection dropped but the pipeline is server-side and still
-      // running; the next status request queues behind it and returns the
-      // terminal state. Poll rather than re-POST: a second apply after
-      // done would only earn a 409.
-      await this._pollUntilTerminal();
+      // The connection dropped but the pipeline may already be running
+      // server-side. Poll rather than re-POST: a second apply after done
+      // would only earn a 409.
+      this._startPolling();
     }
   }
 
@@ -223,26 +293,8 @@ export class EhSettingsData extends LitElement {
     this._phase = 'idle';
   }
 
-  async _pollUntilTerminal() {
-    for (let i = 0; i < 150; i++) {
-      try {
-        const r = await fetch('/api/import/status');
-        if (r.ok) {
-          const snap = await r.json();
-          if (snap.state === 'done' || snap.state === 'failed' || snap.state === 'idle') {
-            this._applySnapshot(snap);
-            return;
-          }
-        }
-      } catch {}
-      await new Promise(res => setTimeout(res, 2000));
-    }
-    this._error = 'Lost contact with the instance mid-import; reload this page to see where it landed.';
-    this._canRetry = false;
-  }
-
   async _rollback() {
-    this._phase = 'rolling-back';
+    this._phase = 'applying';
     this._error = null;
     try {
       const r = await fetch('/api/import/rollback', { method: 'POST' });
@@ -251,13 +303,15 @@ export class EhSettingsData extends LitElement {
         await this._syncPhaseKeepError();
         return;
       }
+      // 202 + poll, exactly like apply; the done view reads snap.rolledBack.
       this._applySnapshot(await r.json());
     } catch {
-      await this._pollUntilTerminal();
+      this._startPolling();
     }
   }
 
   async _startOver() {
+    this._polling = false;
     this._error = null;
     try {
       const r = await fetch('/api/import/abort', { method: 'POST' });
@@ -511,20 +565,7 @@ export class EhSettingsData extends LitElement {
       case 'awaiting-confirm':
         return this._renderPreview();
       case 'applying':
-        return html`
-          <div class="panel applying-panel">
-            <div class="busy-row">
-              <span class="spinner"></span>
-              <span>Importing… this can take a minute; keep this page open.</span>
-            </div>
-          </div>
-        `;
-      case 'rolling-back':
-        return html`
-          <div class="panel">
-            <div class="busy-row"><span class="spinner"></span><span>Rolling back…</span></div>
-          </div>
-        `;
+        return this._renderApplying();
       case 'done':
         return this._renderDone();
       case 'failed':
@@ -539,6 +580,22 @@ export class EhSettingsData extends LitElement {
       default:
         return '';
     }
+  }
+
+  _renderApplying() {
+    const snap = this._snapshot || {};
+    const stage = STAGE_LABELS[snap.stage] || (snap.rolledBack ? 'Rolling back' : 'Importing');
+    return html`
+      <div class="panel applying-panel">
+        <div class="busy-row">
+          <span class="spinner"></span>
+          <span class="stage-label">${stage}…</span>
+        </div>
+        <span class="muted">${snap.rolledBack
+          ? 'Rolling back to the snapshot; keep this page open.'
+          : 'The import is running on the instance; keep this page open to follow it.'}</span>
+      </div>
+    `;
   }
 
   _renderPreview() {
