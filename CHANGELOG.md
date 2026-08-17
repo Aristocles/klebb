@@ -72,6 +72,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   snapshot survives, the instance refuses to serve (503
   `IMPORT_RECOVERY_FAILED` on every API route except import status and
   rollback) rather than seed over a half-applied home. (Fixes #617)
+- **Settings > Data: export download and an import wizard.** A new Data
+  tab in Settings. Export is one button: the browser downloads a zip of
+  the whole instance (every card with its history, reports and settings).
+  Import restores such an archive through a wizard: pick the zip, watch a
+  real upload progress bar, review the plan (card, HAE push and report
+  counts, warnings, and the honest exclusions line: passkeys, connected
+  devices and chat history stay with the instance; data timestamps reset
+  to the import time), then apply. A fresh instance applies with one
+  click; a populated one shows a red warning and requires typing REPLACE,
+  with the apply carried by the single-delivery confirmation nonce. The
+  result reports the verified counts with a reload button; a failed
+  import lists its findings with roll back and start over. Refusals are
+  surfaced honestly per status (too large with the limit, out of disk,
+  archive refused with the validator's code, already running, writes
+  frozen). The status snapshot now carries the plan counts for the
+  preview. Demo mode shows a not-available note. (Fixes #618)
 - **A speak-replies toggle decides reply modality.** A speaker button
   beside the mic: on means every reply (typed or spoken) comes back
   voice-shaped and autoplays, off means text only. Off by default; the

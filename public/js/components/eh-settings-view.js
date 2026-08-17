@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/components/eh-settings-view.js
 //
-// Settings shell. Five tabs: General, Notifications, Security, Cards,
+// Settings shell. Six tabs: General, Notifications, Security, Cards, Data,
 // Diagnostics. Active tab is component-local state. No router lib, no URL
 // hash, no history API: settings is a single page in the app shell, the
 // active tab does not need to be bookmarkable, and there is no second
@@ -13,6 +13,7 @@ import './eh-settings-general.js';
 import './eh-settings-notifications.js';
 import './eh-settings-security.js';
 import './eh-settings-cards.js';
+import './eh-settings-data.js';
 import './eh-settings-diagnostics.js';
 
 const TABS = [
@@ -20,6 +21,7 @@ const TABS = [
   { id: 'notifications', label: 'Notifications' },
   { id: 'security',      label: 'Security' },
   { id: 'cards',         label: 'Cards' },
+  { id: 'data',          label: 'Data' },
   { id: 'diagnostics',   label: 'Diagnostics' },
 ];
 
@@ -131,6 +133,10 @@ export class EhSettingsView extends LitElement {
       <div role="tabpanel" id="panel-cards" aria-labelledby="tab-cards"
            ?hidden=${this._activeTab !== 'cards'}>
         ${this._activeTab === 'cards' ? html`<eh-settings-cards></eh-settings-cards>` : ''}
+      </div>
+      <div role="tabpanel" id="panel-data" aria-labelledby="tab-data"
+           ?hidden=${this._activeTab !== 'data'}>
+        ${this._activeTab === 'data' ? html`<eh-settings-data></eh-settings-data>` : ''}
       </div>
       <div role="tabpanel" id="panel-diagnostics" aria-labelledby="tab-diagnostics"
            ?hidden=${this._activeTab !== 'diagnostics'}>

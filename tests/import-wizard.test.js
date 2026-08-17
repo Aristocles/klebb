@@ -117,6 +117,9 @@ describe('import wizard', { skip }, () => {
     assert.strictEqual(started.state, 'awaiting-confirm');
     assert.strictEqual(started.requiresConfirm, false);
     assert.ok(!('confirmNonce' in started));
+    assert.deepStrictEqual(started.plan,
+      { cards: 4, cardsWithData: 2, samplesPushes: 2, reports: 1 },
+      'the status snapshot carries the plan counts for the confirm preview');
 
     const res = wizard.confirmAndApply({});
     assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
