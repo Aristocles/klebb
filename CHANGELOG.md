@@ -21,6 +21,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Chat turns survive the client.** A conversation turn now runs as a
+  server-side job: a phone that backgrounds mid-turn (iOS aborts the
+  fetch) no longer kills the reply, which is persisted to the
+  conversation regardless. Events are buffered per turn with ids and
+  `GET /api/chat/turn/:conversationId` reattaches, replaying what was
+  missed from `Last-Event-ID` before going live (204 = nothing running,
+  read the conversation). One turn at a time per conversation: a
+  concurrent send answers 409 before its message is persisted. (#602)
 - **Chat conversations are now first-class.** A `conversations` table in
   the per-instance database (own handle, WAL-checkpointed on shutdown)
   stores named transcripts behind `/api/conversations` CRUD: list by
