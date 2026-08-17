@@ -21,6 +21,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Chat turns can stream.** `POST /api/chat` with `stream: true` answers
+  with server-sent events: `status` (loop phase and live tool activity),
+  `token` (assistant text fragments), `reset` (retract provisional text
+  that preceded tool calls), then a `reply` event carrying exactly the
+  payload the buffered mode returns, and `done`. Failures become an
+  `error` event with the same classified copy and would-have-been status
+  as the buffered path. The gateway leg streams too, with the per-step
+  timeout acting as an idle timeout. The buffered response is unchanged
+  and remains the default. (#601)
 - **A portable export can now be imported back with one command.**
   `npm run import -- <tree> [--apply] [--target <home>]` restores an
   extracted export tree into a fresh instance. Dry-run is the default: the

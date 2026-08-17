@@ -190,6 +190,36 @@ function send404(res, msg = 'Not found') {
   sendJSON(res, { error: msg }, 404);
 }
 
+// Server-sent events writer for /api/chat streaming. Named events, one JSON
+// data line each, a heartbeat comment so intermediaries do not buffer or
+// idle-close the stream, and X-Accel-Buffering for the nginx some deploys
+// put in front. Every write is guarded: a client that vanished mid-turn (a
+// backgrounded phone) must never crash the agent loop, which is allowed to
+// run to completion against a dead socket exactly like the buffered path.
+function startEventStream(res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-store',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.write(': stream open\n\n');
+  const heartbeat = setInterval(() => {
+    if (!res.writableEnded && !res.destroyed) res.write(': ping\n\n');
+  }, 15000);
+  return {
+    send(event, data) {
+      if (res.writableEnded || res.destroyed) return false;
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`);
+      return true;
+    },
+    end() {
+      clearInterval(heartbeat);
+      if (!res.writableEnded && !res.destroyed) res.end();
+    },
+  };
+}
+
 // Server-local "today" in the configured TZ (Node already honours process.env.TZ,
 // so this uses the server's clock and timezone).
 function todayIso() {
@@ -315,7 +345,14 @@ function extractJsonReply(raw) {
 // cap cannot stack per-iteration timeouts into a multi-minute silent
 // spinner. Either budget running out returns the last text we saw (or a
 // fallback) with cappedOut set; the caller tells the user how to resume.
-async function runAgentLoop({ systemPrompt, userMessages, reqId = '-' }) {
+//
+// `emit(event, data)` reports live progress (status/token/reset events for
+// the SSE path); it defaults to a no-op so the buffered path pays nothing.
+// `streamTokens` forwards the model's content fragments as `token` events:
+// off in voice mode, whose reply is a JSON envelope no one should watch
+// being typed. A tokened iteration that turns out to end in tool calls
+// emits `reset` so the client can drop the provisional text.
+async function runAgentLoop({ systemPrompt, userMessages, reqId = '-', emit = () => {}, streamTokens = false }) {
   const MAX_ITERS = CHAT_MAX_TURNS;
   const deadline = CHAT_TURN_DEADLINE_MS;
   const loopStart = Date.now();
@@ -337,10 +374,20 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-' }) {
       const remaining = deadline - elapsed;
       iterBudget = iterBudget ? Math.min(iterBudget, remaining) : remaining;
     }
+    emit('status', { phase: 'thinking' });
+    let tokensThisIter = false;
     const gwStart = Date.now();
     let gw;
     try {
-      gw = await callGateway({ messages, tools: TOOL_DEFS, timeoutMs: iterBudget });
+      gw = await callGateway({
+        messages,
+        tools: TOOL_DEFS,
+        timeoutMs: iterBudget,
+        stream: streamTokens,
+        onDelta: streamTokens
+          ? ({ content }) => { if (content) { tokensThisIter = true; emit('token', { text: content }); } }
+          : undefined,
+      });
       itersDone = i + 1;
     } catch (e) {
       if (e && e.message === 'gateway_iter_timeout') {
@@ -376,6 +423,10 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-' }) {
     }
 
     if (finish === 'tool_calls' && Array.isArray(msg.tool_calls) && msg.tool_calls.length) {
+      // Content fragments already forwarded this iteration were commentary
+      // ahead of tool calls, not the final answer: tell the client to drop
+      // the provisional text before tool statuses replace it.
+      if (tokensThisIter) emit('reset', {});
       // Preserve tool_calls on the round-trip; your provider rejects the
       // next turn if the assistant message is missing them.
       messages.push({
@@ -390,6 +441,7 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-' }) {
           const args = JSON.parse(tc.function?.arguments || '{}');
           manifestId = args.id || args.manifest?.meta?.id || '-';
         } catch {}
+        emit('status', { phase: 'tool', tool: name, ...(manifestId !== '-' ? { id: manifestId } : {}) });
         const tStart = Date.now();
         const result = dispatchToolCall(tc, ctx);
         const tMs = Date.now() - tStart;
@@ -1517,12 +1569,25 @@ const server = http.createServer(async (req, res) => {
         try {
           const parsed = JSON.parse(body);
           const { messages, voiceMode, viewedCardId } = parsed;
+          // stream: true switches the response to server-sent events
+          // (status/token/reset/reply/error/done). Everything before the
+          // response shape is identical, and error statuses that fire
+          // before the stream opens (400/503) stay plain JSON.
+          const wantStream = parsed.stream === true;
           if (!Array.isArray(messages) || messages.length === 0) {
             return sendJSON(res, { error: 'messages required' }, 400);
           }
           if (ENV.KLEBB_DEMO) {
             const reply = `This is a public demo without an AI gateway connected, so ${ENV.CHAT_AGENT_NAME} can't answer questions or add new cards. You can still log data into the existing cards. Run your own instance (klebb.app) to chat with your own data.`;
-            return sendJSON(res, voiceMode ? { reply, speak: reply } : { reply });
+            const payload = voiceMode ? { reply, speak: reply } : { reply };
+            if (wantStream) {
+              const es = startEventStream(res);
+              es.send('reply', payload);
+              es.send('done', {});
+              es.end();
+              return;
+            }
+            return sendJSON(res, payload);
           }
 
           // Build a compact card list from the live registry, so the agent
@@ -1650,57 +1715,88 @@ Original system prompt follows:
 
           const reqId = crypto.randomBytes(3).toString('hex');
           const turnStart = Date.now();
-          chatLog(reqId, `start turns=${messages.length} voice=${!!voiceMode}`);
+          chatLog(reqId, `start turns=${messages.length} voice=${!!voiceMode} stream=${wantStream}`);
+
+          // The buffered and streamed paths share one reply shaper and one
+          // error mapper, so the SSE protocol can never drift from the JSON
+          // contract on wording, followup chips, or the capped flag.
+          const logDone = (out) => chatLog(reqId, `done total=${Date.now() - turnStart}ms iters=${out.iters} capped=${!!out.cappedOut}${out.deadlined ? ' deadline' : ''}${out.iterTimedOut ? ' iter_timeout' : ''}`);
+          const shapeReply = ({ finalText, ctx, cappedOut }) => {
+            const followup = buildFollowup(ctx);
+            // `capped: true` is the machine-readable form; the appended text
+            // is for today's client, which renders only the reply string.
+            const flags = cappedOut ? { capped: true } : {};
+            if (cappedOut) {
+              finalText = finalText ? finalText + CAPPED_SUFFIX : CAPPED_FALLBACK_MESSAGE;
+            }
+            if (voiceMode) {
+              const parsedReply = extractJsonReply(finalText);
+              if (parsedReply && (parsedReply.speak || parsedReply.display)) {
+                const speak = (parsedReply.speak || parsedReply.display || '').trim();
+                const display = (parsedReply.display || parsedReply.speak || '').trim();
+                return withFollowup({ reply: display, speak, ...flags }, followup);
+              }
+              const speak = finalText.replace(/\p{Extended_Pictographic}/gu, '').trim();
+              return withFollowup({ reply: finalText || EMPTY_REPLY_MESSAGE, speak, ...flags }, followup);
+            }
+            return withFollowup({ reply: finalText || EMPTY_REPLY_MESSAGE, ...flags }, followup);
+          };
+          const mapError = (e) => {
+            const msg = e.message || String(e);
+            const cause = gateway.classifyGatewayError(e);
+            // Log the distinguishing detail, so exhaustion and an outage are
+            // tellable apart in the journal without reproducing them.
+            chatLog(reqId, `err total=${Date.now() - turnStart}ms cause=${cause} ${msg.split(':')[0]}`);
+            if (cause === 'budget') {
+              // Not an error to apologise for: it is a limit being reported.
+              // The reset date is deliberately not stated: the allowance is a
+              // rolling window the webapp cannot see, and a wrong date is
+              // worse than none.
+              console.error('Chat allowance exhausted:', msg);
+              return { status: 429, error: CHAT_BUDGET_MESSAGE };
+            }
+            if (cause === 'timeout') {
+              console.error('Chat gateway timeout');
+              return { status: 504, error: 'That took too long to come back. Try asking again.' };
+            }
+            if (cause === 'transient') {
+              console.error('Chat gateway unavailable:', msg);
+              return { status: 502, error: 'The AI service is not responding right now. Try again in a moment.' };
+            }
+            console.error('Chat parse error:', msg);
+            return { status: 500, error: 'The AI service returned something unreadable. Try again in a moment.' };
+          };
+
+          if (wantStream) {
+            // The stream is already 200 by the time the loop fails, so the
+            // would-have-been status rides inside the error event. A client
+            // that disappears mid-turn only mutes the events: the loop runs
+            // to completion, same as the buffered path.
+            const es = startEventStream(res);
+            runAgentLoop({ systemPrompt, userMessages: messages, reqId, emit: es.send, streamTokens: !voiceMode })
+              .then((out) => {
+                logDone(out);
+                es.send('reply', shapeReply(out));
+                es.send('done', {});
+                es.end();
+              })
+              .catch((e) => {
+                const { status, error } = mapError(e);
+                es.send('error', { error, status });
+                es.send('done', {});
+                es.end();
+              });
+            return;
+          }
 
           runAgentLoop({ systemPrompt, userMessages: messages, reqId })
-            .then(({ finalText, ctx, cappedOut, deadlined, iterTimedOut, iters }) => {
-              const followup = buildFollowup(ctx);
-              chatLog(reqId, `done total=${Date.now() - turnStart}ms iters=${iters} capped=${!!cappedOut}${deadlined ? ' deadline' : ''}${iterTimedOut ? ' iter_timeout' : ''}`);
-              // `capped: true` is the machine-readable form; the appended text
-              // is for today's client, which renders only the reply string.
-              const flags = cappedOut ? { capped: true } : {};
-              if (cappedOut) {
-                finalText = finalText ? finalText + CAPPED_SUFFIX : CAPPED_FALLBACK_MESSAGE;
-              }
-              if (voiceMode) {
-                const parsedReply = extractJsonReply(finalText);
-                if (parsedReply && (parsedReply.speak || parsedReply.display)) {
-                  const speak = (parsedReply.speak || parsedReply.display || '').trim();
-                  const display = (parsedReply.display || parsedReply.speak || '').trim();
-                  return sendJSON(res, withFollowup({ reply: display, speak, ...flags }, followup));
-                }
-                const speak = finalText.replace(/\p{Extended_Pictographic}/gu, '').trim();
-                return sendJSON(res, withFollowup({ reply: finalText || EMPTY_REPLY_MESSAGE, speak, ...flags }, followup));
-              }
-              sendJSON(res, withFollowup({ reply: finalText || EMPTY_REPLY_MESSAGE, ...flags }, followup));
+            .then((out) => {
+              logDone(out);
+              sendJSON(res, shapeReply(out));
             })
             .catch((e) => {
-              const msg = e.message || String(e);
-              const cause = gateway.classifyGatewayError(e);
-              // Log the distinguishing detail, so exhaustion and an outage are
-              // tellable apart in the journal without reproducing them.
-              chatLog(reqId, `err total=${Date.now() - turnStart}ms cause=${cause} ${msg.split(':')[0]}`);
-              if (cause === 'budget') {
-                // Not an error to apologise for: it is a limit being reported.
-                // The reset date is deliberately not stated: the allowance is a
-                // rolling window the webapp cannot see, and a wrong date is
-                // worse than none.
-                console.error('Chat allowance exhausted:', msg);
-                if (!res.headersSent) sendJSON(res, { error: CHAT_BUDGET_MESSAGE }, 429);
-                return;
-              }
-              if (cause === 'timeout') {
-                console.error('Chat gateway timeout');
-                if (!res.headersSent) sendJSON(res, { error: 'That took too long to come back. Try asking again.' }, 504);
-                return;
-              }
-              if (cause === 'transient') {
-                console.error('Chat gateway unavailable:', msg);
-                if (!res.headersSent) sendJSON(res, { error: 'The AI service is not responding right now. Try again in a moment.' }, 502);
-                return;
-              }
-              console.error('Chat parse error:', msg);
-              if (!res.headersSent) sendJSON(res, { error: 'The AI service returned something unreadable. Try again in a moment.' }, 500);
+              const { status, error } = mapError(e);
+              if (!res.headersSent) sendJSON(res, { error }, status);
             });
         } catch (e) {
           sendJSON(res, { error: 'Invalid request' }, 400);
