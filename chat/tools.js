@@ -185,27 +185,32 @@ const TOOL_DEFS = [
   {
     type: 'function',
     function: {
-      name: 'note_feature_request',
+      name: 'note_feedback',
       description:
-        "Log an anonymised feature request when the user asks for something Klebb genuinely cannot do (no tool and no renderer can serve it, even with more detail). Call this ONLY after you have told the user plainly that it is unsupported and offered the nearest supported alternative; it is not for requests that just need a clarifying question or were phrased badly. Pass a PARAPHRASED capability intent, never the user's data: 'wants to chart sleep as a heatmap' is fine; the actual sleep values, card labels naming a condition, or the verbatim message are NOT. The operator reviews these to decide what to build next. Returns {logged:true}.",
+        "Log anonymised feedback for the operator: kind 'bug' when the user reports something in Klebb behaving wrongly (an error, a wrong number, a control that does nothing) that you cannot fix with your tools; kind 'feature' when they ask for something Klebb genuinely cannot do (no tool and no renderer can serve it, even with more detail). Use it when the user says things like 'report a bug' or 'I wish it could...'. For features, call it ONLY after you have told the user plainly that it is unsupported and offered the nearest supported alternative; it is not for requests that just need a clarifying question. Pass a PARAPHRASED intent, never the user's data: 'wants to chart sleep as a heatmap' or 'chart renders blank after adding a goal line' are fine; actual values, card labels naming a condition, or the verbatim message are NOT. After logging, confirm to the user in one short line what was recorded. Returns {logged:true}.",
       parameters: {
         type: 'object',
         properties: {
+          kind: {
+            type: 'string',
+            enum: ['bug', 'feature'],
+            description: "'bug' = something existing behaves wrongly; 'feature' = a capability Klebb does not have.",
+          },
           intent: {
             type: 'string',
-            description: 'A short paraphrased description of the capability the user wanted (no personal data, no logged values, no verbatim message).',
+            description: 'A short paraphrased description of the bug or wanted capability (no personal data, no logged values, no verbatim message).',
           },
           context: {
             type: 'string',
-            description: 'Optional structural context: which renderers/tools exist and were considered, why none fit. No personal data.',
+            description: 'Optional structural context: which renderers/tools exist and were considered, what was observed. No personal data.',
           },
           toolsConsidered: {
             type: 'array',
             items: { type: 'string' },
-            description: 'Optional list of tool names you considered before concluding it is unsupported.',
+            description: 'Optional list of tool names you considered before logging.',
           },
         },
-        required: ['intent'],
+        required: ['kind', 'intent'],
         additionalProperties: false,
       },
     },
@@ -665,8 +670,9 @@ function dispatchToolCall(tc, ctx) {
       case 'validate_manifest': {
         return JSON.stringify(validateManifest(args.manifest));
       }
-      case 'note_feature_request': {
+      case 'note_feedback': {
         return JSON.stringify(appendFeedback({
+          kind: args.kind,
           intent: args.intent,
           context: args.context,
           toolsConsidered: args.toolsConsidered,

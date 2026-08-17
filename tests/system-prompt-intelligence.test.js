@@ -21,7 +21,7 @@ before(() => {
 });
 
 describe('system prompt: new intelligence tools are documented', () => {
-  for (const tool of ['get_recent_activity', 'hygiene_scan', 'validate_manifest', 'note_feature_request']) {
+  for (const tool of ['get_recent_activity', 'hygiene_scan', 'validate_manifest', 'note_feedback']) {
     test(`mentions ${tool}`, () => {
       assert.ok(PROMPT.includes(tool), `prompt should document the ${tool} tool`);
     });
@@ -60,7 +60,11 @@ describe('system prompt: unsupported-request rubric', () => {
   test('distinguishes unsupported from needs-a-question and logs the gap', () => {
     assert.ok(/Unsupported vs just-needs-a-question/.test(PROMPT));
     assert.ok(/genuinely unsupported/.test(PROMPT));
-    assert.ok(/note_feature_request/.test(PROMPT));
+    assert.ok(/note_feedback/.test(PROMPT));
+    assert.ok(!/note_feature_request/.test(PROMPT), 'the old tool name must not linger in the prompt');
+  });
+  test('bug reports are steered to note_feedback too (#608)', () => {
+    assert.ok(/kind \`bug\`|kind `bug`/.test(PROMPT), 'the prompt must tell the model when to log a bug');
   });
   test('the stale "no reorder primitive" example is gone (reorder_rows exists)', () => {
     assert.ok(!/there's no reorder primitive/.test(PROMPT),
