@@ -173,6 +173,44 @@ describe('datastore transactionality', { skip }, () => {
   });
 });
 
+describe('datastore wipeAll', { skip }, () => {
+  test('drops every card and clears the served values in place', () => {
+    store.setData('weight', [{ date: '2026-01-01', kg: 80 }]);
+    store.setData('notes', { markdown: '# hi' });
+    store.setData('combo', null);
+
+    const dbFile = path.join(dir, 'db', 'klebb.db');
+    const inoBefore = fs.statSync(dbFile, { bigint: true }).ino;
+
+    const removed = store.wipeAll();
+    assert.strictEqual(removed, 3);
+
+    // Served values drop immediately, without a load().
+    for (const id of ['weight', 'notes', 'combo']) {
+      assert.strictEqual(store.getData(id), null, `${id} still served`);
+      assert.strictEqual(store.hasData(id), false);
+      assert.strictEqual(store.dataUpdatedAt(id), null, `${id} bookkeeping survived`);
+    }
+
+    // The wipe is in-place SQL, never an unlink: a live server keeps writing
+    // to a deleted inode, so the file must be the same one afterwards.
+    const inoAfter = fs.statSync(dbFile, { bigint: true }).ino;
+    assert.strictEqual(inoAfter, inoBefore, 'wipeAll replaced the db file');
+
+    // The same handle keeps working: a fresh setData lands and persists.
+    store.setData('weight', [{ date: '2026-02-01', kg: 79 }]);
+    reopen();
+    assert.deepStrictEqual(store.getData('weight'), [{ date: '2026-02-01', kg: 79 }]);
+    assert.strictEqual(store.dataUpdatedAt('notes'), null, 'wipe was durable');
+  });
+
+  test('wiping an empty store is a no-op', () => {
+    assert.strictEqual(store.wipeAll(), 0);
+    store.setData('weight', [{ date: '2026-01-01', kg: 80 }]);
+    assert.deepStrictEqual(store.getData('weight'), [{ date: '2026-01-01', kg: 80 }]);
+  });
+});
+
 describe('datastore perf smoke', { skip }, () => {
   test('steps-sized card (1,300 rows) set+get round trip', () => {
     const rows = [];
