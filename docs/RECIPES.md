@@ -1058,6 +1058,60 @@ the shared helper means the chip and the filter behave identically.
 
 ---
 
+## Recipe 16: restore an exported instance
+
+Not a card this time: bringing a whole instance back from a portable
+export (`npm run export`, see [`DEPLOY.md`](DEPLOY.md)). The import CLI
+does the work; your job is to read what it tells you.
+
+If the export arrived zipped (a Cloud "export my data" download),
+unpack it somewhere outside the new instance's `$HEALTH_HOME`; a tree
+written by `npm run export` is already in this shape:
+
+```bash
+unzip klebb-export.zip -d /tmp/restore
+```
+
+Dry-run first. This is the default: it validates the tree end to end,
+checks the target, and prints every finding and the plan without
+writing a byte:
+
+```bash
+npm run import -- /tmp/restore --target /path/to/new-home
+```
+
+Read the findings. Warnings (a hand-edited file, an uninventoried
+extra) are informational and don't block; refusals (a missing
+`klebb-export.json`, a duplicate card id, a credentials file inside
+`data/`) mean the tree is torn or tampered with, and the fix is to
+re-export from the source, not to hand-patch the tree. When it prints
+`Tree validates`, apply:
+
+```bash
+npm run import -- /tmp/restore --apply --target /path/to/new-home
+```
+
+A verified import ends like this, with the counts matching the plan the
+dry run printed:
+
+```
+verified: 12 card(s), 340 HAE push(es), 3 report(s)
+status: ok
+```
+
+Start the server on the new home and every card comes back with its
+history, HAE pushes included. Passkeys don't travel (an export never
+contains credentials), so register a fresh one on the new instance.
+
+One rule: **imports only ever write into a fresh instance.** A target
+with any card beyond the seeded welcome one, or any HAE history, is
+refused with the reasons listed. That is deliberate: there is no merge,
+and a restore that could half-overwrite live data would be worse than
+one that asks you for an empty home. Full tree contract in
+[`EXPORT-FORMAT.md`](EXPORT-FORMAT.md).
+
+---
+
 ## Next steps
 
 - For the full manifest spec (every field, every input type, every
