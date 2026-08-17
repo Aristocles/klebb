@@ -31,6 +31,7 @@ Works equally well as:
 - [Quickstart](#quickstart)
 - [What is a "card"?](#what-is-a-card)
 - [Running with Docker](#running-with-docker)
+- [Backup and restore](#backup-and-restore)
 - [Running tests](#running-tests)
 - [Configuration](#configuration)
 - [Docs](#docs)
@@ -256,6 +257,20 @@ If you're running an OpenAI-compatible chat endpoint on the host (for the
 chat widget), point `CHAT_ENDPOINT_URL=http://host.docker.internal:<port>/v1/chat/completions`
 in `.env`. The compose file already maps that hostname to the host via
 `extra_hosts: host.docker.internal:host-gateway`.
+
+## Backup and restore
+
+`npm run export -- /path/to/dir` writes a portable copy of an instance:
+every card file with its data re-embedded, HAE history, reports and
+config, but never credentials, sessions or keys. See
+[`docs/DEPLOY.md`](docs/DEPLOY.md) for the full backup guidance.
+
+To restore, point `npm run import -- /path/to/dir --target <new-home>`
+at the extracted tree. Dry-run is the default: it validates the tree
+against the target and prints every finding and the plan without writing
+anything; add `--apply` to import and verify. Imports only ever write
+into a fresh instance (nothing beyond the seeded welcome card). The full
+tree contract lives in [`docs/EXPORT-FORMAT.md`](docs/EXPORT-FORMAT.md).
 
 ## Reports
 

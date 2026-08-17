@@ -8,7 +8,7 @@ Every push to `main` and every pull request
 triggers `.github/workflows/test.yml`, which:
 
 1. Checks out the code
-2. Sets up Node.js (matrix: 20 + 22)
+2. Sets up Node.js (matrix: 22 + 24)
 3. Runs `npm ci`
 4. Runs `npm test`
 
@@ -21,12 +21,13 @@ generous head-room.
 ## Reproducing locally
 
 ```bash
-nvm use 20    # or 22
+nvm use 22    # or 24
 npm ci
 npm test
 ```
 
-Any Node 20+ install will do. No database, no external services needed.
+Any Node 22.13+ install will do (the `engines` floor; the datastore
+needs `node:sqlite`). No external database, no external services needed.
 
 ## Adding new tests
 
