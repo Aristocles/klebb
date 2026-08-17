@@ -9,6 +9,24 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Applying an import no longer holds one HTTP request open for the whole
+  pipeline.** Hosted instances sit behind reverse proxies with response-time
+  ceilings around a minute or two, so a long apply always surfaced a gateway
+  error in the wizard while the import carried on server-side and usually
+  succeeded; a crash mid-apply turned the held request into a bare 502 with
+  the eventual recovery invisible. `POST /api/import/apply` and `/rollback`
+  now answer **202 immediately** with the applying snapshot and the pipeline
+  runs detached; the wizard polls `GET /api/import/status` and renders live
+  stage labels ("Clearing this instance", "Importing history", ...), and a
+  page opened mid-import lands in the same progress view from status alone.
+  Boot crash-recovery resumes are detached the same way, so a multi-minute
+  resume no longer starves `/healthz` or blocks boot. State still moves to
+  `applying` and the write freeze still engages before the request answers,
+  so concurrent applies refuse exactly as before. The freeze gate is also
+  **widened**: while a pipeline runs, every `/api/*` route (reads included)
+  answers 503 `IMPORT_FROZEN` except `/api/import/*` and the health probe,
+  because mid-pipeline the registry is transiently wiped and serving a read
+  would present an empty instance as truth. (#633)
 - **Importing a large HAE history no longer blows the heap of a small
   container.** A real restore whose `data/auto-export/samples.json`
   weighed tens of MB died of `FatalProcessOutOfMemory` inside a 256 MB

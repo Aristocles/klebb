@@ -13,10 +13,12 @@
 // GET  /api/import/status    wizard.status() (confirmNonce delivered ONCE:
 //                            whichever response carries it, the caller must
 //                            hold it; it is never repeated)
-// POST /api/import/apply     wizard.confirmAndApply({nonce}); BLOCKS for the
-//                            whole pipeline (poll status from a second
-//                            request for progress; job.json records stages)
-// POST /api/import/rollback  wizard.rollback()
+// POST /api/import/apply     wizard.confirmAndApply({nonce}); answers 202
+//                            with the applying snapshot immediately, the
+//                            pipeline runs detached (#633: a blocking apply
+//                            outlived proxy response ceilings); poll status
+//                            for progress and the terminal state
+// POST /api/import/rollback  wizard.rollback(); 202 + poll, same shape
 // POST /api/import/abort     wizard.abort()
 //
 // Auth: the main dispatcher's session gate runs before delegating here.
@@ -36,16 +38,21 @@ const { openZip } = require('../lib/zip/read');
 const { writeZip } = require('../lib/zip/write');
 const { exportTo } = require('../scripts/export-embed');
 const { createDefaultWizard, jobFilePath } = require('../lib/import/wizard');
-const freeze = require('../lib/import/freeze');
 
 const UPLOAD_ZIP = 'upload.zip';
 
 // One wizard per process, created on first use so it binds the registry's
-// own datastore handle after boot (recovery included) has settled.
+// own datastore handle after boot has settled. A boot that resumes a
+// crashed job detached (#633) adopts ITS wizard instead: a fresh one would
+// read job.json once and never see the live pipeline's progress.
 let _wizard = null;
 function wizard() {
   if (!_wizard) _wizard = createDefaultWizard();
   return _wizard;
+}
+
+function adoptWizard(w) {
+  _wizard = w;
 }
 
 function send(res, status, body) {
@@ -312,29 +319,22 @@ async function handleApply(req, res) {
   try { body = await readBody(req); }
   catch { send(res, 400, { error: 'invalid JSON body' }); return true; }
 
-  // TEST-ONLY freeze-window hook. The pipeline now has real await points
-  // of its own (the streaming samples drain, #632), but their width depends
-  // on the fixture; this hook engages the same freeze for a fixed window so
-  // tests can drive the gate deterministically.
-  const holdMs = Number(process.env.KLEBB_IMPORT_TEST_HOLD_MS);
-  if (Number.isFinite(holdMs) && holdMs > 0) {
-    freeze.engage('import-test-hold');
-    try { await new Promise(r => setTimeout(r, holdMs)); }
-    finally { freeze.release(); }
-  }
-
-  const result = await wizard().confirmAndApply({ nonce: body.nonce });
+  // 202, not 200: the pipeline runs detached and the caller polls status.
+  // The wizard has already persisted 'applying' and engaged the freeze by
+  // the time confirmAndApply returns, so nothing can slip in between this
+  // response and the gate.
+  const result = wizard().confirmAndApply({ nonce: body.nonce });
   if (result.code === 'CONFIRM_REQUIRED') { send(res, 428, result); return true; }
   if (result.code === 'BAD_STATE') { send(res, 409, result); return true; }
-  send(res, 200, result);
+  send(res, 202, result);
   return true;
 }
 
-async function handleRollback(req, res) {
-  const result = await wizard().rollback();
+function handleRollback(req, res) {
+  const result = wizard().rollback();
   if (result.code === 'NO_SNAPSHOT') { send(res, 404, result); return true; }
   if (result.code === 'BAD_STATE') { send(res, 409, result); return true; }
-  send(res, 200, result);
+  send(res, 202, result);
   return true;
 }
 
@@ -382,4 +382,4 @@ async function handle(req, res, parts) {
 
 const ROUTE_PREFIXES = ['export', 'import'];
 
-module.exports = { handle, ROUTE_PREFIXES };
+module.exports = { handle, ROUTE_PREFIXES, adoptWizard };

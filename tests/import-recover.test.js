@@ -140,8 +140,11 @@ describe('import boot recovery', { skip }, () => {
       assertKilledMidApply(killed, stage);
 
       const rec = runRecovery(killed.home);
-      assert.strictEqual(rec.action, 'resumed', JSON.stringify(rec));
+      assert.strictEqual(rec.action, 'resuming', JSON.stringify(rec));
       assert.strictEqual(rec.source, 'tree');
+      // Detached (#633): recoverAtBoot returned while the pipeline was
+      // still applying; the terminal state comes from the settled promise.
+      assert.strictEqual(rec.promptState, 'applying', JSON.stringify(rec));
       assert.strictEqual(rec.state, 'done', JSON.stringify(rec));
       assert.deepStrictEqual(rec.verified, { cards: 2, pushes: 2, reports: 0 });
       assertTreeApplied(killed.home);
@@ -156,8 +159,9 @@ describe('import boot recovery', { skip }, () => {
     fs.rmSync(disposable, { recursive: true, force: true });
 
     const rec = runRecovery(killed.home);
-    assert.strictEqual(rec.action, 'resumed', JSON.stringify(rec));
+    assert.strictEqual(rec.action, 'resuming', JSON.stringify(rec));
     assert.strictEqual(rec.source, 'snapshot');
+    assert.strictEqual(rec.promptState, 'applying', JSON.stringify(rec));
     assert.strictEqual(rec.state, 'done', JSON.stringify(rec));
     withStore(killed.home, (store) => {
       assert.deepStrictEqual(norm(store.getData('old')), norm(OLD_ROWS),
@@ -204,7 +208,7 @@ describe('import boot recovery', { skip }, () => {
 
     // WITH recovery first: the home is whole again, so seeding stands down.
     const rec = runRecovery(clone);
-    assert.strictEqual(rec.action, 'resumed', JSON.stringify(rec));
+    assert.strictEqual(rec.action, 'resuming', JSON.stringify(rec));
     assert.strictEqual(rec.state, 'done', JSON.stringify(rec));
     const seededAfterRecovery = runFirstBoot({ dataDir: path.join(clone, 'data'), log: () => {} });
     assert.strictEqual(seededAfterRecovery.ran, false);

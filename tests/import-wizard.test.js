@@ -71,6 +71,29 @@ function populatedSeed() {
   };
 }
 
+// Apply/rollback detach since #633: they answer with the applying snapshot
+// and the pipeline settles behind awaitIdle(). These wrappers assert the
+// detach shape at every call site and hand back the terminal status, so the
+// end-state assertions below read exactly as they did when the calls
+// blocked. Refusals still answer synchronously and pass through untouched.
+// The answer is 'applying' unless the pipeline died before its first await
+// (an injected failure in the synchronous prefix settles synchronously).
+async function applySettled(wizard, args) {
+  const started = wizard.confirmAndApply(args);
+  if (started.code) return started;
+  assert.ok(started.state === 'applying' || started.state === 'failed',
+    `detach answered '${started.state}', not a job snapshot`);
+  return wizard.awaitIdle();
+}
+
+async function rollbackSettled(wizard) {
+  const started = wizard.rollback();
+  if (started.code) return started;
+  assert.ok(started.state === 'applying' || started.state === 'failed',
+    `detach answered '${started.state}', not a job snapshot`);
+  return wizard.awaitIdle();
+}
+
 describe('import wizard', { skip }, () => {
   let tree;
   let gen = null;
@@ -121,7 +144,7 @@ describe('import wizard', { skip }, () => {
       { cards: 4, cardsWithData: 2, samplesPushes: 2, reports: 1 },
       'the status snapshot carries the plan counts for the confirm preview');
 
-    const res = await wizard.confirmAndApply({});
+    const res = await applySettled(wizard, {});
     assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
     assert.deepStrictEqual(res.verified, STANDARD_VERIFIED);
     assert.strictEqual(res.snapshotPath, null, 'a fresh target must not be snapshotted');
@@ -157,12 +180,12 @@ describe('import wizard', { skip }, () => {
 
     const wrong = await wizard.confirmAndApply({ nonce: 'not-it' });
     assert.strictEqual(wrong.code, 'CONFIRM_REQUIRED');
-    const missing = await wizard.confirmAndApply({});
+    const missing = await applySettled(wizard, {});
     assert.strictEqual(missing.code, 'CONFIRM_REQUIRED');
     assert.strictEqual(wizard.status().state, 'awaiting-confirm', 'a refused confirm must not move the job');
     assert.deepStrictEqual(norm(gen.registry.get('old').data), norm(OLD_ROWS), 'a refused confirm must not touch data');
 
-    const res = await wizard.confirmAndApply({ nonce: st1.confirmNonce });
+    const res = await applySettled(wizard, { nonce: st1.confirmNonce });
     assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
     assert.deepStrictEqual(res.verified, STANDARD_VERIFIED);
 
@@ -200,7 +223,7 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(tree);
-    const res = await wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
+    const res = await applySettled(wizard, { nonce: wizard.status().confirmNonce });
 
     assert.strictEqual(res.state, 'failed');
     const mismatch = res.findings.filter(f => f.code === 'VERIFY_CARD_MISMATCH');
@@ -212,7 +235,7 @@ describe('import wizard', { skip }, () => {
     assert.strictEqual(readJobFile(home).state, 'failed');
 
     // Rollback: the same pipeline fed the snapshot, no nonce, no new snapshot.
-    const rb = await wizard.rollback();
+    const rb = await rollbackSettled(wizard);
     assert.strictEqual(rb.state, 'done', JSON.stringify(rb.findings, null, 2));
     assert.strictEqual(rb.rolledBack, true);
     assert.deepStrictEqual(norm(gen.registry.get('old').data), norm(OLD_ROWS));
@@ -239,9 +262,9 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(tree);
-    const res = await wizard.confirmAndApply({});
+    const res = await applySettled(wizard, {});
     assert.strictEqual(res.state, 'failed');
-    const rb = await wizard.rollback();
+    const rb = await rollbackSettled(wizard);
     assert.strictEqual(rb.code, 'NO_SNAPSHOT');
     assert.strictEqual(wizard.status().state, 'failed', 'a refused rollback must not move the job');
   });
@@ -263,7 +286,7 @@ describe('import wizard', { skip }, () => {
 
     const again = wizard.startFromTree(tree);
     assert.strictEqual(again.state, 'awaiting-confirm');
-    const done = await wizard.confirmAndApply({});
+    const done = await applySettled(wizard, {});
     assert.strictEqual(done.state, 'done');
     assert.strictEqual(wizard.startFromTree(tree).code, 'JOB_ACTIVE',
       'a done job still blocks a new start until abort');
@@ -280,8 +303,8 @@ describe('import wizard', { skip }, () => {
     const res = wizard.startFromTree(badTree);
     assert.strictEqual(res.state, 'failed');
     assert.ok(res.findings.some(f => f.code === 'VAL_NO_MANIFEST'), JSON.stringify(res.findings));
-    assert.strictEqual((await wizard.confirmAndApply({})).code, 'BAD_STATE');
-    assert.strictEqual((await wizard.rollback()).code, 'NO_SNAPSHOT');
+    assert.strictEqual((await applySettled(wizard, {})).code, 'BAD_STATE');
+    assert.strictEqual((await rollbackSettled(wizard)).code, 'NO_SNAPSHOT');
     assert.strictEqual(wizard.abort().ok, true);
   });
 
@@ -301,7 +324,7 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(tree);
-    const res = await wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
+    const res = await applySettled(wizard, { nonce: wizard.status().confirmNonce });
 
     assert.strictEqual(res.state, 'failed');
     assert.ok(res.findings.some(f => f.code === 'APPLY_ERROR' && /injected copy failure/.test(f.message)));
@@ -311,7 +334,7 @@ describe('import wizard', { skip }, () => {
     assert.strictEqual(gen.freeze.frozen(), null, 'freeze must be released by the finally path');
 
     // And the retry (full pipeline again) completes behind the freeze too.
-    const retry = await wizard.confirmAndApply({});
+    const retry = await applySettled(wizard, {});
     assert.strictEqual(retry.state, 'done', JSON.stringify(retry.findings, null, 2));
     assert.strictEqual(frozenAt.drain, 'import');
     assert.strictEqual(frozenAt.import, 'import');
@@ -340,13 +363,13 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(tree);
-    const first = await wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
+    const first = await applySettled(wizard, { nonce: wizard.status().confirmNonce });
     assert.strictEqual(first.state, 'failed');
     // The failed run already drained the tree's pushes: the exact state a
     // wipe-less retry would double.
     assert.strictEqual(Number(gen.samples.pushCount()), 2);
 
-    const retry = await wizard.confirmAndApply({});
+    const retry = await applySettled(wizard, {});
     assert.strictEqual(retry.state, 'done', JSON.stringify(retry.findings, null, 2));
     assert.deepStrictEqual(retry.verified, STANDARD_VERIFIED);
     assert.strictEqual(Number(gen.samples.pushCount()), 2, 'pushes doubled: the retry skipped the wipe');
@@ -370,7 +393,7 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(tree);
-    const res = await wizard.confirmAndApply({});
+    const res = await applySettled(wizard, {});
     assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
     assert.ok(res.findings.some(f => f.code === 'APPLY_BACKUPS_SWEPT'));
     assert.deepStrictEqual(preImportBackups(home), [decoy],
@@ -396,7 +419,7 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(haeTree);
-    const res = await wizard.confirmAndApply({});
+    const res = await applySettled(wizard, {});
     assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
     assert.deepStrictEqual(res.verified, { cards: 1, pushes: 2, reports: 0 });
     assert.ok(!res.findings.some(f => f.code === 'VERIFY_CARD_MISMATCH'));
@@ -422,7 +445,7 @@ describe('import wizard', { skip }, () => {
     };
     const wizard = gen.wizardMod.createWizard(deps);
     wizard.startFromTree(mixedTree);
-    const res = await wizard.confirmAndApply({});
+    const res = await applySettled(wizard, {});
     assert.strictEqual(res.state, 'failed');
     const mismatch = res.findings.filter(f => f.code === 'VERIFY_CARD_MISMATCH');
     assert.strictEqual(mismatch.length, 1, JSON.stringify(res.findings, null, 2));
@@ -434,10 +457,68 @@ describe('import wizard', { skip }, () => {
     gen = targetGen(seedHome(home, { ...populatedSeed(), config: { mine: true } }));
     const wizard = gen.wizardMod.createWizard(gen.deps);
     wizard.startFromTree(tree);
-    const res = await wizard.confirmAndApply({ nonce: wizard.status().confirmNonce });
+    const res = await applySettled(wizard, { nonce: wizard.status().confirmNonce });
     assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
     assert.ok(res.findings.some(f => f.code === 'APPLY_CONFIG_KEPT'));
     assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8')),
       { mine: true });
+  });
+
+  test('detach: applying is persisted, the freeze is engaged and rivals refuse before control returns', async () => {
+    gen = targetGen(seedHome(newHome(), { welcome: true }));
+    const wizard = gen.wizardMod.createWizard(gen.deps);
+    wizard.startFromTree(tree);
+
+    const started = wizard.confirmAndApply({});
+    // Every assertion below runs before ANY pipeline await has resolved:
+    // the detach contract is synchronous or it is a race. A transition (or
+    // freeze engage) deferred past the first await would let a concurrent
+    // apply start a second pipeline, or a read slip through unfrozen.
+    assert.strictEqual(started.state, 'applying');
+    assert.strictEqual(readJobFile(gen.home).state, 'applying',
+      'the applying state must be persisted before the caller regains control');
+    assert.strictEqual(gen.freeze.frozen(), 'import',
+      'the write freeze must be engaged before the caller regains control');
+    assert.strictEqual(wizard.confirmAndApply({}).code, 'BAD_STATE',
+      'a concurrent apply must refuse synchronously');
+    assert.strictEqual(wizard.abort().code, 'BAD_STATE', 'abort while applying must refuse');
+    assert.strictEqual(wizard.rollback().code, 'BAD_STATE', 'rollback while applying must refuse');
+    assert.strictEqual(wizard.status().state, 'applying');
+
+    const res = await wizard.awaitIdle();
+    assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
+    assert.deepStrictEqual(res.verified, STANDARD_VERIFIED);
+    assert.strictEqual(gen.freeze.frozen(), null, 'freeze must be released after done');
+    assert.deepStrictEqual(norm(gen.registry.get('embedded').data), norm(EMBEDDED_ROWS));
+  });
+
+  test('detached boot resume: recoverAtBoot answers resuming with the freeze already engaged, then settles', async () => {
+    gen = targetGen(seedHome(newHome(), populatedSeed()));
+    const wizard = gen.wizardMod.createWizard(gen.deps);
+    wizard.startFromTree(tree);
+    const done = await applySettled(wizard, { nonce: wizard.status().confirmNonce });
+    assert.strictEqual(done.state, 'done', JSON.stringify(done.findings, null, 2));
+    // Rewind the record to mid-apply: exactly what a crash leaves behind.
+    const record = readJobFile(gen.home);
+    record.state = 'applying';
+    record.stage = 'copy';
+    fs.writeFileSync(path.join(gen.home, 'import', 'job.json'), JSON.stringify(record, null, 2));
+
+    const rec = gen.recoverMod.recoverAtBoot({ ...gen.deps });
+    assert.strictEqual(rec.action, 'resuming', JSON.stringify(rec.status || rec));
+    assert.strictEqual(rec.source, 'tree');
+    // recoverAtBoot is synchronous: by here the resume pipeline has
+    // persisted 'applying' and engaged the freeze, and its first await has
+    // not yet resolved, so a boot releasing its request gate on this return
+    // can never expose an unfrozen mid-wipe home.
+    assert.strictEqual(rec.status.state, 'applying');
+    assert.strictEqual(gen.freeze.frozen(), 'import',
+      'the freeze must be engaged before recoverAtBoot returns');
+
+    const result = await rec.settled;
+    assert.strictEqual(result.state, 'done', JSON.stringify(result.findings, null, 2));
+    assert.strictEqual(result.recovered, true);
+    assert.strictEqual(gen.freeze.frozen(), null, 'freeze must be released after the resume settles');
+    assert.deepStrictEqual(norm(gen.registry.get('embedded').data), norm(EMBEDDED_ROWS));
   });
 });
