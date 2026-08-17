@@ -39,6 +39,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Bug reports and feature requests, from inside the chat.** The
+  unmet-capability tool grew into `note_feedback(kind, intent)`: telling
+  Klebbius "report a bug: the chart went blank" or "I wish it could…"
+  now logs an anonymised, paraphrased entry (never your data) and the
+  assistant confirms what it recorded. A "Send feedback" form lives in
+  the drawer footer for those who prefer typing it directly, and the new
+  `GET /api/admin/feedback` endpoint (admin bearer, `?since` cursor)
+  makes the log collectable, so feedback stops being a write-only file.
+  (#608)
 - **A conversation drawer.** The chat header gains a history button that
   slides in the conversation list: new chat pinned on top, then your
   conversations newest-first with their model-generated titles and

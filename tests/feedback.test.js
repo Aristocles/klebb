@@ -22,6 +22,7 @@ describe('feedback: anonymise', () => {
     }, NOW);
     assert.deepStrictEqual(line, {
       ts: NOW,
+      kind: 'feature',
       intent: 'wants to chart sleep as a heatmap',
       context: 'renderer=line-chart present; no heatmap renderer',
       toolsConsidered: ['create_manifest', 'write_manifest_data'],
@@ -37,7 +38,7 @@ describe('feedback: anonymise', () => {
 
   test('drops context/tools when absent rather than emitting empties', () => {
     const line = anonymise({ intent: 'wants CSV export' }, NOW);
-    assert.deepStrictEqual(line, { ts: NOW, intent: 'wants CSV export' });
+    assert.deepStrictEqual(line, { ts: NOW, kind: 'feature', intent: 'wants CSV export' });
     assert.strictEqual('context' in line, false);
     assert.strictEqual('toolsConsidered' in line, false);
   });
@@ -64,8 +65,8 @@ describe('feedback: anonymise', () => {
       values: [84.2, 83.1],
       userName: 'someone',
     }, NOW);
-    // Only the three allowed keys + ts survive; nothing else.
-    assert.deepStrictEqual(Object.keys(line).sort(), ['intent', 'ts']);
+    // Only the allowed keys survive; nothing else.
+    assert.deepStrictEqual(Object.keys(line).sort(), ['intent', 'kind', 'ts']);
     const serialised = JSON.stringify(line);
     assert.ok(!serialised.includes('84.2'));
     assert.ok(!serialised.includes('diagnosis'));
@@ -73,10 +74,29 @@ describe('feedback: anonymise', () => {
   });
 });
 
+describe('feedback: kind (#608)', () => {
+  test("literal 'bug' is kept", () => {
+    const line = anonymise({ kind: 'bug', intent: 'chart renders blank after a goal line is added' }, NOW);
+    assert.strictEqual(line.kind, 'bug');
+  });
+
+  test("anything else degrades to 'feature', the historical meaning of the log", () => {
+    for (const junk of [undefined, null, 'BUG', 'complaint', 42, {}]) {
+      const line = anonymise({ kind: junk, intent: 'x' }, NOW);
+      assert.strictEqual(line.kind, 'feature', `kind=${String(junk)}`);
+    }
+  });
+});
+
 describe('feedback: tool registration', () => {
-  test('note_feature_request is in TOOL_DEFS requiring intent', () => {
-    const def = TOOL_DEFS.find(t => t.function?.name === 'note_feature_request');
-    assert.ok(def, 'note_feature_request missing from TOOL_DEFS');
-    assert.deepStrictEqual(def.function.parameters.required, ['intent']);
+  test('note_feedback is in TOOL_DEFS requiring kind + intent', () => {
+    const def = TOOL_DEFS.find(t => t.function?.name === 'note_feedback');
+    assert.ok(def, 'note_feedback missing from TOOL_DEFS');
+    assert.deepStrictEqual(def.function.parameters.required, ['kind', 'intent']);
+    assert.deepStrictEqual(def.function.parameters.properties.kind.enum, ['bug', 'feature']);
+  });
+
+  test('the old tool name is gone (renamed, not duplicated)', () => {
+    assert.ok(!TOOL_DEFS.some(t => t.function?.name === 'note_feature_request'));
   });
 });

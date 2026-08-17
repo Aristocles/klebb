@@ -16,11 +16,12 @@ const {
 const ADMIN_TOKEN = 'test-admin-token-479';
 
 describe('admin API shape pins (#479)', () => {
-  let sandbox, srv;
+  let sandbox, srv, userCookie;
   const admin = { 'Authorization': `Bearer ${ADMIN_TOKEN}` };
 
   before(async () => {
     const auth = fakeAuthState('customer');
+    userCookie = auth.cookie;
     sandbox = createSandbox({ credentials: auth.credentials, sessions: auth.sessions });
     srv = await spawnServer(sandbox, { KLEBB_ADMIN_TOKEN: ADMIN_TOKEN, KLEBB_CLOUD: '1' });
   });
@@ -31,6 +32,7 @@ describe('admin API shape pins (#479)', () => {
       ['GET', '/api/admin/health'],
       ['GET', '/api/admin/credentials'],
       ['POST', '/api/admin/invites'],
+      ['GET', '/api/admin/feedback'],
     ]) {
       const r = await req(srv.baseUrl, path, { method, body: method === 'POST' ? {} : null });
       assert.equal(r.status, 401, `${method} ${path} without token`);
@@ -97,5 +99,36 @@ describe('admin API shape pins (#479)', () => {
       const r = await req(srv.baseUrl, path, { method: 'DELETE', headers: admin });
       assert.ok([404, 405].includes(r.status), `DELETE ${path} → ${r.status}`);
     }
+  });
+
+  test('GET /api/admin/feedback returns the log with a working since cursor (#608)', async () => {
+    // Write two entries through the same session-gated endpoint the in-app
+    // form feeds (the chat tool writes the identical shape in-process).
+    const first = await req(srv.baseUrl, '/api/feedback', {
+      method: 'POST',
+      cookie: userCookie,
+      body: { kind: 'bug', intent: 'sparkline renders blank after a goal line' },
+    });
+    assert.equal(first.status, 200, JSON.stringify(first.json));
+    await new Promise(r => setTimeout(r, 5));
+    const second = await req(srv.baseUrl, '/api/feedback', {
+      method: 'POST',
+      cookie: userCookie,
+      body: { intent: 'wants a heatmap renderer' },
+    });
+    assert.equal(second.status, 200);
+
+    const all = await req(srv.baseUrl, '/api/admin/feedback', { headers: admin });
+    assert.equal(all.status, 200);
+    assert.equal(all.json.count, 2);
+    assert.equal(all.json.entries[0].kind, 'bug');
+    assert.equal(all.json.entries[1].kind, 'feature', 'kindless writes degrade to feature');
+    assert.ok(all.json.entries.every(e => e.ts && e.intent));
+
+    const cursor = all.json.entries[0].ts;
+    const newer = await req(srv.baseUrl, `/api/admin/feedback?since=${encodeURIComponent(cursor)}`, { headers: admin });
+    assert.equal(newer.status, 200);
+    assert.equal(newer.json.count, 1, 'the cursor excludes entries at or before it');
+    assert.equal(newer.json.entries[0].intent, 'wants a heatmap renderer');
   });
 });

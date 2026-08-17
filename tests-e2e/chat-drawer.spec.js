@@ -137,6 +137,27 @@ test.describe('#607 conversation drawer', () => {
     expect(serverTitle).toBe('Right name');
   });
 
+  test('the drawer footer sends feedback through the real endpoint (#608)', async ({ page }) => {
+    await openChat(page);
+    await seedConversations(page, []);
+    await page.reload();
+    const widget = await openChat(page);
+
+    await widget.locator('button[aria-label="Conversations"]').click();
+    await widget.locator('.feedback-link').click();
+
+    // Kind toggles between bug and idea; pick idea to prove it rides the
+    // request, then send through the real server.
+    await widget.locator('.feedback-kind', { hasText: 'Idea' }).click();
+    await widget.locator('.feedback-text').fill('a dark mode for charts');
+    const posted = page.waitForResponse(r =>
+      r.url().includes('/api/feedback') && r.request().method() === 'POST' && r.ok());
+    await widget.locator('.feedback-send').click();
+    const res = await posted;
+    expect(res.request().postDataJSON()).toEqual({ kind: 'feature', intent: 'a dark mode for charts' });
+    await expect(widget.locator('.feedback-thanks')).toContainText(/logged/i);
+  });
+
   test('delete needs a second tap; deleting the active conversation drops to a fresh chat', async ({ page }) => {
     await openChat(page);
     await seedConversations(page, [
