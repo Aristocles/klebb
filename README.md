@@ -260,16 +260,30 @@ in `.env`. The compose file already maps that hostname to the host via
 
 ## Backup and restore
 
-`npm run export -- /path/to/dir` writes a portable copy of an instance:
-every card file with its data re-embedded, HAE history, reports and
-config, but never credentials, sessions or keys. See
-[`docs/DEPLOY.md`](docs/DEPLOY.md) for the full backup guidance.
+**Settings > Data** handles both directions from the app itself.
+**Download export** streams a zip of the whole instance: every card with
+its history, reports and settings. **Import** restores such an archive
+through a wizard: pick the zip, review what it holds (card, HAE push and
+report counts, plus any warnings), and apply. A fresh instance imports
+with one click; an instance that already holds data asks you to type
+REPLACE first, because an import replaces everything on it. Either way:
+passkeys, connected devices and chat history stay with the instance;
+data timestamps reset to the import time. If an import fails, the wizard
+offers a rollback to the automatic pre-import snapshot.
 
-To restore, point `npm run import -- /path/to/dir --target <new-home>`
-at the extracted tree. Dry-run is the default: it validates the tree
-against the target and prints every finding and the plan without writing
-anything; add `--apply` to import and verify. Imports only ever write
-into a fresh instance (nothing beyond the seeded welcome card). The full
+The same machinery is scriptable. `npm run export -- /path/to/dir`
+writes a portable copy of an instance: every card file with its data
+re-embedded, HAE history, reports and config, but never credentials,
+sessions or keys. See [`docs/DEPLOY.md`](docs/DEPLOY.md) for the full
+backup guidance.
+
+To restore from the CLI, point
+`npm run import -- /path/to/dir --target <new-home>` at the extracted
+tree. Dry-run is the default: it validates the tree against the target
+and prints every finding and the plan without writing anything; add
+`--apply` to import and verify. The CLI only ever writes into a fresh
+instance (nothing beyond the seeded welcome card); the typed-REPLACE
+path onto a populated instance exists only in the app's wizard. The full
 tree contract lives in [`docs/EXPORT-FORMAT.md`](docs/EXPORT-FORMAT.md).
 
 ## Reports

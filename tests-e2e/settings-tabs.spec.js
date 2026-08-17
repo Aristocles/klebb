@@ -2,19 +2,19 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests-e2e/settings-tabs.spec.js
 // Coverage for the tabbed Settings shell (#383): tab strip renders all
-// five tabs, switching tabs swaps the visible pane, and the Dark theme
+// six tabs, switching tabs swaps the visible pane, and the Dark theme
 // toggle in General persists and stays the only entry point (the
 // wordmark click handler is gone).
 
 const { test, expect } = require('./helpers/auth-fixture');
 
 test.describe('#383: tabbed settings shell', () => {
-  test('tab strip lists General/Notifications/Security/Cards/Diagnostics and switches panes', async ({ page }) => {
+  test('tab strip lists General/Notifications/Security/Cards/Data/Diagnostics and switches panes', async ({ page }) => {
     await page.goto('/settings');
     await expect(page.locator('eh-settings-view')).toBeVisible();
 
     const tabs = page.locator('eh-settings-view [role="tab"]');
-    await expect(tabs).toHaveCount(5);
+    await expect(tabs).toHaveCount(6);
 
     // General is the default.
     await expect(page.locator('eh-settings-view [data-tab="general"]')).toHaveAttribute('aria-selected', 'true');
@@ -36,6 +36,12 @@ test.describe('#383: tabbed settings shell', () => {
     await page.locator('eh-settings-view [data-tab="cards"]').click();
     await expect(page.locator('eh-settings-cards')).toBeVisible();
     await expect(page.locator('eh-settings-cards .card').first()).toBeVisible();
+
+    // Data: export button + import file picker (deep coverage lives in
+    // data-tab.spec.js against its own sandboxes).
+    await page.locator('eh-settings-view [data-tab="data"]').click();
+    await expect(page.locator('eh-settings-data')).toBeVisible();
+    await expect(page.locator('eh-settings-data .export-btn')).toBeVisible();
 
     // Diagnostics: placeholder.
     await page.locator('eh-settings-view [data-tab="diagnostics"]').click();

@@ -1112,6 +1112,45 @@ one that asks you for an empty home. Full tree contract in
 
 ---
 
+## Recipe 17: move an instance with the Data tab
+
+The same move as Recipe 16 without touching a shell: everything happens
+in **Settings > Data** on the two instances.
+
+On instance A (the one you are leaving), open Settings > Data and hit
+**Download export**. The browser saves a zip named
+`<instance>-export-<stamp>.zip`: every card with its history, HAE
+pushes, reports and display config. Keep it somewhere you can reach from
+the machine you'll drive instance B with; nothing sensitive is inside
+(exports never carry credentials or sessions), but it is your health
+data, so treat it accordingly.
+
+On instance B (freshly provisioned, nothing logged yet), open
+Settings > Data, choose the zip under **Import**, and watch the upload
+bar. The wizard then shows what the archive holds: how many cards (and
+how many with data), HAE pushes and reports, plus any warnings the
+validator raised. Read that against what you expect from A. A fresh B
+applies with a single button.
+
+If B already holds data, the wizard stops behind a red panel instead:
+an import replaces **everything** on the instance, so it makes you type
+REPLACE before Apply arms. There is no merge; if you have data on both
+sides worth keeping, export B first.
+
+Apply blocks until the import has been written and verified, then
+reports the counts it proved: cards, HAE pushes, reports. They should
+match the preview. Hit **Reload the app** and B is A, history and all.
+If the import fails part-way, the wizard lists the findings and offers
+**Roll back** (B goes back to exactly what it held before) or **Start
+over**.
+
+Two things do not travel, by design: passkeys (register a fresh one on
+B; they are bound to the instance) and chat history. Data freshness
+timestamps reset to the import time, so anything cadence-driven starts
+its clock at the move.
+
+---
+
 ## Next steps
 
 - For the full manifest spec (every field, every input type, every
