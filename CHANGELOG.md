@@ -19,6 +19,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   claiming the request "doesn't fit any of the tools" when the truth
   was a slow step. (#600)
 
+### Fixed
+
+- **The chat panel is now a true full-screen sheet on phones.** The old
+  panel sized itself with `100vh` (the large viewport), pushing its
+  header up under the iPhone status bar where taps belong to the OS, and
+  its header controls were ~24px pills: close/new-chat were effectively
+  untappable and the only way out was a page refresh. The sheet now uses
+  `100dvh` with safe-area padding top and bottom, every header control
+  is a 44px target, swipe-down on the header closes it (Escape and the
+  close button still work), the page behind is scroll-locked (including
+  pull-to-refresh), and the on-screen keyboard lifts the composer via
+  visualViewport instead of covering it. Desktop keeps the windowed
+  panel. (#598, #604)
+
 ### Added
 
 - **Chat turns survive the client.** A conversation turn now runs as a
