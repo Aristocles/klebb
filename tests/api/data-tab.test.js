@@ -447,6 +447,8 @@ describe('import over HTTP: populated target, nonce, rollback', { skip }, () => 
     assert.strictEqual(r.json.state, 'awaiting-confirm');
     assert.strictEqual(r.json.requiresConfirm, true);
     assert.match(r.json.confirmNonce, /^[0-9a-f]{32}$/);
+    assert.deepStrictEqual(r.json.plan,
+      { cards: 2, cardsWithData: 2, samplesPushes: 0, reports: 0 });
     nonce = r.json.confirmNonce;
 
     const st = await req(server.baseUrl, '/api/import/status', { cookie: auth.cookie });
