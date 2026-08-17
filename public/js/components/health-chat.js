@@ -56,7 +56,7 @@ const TOOL_LABELS = {
   read_report: 'Reading a report',
   set_notification: 'Setting a reminder',
   remove_notification: 'Removing a reminder',
-  note_feature_request: 'Noting your request',
+  note_feedback: 'Noting your feedback',
 };
 
 function toolLabel(tool, id) {
@@ -82,6 +82,9 @@ class HealthChat extends LitElement {
     _statusText: { state: true },
     _streamTail: { state: true },
     _drawerOpen: { state: true },
+    _feedbackOpen: { state: true },
+    _feedbackKind: { state: true },
+    _feedbackSent: { state: true },
     _agentName: { state: true },
     _agentEmoji: { state: true },
     _expanded: { state: true },
@@ -586,6 +589,76 @@ class HealthChat extends LitElement {
       font-size: 12px;
     }
 
+    /* Feedback form in the drawer footer (slotted, so styled here). */
+    .feedback-link {
+      background: transparent;
+      border: none;
+      color: var(--text-muted, var(--text-secondary));
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 6px 0;
+      min-height: 32px;
+    }
+    .feedback-link:hover { color: var(--accent); }
+    .feedback-thanks {
+      font-size: 12px;
+      color: var(--accent);
+      padding: 6px 0;
+    }
+    .feedback-form { display: flex; flex-direction: column; gap: 6px; }
+    .feedback-kinds { display: flex; gap: 6px; align-items: center; }
+    .feedback-kind {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      border-radius: 10px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .feedback-kind.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--text-inverse, white);
+    }
+    .feedback-cancel {
+      margin-left: auto;
+      background: transparent;
+      border: none;
+      color: var(--text-muted, var(--text-secondary));
+      cursor: pointer;
+      font-size: 12px;
+      width: 28px;
+      height: 28px;
+    }
+    .feedback-text {
+      width: 100%;
+      box-sizing: border-box;
+      background: var(--bg-input, rgba(0,0,0,0.04));
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 16px;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+    }
+    .feedback-text:focus { border-color: var(--accent); }
+    .feedback-send {
+      align-self: flex-end;
+      background: var(--accent);
+      color: var(--text-inverse, white);
+      border: none;
+      border-radius: 10px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
     .typing {
       align-self: flex-start;
       padding: 8px 14px;
@@ -688,6 +761,9 @@ class HealthChat extends LitElement {
     this._statusText = '';
     this._streamTail = '';
     this._drawerOpen = false;
+    this._feedbackOpen = false;
+    this._feedbackKind = 'bug';
+    this._feedbackSent = false;
     this._checkVoiceAvailability();
     this._checkChatConfigured();
     this._loadInstance();
@@ -935,6 +1011,66 @@ class HealthChat extends LitElement {
       const input = this.shadowRoot?.querySelector('.chat-input');
       if (input && !input.disabled) input.focus();
     });
+  }
+
+  // The drawer-footer feedback form. Same endpoint the note_feedback chat
+  // tool writes through, so both routes land in one reviewable log.
+  async _submitFeedback() {
+    const input = this.shadowRoot?.querySelector('.feedback-text');
+    const intent = (input?.value || '').trim();
+    if (!intent) return;
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: this._feedbackKind, intent }),
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        this._feedbackSent = true;
+        if (input) input.value = '';
+        setTimeout(() => { this._feedbackSent = false; this._feedbackOpen = false; }, 2500);
+      }
+    } catch {}
+  }
+
+  _renderFeedbackFooter() {
+    if (!this._feedbackOpen) {
+      return html`
+        <button class="feedback-link" @click=${() => { this._feedbackOpen = true; }}>
+          Send feedback
+        </button>
+      `;
+    }
+    if (this._feedbackSent) {
+      return html`<div class="feedback-thanks">Thanks, logged for review.</div>`;
+    }
+    return html`
+      <div class="feedback-form">
+        <div class="feedback-kinds">
+          ${['bug', 'feature'].map(kind => html`
+            <button
+              class="feedback-kind ${this._feedbackKind === kind ? 'active' : ''}"
+              aria-pressed=${this._feedbackKind === kind}
+              @click=${() => { this._feedbackKind = kind; }}
+            >${kind === 'bug' ? 'Bug' : 'Idea'}</button>
+          `)}
+          <button
+            class="feedback-cancel"
+            aria-label="Close feedback"
+            @click=${() => { this._feedbackOpen = false; }}
+          >✕</button>
+        </div>
+        <textarea
+          class="feedback-text"
+          rows="2"
+          placeholder=${this._feedbackKind === 'bug'
+            ? 'What went wrong? (no need for personal data)'
+            : 'What should Klebb be able to do?'}
+        ></textarea>
+        <button class="feedback-send" @click=${this._submitFeedback}>Send</button>
+      </div>
+    `;
   }
 
   // Reset every piece of per-conversation local state. The transcript
@@ -1877,7 +2013,9 @@ class HealthChat extends LitElement {
             @drawer-new=${() => { this._drawerOpen = false; this._clearHistory(); }}
             @drawer-select=${(e) => this._switchConversation(e.detail.id)}
             @drawer-deleted=${(e) => { if (e.detail.id === this._conversationId) this._activeConversationDeleted(); }}
-          ></chat-drawer>
+          >
+            <div slot="footer">${this._renderFeedbackFooter()}</div>
+          </chat-drawer>
           <div class="chat-messages">${this._renderMessages()}</div>
           ${this._recording ? html`
             <div class="recording-banner">

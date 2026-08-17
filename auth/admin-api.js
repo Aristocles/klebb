@@ -9,6 +9,8 @@
 //   - GET  /api/admin/credentials  — list passkeys (read-only)
 //   - POST /api/admin/invites      — mint a register invite; returns the
 //                                     /register?code= URL to email
+//   - GET  /api/admin/feedback     — the anonymised bug/feature log
+//                                     (read-only, ?since=<ISO> cursor)
 // There is NO delete here. Removing a passkey stays in-app only, so a
 // compromised control plane can enrol a visible new device but can never
 // lock the customer out.
@@ -16,6 +18,7 @@
 const ENV = require('../config/env');
 const invites = require('./invites');
 const webauthn = require('./webauthn');
+const feedback = require('../lib/feedback');
 
 function readBody(req) {
   return new Promise((resolve) => {
@@ -107,6 +110,17 @@ async function handleAdminRoutes(req, res, pathname) {
       expiresAt: invite.expiresAt,
       registerUrl: `${instanceOrigin()}/register?code=${encodeURIComponent(invite.code)}`,
     }, 201);
+    return true;
+  }
+
+  // GET /api/admin/feedback — the anonymised feedback log, so the control
+  // plane can collect what users asked for without shell access. Read-only.
+  // ?since=<ISO timestamp> returns only newer entries; callers keep the
+  // last ts they saw as their cursor.
+  if (pathname === '/api/admin/feedback' && req.method === 'GET') {
+    const since = new URL(req.url, 'http://local').searchParams.get('since') || undefined;
+    const entries = feedback.readFeedback({ since });
+    sendJSON({ entries, count: entries.length });
     return true;
   }
 

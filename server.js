@@ -1568,10 +1568,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // POST /api/feedback — append an anonymised feature-request line.
-    // Body: { intent, context?, toolsConsidered? }. Fired by Klebbius (via
-    // the note_feature_request tool) when a request is genuinely unsupported,
-    // so the operator can review unmet needs. Anonymisation happens in
+    // POST /api/feedback — append an anonymised feedback line.
+    // Body: { kind?, intent, context?, toolsConsidered? }. Fired by the
+    // in-app feedback form and mirrored by Klebbius's note_feedback tool
+    // (which calls appendFeedback in-process). Anonymisation happens in
     // lib/feedback; behind the same global auth gate as every other /api route.
     // Origin-allowlisted like the notification POSTs: SameSite=Lax doesn't
     // stop a sibling subdomain writing junk lines under a rider session.
