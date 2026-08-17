@@ -9,6 +9,7 @@ const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
 const { createSandbox, cleanupSandbox, spawnServer, req } = require('./helpers/sandbox');
+const { systemMessageText } = require('../chat/system-prompt');
 
 function makeCard(id, label) {
   return {
@@ -27,7 +28,7 @@ function startStubGateway() {
     request.on('end', () => {
       try {
         const parsed = JSON.parse(body);
-        lastSystemPrompt = parsed.messages?.find(m => m.role === 'system')?.content || null;
+        lastSystemPrompt = systemMessageText(parsed.messages?.find(m => m.role === 'system'));
       } catch {}
       response.writeHead(200, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ack' } }] }));

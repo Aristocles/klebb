@@ -161,6 +161,19 @@ const CHAT_MAX_TURNS = (() => {
   return n;
 })();
 
+// Send the system prompt as cache-marked content blocks rather than one flat
+// string, so the gateway can serve the stable part of it from cache. Worth a
+// lot: the stable part is most of the prompt, and the agent loop re-sends it on
+// every step of every turn.
+//
+// On by default because the gateways this is shipped against both support it,
+// and because a feature that has to be switched on per instance would simply
+// never be. Set CHAT_PROMPT_CACHE=0 to go back to the flat string: an
+// OpenAI-compatible gateway that rejects an array-of-blocks `content` for the
+// system role would otherwise fail every chat request, and the escape hatch is
+// byte-identical to the old payload rather than merely similar.
+const CHAT_PROMPT_CACHE = process.env.CHAT_PROMPT_CACHE !== '0';
+
 // Total wall-clock budget for one chat turn. A raised iteration cap must not
 // stack per-iteration timeouts into a multi-minute silent spinner, so the
 // loop stops starting new round-trips once this much time has passed and
@@ -724,6 +737,7 @@ module.exports = {
   DEBUG_LOG,
   CHAT_ITER_TIMEOUT_MS,
   CHAT_MAX_TURNS,
+  CHAT_PROMPT_CACHE,
   CHAT_TURN_DEADLINE_MS,
   KLEBB_DEMO,
   DEMO_USER_ID,
