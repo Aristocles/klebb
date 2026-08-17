@@ -204,6 +204,31 @@ const REPORTS_MAX = (() => {
   return n;
 })();
 
+// --- Import caps ---
+// Bounds on what the export-tree importer (lib/import/validate.js) will
+// accept. An export tree is operator-supplied input, so the caps exist to
+// turn a hostile or corrupted archive into a fast refusal instead of a
+// disk-filling or memory-exhausting import. Same parsing rules as
+// KLEBB_REPORTS_MAX above (Number + isInteger, warn and fall back on junk).
+function intEnv(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const n = Number(raw.trim());
+  if (!Number.isInteger(n) || n < 1) {
+    console.warn(`[env] ${name}="${raw}" is not an integer >= 1; using ${fallback}`);
+    return fallback;
+  }
+  return n;
+}
+const IMPORT_MAX_TREE_MB = intEnv('KLEBB_IMPORT_MAX_TREE_MB', 512);
+// A long-lived instance's samples.json legitimately reaches tens of MB
+// (hundreds of thousands of HAE samples re-expanded to JSON), so the
+// per-file cap sits well above it.
+const IMPORT_MAX_FILE_MB = intEnv('KLEBB_IMPORT_MAX_FILE_MB', 256);
+const IMPORT_MAX_FILES = intEnv('KLEBB_IMPORT_MAX_FILES', 10000);
+const IMPORT_MAX_ROWS_PER_CARD = intEnv('KLEBB_IMPORT_MAX_ROWS_PER_CARD', 200000);
+const IMPORT_MAX_PUSHES = intEnv('KLEBB_IMPORT_MAX_PUSHES', 10000);
+
 // --- Health system prompt (used by chat proxy) ---
 //
 // Default prompt is generic and references whatever cards the registry
@@ -677,5 +702,10 @@ module.exports = {
   KLEBB_CLOUD,
   KLEBB_ADMIN_TOKEN,
   REPORTS_MAX,
+  IMPORT_MAX_TREE_MB,
+  IMPORT_MAX_FILE_MB,
+  IMPORT_MAX_FILES,
+  IMPORT_MAX_ROWS_PER_CARD,
+  IMPORT_MAX_PUSHES,
   HEALTH_SYSTEM_PROMPT,
 };
