@@ -52,6 +52,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   stale manifest as data, so the export skips such files with a warning.
   The tree contract lives in `docs/EXPORT-FORMAT.md`. (Fixes #592)
 
+- **The export-then-import round trip is pinned at the HTTP level.** A
+  regression suite seeds a live instance through its own API (cards
+  including a recorded null, an HAE ingest push, an uploaded report),
+  exports it, imports the tree into a fresh home, boots a second instance,
+  and deep-equals everything the API serves, guarded so an empty-vs-empty
+  comparison can never pass. Hostile trees (a credentials file inside
+  `data/`, a duplicate card id, a missing manifest) refuse at the CLI
+  without touching the target, and the state a crash between copy and
+  import leaves converges at the next boot without double-importing HAE
+  history. The README and `docs/RECIPES.md` gain a restore recipe, and
+  `docs/CI.md` now states the actual Node matrix (22 + 24, engines floor
+  22.13). (Fixes #595)
+
 ### Fixed
 
 - **Subscribing a card to a metric the HAE catalogue does not know is now an
