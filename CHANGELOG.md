@@ -9,6 +9,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **An import's wipe now clears directories under `data/`, so no state from
+  the previous instance survives a replace.** The wipe enumerated only files
+  at the top of `data/`, which left the whole of `data/auto-export/` behind:
+  the Apple Health ingest inbox, the discovered-metrics list, the last-push
+  diagnostic and any quarantined payloads, plus `data/_archive/` when an old
+  migration had parked the previous owner's original card files there. The
+  ingest inbox mattered most, because the apply drains it after the copy
+  regardless of what the archive carries: importing an archive with no
+  history onto an instance that had a `samples.json` sitting in its inbox
+  slot imported the OLD instance's push history into the restored tree, and
+  verification then failed the whole import with `VERIFY_PUSHES_MISMATCH`.
+  Rollback is unaffected: the snapshot is a full export of the instance, so
+  it restores those directories with everything else. (#645)
 - **Applying an import no longer holds one HTTP request open for the whole
   pipeline.** Hosted instances sit behind reverse proxies with response-time
   ceilings around a minute or two, so a long apply always surfaced a gateway
