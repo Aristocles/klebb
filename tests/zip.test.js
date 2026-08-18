@@ -223,6 +223,49 @@ describe('#614 zip writer to reader round trip', () => {
     assert.ok(!fs.existsSync(zipFile), 'partial archive removed');
   });
 
+  // #652: the destination is opened before the first entry is validated, and
+  // destroying a stream mid-open does not cancel the open. A cleanup that does
+  // not wait for the descriptor to close races it, and the late open recreates
+  // the archive that was just removed. One attempt loses that race maybe a
+  // third of the time, which is a flake rather than a signal, so drive it
+  // repeatedly: any single stray is the whole bug.
+  test('a refused write leaves nothing behind, however the open lands', async () => {
+    const base = freshDir();
+    fs.writeFileSync(path.join(base, 'x.txt'), 'x');
+    const strays = [];
+    for (let i = 0; i < 40; i++) {
+      const zipFile = path.join(base, `out-${i}.zip`);
+      await assert.rejects(
+        writeZip(zipFile, [{ name: '../evil', sourcePath: path.join(base, 'x.txt') }]),
+        (err) => err.code === 'ZIP_NAME',
+      );
+      // Long enough for a deferred open to land: it is queued before the
+      // rejection and takes microseconds, so a file still absent here is
+      // absent because the writer waited, not because the check was early.
+      await new Promise((r) => setTimeout(r, 5));
+      if (fs.existsSync(zipFile)) strays.push(i);
+    }
+    assert.deepEqual(strays, [], 'no attempt left an archive on disk');
+  });
+
+  // The other side of that wait: a failure raised after bytes are already
+  // written has an open descriptor to close rather than a pending open, so
+  // this proves the cleanup completes there too instead of waiting forever.
+  test('a source that disappears mid-write cleans up and still rejects', async () => {
+    const base = freshDir();
+    fs.writeFileSync(path.join(base, 'first.txt'), 'first');
+    const zipFile = path.join(base, 'out.zip');
+    await assert.rejects(
+      writeZip(zipFile, [
+        { name: 'first.txt', sourcePath: path.join(base, 'first.txt') },
+        { name: 'gone.txt', sourcePath: path.join(base, 'gone.txt') },
+      ]),
+      (err) => err.code === 'ENOENT',
+    );
+    await new Promise((r) => setTimeout(r, 5));
+    assert.ok(!fs.existsSync(zipFile), 'partial archive removed');
+  });
+
   test('writer output extracts under an independent reader (python3 zipfile)', async (t) => {
     const probe = spawnSync('python3', ['-c', 'print(1)'], { encoding: 'utf8' });
     if (probe.error || probe.status !== 0) {
