@@ -262,7 +262,8 @@ describe('validateTree: card checks', () => {
       'duplicate meta.id "same": data/a.json and data/b.json both declare it; the second would never load or import');
     assert.strictEqual(f.severity, 'refusal');
     assert.strictEqual(f.ref, 'data/b.json');
-    assert.deepStrictEqual(res.plan.cards, [{ id: 'same', file: 'data/a.json', data: 'none' }]);
+    assert.deepStrictEqual(res.plan.cards,
+      [{ id: 'same', file: 'data/a.json', data: 'none', label: 'same', rows: 0, hae: false }]);
   });
 
   test('legacy files without a $schema are inert data, not cards', () => {
@@ -272,7 +273,8 @@ describe('validateTree: card checks', () => {
     });
     const res = validateTree(root);
     assert.strictEqual(byCode(res, 'VAL_BAD_CARD').length, 0);
-    assert.deepStrictEqual(res.plan.cards, [{ id: 'a', file: 'data/a.json', data: 'none' }]);
+    assert.deepStrictEqual(res.plan.cards,
+      [{ id: 'a', file: 'data/a.json', data: 'none', label: 'a', rows: 0, hae: false }]);
   });
 });
 
@@ -633,9 +635,9 @@ describe('validateTree: happy tree', () => {
     assert.strictEqual(res.ok, true);
     assert.deepStrictEqual(res.plan, {
       cards: [
-        { id: 'a', file: 'data/a.json', data: 'embedded' },
-        { id: 'b', file: 'data/b.json', data: 'none' },
-        { id: 'c', file: 'data/c.json', data: 'null' },
+        { id: 'a', file: 'data/a.json', data: 'embedded', label: 'a', rows: 1, hae: false },
+        { id: 'b', file: 'data/b.json', data: 'none', label: 'b', rows: 0, hae: false },
+        { id: 'c', file: 'data/c.json', data: 'null', label: 'c', rows: 0, hae: false },
       ],
       samplesPushes: 2,
       reports: ['reports/bloods.md'],
