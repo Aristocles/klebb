@@ -9,6 +9,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **A refused zip write no longer leaves the partial archive on disk.** The
+  writer opens its destination before it validates the first entry, and
+  `stream.destroy()` does not cancel an open that is still in flight: node
+  defers the teardown until the descriptor exists. The cleanup removed the
+  file without waiting for that, so a refusal raised before the open landed
+  (an unsafe entry name, the entry-count limit) deleted nothing and the late
+  open then created the very archive the caller was told did not exist. It
+  waits for the descriptor to close first. The race went either way roughly a
+  third of the time, so `tests/zip.test.js` now drives the refusal forty
+  times over and lets a single stray file fail the run, rather than asserting
+  once and passing on luck; a companion test covers a failure raised after
+  bytes are written, where there is an open descriptor to close instead of a
+  pending open. (#652)
 - **An import's wipe now clears directories under `data/`, so no state from
   the previous instance survives a replace.** The wipe enumerated only files
   at the top of `data/`, which left the whole of `data/auto-export/` behind:
