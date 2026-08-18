@@ -264,9 +264,14 @@ in `.env`. The compose file already maps that hostname to the host via
 **Download export** streams a zip of the whole instance: every card with
 its history, reports and settings. **Import** restores such an archive
 through a wizard: pick the zip, review what it holds (card, HAE push and
-report counts, plus any warnings), and apply. A fresh instance imports
-with one click; an instance that already holds data asks you to type
-REPLACE first, because an import replaces everything on it. Either way:
+report counts, plus any warnings), and apply. The preview also lists the
+archive's cards, reports and Apple Health history as checkboxes, every
+one ticked, so you can restore part of an archive: untick what you do not
+want and Apply brings back the rest. A fresh instance imports with one
+click; an instance that already holds data asks you to type REPLACE
+first, because an import replaces everything on it, and the panel states
+what that instance holds today so it is clear that whatever you untick
+is deleted along with the rest rather than kept. Either way:
 passkeys, connected devices and chat history stay with the instance;
 data timestamps reset to the import time. If an import fails, the wizard
 offers a rollback to the automatic pre-import snapshot.
