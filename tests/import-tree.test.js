@@ -200,6 +200,67 @@ describe('import-tree', { skip }, () => {
     });
   });
 
+  describe('selection flags', () => {
+    test('the dry run prints the filtered plan against the whole archive', () => {
+      const home = freshHome();
+      const r = runImport([tree, '--target', home, '--cards', 'embedded,nodata', '--no-history']);
+      assert.strictEqual(r.code, 0, r.out);
+      assert.match(r.stdout, /selection: 2 card\(s\), 1 report item\(s\), history off/);
+      assert.match(r.stdout, /cards \(2 of 4\)/);
+      assert.match(r.stdout, /embedded {2}data\/embedded\.json/);
+      assert.ok(!/inline {2}data\/inline\.json/.test(r.stdout), 'an unselected card is still in the plan');
+      assert.match(r.stdout, /HAE pushes to import: 0 of 2/);
+      assert.match(r.stdout, /reports to copy: 1\n/, 'an unnarrowed family should not claim a subset');
+      assert.deepStrictEqual(fs.readdirSync(path.join(home, 'data')), [], 'the dry run wrote into data/');
+      assert.ok(!fs.existsSync(path.join(home, 'klebb-export.json')));
+    });
+
+    test('an applied subset lands exactly, and nothing else does', () => {
+      const home = freshHome();
+      const r = runImport([tree, '--apply', '--target', home,
+        '--cards', 'embedded', '--reports', '', '--no-history']);
+      assert.strictEqual(r.code, 0, r.out);
+      assert.match(r.stdout, /verified: 1 card\(s\), 0 HAE push\(es\), 0 report\(s\)/);
+      assert.match(r.stdout, /status: ok/);
+      assert.deepStrictEqual(fs.readdirSync(path.join(home, 'data')).filter(n => n.endsWith('.json')),
+        ['embedded.json']);
+      withStore(home, (store) => {
+        assert.deepStrictEqual(norm(store.getData('embedded')), norm(EMBEDDED_ROWS));
+      });
+      assert.strictEqual(pushCountOf(home), 0);
+      assert.ok(!fs.existsSync(path.join(home, 'reports', 'bloods.md')));
+      // Instance shape is not an artefact: the provenance manifest still lands.
+      assert.ok(fs.existsSync(path.join(home, 'klebb-export.json')));
+    });
+
+    test('an id the archive does not carry is refused at both doors, before any write', () => {
+      const home = freshHome();
+      const dry = runImport([tree, '--target', home, '--cards', 'nope']);
+      assert.strictEqual(dry.code, 1, dry.out);
+      assert.match(dry.out, /SELECTION_INVALID nope/);
+      assert.match(dry.out, /Refused: the selection does not match this archive/);
+
+      const applied = runImport([tree, '--apply', '--target', home, '--cards', 'nope']);
+      assert.strictEqual(applied.code, 1, applied.out);
+      assert.match(applied.out, /SELECTION_INVALID nope/);
+      assert.match(applied.stdout, /status: refused/);
+      assert.deepStrictEqual(fs.readdirSync(path.join(home, 'data')), []);
+      assert.ok(!fs.existsSync(path.join(home, 'klebb-export.json')));
+    });
+
+    test('flag misuse exits 2; the explicit dry run is the default', () => {
+      assert.strictEqual(runImport([tree, '--cards']).code, 2);
+      assert.strictEqual(runImport([tree, '--reports']).code, 2);
+      assert.strictEqual(runImport([tree, '--apply', '--dry-run']).code, 2);
+      const home = freshHome();
+      const r = runImport([tree, '--dry-run', '--target', home]);
+      assert.strictEqual(r.code, 0, r.out);
+      assert.match(r.stdout, /Dry run/);
+      assert.ok(!/selection:/.test(r.stdout), 'no flags should mean no selection at all');
+      assert.deepStrictEqual(fs.readdirSync(path.join(home, 'data')), []);
+    });
+  });
+
   describe('full apply round trip', () => {
     let home;
     let applied;
