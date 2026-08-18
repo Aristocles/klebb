@@ -17,6 +17,13 @@
 // (on whichever start/status response first carries it) and held in
 // component state; re-fetching status for it would come back empty and
 // dead-end the Apply button.
+//
+// The preview also picks what comes back (#648). Everything starts ticked, so
+// the default action is unchanged, and a full tick sends no selection at all:
+// the server's compatibility path is then bit for bit the import it always
+// ran. The model is filtered REPLACE, never merge: the wipe stays total, and
+// an unticked artefact is deleted with everything else rather than protected,
+// which is why the confirm panel states what the instance holds today.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 
@@ -48,6 +55,9 @@ export class EhSettingsData extends LitElement {
     _error: { state: true },
     _canRetry: { state: true },
     _exportBusy: { state: true },
+    _selCards: { state: true },
+    _selReports: { state: true },
+    _selHistory: { state: true },
   };
 
   constructor() {
@@ -66,6 +76,13 @@ export class EhSettingsData extends LitElement {
     this._retryFn = null;
     this._polling = false;
     this._pollFailures = 0;
+    // Sets are replaced rather than mutated on every toggle: Lit compares
+    // reactive properties by identity, so an in-place add() would change the
+    // state without ever redrawing the checkbox that caused it.
+    this._selCards = new Set();
+    this._selReports = new Set();
+    this._selHistory = true;
+    this._selJobId = null;
   }
 
   connectedCallback() {
@@ -103,6 +120,7 @@ export class EhSettingsData extends LitElement {
       this._nonce = snap.confirmNonce;
       this._hasNonce = true;
     }
+    this._seedSelection(snap);
     switch (snap.state) {
       case 'idle': this._phase = 'idle'; break;
       case 'awaiting-confirm': this._phase = 'awaiting-confirm'; break;
@@ -117,6 +135,87 @@ export class EhSettingsData extends LitElement {
         break;
       default: this._phase = 'in-progress';
     }
+  }
+
+  // Everything ticked, once per job. The inventory only rides the
+  // awaiting-confirm status, so a re-fetch (a refused apply, a reload) must
+  // not reset choices the user already made: the job id is the guard.
+  _seedSelection(snap) {
+    if (!snap.items || snap.state !== 'awaiting-confirm') return;
+    if (this._selJobId === snap.jobId) return;
+    this._selJobId = snap.jobId;
+    this._selCards = new Set(snap.items.cards.map(c => c.id));
+    this._selReports = new Set(snap.items.reports.map(r => r.key));
+    this._selHistory = true;
+  }
+
+  get _items() {
+    const snap = this._snapshot;
+    return (snap && snap.items) || null;
+  }
+
+  // An Apple Health card holds no data of its own: its rows live in the
+  // samples history, so restoring the card without the history restores an
+  // empty card. Ticking one forces history on rather than letting the pair
+  // disagree.
+  get _haeTicked() {
+    const items = this._items;
+    if (!items) return false;
+    return items.cards.some(c => c.hae && this._selCards.has(c.id));
+  }
+
+  get _historyTicked() {
+    return this._selHistory || this._haeTicked;
+  }
+
+  // A selection that restores nothing is a total wipe wearing an import's
+  // clothes. The server refuses it (SELECTION_EMPTY, 400); disarming Apply
+  // says so before the round trip.
+  get _selectionRestores() {
+    const items = this._items;
+    if (!items) return true;
+    if (this._selCards.size > 0 || this._selReports.size > 0) return true;
+    return this._historyTicked && (items.history?.pushes || 0) > 0;
+  }
+
+  get _applyArmed() {
+    return this._confirmSatisfied && this._selectionRestores;
+  }
+
+  // Null when everything is ticked: that is the server's compatibility path,
+  // so an unnarrowed import stays the wholesale copy it has always been
+  // instead of one filtered through a predicate that happens to accept all.
+  _selectionPayload() {
+    const items = this._items;
+    if (!items) return null;
+    const cards = items.cards.map(c => c.id).filter(id => this._selCards.has(id));
+    const reports = items.reports.map(r => r.key).filter(k => this._selReports.has(k));
+    const history = this._historyTicked;
+    if (cards.length === items.cards.length
+      && reports.length === items.reports.length && history) return null;
+    return { cards, reports, history };
+  }
+
+  _toggleCard(id, on) {
+    const next = new Set(this._selCards);
+    if (on) next.add(id); else next.delete(id);
+    this._selCards = next;
+  }
+
+  _toggleReport(key, on) {
+    const next = new Set(this._selReports);
+    if (on) next.add(key); else next.delete(key);
+    this._selReports = next;
+  }
+
+  _allCards(on) {
+    const items = this._items;
+    this._selCards = on && items ? new Set(items.cards.map(c => c.id)) : new Set();
+  }
+
+  _allReports(on) {
+    const items = this._items;
+    this._selReports = on && items ? new Set(items.reports.map(r => r.key)) : new Set();
   }
 
   _startPolling() {
@@ -172,6 +271,11 @@ export class EhSettingsData extends LitElement {
       this._error = `The archive was refused (${body.code || 'invalid'}): ${body.error || 'not a Klebb export'}`;
     } else if (r.status === 428) {
       this._error = 'Confirmation required: the import was not applied.';
+    } else if (r.status === 400 && (body.code === 'SELECTION_INVALID' || body.code === 'SELECTION_EMPTY')) {
+      // Refused before the wipe, with the confirmation still unspent: the
+      // preview comes straight back and a corrected Apply goes through.
+      const why = (body.findings || []).map(f => f.message).filter(Boolean);
+      this._error = `Nothing was changed: ${why.length ? why.join('; ') : (body.error || 'that selection cannot be restored from this archive')}`;
     } else if (r.status === 409 && body.code === 'JOB_ACTIVE') {
       this._error = 'An import is already in progress on this instance.';
     } else if (r.status === 503 && body.code === 'IMPORT_FROZEN') {
@@ -256,10 +360,14 @@ export class EhSettingsData extends LitElement {
   }
 
   async _apply() {
-    if (!this._confirmSatisfied) return;
+    if (!this._applyArmed) return;
     this._phase = 'applying';
     this._error = null;
     const body = this._nonce ? { nonce: this._nonce } : {};
+    // Ids and report keys come from the inventory verbatim: a label the user
+    // reads is not an identifier the archive can be matched against.
+    const selection = this._selectionPayload();
+    if (selection) body.selection = selection;
     try {
       const r = await fetch('/api/import/apply', {
         method: 'POST',
@@ -328,6 +436,10 @@ export class EhSettingsData extends LitElement {
     this._hasNonce = false;
     this._confirmText = '';
     this._uploadPct = null;
+    this._selJobId = null;
+    this._selCards = new Set();
+    this._selReports = new Set();
+    this._selHistory = true;
     this._phase = 'idle';
   }
 
@@ -439,6 +551,65 @@ export class EhSettingsData extends LitElement {
       font-size: 12px;
       color: var(--text-muted, var(--text-secondary));
       line-height: 1.5;
+    }
+    .sel-block {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .sel-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .sel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .sel-title {
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+    }
+    .sel-head .btn { font-size: 11px; padding: 3px 8px; }
+    .sel-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .sel-list label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .sel-list input:disabled { cursor: not-allowed; }
+    .sel-meta { font-size: 12px; color: var(--text-muted, var(--text-secondary)); }
+    .sel-badge {
+      font-size: 11px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+    .sel-reason, .target-summary {
+      font-size: 12px;
+      color: var(--text-muted, var(--text-secondary));
+      line-height: 1.5;
+    }
+    .target-summary { color: var(--text-primary); }
+    .sel-empty-note {
+      font-size: 12px;
+      color: var(--accent-red, #ff5566);
     }
     .danger-panel {
       display: flex;
@@ -617,6 +788,7 @@ export class EhSettingsData extends LitElement {
             `)}
           </ul>
         ` : ''}
+        ${this._renderSelection()}
         <div class="exclusions">
           Passkeys, connected devices and chat history stay with the
           instance; data timestamps reset to the import time.
@@ -631,6 +803,13 @@ export class EhSettingsData extends LitElement {
         ` : snap.requiresConfirm ? html`
           <div class="danger-panel">
             <span class="danger-warning">This will replace everything on this instance.</span>
+            ${snap.target ? html`
+              <span class="target-summary">This instance currently holds
+                ${this._n(snap.target.cards, 'card')},
+                ${this._n(snap.target.reports, 'report')} and
+                ${this._n(snap.target.pushes, 'HAE push', 'HAE pushes')}:
+                all of it is deleted, including anything left unticked above.</span>
+            ` : ''}
             <span>Type ${CONFIRM_WORD} to confirm.</span>
             <input
               class="confirm-input"
@@ -645,7 +824,7 @@ export class EhSettingsData extends LitElement {
               <button class="btn startover-btn" @click=${this._startOver}>Cancel</button>
               <button
                 class="btn danger apply-btn"
-                ?disabled=${!this._confirmSatisfied}
+                ?disabled=${!this._applyArmed}
                 @click=${this._apply}
               >Apply</button>
             </span>
@@ -653,11 +832,137 @@ export class EhSettingsData extends LitElement {
         ` : html`
           <span class="btn-row">
             <button class="btn startover-btn" @click=${this._startOver}>Cancel</button>
-            <button class="btn primary apply-btn" @click=${this._apply}>Apply</button>
+            <button
+              class="btn primary apply-btn"
+              ?disabled=${!this._applyArmed}
+              @click=${this._apply}
+            >Apply</button>
           </span>
         `}
       </div>
     `;
+  }
+
+  // The three artefact groups over the archive's inventory. Only the
+  // awaiting-confirm status carries that inventory, which is the only phase
+  // this renders in.
+  _renderSelection() {
+    const items = this._items;
+    if (!items) return '';
+    const cards = items.cards || [];
+    const reports = items.reports || [];
+    const pushes = (items.history && items.history.pushes) || 0;
+    if (!cards.length && !reports.length && !pushes) return '';
+    const haeForced = this._haeTicked;
+    return html`
+      <div class="sel-block">
+        ${cards.length ? html`
+          <div class="sel-group" data-group="cards">
+            <div class="sel-head">
+              <span class="sel-title">Cards</span>
+              ${this._renderAllNone(on => this._allCards(on))}
+            </div>
+            <ul class="sel-list">
+              ${cards.map(c => html`
+                <li>
+                  <label>
+                    <input
+                      type="checkbox"
+                      class="sel-card"
+                      data-id=${c.id}
+                      .checked=${this._selCards.has(c.id)}
+                      @change=${e => this._toggleCard(c.id, e.target.checked)}
+                    >
+                    <span class="sel-label">${c.label}</span>
+                    <span class="sel-meta">${this._n(c.rows, 'row')}</span>
+                    ${c.hae ? html`<span class="sel-badge">Apple Health</span>` : ''}
+                  </label>
+                </li>
+              `)}
+            </ul>
+          </div>
+        ` : ''}
+        ${reports.length ? html`
+          <div class="sel-group" data-group="reports">
+            <div class="sel-head">
+              <span class="sel-title">Reports</span>
+              ${this._renderAllNone(on => this._allReports(on))}
+            </div>
+            <ul class="sel-list">
+              ${reports.map(r => html`
+                <li>
+                  <label>
+                    <input
+                      type="checkbox"
+                      class="sel-report"
+                      data-key=${r.key}
+                      .checked=${this._selReports.has(r.key)}
+                      @change=${e => this._toggleReport(r.key, e.target.checked)}
+                    >
+                    <span class="sel-label">${r.label}</span>
+                    <span class="sel-meta">${this._bytes(r.bytes)}</span>
+                    ${r.original ? html`<span class="sel-badge">+ original</span>` : ''}
+                    ${r.unlinked ? html`<span class="sel-badge">original only</span>` : ''}
+                  </label>
+                </li>
+              `)}
+            </ul>
+          </div>
+        ` : ''}
+        ${pushes ? html`
+          <div class="sel-group" data-group="history">
+            <div class="sel-head"><span class="sel-title">Apple Health history</span></div>
+            <ul class="sel-list">
+              <li>
+                <label>
+                  <input
+                    type="checkbox"
+                    class="sel-history"
+                    .checked=${this._historyTicked}
+                    ?disabled=${haeForced}
+                    @change=${e => { this._selHistory = e.target.checked; }}
+                  >
+                  <span class="sel-label">Measurement history</span>
+                  <span class="sel-meta">${this._n(pushes, 'push', 'pushes')}</span>
+                </label>
+              </li>
+            </ul>
+            ${haeForced ? html`
+              <span class="sel-reason">Kept because an Apple Health card is selected: those cards hold no data of their own, so they would restore empty without this history.</span>
+            ` : ''}
+          </div>
+        ` : ''}
+        <span class="counts restore-counts">${this._restoreLine(items)}</span>
+        ${this._selectionRestores ? '' : html`
+          <span class="sel-empty-note">Nothing is ticked. An import replaces everything on this instance, so this would leave it empty.</span>
+        `}
+      </div>
+    `;
+  }
+
+  _renderAllNone(setAll) {
+    return html`
+      <span class="btn-row">
+        <button class="btn sel-all" @click=${() => setAll(true)}>All</button>
+        <button class="btn sel-none" @click=${() => setAll(false)}>None</button>
+      </span>
+    `;
+  }
+
+  _restoreLine(items) {
+    const cards = items.cards.filter(c => this._selCards.has(c.id)).length;
+    const reports = items.reports.filter(r => this._selReports.has(r.key)).length;
+    const pushes = (items.history && items.history.pushes) || 0;
+    const parts = [`${cards} of ${this._n(items.cards.length, 'card')}`];
+    if (items.reports.length) {
+      parts.push(`${reports} of ${this._n(items.reports.length, 'report')}`);
+    }
+    if (pushes) {
+      parts.push(this._historyTicked
+        ? this._n(pushes, 'HAE push', 'HAE pushes')
+        : 'no Apple Health history');
+    }
+    return `Restoring ${parts.join(', ')}.`;
   }
 
   _renderDone() {
@@ -707,6 +1012,13 @@ export class EhSettingsData extends LitElement {
   _n(count, singular, plural = null) {
     const c = Number.isFinite(count) ? count : 0;
     return `${c} ${c === 1 ? singular : (plural || `${singular}s`)}`;
+  }
+
+  _bytes(count) {
+    const b = Number.isFinite(count) ? count : 0;
+    if (b < 1024) return `${b} B`;
+    if (b < 1024 * 1024) return `${Math.round(b / 1024)} KB`;
+    return `${(b / (1024 * 1024)).toFixed(1)} MB`;
   }
 }
 customElements.define('eh-settings-data', EhSettingsData);
