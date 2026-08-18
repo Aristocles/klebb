@@ -11,9 +11,9 @@
 // the auth fixture pins its cookie to the shared sandbox; each test injects
 // a session cookie for its own server instead.
 //
-// The import fixture is a REAL export: a seeded source server's
+// The import fixtures are REAL exports: a seeded source server's
 // /api/export download, saved once in beforeAll. Export on A, import on
-// B, exactly the moving-an-instance recipe. The archive then gets a bulk
+// B, exactly the moving-an-instance recipe. Each archive then gets a bulk
 // HAE history planted into it: apply detaches into a polled job (#633),
 // and the pushes stretch the pipeline's drain so the progress view
 // reliably renders at least one stage label before the result card.
@@ -58,6 +58,18 @@ function binGet(baseUrl, pathname, cookie) {
 function sourceSeed() {
   const all = seedManifests();
   return { 'weight.json': all['weight.json'], 'mood.json': all['mood.json'] };
+}
+
+// A second archive that also carries an ingest-sourced card (#648): the
+// preview pins the history for one, because such a card holds no rows of its
+// own and would restore empty without it.
+function haeSeed() {
+  const all = seedManifests();
+  return {
+    'weight.json': all['weight.json'],
+    'mood.json': all['mood.json'],
+    'workouts.json': all['workouts.json'],
+  };
 }
 
 // A card the archive does NOT carry, for the populated target: its survival
@@ -110,33 +122,40 @@ async function openDataTab(page, baseUrl) {
 
 let fixtureDir;
 let fixtureZip;
+let fixtureHaeZip;
 
-test.beforeAll(async () => {
-  fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eh-e2e-data-tab-'));
+async function buildFixture(name, seed) {
   const auth = fakeAuthState();
   const srcHome = createSandbox({
     credentials: auth.credentials,
     sessions: auth.sessions,
-    seed: sourceSeed(),
+    seed,
   });
   const src = await spawnServer(srcHome, { TZ: HOST_TZ });
+  const zipFile = path.join(fixtureDir, `${name}.zip`);
   try {
     const r = await binGet(src.baseUrl, '/api/export', auth.cookie);
     if (r.status !== 200) throw new Error(`fixture export failed: ${r.status}`);
-    fixtureZip = path.join(fixtureDir, 'source-export.zip');
-    fs.writeFileSync(fixtureZip, r.buf);
+    fs.writeFileSync(zipFile, r.buf);
   } finally {
     await src.kill();
     cleanupSandbox(srcHome);
   }
 
   // Plant the bulk HAE history (inventory-listed) and re-zip in place.
-  const tree = path.join(fixtureDir, 'source-tree');
-  const zip = await openZip(fixtureZip);
+  const tree = path.join(fixtureDir, `${name}-tree`);
+  const zip = await openZip(zipFile);
   await zip.extractTo(tree);
   await zip.close();
   injectPushes(tree, FIXTURE_PUSHES);
-  await writeZip(fixtureZip, treeZipEntries(tree));
+  await writeZip(zipFile, treeZipEntries(tree));
+  return zipFile;
+}
+
+test.beforeAll(async () => {
+  fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eh-e2e-data-tab-'));
+  fixtureZip = await buildFixture('source-export', sourceSeed());
+  fixtureHaeZip = await buildFixture('hae-export', haeSeed());
 });
 
 test.afterAll(() => {
@@ -234,6 +253,12 @@ test.describe('#618: Settings > Data', () => {
     const danger = preview.locator('.danger-panel');
     await expect(danger).toBeVisible();
     await expect(danger).toContainText('This will replace everything on this instance.');
+    // What the target holds today, said plainly: with a partial selection the
+    // destruction is no longer implied by the archive's own counts (#648).
+    await expect(danger.locator('.target-summary'))
+      .toContainText('This instance currently holds 1 card, 0 reports and 0 HAE pushes');
+    await expect(danger.locator('.target-summary'))
+      .toContainText('all of it is deleted, including anything left unticked');
 
     // The nonce was delivered exactly once, on the start response the
     // component holds. A status re-fetch cannot obtain it again; the apply
@@ -283,5 +308,110 @@ test.describe('#618: Settings > Data', () => {
     expect(gone.status()).toBe(404);
     const weight = await page.request.get(`${server.baseUrl}/api/manifests/weight/data`);
     expect(weight.status()).toBe(200);
+  });
+});
+
+test.describe('#648: choosing what an archive restores', () => {
+  let home, server;
+
+  test.afterEach(async () => {
+    if (server) { await server.kill(); server = null; }
+    if (home) { cleanupSandbox(home); home = null; }
+  });
+
+  test('a ticked subset is what comes back, and an empty one disarms Apply', async ({ page, context }) => {
+    const auth = fakeAuthState();
+    home = createSandbox({ credentials: auth.credentials, sessions: auth.sessions });
+    server = await spawnServer(home, { TZ: HOST_TZ });
+    await injectSession(context, server.baseUrl, auth.token);
+
+    const pane = await openDataTab(page, server.baseUrl);
+    await pane.locator('.file-input').setInputFiles(fixtureZip);
+
+    const preview = pane.locator('.preview-panel');
+    await expect(preview).toBeVisible({ timeout: 20_000 });
+
+    // Everything arrives ticked: the default action is still the whole archive.
+    const cards = preview.locator('[data-group="cards"]');
+    await expect(cards.locator('.sel-card')).toHaveCount(2);
+    await expect(cards.locator('.sel-card[data-id="weight"]')).toBeChecked();
+    await expect(cards.locator('.sel-card[data-id="mood"]')).toBeChecked();
+    await expect(preview.locator('.restore-counts'))
+      .toHaveText(`Restoring 2 of 2 cards, ${FIXTURE_PUSHES} HAE pushes.`);
+
+    // A selection that restores nothing is a wipe wearing an import's
+    // clothes; the server refuses it, and Apply says so before the round trip.
+    await cards.locator('.sel-none').click();
+    await preview.locator('.sel-history').uncheck();
+    await expect(preview.locator('.sel-empty-note')).toBeVisible();
+    await expect(preview.locator('.apply-btn')).toBeDisabled();
+    await expect(preview.locator('.restore-counts'))
+      .toHaveText('Restoring 0 of 2 cards, no Apple Health history.');
+
+    // Weight alone, history back on.
+    await preview.locator('.sel-history').check();
+    await cards.locator('.sel-card[data-id="weight"]').check();
+    await expect(preview.locator('.restore-counts'))
+      .toHaveText(`Restoring 1 of 2 cards, ${FIXTURE_PUSHES} HAE pushes.`);
+    const applyBtn = preview.locator('.apply-btn');
+    await expect(applyBtn).toBeEnabled();
+    await applyBtn.click();
+
+    const result = pane.locator('.result-panel');
+    await expect(result).toBeVisible({ timeout: 60_000 });
+    await expect(result.locator('.result-counts'))
+      .toContainText(`Import complete: verified 1 card, ${FIXTURE_PUSHES} HAE pushes, 0 reports.`);
+
+    // The instance holds exactly the ticked card: the archive's other card was
+    // never restored, and nothing invented one.
+    await page.goto(`${server.baseUrl}/`);
+    await expect(page.locator('eh-date-view')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('eh-generic-card', { hasText: 'Weight' })).toBeVisible();
+    await expect(page.locator('eh-generic-card', { hasText: 'Mood' })).toHaveCount(0);
+    const restored = await page.request.get(`${server.baseUrl}/api/manifests/weight/data`);
+    expect(restored.status()).toBe(200);
+    expect((await restored.json()).data.length).toBeGreaterThan(0);
+    const skipped = await page.request.get(`${server.baseUrl}/api/manifests/mood`);
+    expect(skipped.status()).toBe(404);
+  });
+
+  test('an Apple Health card pins the history it needs, and releases it', async ({ page, context }) => {
+    const auth = fakeAuthState();
+    home = createSandbox({ credentials: auth.credentials, sessions: auth.sessions });
+    server = await spawnServer(home, { TZ: HOST_TZ });
+    await injectSession(context, server.baseUrl, auth.token);
+
+    const pane = await openDataTab(page, server.baseUrl);
+    await pane.locator('.file-input').setInputFiles(fixtureHaeZip);
+
+    const preview = pane.locator('.preview-panel');
+    await expect(preview).toBeVisible({ timeout: 20_000 });
+    const cards = preview.locator('[data-group="cards"]');
+    await expect(cards.locator('.sel-card')).toHaveCount(3);
+
+    // The ingest-sourced card is badged, and while it is ticked the history
+    // checkbox is on and locked with the reason spelled out.
+    const workouts = cards.locator('.sel-card[data-id="workouts"]');
+    const workoutsRow = cards.locator('li', { has: page.locator('.sel-card[data-id="workouts"]') });
+    await expect(workoutsRow.locator('.sel-badge')).toHaveText('Apple Health');
+    const history = preview.locator('.sel-history');
+    await expect(history).toBeChecked();
+    await expect(history).toBeDisabled();
+    await expect(preview.locator('[data-group="history"] .sel-reason'))
+      .toContainText('hold no data of their own');
+
+    // Untick it and the pin releases, so history becomes a real choice again.
+    await workouts.uncheck();
+    await expect(history).toBeEnabled();
+    await history.uncheck();
+    await expect(preview.locator('.restore-counts')).toContainText('no Apple Health history');
+
+    // Re-tick it and the pin returns, overriding the choice just made rather
+    // than restoring a card with no rows anywhere to fill it.
+    await workouts.check();
+    await expect(history).toBeChecked();
+    await expect(history).toBeDisabled();
+    await expect(preview.locator('.restore-counts'))
+      .toContainText(`${FIXTURE_PUSHES} HAE pushes`);
   });
 });
