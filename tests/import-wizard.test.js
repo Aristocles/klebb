@@ -588,4 +588,344 @@ describe('import wizard', { skip }, () => {
     assert.strictEqual(gen.freeze.frozen(), null, 'freeze must be released after the resume settles');
     assert.deepStrictEqual(norm(gen.registry.get('embedded').data), norm(EMBEDDED_ROWS));
   });
+
+  // Filtered replace (#646): a selection narrows what comes BACK, never what
+  // the wipe takes. Every test here also asserts the destruction the operator
+  // authorised still happened in full, because that is the property a user
+  // reading "import only these cards" is most likely to get wrong.
+  describe('selection', () => {
+    function selectionOf(status, over = {}) {
+      return {
+        cards: status.items.cards.map(c => c.id),
+        reports: status.items.reports.map(r => r.key),
+        history: true,
+        ...over,
+      };
+    }
+
+    function liveIds(g) {
+      return g.registry.list().map(e => e.id).sort();
+    }
+
+    test('the archive is offered artefact by artefact, next to what the instance holds today', () => {
+      gen = targetGen(seedHome(newHome(), populatedSeed()));
+      const wizard = gen.wizardMod.createWizard(gen.deps);
+      const started = wizard.startFromTree(tree);
+
+      assert.deepStrictEqual(started.items.cards, [
+        { id: 'embedded', file: 'data/embedded.json', label: 'embedded', rows: EMBEDDED_ROWS.length, hae: false, data: 'embedded' },
+        { id: 'inline', file: 'data/inline.json', label: 'inline', rows: INLINE_ROWS.length, hae: false, data: 'inline' },
+        { id: 'nodata', file: 'data/nodata.json', label: 'nodata', rows: 0, hae: false, data: 'none' },
+        { id: 'nulldata', file: 'data/nulldata.json', label: 'nulldata', rows: 0, hae: false, data: 'null' },
+      ]);
+      assert.deepStrictEqual(started.items.reports, [{
+        key: 'reports/bloods.md',
+        label: 'bloods',
+        files: ['reports/bloods.md'],
+        original: null,
+        bytes: REPORT_BODY.length,
+      }]);
+      assert.deepStrictEqual(started.items.history, { pushes: 2 });
+      // What the confirm panel needs to say plainly that all of THIS goes,
+      // whatever the selection restores afterwards.
+      assert.deepStrictEqual(started.target, { cards: 1, reports: 0, pushes: 1 });
+      assert.strictEqual(started.selection, null, 'no selection until one is confirmed');
+    });
+
+    test('everything ticked is the wholesale import, and the recorded selection says so', async () => {
+      gen = targetGen(seedHome(newHome(), { welcome: true }));
+      const wizard = gen.wizardMod.createWizard(gen.deps);
+      const started = wizard.startFromTree(tree);
+      const selection = selectionOf(started);
+
+      const res = await applySettled(wizard, { selection });
+      assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
+      assert.deepStrictEqual(res.verified, STANDARD_VERIFIED,
+        'an all-ticked selection must import exactly what no selection imports');
+      assert.deepStrictEqual(res.selection, selection);
+      assert.deepStrictEqual(liveIds(gen), ['embedded', 'inline', 'nodata', 'nulldata']);
+      assert.deepStrictEqual(norm(gen.registry.get('embedded').data), norm(EMBEDDED_ROWS));
+      assert.strictEqual(Number(gen.samples.pushCount()), 2);
+      assert.ok(fs.existsSync(path.join(gen.home, 'reports', 'bloods.md')));
+    });
+
+    test('cards only: unticked artefacts stay out, and the target still lost everything', async () => {
+      const home = newHome();
+      gen = targetGen(seedHome(home, populatedSeed()));
+      const wizard = gen.wizardMod.createWizard(gen.deps);
+      const started = wizard.startFromTree(tree);
+      const res = await applySettled(wizard, {
+        nonce: wizard.status().confirmNonce,
+        selection: { cards: ['embedded', 'nulldata'], reports: [], history: false },
+      });
+
+      assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
+      assert.deepStrictEqual(res.verified, { cards: 2, pushes: 0, reports: 0 });
+      assert.deepStrictEqual(liveIds(gen), ['embedded', 'nulldata']);
+      assert.deepStrictEqual(norm(gen.registry.get('embedded').data), norm(EMBEDDED_ROWS));
+      assert.strictEqual(gen.registry.get('nulldata').data, null);
+      assert.ok(!fs.existsSync(path.join(home, 'data', 'inline.json')),
+        'an unticked card must not be copied in at all');
+      assert.ok(!fs.existsSync(path.join(home, 'reports', 'bloods.md')));
+      assert.strictEqual(Number(gen.samples.pushCount()), 0);
+
+      // The inbox file is the only gate history needs: never copied, so the
+      // drain finds nothing and leaves no audit rename behind either.
+      const autoDir = path.join(home, 'data', 'auto-export');
+      let left = [];
+      try { left = fs.readdirSync(autoDir); } catch {}
+      assert.deepStrictEqual(left.filter(n => n.startsWith('samples.json')), []);
+
+      // Filtered replace, not merge: what was here before is gone regardless
+      // of what came back. This is the honest-panel property.
+      assert.strictEqual(gen.registry.get('old'), null);
+      assert.strictEqual(gen.store.dataUpdatedAt('old'), null);
+      assert.ok(!fs.existsSync(path.join(home, 'data', 'old.json')));
+      assert.strictEqual(started.target.pushes, 1, "precondition: the target's own push history existed");
+    });
+
+    test('an HAE card with history unticked comes back empty, and says so in the counts', async () => {
+      const { tree: haeTree } = buildSourceTree({
+        cards: { 'steps.json': card('steps', { meta: { ingest: { source: 'hae', metric: 'step_count' } } }) },
+        pushes: TREE_PUSHES,
+      }, tmpDirs);
+      gen = targetGen(seedHome(newHome(), { welcome: true }));
+      const wizard = gen.wizardMod.createWizard(gen.deps);
+      const started = wizard.startFromTree(haeTree);
+      assert.strictEqual(started.items.cards[0].hae, true,
+        'the preview must be able to warn that this card is history-fed');
+
+      const res = await applySettled(wizard, {
+        selection: { cards: ['steps'], reports: [], history: false },
+      });
+      assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
+      assert.deepStrictEqual(res.verified, { cards: 1, pushes: 0, reports: 0 });
+      assert.ok(gen.registry.get('steps'), 'the card itself must be restored');
+      assert.strictEqual(gen.registry.get('steps').data, null,
+        'its rows live in the push history, which was not selected');
+      assert.strictEqual(gen.store.dataUpdatedAt('steps'), null);
+      assert.strictEqual(Number(gen.samples.pushCount()), 0);
+    });
+
+    test('an ingested report drags its archived original along; the unticked one stays out', async () => {
+      const ARCHIVE_NAME = '2026-08-01-bloods.pdf';
+      const ARCHIVE_BYTES = 'PDF BYTES';
+      const INGESTED = [
+        '---',
+        'klebb_ingest: v2',
+        'ingested_at: 2026-08-01T00:00:00.000Z',
+        `source_file: ${ARCHIVE_NAME}`,
+        'source_format: pdf',
+        `archive_path: reports/_archive/${ARCHIVE_NAME}`,
+        'title: Blood panel',
+        '---',
+        '',
+        '# Blood panel',
+        '',
+      ].join('\n');
+      const { tree: reportTree } = buildSourceTree({
+        cards: { 'embedded.json': card('embedded') },
+        rows: { embedded: EMBEDDED_ROWS },
+        reports: { 'bloods.md': INGESTED, 'notes.md': REPORT_BODY },
+      }, tmpDirs);
+      // The archive dir is hand-added: the export CLI's report set comes from
+      // the source home, and seeding a nested reports path is not its job.
+      fs.mkdirSync(path.join(reportTree, 'reports', '_archive'), { recursive: true });
+      fs.writeFileSync(path.join(reportTree, 'reports', '_archive', ARCHIVE_NAME), ARCHIVE_BYTES);
+
+      const home = newHome();
+      gen = targetGen(seedHome(home, { welcome: true }));
+      const wizard = gen.wizardMod.createWizard(gen.deps);
+      const started = wizard.startFromTree(reportTree);
+      const bloods = started.items.reports.find(r => r.key === 'reports/bloods.md');
+      assert.deepStrictEqual(bloods.files,
+        ['reports/bloods.md', `reports/_archive/${ARCHIVE_NAME}`]);
+      assert.strictEqual(bloods.label, 'Blood panel');
+      assert.deepStrictEqual(started.items.reports.map(r => r.key),
+        ['reports/bloods.md', 'reports/notes.md'],
+        'the archived original is not an item of its own while a report claims it');
+
+      const res = await applySettled(wizard, {
+        selection: { cards: [], reports: ['reports/bloods.md'], history: false },
+      });
+      assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
+      assert.deepStrictEqual(res.verified, { cards: 0, pushes: 0, reports: 2 },
+        'the report and its original both count as restored');
+      assert.ok(fs.existsSync(path.join(home, 'reports', 'bloods.md')));
+      assert.strictEqual(
+        fs.readFileSync(path.join(home, 'reports', '_archive', ARCHIVE_NAME), 'utf8'),
+        ARCHIVE_BYTES, 'the original must come back with the report that cites it');
+      assert.ok(!fs.existsSync(path.join(home, 'reports', 'notes.md')));
+      assert.deepStrictEqual(liveIds(gen), [], 'no card was ticked, so none came back');
+    });
+
+    test('a selection that restores nothing is refused BEFORE the wipe, and so is an unknown id', async () => {
+      const home = newHome();
+      gen = targetGen(seedHome(home, populatedSeed()));
+      const wizard = gen.wizardMod.createWizard(gen.deps);
+      wizard.startFromTree(tree);
+      const nonce = wizard.status().confirmNonce;
+
+      const empty = await applySettled(wizard, {
+        nonce, selection: { cards: [], reports: [], history: false },
+      });
+      assert.strictEqual(empty.code, 'SELECTION_EMPTY');
+      assert.match(empty.error, /replaces everything on this instance/);
+
+      const unknown = await applySettled(wizard, {
+        nonce, selection: { cards: ['embedded', '../../etc/passwd'] },
+      });
+      assert.strictEqual(unknown.code, 'SELECTION_INVALID');
+      assert.strictEqual(unknown.findings[0].ref, '../../etc/passwd');
+
+      // Nothing moved: no wipe, no freeze, no state change, job record intact.
+      assert.strictEqual(wizard.status().state, 'awaiting-confirm');
+      assert.strictEqual(readJobFile(home).state, 'awaiting-confirm');
+      assert.strictEqual(gen.freeze.frozen(), null);
+      assert.deepStrictEqual(norm(gen.registry.get('old').data), norm(OLD_ROWS));
+      assert.strictEqual(Number(gen.samples.pushCount()), 1);
+
+      // And the refusals did not burn the confirm: a good selection still runs.
+      const res = await applySettled(wizard, {
+        nonce, selection: { cards: ['embedded'], reports: [], history: false },
+      });
+      assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
+      assert.deepStrictEqual(res.verified, { cards: 1, pushes: 0, reports: 0 });
+    });
+
+    test('a retry re-uses the selection the wipe was authorised for, and ignores a wider one', async () => {
+      const home = newHome();
+      gen = targetGen(seedHome(home, populatedSeed()));
+      let failImport = true;
+      const deps = {
+        ...gen.deps,
+        importerFactory: (store) => {
+          const real = gen.deps.importerFactory(store);
+          return {
+            importParsedFile(file, parsed) {
+              if (failImport) {
+                failImport = false;
+                throw new Error('injected import failure');
+              }
+              return real.importParsedFile(file, parsed);
+            },
+          };
+        },
+      };
+      const wizard = gen.wizardMod.createWizard(deps);
+      const started = wizard.startFromTree(tree);
+      const narrow = { cards: ['embedded'], reports: [], history: false };
+      const first = await applySettled(wizard, { nonce: wizard.status().confirmNonce, selection: narrow });
+      assert.strictEqual(first.state, 'failed');
+      assert.deepStrictEqual(first.selection, narrow, 'the selection is recorded on the job');
+
+      // The retry needs no nonce, so it must not be a way to widen what a
+      // wipe that already ran was authorised to restore.
+      const retry = await applySettled(wizard, { selection: selectionOf(started) });
+      assert.strictEqual(retry.state, 'done', JSON.stringify(retry.findings, null, 2));
+      assert.deepStrictEqual(retry.verified, { cards: 1, pushes: 0, reports: 0 });
+      assert.deepStrictEqual(retry.selection, narrow);
+      assert.deepStrictEqual(liveIds(gen), ['embedded']);
+      assert.strictEqual(Number(gen.samples.pushCount()), 0);
+    });
+
+    test('a resumed job honours the selection persisted in its record', async () => {
+      gen = targetGen(seedHome(newHome(), populatedSeed()));
+      const wizard = gen.wizardMod.createWizard(gen.deps);
+      wizard.startFromTree(tree);
+      const narrow = { cards: ['embedded', 'inline'], reports: [], history: true };
+      const done = await applySettled(wizard, { nonce: wizard.status().confirmNonce, selection: narrow });
+      assert.strictEqual(done.state, 'done', JSON.stringify(done.findings, null, 2));
+
+      // Rewind to mid-apply, exactly as a crash leaves it. The resume has no
+      // caller to ask, so it reads the selection off the record or it silently
+      // restores more than the operator asked for.
+      const record = readJobFile(gen.home);
+      assert.deepStrictEqual(record.selection, narrow, 'precondition: persisted with the job');
+      record.state = 'applying';
+      record.stage = 'copy';
+      fs.writeFileSync(path.join(gen.home, 'import', 'job.json'), JSON.stringify(record, null, 2));
+
+      const rec = gen.recoverMod.recoverAtBoot({ ...gen.deps });
+      assert.strictEqual(rec.action, 'resuming', JSON.stringify(rec.status || rec));
+      const result = await rec.settled;
+      assert.strictEqual(result.state, 'done', JSON.stringify(result.findings, null, 2));
+      assert.deepStrictEqual(result.verified, { cards: 2, pushes: 2, reports: 0 });
+      assert.deepStrictEqual(liveIds(gen), ['embedded', 'inline']);
+    });
+
+    test('rollback ignores the selection: the snapshot is the instance as it was', async () => {
+      const home = newHome();
+      gen = targetGen(seedHome(home, { ...populatedSeed(), config: { mine: true } }));
+      const deps = {
+        ...gen.deps,
+        importerFactory: (store) => {
+          const real = gen.deps.importerFactory(store);
+          return {
+            importParsedFile(file, parsed) {
+              const r = real.importParsedFile(file, parsed);
+              if (r.imported && r.id === 'embedded') store.setData('embedded', [{ corrupted: true }]);
+              return r;
+            },
+          };
+        },
+      };
+      const wizard = gen.wizardMod.createWizard(deps);
+      wizard.startFromTree(tree);
+      const res = await applySettled(wizard, {
+        nonce: wizard.status().confirmNonce,
+        selection: { cards: ['embedded'], reports: [], history: false },
+      });
+      assert.strictEqual(res.state, 'failed');
+      assert.strictEqual(res.findings.filter(f => f.code === 'VERIFY_CARD_MISMATCH').length, 1);
+
+      // The snapshot holds a card the selection never mentions. Applied with
+      // that selection it would restore nothing at all (and refuse), so a
+      // rollback that came back whole is the only passing outcome.
+      const rb = await rollbackSettled(wizard);
+      assert.strictEqual(rb.state, 'done', JSON.stringify(rb.findings, null, 2));
+      assert.strictEqual(rb.rolledBack, true);
+      assert.deepStrictEqual(liveIds(gen), ['old']);
+      assert.deepStrictEqual(norm(gen.registry.get('old').data), norm(OLD_ROWS));
+      assert.strictEqual(Number(gen.samples.pushCount()), 1);
+      assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8')),
+        { mine: true });
+    });
+
+    test('a card that left the staged tree between confirm and apply fails the job, unwiped', async () => {
+      // The selection is re-normalised against the APPLY-TIME tree, so drift
+      // in the window between confirm and apply is loud. Without that, a card
+      // that vanished would quietly not come back, and a hand-edited job.json
+      // could name artefacts the archive never had.
+      const { tree: driftTree } = buildSourceTree({
+        cards: { 'embedded.json': card('embedded'), 'inline.json': card('inline', { data: INLINE_ROWS }) },
+        rows: { embedded: EMBEDDED_ROWS },
+      }, tmpDirs);
+      const home = newHome();
+      gen = targetGen(seedHome(home, { welcome: true }));
+      const wizard = gen.wizardMod.createWizard(gen.deps);
+      const started = wizard.startFromTree(driftTree);
+      assert.deepStrictEqual(started.items.cards.map(c => c.id), ['embedded', 'inline']);
+
+      // A tree the operator edited by hand: the card is gone and the manifest
+      // agrees, so validation passes and only the selection notices.
+      fs.rmSync(path.join(driftTree, 'data', 'inline.json'), { force: true });
+      const manifestPath = path.join(driftTree, 'klebb-export.json');
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      manifest.inventory.cards = manifest.inventory.cards.filter(e => e.file !== 'data/inline.json');
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+
+      const settled = await applySettled(wizard, {
+        selection: { cards: ['embedded', 'inline'], reports: [], history: false },
+      });
+      assert.strictEqual(settled.state, 'failed');
+      const refused = settled.findings.filter(f => f.code === 'SELECTION_INVALID');
+      assert.strictEqual(refused.length, 1, JSON.stringify(settled.findings, null, 2));
+      assert.strictEqual(refused[0].ref, 'inline');
+      assert.strictEqual(refused[0].phase, 'select');
+      // Refused before the pipeline's first destructive stage.
+      assert.strictEqual(settled.stage, null, 'no stage may have run');
+      assert.ok(gen.registry.get('welcome'), 'the target must be exactly as it was');
+    });
+  });
 });
