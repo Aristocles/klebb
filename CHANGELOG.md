@@ -158,6 +158,28 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   awaiting-confirm status: the apply polls run every 1.5 seconds and would
   otherwise carry an entry per card for nothing, and once the apply is
   confirmed the selection is settled. (#647)
+- **The import preview picks what comes back, with checkboxes.**
+  Settings > Data lists the archive's cards (label, row count, and an Apple
+  Health badge on the ones fed by ingest), its reports (name, size, and
+  "+ original" where the archive also carries the file the report was read
+  from) and its Apple Health history as three groups with per-group all and
+  none, everything ticked on arrival: the default action is still the whole
+  archive, and a fully ticked preview sends no selection at all, so an
+  unnarrowed import stays byte for byte the wholesale copy it has always
+  been. A line above Apply keeps count of what a narrowed one restores.
+  Ticking a card Apple Health feeds pins the history on and locks its
+  checkbox with the reason, because such a card holds no rows of its own and
+  would restore empty without them; unticking the card releases the pin, so
+  history stays a real choice. Apply sends card **ids** and report tree
+  paths taken from the inventory verbatim, never the labels shown, and a
+  selection that would restore nothing disarms Apply with the reason rather
+  than earning a refusal from the server. The confirm panel now also states
+  what the instance holds today ("currently holds 12 cards, 3 reports and
+  340 HAE pushes: all of it is deleted, including anything left unticked"),
+  because with a partial selection the destruction is no longer implied by
+  the archive's own counts, and an unticked artefact is deleted with
+  everything else rather than protected. A refused selection lands back on
+  the preview with the choices and the confirmation intact. (#648)
 - **Chat gateway token and cache counters are now recorded.** Both
   gateway paths threw the response's `usage` block away: the buffered
   path parsed it and dropped it, and the streaming assembler rebuilt a

@@ -1174,15 +1174,27 @@ how many with data), HAE pushes and reports, plus any warnings the
 validator raised. Read that against what you expect from A. A fresh B
 applies with a single button.
 
+The preview is also where you choose what comes back. Cards, reports and
+the Apple Health history are listed as checkboxes with everything ticked,
+so the default is the whole archive; untick anything you would rather not
+restore and the line above Apply keeps count ("Restoring 3 of 12 cards").
+Ticking a card that Apple Health feeds pins the history on and says why:
+such a card holds no rows of its own, so it would arrive empty without
+them.
+
 If B already holds data, the wizard stops behind a red panel instead:
 an import replaces **everything** on the instance, so it makes you type
-REPLACE before Apply arms. There is no merge; if you have data on both
-sides worth keeping, export B first.
+REPLACE before Apply arms. The panel spells out what B holds right now
+(cards, reports, pushes), because a partial selection does not make the
+wipe partial: whatever you leave unticked is deleted along with the rest,
+not preserved. There is no merge; if you have data on both sides worth
+keeping, export B first.
 
-Apply blocks until the import has been written and verified, then
-reports the counts it proved: cards, HAE pushes, reports. They should
-match the preview. Hit **Reload the app** and B is A, history and all.
-If the import fails part-way, the wizard lists the findings and offers
+Apply hands the import to the instance and follows it: the wizard shows
+the stage it is on, then reports the counts it verified (cards, HAE
+pushes, reports). They should match what the preview said it would
+restore. Hit **Reload the app** and B is A, history and all. If the
+import fails part-way, the wizard lists the findings and offers
 **Roll back** (B goes back to exactly what it held before) or **Start
 over**.
 
