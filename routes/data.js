@@ -13,11 +13,14 @@
 // GET  /api/import/status    wizard.status() (confirmNonce delivered ONCE:
 //                            whichever response carries it, the caller must
 //                            hold it; it is never repeated)
-// POST /api/import/apply     wizard.confirmAndApply({nonce}); answers 202
-//                            with the applying snapshot immediately, the
-//                            pipeline runs detached (#633: a blocking apply
-//                            outlived proxy response ceilings); poll status
-//                            for progress and the terminal state
+// POST /api/import/apply     wizard.confirmAndApply({nonce, selection});
+//                            answers 202 with the applying snapshot
+//                            immediately, the pipeline runs detached (#633: a
+//                            blocking apply outlived proxy response
+//                            ceilings); poll status for progress and the
+//                            terminal state. An optional `selection` names
+//                            the artefacts to restore (#646) and a bad one
+//                            answers 400 with nothing destroyed
 // POST /api/import/rollback  wizard.rollback(); 202 + poll, same shape
 // POST /api/import/abort     wizard.abort()
 //
@@ -323,9 +326,16 @@ async function handleApply(req, res) {
   // The wizard has already persisted 'applying' and engaged the freeze by
   // the time confirmAndApply returns, so nothing can slip in between this
   // response and the gate.
-  const result = wizard().confirmAndApply({ nonce: body.nonce });
+  const result = wizard().confirmAndApply({ nonce: body.nonce, selection: body.selection });
   if (result.code === 'CONFIRM_REQUIRED') { send(res, 428, result); return true; }
   if (result.code === 'BAD_STATE') { send(res, 409, result); return true; }
+  // A selection the archive cannot satisfy is the caller's mistake, and it is
+  // refused before anything is wiped: the job stays awaiting-confirm with its
+  // nonce unspent, so a corrected apply goes straight through.
+  if (result.code === 'SELECTION_INVALID' || result.code === 'SELECTION_EMPTY') {
+    send(res, 400, result);
+    return true;
+  }
   send(res, 202, result);
   return true;
 }

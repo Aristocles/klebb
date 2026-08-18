@@ -286,6 +286,15 @@ instance (nothing beyond the seeded welcome card); the typed-REPLACE
 path onto a populated instance exists only in the app's wizard. The full
 tree contract lives in [`docs/EXPORT-FORMAT.md`](docs/EXPORT-FORMAT.md).
 
+An import can also restore part of an archive: `--cards weight,sleep`,
+`--reports reports/bloods.md` and `--no-history` narrow what comes back,
+and the dry run prints the filtered plan beside the full one so you can
+check a subset before applying it. A family you name no flag for is
+restored whole, so `--no-history` on its own means everything but the
+Apple Health push history. This is a narrower restore, never a merge:
+the target still has to be fresh, and anything you leave out simply is
+not there afterwards.
+
 ## Reports
 
 Upload a health document from the Reports page and Klebb reads it: a blood

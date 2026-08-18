@@ -1110,6 +1110,48 @@ and a restore that could half-overwrite live data would be worse than
 one that asks you for an empty home. Full tree contract in
 [`EXPORT-FORMAT.md`](EXPORT-FORMAT.md).
 
+### Restoring only part of the archive
+
+Three flags narrow what comes back. Card ids for `--cards`, tree paths
+for `--reports` exactly as the plan prints them, and `--no-history` to
+leave the Apple Health pushes behind:
+
+```bash
+npm run import -- /tmp/restore --target /path/to/new-home \
+  --cards weight,sleep --reports reports/bloods.md --no-history
+```
+
+The dry run prints what the selection resolved to and then the filtered
+plan, with each narrowed line saying what it left behind:
+
+```
+selection: 2 card(s), 1 report item(s), history off
+plan:
+  cards (2 of 12):
+    weight  data/weight.json  data: embedded
+    sleep   data/sleep.json  data: embedded
+  HAE pushes to import: 0 of 340
+  reports to copy: 1 of 3
+  config: write
+```
+
+A family no flag names is restored whole, so `--no-history` on its own
+means everything except the push history. To take nothing from a family,
+pass it empty: `--reports ''`. A selection naming something the archive
+does not hold (a card id that is not in it, a report path outside the
+tree) is refused before anything is written, with the offending
+reference named; correct it and re-run. Add `--apply` when the filtered
+plan reads right.
+
+Ingested reports bring their archived original with them: selecting
+`reports/bloods.md` also restores `reports/originals/bloods.pdf` if the
+archive has it, so a restored report keeps the document it was read
+from.
+
+This is still a replace, not a merge. The target must be fresh, and what
+you leave out is simply absent afterwards; there is no second import
+that tops it up later.
+
 ---
 
 ## Recipe 17: move an instance with the Data tab
