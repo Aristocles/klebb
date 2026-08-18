@@ -464,6 +464,73 @@ describe('import wizard', { skip }, () => {
       { mine: true });
   });
 
+  test('wipe clears directories under data/: no previous-owner state survives', async () => {
+    const home = newHome();
+    gen = targetGen(seedHome(home, populatedSeed()));
+    // State the archive knows nothing about, so the copy cannot overwrite
+    // it: HAE ingest discovery, diagnostics, a quarantined payload, and a
+    // migration archive holding the old owner's original card files.
+    const autoDir = path.join(home, 'data', 'auto-export');
+    const migDir = path.join(home, 'data', '_archive', 'migration-2025-12-01');
+    fs.mkdirSync(path.join(autoDir, 'unparsed'), { recursive: true });
+    fs.mkdirSync(migDir, { recursive: true });
+    fs.writeFileSync(path.join(autoDir, 'discovered.json'),
+      JSON.stringify({ metrics: [{ name: 'previous_owner_metric' }] }));
+    fs.writeFileSync(path.join(autoDir, 'last-push.json'), JSON.stringify({ at: '2025-12-01' }));
+    fs.writeFileSync(path.join(autoDir, 'unparsed', 'body.json'), '{"theirs":true}');
+    fs.writeFileSync(path.join(migDir, 'old.json'), JSON.stringify(card('old')));
+    assert.ok(fs.existsSync(path.join(autoDir, 'discovered.json')), 'precondition: state seeded');
+
+    const wizard = gen.wizardMod.createWizard(gen.deps);
+    wizard.startFromTree(tree);
+    const res = await applySettled(wizard, { nonce: wizard.status().confirmNonce });
+    assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
+
+    assert.ok(!fs.existsSync(path.join(autoDir, 'discovered.json')),
+      "the previous owner's discovered metrics must not survive a wipe-first replace");
+    assert.ok(!fs.existsSync(path.join(autoDir, 'last-push.json')));
+    assert.ok(!fs.existsSync(path.join(autoDir, 'unparsed')));
+    assert.ok(!fs.existsSync(path.join(home, 'data', '_archive')),
+      "a migration archive of the previous owner's card files must not survive either");
+    // The wipe is indiscriminate about directories, so prove the copy still
+    // restored the tree's own: the four standard cards are back.
+    assert.strictEqual(gen.registry.list().length, STANDARD_VERIFIED.cards);
+  });
+
+  test('wipe clears a stale samples inbox: a history-less archive imports no old pushes', async () => {
+    // Reachable whenever a samples.json is sitting in the target's inbox slot
+    // at apply time: dropped in by hand, or left behind by a drain whose
+    // rename-aside failed. The drain runs after the copy regardless of what
+    // the archive carries, so without the wipe it imports the OLD history
+    // into the restored tree and verification fails against a plan that
+    // expected none.
+    const { tree: noHistoryTree } = buildSourceTree({
+      cards: { 'embedded.json': card('embedded') },
+      rows: { embedded: EMBEDDED_ROWS },
+    }, tmpDirs);
+    const home = newHome();
+    gen = targetGen(seedHome(home, populatedSeed()));
+    const autoDir = path.join(home, 'data', 'auto-export');
+    fs.mkdirSync(autoDir, { recursive: true });
+    const stale = path.join(autoDir, 'samples.json');
+    fs.writeFileSync(stale, JSON.stringify({ version: 1, pushes: [stepPush('2025-11-01', 700)] }));
+
+    const wizard = gen.wizardMod.createWizard(gen.deps);
+    const started = wizard.startFromTree(noHistoryTree);
+    assert.strictEqual(started.plan.samplesPushes, 0, 'precondition: the archive carries no history');
+    assert.ok(fs.existsSync(stale), 'precondition: a stale inbox file is present');
+
+    const res = await applySettled(wizard, { nonce: wizard.status().confirmNonce });
+    assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
+    assert.strictEqual(Number(gen.samples.pushCount()), 0,
+      "the previous instance's pushes must not be drained into the restored tree");
+    assert.ok(!fs.existsSync(stale), 'the stale inbox file must be gone, not merely undrained');
+    let left = [];
+    try { left = fs.readdirSync(autoDir); } catch {}
+    assert.deepStrictEqual(left.filter(n => n.startsWith('samples.json')), [],
+      'a stale inbox file must be wiped, not drained and renamed aside');
+  });
+
   test('detach: applying is persisted, the freeze is engaged and rivals refuse before control returns', async () => {
     gen = targetGen(seedHome(newHome(), { welcome: true }));
     const wizard = gen.wizardMod.createWizard(gen.deps);
