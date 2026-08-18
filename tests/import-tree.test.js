@@ -362,6 +362,49 @@ describe('import-tree', { skip }, () => {
         delete require.cache[applyPath];
       }
     });
+
+    test('opts.selection restores part of the archive, and the verify counts follow', async () => {
+      const home = freshHome();
+      const res = await applyTree(tree, home, {
+        selection: { cards: ['embedded', 'nodata'], reports: [], history: false },
+      });
+      assert.strictEqual(res.status, 'ok', JSON.stringify(res.findings, null, 2));
+      assert.deepStrictEqual(res.verified, { cards: 2, pushes: 0, reports: 0 });
+      withStore(home, (store) => {
+        assert.deepStrictEqual(norm(store.getData('embedded')), norm(EMBEDDED_ROWS));
+        assert.strictEqual(store.dataUpdatedAt('inline'), null);
+      });
+      assert.deepStrictEqual(fs.readdirSync(path.join(home, 'data')).filter(n => n.endsWith('.json')).sort(),
+        ['embedded.json', 'nodata.json']);
+      assert.strictEqual(pushCountOf(home), 0);
+      assert.ok(!fs.existsSync(path.join(home, 'reports', 'bloods.md')));
+      // Instance shape is not an artefact: the provenance manifest and the
+      // config still land, so the target knows what it was restored from.
+      assert.ok(fs.existsSync(path.join(home, 'klebb-export.json')));
+      assert.ok(fs.existsSync(path.join(home, 'config.json')));
+    });
+
+    test('an unusable selection refuses before anything is written', async () => {
+      const home = freshHome();
+      const res = await applyTree(tree, home, {
+        selection: { cards: ['embedded', 'not-in-the-archive'], reports: [], history: false },
+      });
+      assert.strictEqual(res.status, 'refused');
+      const bad = res.findings.find(f => f.code === 'SELECTION_INVALID');
+      assert.ok(bad, JSON.stringify(res.findings, null, 2));
+      assert.strictEqual(bad.phase, 'select');
+      assert.strictEqual(bad.ref, 'not-in-the-archive');
+      assert.strictEqual(res.verified, null);
+      assert.deepStrictEqual(fs.readdirSync(path.join(home, 'data')), [],
+        'a refused selection still wrote into data/');
+      assert.ok(!fs.existsSync(path.join(home, 'klebb-export.json')));
+
+      const empty = await applyTree(tree, home, {
+        selection: { cards: [], reports: [], history: false },
+      });
+      assert.strictEqual(empty.status, 'refused');
+      assert.ok(empty.findings.some(f => f.code === 'SELECTION_EMPTY'));
+    });
   });
 
   describe('crash-mid-apply convergence', () => {

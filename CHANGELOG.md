@@ -88,6 +88,38 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **An import can restore part of an archive instead of all of it.**
+  `lib/import/selection.js` turns a validated plan into a selectable
+  inventory (every card with its label, row count and Apple Health
+  provenance; every report paired with the archived original it was
+  ingested from; the push history as a single item) and the apply takes a
+  `selection` naming what to restore. This is **filtered replace, not
+  merge**: the wipe stays unconditional and total, so an unticked card is
+  deleted along with everything else rather than protected, and what was
+  ticked is what comes back. Ticking an ingested report brings its
+  archived original with it; leaving history out means the sample inbox
+  is never copied in, so there is nothing to drain. Files the plan never
+  listed (the provenance manifest, `config.json`, unsupported or legacy
+  card files) always ride along: they are the shape of an instance rather
+  than artefacts anyone could tick, and dropping them would lose bytes no
+  selection ever refused.
+  A selection is normalised twice. Once synchronously when the apply is
+  confirmed, so an unusable one is refused before a single byte is
+  destroyed (`SELECTION_INVALID` naming the offending id or path,
+  `SELECTION_EMPTY` when nothing at all would be restored, which would
+  otherwise report an emptied instance as a successful import). Then
+  again inside the pipeline against the tree as it stands at apply time,
+  so an archive that drifted in between fails loudly instead of quietly
+  importing a different set, and a hand-edited job file cannot widen what
+  a confirmation authorised. A retry re-uses the selection recorded on
+  the job and ignores a wider one supplied later, boot crash-recovery
+  resumes with that same selection, and rollback always restores the
+  pre-import snapshot whole, because a snapshot is what the instance was
+  and not a set of choices. Verification is plan-driven, so the verified
+  counts and the copy predicate both derive from the one filtered plan
+  and cannot disagree about what should be there. An absent selection
+  means everything, which is what the offline CLI, hosted restores and
+  every existing caller keep doing. (#646)
 - **Chat gateway token and cache counters are now recorded.** Both
   gateway paths threw the response's `usage` block away: the buffered
   path parsed it and dropped it, and the streaming assembler rebuilt a
