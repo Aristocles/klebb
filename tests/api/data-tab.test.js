@@ -84,12 +84,19 @@ function listZipEntries(root, rel = '') {
 // data, run through the export CLI in a subprocess) and zip it with the
 // paired writer. opts.pushes plants that many HAE pushes into the tree
 // (inventory-listed), which is what stretches the pipeline's drain stage
-// into an observable applying window. Returns { tree, zipBuf }.
+// into an observable applying window. opts.reports maps a filename under
+// reports/ to its body. Returns { tree, zipBuf }.
 async function buildTreeZip(cards, opts = {}) {
   const src = scratchDir('eh-data-src-');
   fs.mkdirSync(path.join(src, 'data'), { recursive: true });
   for (const c of cards) {
     fs.writeFileSync(path.join(src, 'data', `${c.meta.id}.json`), JSON.stringify(c, null, 2));
+  }
+  if (opts.reports) {
+    fs.mkdirSync(path.join(src, 'reports'), { recursive: true });
+    for (const [name, body] of Object.entries(opts.reports)) {
+      fs.writeFileSync(path.join(src, 'reports', name), body);
+    }
   }
   const tree = path.join(scratchDir('eh-data-tree-'), 'tree');
   const r = runNode([EXPORT_CLI, tree], { HEALTH_HOME: src });
@@ -530,6 +537,106 @@ describe('import over HTTP: populated target, nonce, rollback', { skip }, () => 
     const r = await req(server.baseUrl, '/api/import/rollback', { method: 'POST', cookie: auth.cookie, body: {} });
     assert.strictEqual(r.status, 409, r.body);
     assert.strictEqual(r.json.code, 'BAD_STATE');
+  });
+});
+
+describe('import over HTTP: a selection narrows what comes back', { skip }, () => {
+  let auth;
+  let home;
+  let server;
+  let fixture;
+  let held;
+  let nonce;
+
+  before(async () => {
+    fixture = await buildTreeZip(
+      [card('weight', WEIGHT_ROWS), card('notes', NOTES_ROWS)],
+      { pushes: 2, reports: { 'bloods.md': '# Bloods\n\nAll fine.\n' } });
+    auth = fakeAuthState();
+    home = createSandbox({
+      credentials: auth.credentials,
+      sessions: auth.sessions,
+      seed: { 'old.json': card('old', OLD_ROWS) },
+    });
+    server = await spawnServer(home);
+    held = await captureCards(server.baseUrl, auth.cookie);
+    assert.ok(held.entries.length > 0, 'an empty target makes the honest-wipe assertions vacuous');
+  });
+
+  after(async () => {
+    if (server) await server.kill();
+    cleanupSandbox(home);
+  });
+
+  test('start offers the archive artefact by artefact, beside what the target holds', async () => {
+    const up = await binPost(server.baseUrl, '/api/import/upload', fixture.zipBuf, auth.cookie);
+    assert.strictEqual(up.status, 200, up.body);
+    const r = await req(server.baseUrl, '/api/import/start', { method: 'POST', cookie: auth.cookie, body: {} });
+    assert.strictEqual(r.status, 200, r.body);
+    assert.strictEqual(r.json.state, 'awaiting-confirm');
+    nonce = r.json.confirmNonce;
+
+    assert.deepStrictEqual(r.json.items.cards.map(c => c.id).sort(), ['notes', 'weight']);
+    assert.deepStrictEqual(r.json.items.cards.map(c => c.hae), [false, false]);
+    assert.deepStrictEqual(r.json.items.reports.map(x => x.key), ['reports/bloods.md']);
+    assert.strictEqual(r.json.items.history.pushes, 2);
+    assert.strictEqual(r.json.selection, null, 'nothing is chosen until the caller chooses');
+    // The confirm panel has to say what is about to go, so the target's own
+    // counts travel with the offer.
+    assert.strictEqual(r.json.target.cards, held.entries.length);
+  });
+
+  test('a selection this archive cannot satisfy answers 400, with nothing destroyed', async () => {
+    const cases = [
+      { selection: { cards: ['not-in-here'] }, code: 'SELECTION_INVALID', ref: 'not-in-here' },
+      { selection: { reports: ['../../etc/passwd'] }, code: 'SELECTION_INVALID', ref: '../../etc/passwd' },
+      { selection: 'everything', code: 'SELECTION_INVALID' },
+      { selection: { cards: 'weight' }, code: 'SELECTION_INVALID' },
+      { selection: { cards: [], reports: [], history: false }, code: 'SELECTION_EMPTY' },
+    ];
+    for (const c of cases) {
+      const r = await req(server.baseUrl, '/api/import/apply', {
+        method: 'POST', cookie: auth.cookie, body: { nonce, selection: c.selection },
+      });
+      assert.strictEqual(r.status, 400, `${JSON.stringify(c.selection)} -> ${r.status} ${r.body}`);
+      assert.strictEqual(r.json.code, c.code, r.body);
+      assert.strictEqual(r.json.findings[0].phase, 'select', r.body);
+      if (c.ref) assert.ok(r.json.findings.some(f => f.ref === c.ref), r.body);
+    }
+    const st = await req(server.baseUrl, '/api/import/status', { cookie: auth.cookie });
+    assert.strictEqual(st.json.state, 'awaiting-confirm', 'a refused selection moved the job');
+    assert.strictEqual(st.json.selection, null);
+    assert.strictEqual(st.json.stage, null, 'a refused selection started a stage');
+    const kept = await captureCards(server.baseUrl, auth.cookie);
+    assert.deepStrictEqual(kept.dumps, held.dumps, 'a refused selection cost the target its data');
+  });
+
+  test('the nonce is unspent by the refusals, and the good selection restores just it', async () => {
+    const selection = { cards: ['weight'], reports: [], history: false };
+    const r = await req(server.baseUrl, '/api/import/apply', {
+      method: 'POST', cookie: auth.cookie, body: { nonce, selection },
+    });
+    assert.strictEqual(r.status, 202, r.body);
+    assert.strictEqual(r.json.state, 'applying');
+    assert.deepStrictEqual(r.json.selection, selection);
+
+    const st = await pollUntilSettled(server.baseUrl, auth.cookie);
+    assert.strictEqual(st.state, 'done', JSON.stringify(st.findings));
+    assert.deepStrictEqual(st.verified, { cards: 1, pushes: 0, reports: 0 });
+    assert.deepStrictEqual(st.selection, selection);
+    // The item list is the confirm panel's input, so the 1.5s apply polls do
+    // not carry an entry per card for nothing.
+    assert.ok(!('items' in st), 'the apply polls carry the item list');
+    assert.ok(!('target' in st), 'the apply polls carry the target summary');
+
+    const { entries, dumps } = await captureCards(server.baseUrl, auth.cookie);
+    assert.deepStrictEqual(entries.map(e => e.id), ['weight']);
+    assert.deepStrictEqual(dumps.weight, WEIGHT_ROWS);
+    assert.ok(!fs.existsSync(path.join(home, 'reports', 'bloods.md')), 'an unticked report landed anyway');
+    // Filtered replace, not merge: the card the target held goes with the
+    // wipe, and no selection ever protected it.
+    const gone = await req(server.baseUrl, '/api/manifests/old', { cookie: auth.cookie });
+    assert.strictEqual(gone.status, 404, 'the wipe spared a card the selection never named');
   });
 });
 

@@ -120,6 +120,31 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   and cannot disagree about what should be there. An absent selection
   means everything, which is what the offline CLI, hosted restores and
   every existing caller keep doing. (#646)
+- **The import CLI and the import API now expose that selection.**
+  `npm run import` takes `--cards <ids>`, `--reports <tree paths>` and
+  `--no-history`; any of them present narrows the restore, and a family no
+  flag names is restored whole, so `--no-history` alone means everything
+  else. A family can be emptied deliberately (`--reports ''`), which the
+  selection tells apart from absent. The dry run resolves the selection
+  against the archive and prints the filtered plan with each narrowed line
+  reading `2 of 12`, so a subset can be read before it is applied, and
+  `--dry-run` is accepted explicitly (it contradicts `--apply`, which is a
+  usage error rather than a silent preference). A selection the archive
+  cannot satisfy is refused at both doors: the dry run prints the offending
+  reference and exits 1 without touching the target, and `--apply` refuses
+  before the wipe.
+  Over HTTP, `POST /api/import/apply` passes an optional `selection` through
+  and answers **400** with the named findings when it cannot be satisfied.
+  That is deliberately not a 428 or a 409: the confirmation ceremony is
+  untouched and the nonce is **not** spent, so the job stays
+  awaiting-confirm and a corrected apply goes straight through instead of
+  forcing the whole upload again. `GET /api/import/status` gained the
+  selectable inventory (`items`) and a count of what the target holds today
+  (`target`), the two inputs a confirmation needs to say honestly that all of
+  it is being deleted whatever comes back. Both ride **only** the
+  awaiting-confirm status: the apply polls run every 1.5 seconds and would
+  otherwise carry an entry per card for nothing, and once the apply is
+  confirmed the selection is settled. (#647)
 - **Chat gateway token and cache counters are now recorded.** Both
   gateway paths threw the response's `usage` block away: the buffered
   path parsed it and dropped it, and the streaming assembler rebuilt a
