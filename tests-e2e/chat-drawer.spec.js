@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests-e2e/chat-drawer.spec.js
-// The conversation drawer (#607): recents newest-first with a show-all
-// expander, new-chat pinned on top, switching loads the server transcript,
-// rename is inline, delete needs a second tap, and deleting the active
-// conversation drops to a fresh chat. Conversations are seeded through the
-// real API; /api/chat is never needed here.
+// The conversation drawer (#607, reshaped by #657): every conversation
+// newest-first in a scroller, new chat lives in the panel header, switching
+// loads the server transcript, rename is inline, delete needs a second tap,
+// and deleting the active conversation drops to a fresh chat. Conversations
+// are seeded through the real API; /api/chat is never needed here.
 
 const { test, expect } = require('./helpers/auth-fixture');
 
@@ -80,7 +80,7 @@ test.describe('#607 conversation drawer', () => {
     await expect(drawer(widget).locator('.row.active .row-title')).toHaveText('Older chat');
   });
 
-  test('new chat is pinned in the drawer and parks the current conversation', async ({ page }) => {
+  test('new chat sits in the panel header and parks the current conversation (#657)', async ({ page }) => {
     await openChat(page);
     await seedConversations(page, [
       { title: 'Keep me', messages: [{ role: 'user', content: 'kept' }] },
@@ -88,12 +88,17 @@ test.describe('#607 conversation drawer', () => {
     await page.reload();
     const widget = await openChat(page);
 
+    // The drawer must not carry one of its own any more, or the header
+    // control below would be ambiguous rather than moved.
     await openDrawer(page, widget);
+    await expect(drawer(widget).locator('button[aria-label="New chat"]')).toHaveCount(0);
     await drawer(widget).locator('.row', { hasText: 'Keep me' }).click();
     await expect(widget.locator('.msg.user')).toHaveCount(1);
 
-    await openDrawer(page, widget);
-    await widget.locator('button[aria-label="New chat"]').click();
+    // Reachable straight from the header with the drawer shut: while it is
+    // open the scrim covers the header, so this click would be intercepted.
+    expect(await drawer(widget).evaluate(el => el.hasAttribute('open'))).toBe(false);
+    await widget.locator('.chat-header button[aria-label="New chat"]').click();
     await expect(widget.locator('.msg.user')).toHaveCount(0, { timeout: 3000 });
 
     // The parked conversation is still there, one tap away.
@@ -101,20 +106,27 @@ test.describe('#607 conversation drawer', () => {
     await expect(drawer(widget).locator('.row-title', { hasText: 'Keep me' })).toBeVisible();
   });
 
-  test('five recents show, the rest behind show-all', async ({ page }) => {
+  test('the whole list renders and scrolls, with no show-all expander (#657)', async ({ page }) => {
     await openChat(page);
-    await seedConversations(page, Array.from({ length: 7 }, (_, i) => ({
+    await seedConversations(page, Array.from({ length: 12 }, (_, i) => ({
       title: `Chat ${i + 1}`, messages: [{ role: 'user', content: `m${i}` }],
     })));
     await page.reload();
     const widget = await openChat(page);
 
     await openDrawer(page, widget);
-    await expect(drawer(widget).locator('.row')).toHaveCount(5);
-    const showAll = drawer(widget).locator('.show-all');
-    await expect(showAll).toHaveText(/Show all \(7\)/);
-    await showAll.click();
-    await expect(drawer(widget).locator('.row')).toHaveCount(7);
+    await expect(drawer(widget).locator('.row')).toHaveCount(12);
+    await expect(drawer(widget).locator('.show-all')).toHaveCount(0);
+
+    // Twelve rows do not fit, so the list must be the thing that scrolls.
+    // Asserting overflow first keeps the scroll assertion from passing
+    // vacuously on a list short enough to fit.
+    const list = drawer(widget).locator('.list');
+    const overflow = await list.evaluate(el => el.scrollHeight - el.clientHeight);
+    expect(overflow).toBeGreaterThan(0);
+    await list.evaluate(el => { el.scrollTop = el.scrollHeight; });
+    expect(await list.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+    await expect(drawer(widget).locator('.row-title').last()).toHaveText('Chat 1');
   });
 
   test('rename is inline and lands on the server', async ({ page }) => {

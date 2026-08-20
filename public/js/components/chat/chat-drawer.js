@@ -1,24 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/components/chat/chat-drawer.js
-// The conversation drawer: new chat pinned on top, then conversations
-// newest-first (five, with a show-all expander; the store caps at 100),
-// each row switchable, renamable inline, and deletable behind a two-tap
-// confirm. The list refreshes on every open, which is also how async
-// model-generated titles appear. A footer link surfaces feedback.
+// The conversation drawer: every stored conversation newest-first in a
+// scroller, each row switchable, renamable inline, and deletable behind a
+// two-tap confirm. The whole list renders because the store hard-caps at
+// 100 and prunes the least recently active on create. The list refreshes
+// on every open, which is also how async model-generated titles appear. A
+// footer link surfaces feedback.
 //
-// The drawer owns list display and the rename/delete calls; switching,
-// new-chat semantics, and reacting to the active conversation being
-// deleted belong to <health-chat>, reached via events:
+// The drawer owns list display and the rename/delete calls; switching and
+// reacting to the active conversation being deleted belong to
+// <health-chat>, reached via events:
 //   drawer-select {id}   user tapped a conversation
-//   drawer-new           user tapped New chat
 //   drawer-close         scrim tap / close affordance
 //   drawer-deleted {id}  a conversation was removed (host checks active)
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { listConversations, renameConversation, deleteConversation } from './transport.js';
-
-const PREVIEW_COUNT = 5;
 
 function relativeTime(iso) {
   const then = Date.parse(iso);
@@ -41,7 +39,6 @@ class ChatDrawer extends LitElement {
     open: { type: Boolean, reflect: true },
     activeId: { type: String, attribute: 'active-id' },
     _conversations: { state: true },
-    _showAll: { state: true },
     _renamingId: { state: true },
     _confirmDeleteId: { state: true },
   };
@@ -76,26 +73,17 @@ class ChatDrawer extends LitElement {
     :host([open]) .scrim { opacity: 1; pointer-events: auto; }
     :host([open]) .drawer { transform: translateX(0); }
 
+    /* Keeps the top inset even with nothing but a label in it: without it
+       the first row sits under a phone's status bar. */
     .drawer-head {
-      padding: max(env(safe-area-inset-top, 0px), 12px) 12px 8px;
+      padding: max(env(safe-area-inset-top, 0px), 12px) 12px 10px;
       border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-muted, var(--text-secondary));
     }
-    .new-chat {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-primary);
-      border-radius: 10px;
-      padding: 10px 12px;
-      font-size: 13px;
-      font-family: inherit;
-      cursor: pointer;
-      min-height: 44px;
-    }
-    .new-chat:hover { border-color: var(--accent); color: var(--accent); }
 
     .list {
       flex: 1;
@@ -161,16 +149,6 @@ class ChatDrawer extends LitElement {
       outline: none;
     }
 
-    .show-all {
-      background: transparent;
-      border: none;
-      color: var(--accent);
-      font-size: 12px;
-      font-family: inherit;
-      cursor: pointer;
-      padding: 8px;
-      text-align: left;
-    }
     .empty {
       padding: 20px 12px;
       font-size: 12px;
@@ -190,14 +168,12 @@ class ChatDrawer extends LitElement {
     this.open = false;
     this.activeId = '';
     this._conversations = null;
-    this._showAll = false;
     this._renamingId = null;
     this._confirmDeleteId = null;
   }
 
   updated(changed) {
     if (changed.has('open') && this.open) {
-      this._showAll = false;
       this._renamingId = null;
       this._confirmDeleteId = null;
       this._refresh();
@@ -299,26 +275,15 @@ class ChatDrawer extends LitElement {
 
   render() {
     const all = this._conversations || [];
-    const visible = this._showAll ? all : all.slice(0, PREVIEW_COUNT);
-    const hidden = all.length - visible.length;
     return html`
       <div class="scrim" @click=${() => this._emit('drawer-close')}></div>
       <div class="drawer" role="dialog" aria-label="Conversations">
-        <div class="drawer-head">
-          <button class="new-chat" @click=${() => this._emit('drawer-new')} aria-label="New chat">
-            <span>＋</span><span>New chat</span>
-          </button>
-        </div>
+        <div class="drawer-head">Conversations</div>
         <div class="list">
           ${this._conversations === null ? html`<div class="empty">Loading…</div>` : ''}
           ${this._conversations !== null && all.length === 0
             ? html`<div class="empty">No conversations yet.</div>` : ''}
-          ${visible.map(c => this._renderRow(c))}
-          ${hidden > 0 ? html`
-            <button class="show-all" @click=${() => { this._showAll = true; }}>
-              Show all (${all.length})
-            </button>
-          ` : ''}
+          ${all.map(c => this._renderRow(c))}
         </div>
         <div class="drawer-foot"><slot name="footer"></slot></div>
       </div>

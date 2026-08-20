@@ -1988,6 +1988,12 @@ class HealthChat extends LitElement {
               aria-label="Conversations"
               title="Conversations"
             >\u2630</button>
+            <button
+              class="hdr-btn new-chat-btn"
+              @click=${() => { this._drawerOpen = false; this._clearHistory(); }}
+              aria-label="New chat"
+              title="New chat"
+            >\uff0b</button>
             <span class="chat-header-icon">${this._agentEmoji}</span>
             <span class="chat-header-text">${this._agentName}</span>
             <div class="hdr-actions">
@@ -2010,7 +2016,6 @@ class HealthChat extends LitElement {
             ?open=${this._drawerOpen}
             active-id=${this._conversationId || ''}
             @drawer-close=${() => { this._drawerOpen = false; }}
-            @drawer-new=${() => { this._drawerOpen = false; this._clearHistory(); }}
             @drawer-select=${(e) => this._switchConversation(e.detail.id)}
             @drawer-deleted=${(e) => { if (e.detail.id === this._conversationId) this._activeConversationDeleted(); }}
           >

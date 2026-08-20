@@ -7,6 +7,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **New chat is a chat-panel header control, and the conversation drawer
+  scrolls instead of expanding.** Starting a fresh chat cost two taps because
+  the button lived pinned at the top of the drawer, which nothing else about a
+  new chat needs: it is now a header pill immediately right of the hamburger,
+  and the drawer no longer carries one. The drawer also listed only five
+  conversations behind a "Show all (N)" expander, which the store already makes
+  pointless: it hard-caps at 100 and prunes the least recently active whenever
+  a conversation is created, so the whole list is bounded and now renders in
+  the scroller the list already was. The drawer keeps a header strip carrying a
+  "Conversations" label, because that strip is what holds the safe-area top
+  inset off a phone's status bar. (#657)
+
 ### Fixed
 
 - **A refused zip write no longer leaves the partial archive on disk.** The
