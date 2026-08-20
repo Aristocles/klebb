@@ -104,6 +104,59 @@ describe('#603 /api/conversations CRUD', () => {
     assert.equal(res.status, 413);
   });
 
+  test('POST /api/conversations/search filters on title and message text (#659)', async () => {
+    // Start from a known set: earlier tests in this file leave rows behind.
+    const before = await req(server.baseUrl, '/api/conversations');
+    for (const c of before.json.conversations) {
+      await req(server.baseUrl, `/api/conversations/${c.id}`, { method: 'DELETE' });
+    }
+    await req(server.baseUrl, '/api/conversations', {
+      method: 'POST',
+      body: { title: 'Bloods panel', messages: [{ role: 'user', content: 'ferritin at 40' }] },
+    });
+    await req(server.baseUrl, '/api/conversations', {
+      method: 'POST',
+      body: { title: 'Sleep notes', messages: [{ role: 'assistant', content: 'try magnesium' }] },
+    });
+
+    const byText = await req(server.baseUrl, '/api/conversations/search', {
+      method: 'POST', body: { q: 'magnesium' },
+    });
+    assert.equal(byText.status, 200);
+    assert.deepEqual(byText.json.conversations.map(c => c.title), ['Sleep notes']);
+    assert.match(byText.json.conversations[0].snippet, /magnesium/);
+
+    const byTitle = await req(server.baseUrl, '/api/conversations/search', {
+      method: 'POST', body: { q: 'bloods' },
+    });
+    assert.deepEqual(byTitle.json.conversations.map(c => c.title), ['Bloods panel']);
+    assert.equal(byTitle.json.conversations[0].snippet, undefined, 'a title hit has no snippet');
+
+    const none = await req(server.baseUrl, '/api/conversations/search', {
+      method: 'POST', body: { q: 'nothing here matches' },
+    });
+    assert.deepEqual(none.json.conversations, []);
+
+    const all = await req(server.baseUrl, '/api/conversations/search', {
+      method: 'POST', body: { q: '' },
+    });
+    assert.equal(all.json.conversations.length, 2, 'an empty needle is the whole list');
+  });
+
+  test('search refuses a malformed body and tolerates a missing one (#659)', async () => {
+    const bad = await req(server.baseUrl, '/api/conversations/search', {
+      method: 'POST', body: 'not json',
+    });
+    assert.equal(bad.status, 400);
+    const empty = await req(server.baseUrl, '/api/conversations/search', { method: 'POST' });
+    assert.equal(empty.status, 200);
+    assert.ok(Array.isArray(empty.json.conversations));
+    const wrongType = await req(server.baseUrl, '/api/conversations/search', {
+      method: 'POST', body: { q: { nope: true } },
+    });
+    assert.equal(wrongType.status, 200, 'a non-string needle reads as no needle');
+  });
+
   test('the legacy /api/chat/history endpoint is untouched', async () => {
     const put = await req(server.baseUrl, '/api/chat/history', {
       method: 'PUT', body: { messages: [{ role: 'user', content: 'legacy' }] },

@@ -1655,6 +1655,25 @@ const server = http.createServer(async (req, res) => {
     if (parts[0] === 'conversations' && parts.length === 1 && req.method === 'GET') {
       return sendJSON(res, { conversations: conversationsStore().list() });
     }
+    // Search takes its needle in a POST body, not a query string: the needle
+    // is chat text, and access logs record URLs. Ids are UUIDs, so 'search'
+    // can never collide with one.
+    if (parts[0] === 'conversations' && parts[1] === 'search'
+        && parts.length === 2 && req.method === 'POST') {
+      let body = '';
+      req.setEncoding('utf8');
+      req.on('data', c => body += c);
+      req.on('end', () => {
+        let parsed = {};
+        if (body) {
+          try { parsed = JSON.parse(body); }
+          catch { return sendJSON(res, { error: 'Invalid JSON' }, 400); }
+        }
+        const q = typeof parsed?.q === 'string' ? parsed.q.slice(0, 200) : '';
+        sendJSON(res, { conversations: conversationsStore().search(q) });
+      });
+      return;
+    }
     if (parts[0] === 'conversations' && parts.length === 1 && req.method === 'POST') {
       let body = '';
       req.setEncoding('utf8');

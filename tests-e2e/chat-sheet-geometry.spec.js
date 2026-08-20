@@ -54,6 +54,37 @@ test.describe('#604 chat sheet geometry', () => {
     await expect(widget.locator('.peek-bar')).toBeVisible();
   });
 
+  test('mobile: the open drawer keeps 44px head controls, aligned with the header (#659)', async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    const widget = await openChat(page);
+
+    const header = await widget.locator('.chat-header button[aria-label="Conversations"]').boundingBox();
+    expect(header.height).toBeGreaterThanOrEqual(44);
+    await widget.locator('.chat-header button[aria-label="Conversations"]').click();
+
+    const drawer = widget.locator('chat-drawer');
+    const burger = drawer.locator('button[aria-label="Close conversations"]');
+    const search = drawer.locator('button[aria-label="Search conversations"]');
+
+    // The drawer's own head mirrors the header's mobile metrics, so the
+    // hamburger keeps both its position and its 44px target once expanded.
+    await expect(async () => {
+      const box = await burger.boundingBox();
+      expect(Math.abs(box.x - header.x), 'x').toBeLessThanOrEqual(1);
+      expect(Math.abs(box.y - header.y), 'y').toBeLessThanOrEqual(1);
+      expect(box.width, 'burger width').toBeGreaterThanOrEqual(44);
+      expect(box.height, 'burger height').toBeGreaterThanOrEqual(44);
+    }).toPass({ timeout: 3000 });
+
+    const searchBox = await search.boundingBox();
+    expect(searchBox.width, 'search width').toBeGreaterThanOrEqual(44);
+    expect(searchBox.height, 'search height').toBeGreaterThanOrEqual(44);
+
+    // Reachability, not just size: the tap must land and fold the drawer.
+    await burger.click();
+    expect(await drawer.evaluate(el => el.hasAttribute('open'))).toBe(false);
+  });
+
   test('mobile: dragging the header down closes the sheet', async ({ page }) => {
     await page.setViewportSize(PHONE);
     const widget = await openChat(page);
