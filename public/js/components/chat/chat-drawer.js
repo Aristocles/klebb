@@ -8,15 +8,24 @@
 // on every open, which is also how async model-generated titles appear. A
 // footer link surfaces feedback.
 //
-// The drawer owns list display and the rename/delete calls; switching and
-// reacting to the active conversation being deleted belong to
+// The head carries the hamburger that opened the drawer (the drawer covers
+// the panel header, so the header's copy is hidden behind it) and a search
+// toggle. Both are positioned to land exactly where the header's controls
+// sit, so opening the drawer reads as the same icons staying put.
+//
+// The drawer owns list display, search and the rename/delete calls;
+// switching and reacting to the active conversation being deleted belong to
 // <health-chat>, reached via events:
 //   drawer-select {id}   user tapped a conversation
-//   drawer-close         scrim tap / close affordance
+//   drawer-close         scrim tap / hamburger / close affordance
 //   drawer-deleted {id}  a conversation was removed (host checks active)
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
-import { listConversations, renameConversation, deleteConversation } from './transport.js';
+import {
+  listConversations, searchConversations, renameConversation, deleteConversation,
+} from './transport.js';
+
+const SEARCH_DEBOUNCE_MS = 200;
 
 function relativeTime(iso) {
   const then = Date.parse(iso);
@@ -41,6 +50,8 @@ class ChatDrawer extends LitElement {
     _conversations: { state: true },
     _renamingId: { state: true },
     _confirmDeleteId: { state: true },
+    _searchOpen: { state: true },
+    _query: { state: true },
   };
 
   static styles = css`
@@ -73,16 +84,55 @@ class ChatDrawer extends LitElement {
     :host([open]) .scrim { opacity: 1; pointer-events: auto; }
     :host([open]) .drawer { transform: translateX(0); }
 
-    /* Keeps the top inset even with nothing but a label in it: without it
-       the first row sits under a phone's status bar. */
+    /* Padding and button metrics MIRROR .chat-header / .hdr-btn in
+       health-chat.js (18px left, 10px top, 10px gap, 34x30 pills). The
+       drawer covers the header, so matching them is what makes the
+       hamburger look like it stayed put rather than moved. Keep the two in
+       step, mobile block included. */
     .drawer-head {
-      padding: max(env(safe-area-inset-top, 0px), 12px) 12px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: max(env(safe-area-inset-top, 0px), 10px) 12px 8px 18px;
       border-bottom: 1px solid var(--border);
+    }
+    .head-btn {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      min-width: 34px;
+      height: 30px;
+      padding: 0 8px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .head-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .head-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .head-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+    .head-label {
       font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       color: var(--text-muted, var(--text-secondary));
+    }
+    .search-input {
+      flex: 1;
+      min-width: 0;
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--bg-input, rgba(0,0,0,0.04));
+      color: var(--text-primary);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 5px 8px;
+      outline: none;
     }
 
     .list {
@@ -120,6 +170,14 @@ class ChatDrawer extends LitElement {
     .row-sub {
       font-size: 10px;
       color: var(--text-muted, var(--text-secondary));
+    }
+    /* Search hits only: the line of transcript that matched. */
+    .row-snippet {
+      font-size: 11px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .row-btn {
       flex-shrink: 0;
@@ -161,6 +219,18 @@ class ChatDrawer extends LitElement {
       padding: 8px 12px max(env(safe-area-inset-bottom, 0px), 8px);
     }
     ::slotted(*), .drawer-foot slot { display: block; }
+
+    /* Same breakpoint and same 44px targets as the panel header's mobile
+       block, so the hamburger keeps its position AND its size on a phone. */
+    @media (max-width: 480px) {
+      .drawer-head { padding-top: max(env(safe-area-inset-top, 0px), 14px); }
+      .head-btn {
+        min-width: 44px;
+        height: 44px;
+        font-size: 15px;
+        border-radius: 14px;
+      }
+    }
   `;
 
   constructor() {
@@ -170,18 +240,67 @@ class ChatDrawer extends LitElement {
     this._conversations = null;
     this._renamingId = null;
     this._confirmDeleteId = null;
+    this._searchOpen = false;
+    this._query = '';
+    this._searchTimer = null;
+    this._refreshToken = 0;
   }
 
   updated(changed) {
     if (changed.has('open') && this.open) {
       this._renamingId = null;
       this._confirmDeleteId = null;
+      this._closeSearch();
       this._refresh();
     }
   }
 
   async _refresh() {
-    this._conversations = await listConversations();
+    // Type-ahead answers can land out of order; only the newest one may
+    // paint, or a slow early keystroke overwrites a fast later one.
+    const token = ++this._refreshToken;
+    const q = this._query.trim();
+    const rows = q ? await searchConversations(q) : await listConversations();
+    if (token === this._refreshToken) this._conversations = rows;
+  }
+
+  _toggleSearch() {
+    if (this._searchOpen) {
+      this._closeSearch();
+      this._refresh();
+      return;
+    }
+    this._searchOpen = true;
+    this.updateComplete.then(() => this.shadowRoot?.querySelector('.search-input')?.focus());
+  }
+
+  _closeSearch() {
+    clearTimeout(this._searchTimer);
+    this._searchTimer = null;
+    this._searchOpen = false;
+    this._query = '';
+  }
+
+  _onSearchInput(e) {
+    this._query = e.target.value;
+    clearTimeout(this._searchTimer);
+    this._searchTimer = setTimeout(() => this._refresh(), SEARCH_DEBOUNCE_MS);
+  }
+
+  // Escape unwinds one layer at a time, matching the panel: the term first,
+  // then the field. stopPropagation keeps the panel's window-level Escape
+  // listener from closing the whole drawer on the first press.
+  _onSearchKeydown(e) {
+    if (e.key !== 'Escape') return;
+    e.stopPropagation();
+    if (e.target.value || this._query) {
+      e.target.value = '';
+      this._query = '';
+      clearTimeout(this._searchTimer);
+      this._refresh();
+      return;
+    }
+    this._closeSearch();
   }
 
   _emit(name, detail = {}) {
@@ -246,12 +365,15 @@ class ChatDrawer extends LitElement {
               @click=${(e) => e.stopPropagation()}
               @keydown=${(e) => {
                 if (e.key === 'Enter') this._commitRename(convo, e.target.value);
-                if (e.key === 'Escape') this._renamingId = null;
+                // Cancelling a rename must not also close the drawer, which
+                // the panel's window-level Escape listener would do.
+                if (e.key === 'Escape') { e.stopPropagation(); this._renamingId = null; }
               }}
               @blur=${(e) => this._commitRename(convo, e.target.value)}
             />
           ` : html`
             <div class="row-title ${convo.title ? '' : 'untitled'}">${convo.title || 'New chat'}</div>
+            ${convo.snippet ? html`<div class="row-snippet">${convo.snippet}</div>` : ''}
             <div class="row-sub">${relativeTime(convo.updatedAt)}</div>
           `}
         </div>
@@ -273,16 +395,51 @@ class ChatDrawer extends LitElement {
     `;
   }
 
+  _renderHead() {
+    const searching = this._searchOpen;
+    return html`
+      <div class="drawer-head">
+        <button
+          class="head-btn"
+          @click=${() => this._emit('drawer-close')}
+          aria-label="Close conversations"
+          title="Close"
+        >☰</button>
+        <button
+          class="head-btn"
+          @click=${this._toggleSearch}
+          aria-label=${searching ? 'Close search' : 'Search conversations'}
+          aria-pressed=${searching}
+          title=${searching ? 'Close search' : 'Search chats'}
+        >${searching ? '✕' : '🔍'}</button>
+        ${searching ? html`
+          <input
+            class="search-input"
+            type="search"
+            placeholder="Search all chats…"
+            aria-label="Search conversations"
+            @input=${this._onSearchInput}
+            @keydown=${this._onSearchKeydown}
+          />
+        ` : html`<span class="head-label">Conversations</span>`}
+      </div>
+    `;
+  }
+
   render() {
     const all = this._conversations || [];
+    const searched = this._query.trim();
     return html`
       <div class="scrim" @click=${() => this._emit('drawer-close')}></div>
       <div class="drawer" role="dialog" aria-label="Conversations">
-        <div class="drawer-head">Conversations</div>
+        ${this._renderHead()}
         <div class="list">
           ${this._conversations === null ? html`<div class="empty">Loading…</div>` : ''}
           ${this._conversations !== null && all.length === 0
-            ? html`<div class="empty">No conversations yet.</div>` : ''}
+            ? html`<div class="empty">${searched
+                ? `No chats match "${searched}".`
+                : 'No conversations yet.'}</div>`
+            : ''}
           ${all.map(c => this._renderRow(c))}
         </div>
         <div class="drawer-foot"><slot name="footer"></slot></div>
