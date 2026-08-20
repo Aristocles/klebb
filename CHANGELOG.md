@@ -7,7 +7,32 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Search across every chat, from the conversation drawer.** The drawer lists
+  up to 100 conversations and their titles are usually model-generated, so
+  finding the chat where you said something meant scrolling and guessing. The
+  drawer head now carries a search toggle: it turns the head's label into a
+  field that filters the list as you type, matching **message text as well as
+  titles**, and a row whose hit was in the transcript shows the line that
+  matched. `POST /api/conversations/search` is new; the needle travels in the
+  body rather than a query string because it is health-related chat text and
+  reverse-proxy access logs record URLs, not bodies. The store scans every row
+  instead of maintaining an index, which the 100-conversation cap keeps cheap,
+  and it matches with an escaped-literal regexp so a term containing `.` or `*`
+  searches for those characters. Escape in the field clears the term before it
+  closes the field, and only then the drawer. (#659)
+
 ### Changed
+
+- **The hamburger stays put when the drawer opens, and folds it back in.** The
+  drawer is positioned over the whole panel, so opening it hid the control that
+  opened it, leaving a scrim tap or Escape as the only ways back: neither is
+  discoverable. Its head now carries a hamburger of its own, with padding and
+  button metrics mirroring the panel header's (phone breakpoint included) so it
+  lands on the same pixels at the same 44px size and reads as the same icon
+  staying still. Cancelling a rename with Escape no longer closes the whole
+  drawer along with the edit. (#659)
 
 - **New chat is a chat-panel header control, and the conversation drawer
   scrolls instead of expanding.** Starting a fresh chat cost two taps because

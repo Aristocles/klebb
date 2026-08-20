@@ -151,7 +151,18 @@ loop runs to completion, matching the buffered path's semantics.
 
 `/api/conversations` stores named transcripts in the per-instance
 database (list by recency / create / fetch / rename / replace messages /
-delete; hard caps of 100 conversations and 200 messages each). When
+delete; hard caps of 100 conversations and 200 messages each).
+
+`POST /api/conversations/search` takes `{ q }` and answers the same
+summaries the list does, filtered to conversations whose title or
+message text contains `q`, plus a `snippet` of the matching line when
+the hit was in the transcript. The needle rides in the body, not a query
+string, because it is chat text and access logs record URLs. Matching is
+a case-insensitive substring (an escaped literal, so `.` and `*` are
+themselves) over a scan of every row, which the 100-conversation cap
+keeps cheap enough to need no index.
+
+When
 `POST /api/chat` carries a `conversationId`, the server owns the
 transcript:
 

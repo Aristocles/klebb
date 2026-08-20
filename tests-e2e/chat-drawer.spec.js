@@ -129,6 +129,117 @@ test.describe('#607 conversation drawer', () => {
     await expect(drawer(widget).locator('.row-title').last()).toHaveText('Chat 1');
   });
 
+  test('the drawer keeps a hamburger where the header had one, and it folds back in (#659)', async ({ page }) => {
+    await openChat(page);
+    await seedConversations(page, [
+      { title: 'Keep me', messages: [{ role: 'user', content: 'kept' }] },
+    ]);
+    await page.reload();
+    const widget = await openChat(page);
+
+    const header = await widget.locator('.chat-header button[aria-label="Conversations"]').boundingBox();
+    await openDrawer(page, widget);
+    const burger = drawer(widget).locator('button[aria-label="Close conversations"]');
+
+    // Same box, not merely "somewhere top-left": the point of the control is
+    // that it reads as the header's icon staying put. toPass absorbs the
+    // 0.2s slide-in without a fixed sleep; the drawer travels from off-screen
+    // left to x=0, so it cannot transiently overshoot into alignment.
+    await expect(async () => {
+      const box = await burger.boundingBox();
+      expect(Math.abs(box.x - header.x), 'x').toBeLessThanOrEqual(1);
+      expect(Math.abs(box.y - header.y), 'y').toBeLessThanOrEqual(1);
+      expect(Math.abs(box.width - header.width), 'width').toBeLessThanOrEqual(1);
+      expect(Math.abs(box.height - header.height), 'height').toBeLessThanOrEqual(1);
+    }).toPass({ timeout: 3000 });
+
+    await burger.click();
+    expect(await drawer(widget).evaluate(el => el.hasAttribute('open'))).toBe(false);
+    // Folding the drawer away leaves the panel open, not closed.
+    await expect(widget.locator('.chat-panel')).toBeVisible();
+  });
+
+  test('search finds a chat by its message text, with an excerpt (#659)', async ({ page }) => {
+    await openChat(page);
+    await seedConversations(page, [
+      { title: 'Bloods panel', messages: [{ role: 'user', content: 'ferritin came back at 40' }] },
+      { title: 'Sleep notes', messages: [{ role: 'assistant', content: 'try magnesium before bed' }] },
+      { title: 'Peptide cycle', messages: [{ role: 'user', content: 'week three today' }] },
+    ]);
+    await page.reload();
+    const widget = await openChat(page);
+
+    const searchCalls = [];
+    page.on('request', (r) => {
+      if (!r.url().includes('/api/conversations/search')) return;
+      searchCalls.push({ method: r.method(), url: r.url(), body: r.postData() });
+    });
+
+    await openDrawer(page, widget);
+    await expect(drawer(widget).locator('.row')).toHaveCount(3);
+
+    await drawer(widget).locator('button[aria-label="Search conversations"]').click();
+    const field = drawer(widget).locator('.search-input');
+    await expect(field).toBeFocused();
+
+    // A term that appears only in the transcript, never in the title.
+    await field.fill('magnesium');
+    await expect(drawer(widget).locator('.row')).toHaveCount(1);
+    await expect(drawer(widget).locator('.row-title')).toHaveText('Sleep notes');
+    await expect(drawer(widget).locator('.row-snippet')).toContainText('magnesium before bed');
+
+    await field.fill('bloods');
+    await expect(drawer(widget).locator('.row-title')).toHaveText('Bloods panel');
+    await expect(drawer(widget).locator('.row-snippet')).toHaveCount(0, 'a title hit needs no excerpt');
+
+    await field.fill('nothing in here matches');
+    await expect(drawer(widget).locator('.row')).toHaveCount(0);
+    await expect(drawer(widget).locator('.empty')).toContainText('No chats match');
+
+    await field.fill('');
+    await expect(drawer(widget).locator('.row')).toHaveCount(3);
+
+    // The needle is chat text, so it must ride in the body and never in a URL
+    // a proxy would log.
+    expect(searchCalls.length).toBeGreaterThan(0);
+    expect(searchCalls.every(c => c.method === 'POST')).toBe(true);
+    expect(searchCalls.some(c => (c.body || '').includes('magnesium'))).toBe(true);
+    expect(searchCalls.some(c => c.url.includes('magnesium'))).toBe(false);
+  });
+
+  test('Escape clears the search term before it closes anything (#659)', async ({ page }) => {
+    await openChat(page);
+    await seedConversations(page, [
+      { title: 'Bloods panel', messages: [{ role: 'user', content: 'ferritin came back at 40' }] },
+      { title: 'Sleep notes', messages: [{ role: 'assistant', content: 'try magnesium before bed' }] },
+    ]);
+    await page.reload();
+    const widget = await openChat(page);
+
+    await openDrawer(page, widget);
+    await drawer(widget).locator('button[aria-label="Search conversations"]').click();
+    const field = drawer(widget).locator('.search-input');
+    await field.fill('magnesium');
+    await expect(drawer(widget).locator('.row')).toHaveCount(1);
+
+    // First press: the term goes, the field and the drawer stay.
+    await field.press('Escape');
+    await expect(drawer(widget).locator('.row')).toHaveCount(2);
+    await expect(field).toHaveValue('');
+    expect(await drawer(widget).evaluate(el => el.hasAttribute('open'))).toBe(true);
+
+    // Second press: the field goes, the drawer stays.
+    await field.press('Escape');
+    await expect(drawer(widget).locator('.search-input')).toHaveCount(0);
+    await expect(drawer(widget).locator('.head-label')).toBeVisible();
+    expect(await drawer(widget).evaluate(el => el.hasAttribute('open'))).toBe(true);
+
+    // Third press: now the drawer goes, and the panel survives it.
+    await page.keyboard.press('Escape');
+    expect(await drawer(widget).evaluate(el => el.hasAttribute('open'))).toBe(false);
+    await expect(widget.locator('.chat-panel')).toBeVisible();
+  });
+
   test('rename is inline and lands on the server', async ({ page }) => {
     await openChat(page);
     await seedConversations(page, [
