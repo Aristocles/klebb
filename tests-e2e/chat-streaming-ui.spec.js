@@ -32,7 +32,6 @@ async function openChat(page) {
 }
 
 async function newChat(widget) {
-  await widget.locator('button[aria-label="Conversations"]').click();
   await widget.locator('button[aria-label="New chat"]').click();
   await expect(widget.locator('.msg.user')).toHaveCount(0);
 }
