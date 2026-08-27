@@ -204,6 +204,11 @@ const KLEBB_CLOUD = process.env.KLEBB_CLOUD === '1';
 // default, which disables the admin endpoints entirely (self-host default).
 const KLEBB_ADMIN_TOKEN = process.env.KLEBB_ADMIN_TOKEN || null;
 
+// The source revision this build was cut from, stamped into the image by the
+// publish workflow (Dockerfile ARG -> ENV). Null on a local build; served by
+// /api/admin/info so a fleet dashboard can tell what an instance is running.
+const SOURCE_COMMIT = process.env.SOURCE_COMMIT || null;
+
 // --- Reports ---
 // How many ingested reports an instance may hold. Every uploaded report is
 // one gateway comprehension call and one entry in the chat system prompt
@@ -729,6 +734,7 @@ module.exports = {
   DEMO_USER_ID,
   KLEBB_CLOUD,
   KLEBB_ADMIN_TOKEN,
+  SOURCE_COMMIT,
   REPORTS_MAX,
   IMPORT_MAX_TREE_MB,
   IMPORT_MAX_FILE_MB,

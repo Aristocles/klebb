@@ -6,6 +6,8 @@
 // with the per-instance KLEBB_ADMIN_TOKEN bearer to help a customer's own
 // instance. Scope is deliberately narrow (least privilege):
 //   - GET  /api/admin/health       — readiness + effective config snapshot
+//   - GET  /api/admin/info         — meta-only operational snapshot (version,
+//                                     counts, sizes, timestamps; no data)
 //   - GET  /api/admin/credentials  — list passkeys (read-only)
 //   - POST /api/admin/invites      — mint a register invite; returns the
 //                                     /register?code= URL to email
@@ -15,9 +17,14 @@
 // compromised control plane can enrol a visible new device but can never
 // lock the customer out.
 
+const fs = require('fs');
 const ENV = require('../config/env');
+const PATHS = require('../config/paths');
 const invites = require('./invites');
 const webauthn = require('./webauthn');
+const registry = require('../manifests/registry');
+const haeDiagnostics = require('../health-auto-export/diagnostics');
+const APP_VERSION = require('../package.json').version;
 const feedback = require('../lib/feedback');
 
 function readBody(req) {
@@ -71,6 +78,27 @@ async function handleAdminRoutes(req, res, pathname) {
       rpId: ENV.WEBAUTHN_RP_ID,
       origin: ENV.WEBAUTHN_ORIGIN,
       credentialCount: webauthn.countCredentials(creds),
+    });
+    return true;
+  }
+
+  // GET /api/admin/info — meta-only operational snapshot for a hosting
+  // dashboard. Everything here is ABOUT the instance, never FROM it: counts,
+  // sizes and timestamps only. The last-push diagnostic also carries
+  // subscriber card ids and warnings; those are deliberately not served.
+  if (pathname === '/api/admin/info' && req.method === 'GET') {
+    let dbSizeBytes = null;
+    try { dbSizeBytes = fs.statSync(PATHS.DB_FILE).size; } catch {}
+    const lastPush = haeDiagnostics.readLastPush();
+    sendJSON({
+      appVersion: APP_VERSION,
+      commit: ENV.SOURCE_COMMIT,
+      cardCount: registry.list().length,
+      cardErrorCount: registry.errors().length,
+      dbSizeBytes,
+      lastHaePushAt: lastPush?.receivedAt ?? null,
+      lastHaePayloadBytes: lastPush?.payloadBytes ?? null,
+      uptimeSeconds: Math.floor(process.uptime()),
     });
     return true;
   }

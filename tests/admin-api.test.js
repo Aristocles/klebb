@@ -30,6 +30,7 @@ describe('admin API shape pins (#479)', () => {
   test('every admin route 401s without the bearer', async () => {
     for (const [method, path] of [
       ['GET', '/api/admin/health'],
+      ['GET', '/api/admin/info'],
       ['GET', '/api/admin/credentials'],
       ['POST', '/api/admin/invites'],
       ['GET', '/api/admin/feedback'],
@@ -53,6 +54,54 @@ describe('admin API shape pins (#479)', () => {
     assert.equal(r.json.rpId, '127.0.0.1');
     assert.equal(r.json.origin, srv.baseUrl);
     assert.equal(r.json.credentialCount, 1);
+  });
+
+  test('GET /api/admin/info is meta-only with an exact key set (#662)', async () => {
+    const r = await req(srv.baseUrl, '/api/admin/info', { headers: admin });
+    assert.equal(r.status, 200);
+    // Exact keys: consumers pin this shape downstream, so even an ADDITIVE
+    // field must be a deliberate act in three repos, not a drive-by.
+    assert.deepEqual(Object.keys(r.json).sort(), [
+      'appVersion', 'cardCount', 'cardErrorCount', 'commit',
+      'dbSizeBytes', 'lastHaePayloadBytes', 'lastHaePushAt', 'uptimeSeconds',
+    ]);
+    assert.equal(r.json.appVersion, require('../package.json').version);
+    assert.equal(r.json.commit, null, 'no SOURCE_COMMIT on a local build');
+    assert.equal(typeof r.json.cardCount, 'number');
+    assert.equal(r.json.cardErrorCount, 0);
+    assert.ok(Number.isFinite(r.json.uptimeSeconds) && r.json.uptimeSeconds >= 0);
+    // A fresh sandbox has a datastore (init creates it) but no HAE push yet:
+    // the empty states are nulls, never errors.
+    assert.ok(r.json.dbSizeBytes === null || r.json.dbSizeBytes > 0);
+    assert.equal(r.json.lastHaePushAt, null);
+    assert.equal(r.json.lastHaePayloadBytes, null);
+    // Meta-only means about the instance, never from it: nothing resembling
+    // a card id, metric name or subscriber list may ride along.
+    const flat = JSON.stringify(r.json);
+    for (const needle of ['subscribers', 'warnings', 'metric', 'meta']) {
+      assert.ok(!flat.includes(needle), `info response must not carry ${needle}`);
+    }
+  });
+
+  test('GET /api/admin/info reflects an HAE push without serving its contents', async () => {
+    // Simulate what the ingest route records: the diagnostic carries
+    // subscriber card ids, and only the timestamp + size may surface.
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const dir = path.join(sandbox, 'data', 'auto-export');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'last-push.json'), JSON.stringify({
+      receivedAt: '2026-08-27T00:00:00.000Z', payloadBytes: 48213,
+      subscribers: [{ id: 'secret-card-name', metric: 'heart_rate' }],
+      availableUnsubscribed: ['sleep_analysis'], warnings: [],
+    }));
+    const r = await req(srv.baseUrl, '/api/admin/info', { headers: admin });
+    assert.equal(r.json.lastHaePushAt, '2026-08-27T00:00:00.000Z');
+    assert.equal(r.json.lastHaePayloadBytes, 48213);
+    const flat = JSON.stringify(r.json);
+    assert.ok(!flat.includes('secret-card-name'), 'subscriber card ids never surface');
+    assert.ok(!flat.includes('heart_rate'), 'metric names never surface');
+    assert.ok(!flat.includes('sleep_analysis'), 'available metrics never surface');
   });
 
   test('GET /api/admin/credentials lists safe fields only', async () => {
