@@ -101,6 +101,11 @@ RUN mkdir -p /data && chown klebb:klebb /data
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh
 
+# The source revision this build was cut from (publish workflow passes the
+# sha). Served by /api/admin/info; empty on a local build.
+ARG SOURCE_COMMIT=
+ENV SOURCE_COMMIT=${SOURCE_COMMIT}
+
 # Runtime config
 ENV NODE_ENV=production \
     PORT=10002 \

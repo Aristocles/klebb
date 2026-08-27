@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **`GET /api/admin/info`: a meta-only operational snapshot on the
+  control-plane API.** A hosting dashboard could ask whether an instance was
+  up (`/api/admin/health`) but nothing about what it was running: version,
+  build commit, card and card-error counts, datastore size, last ingest push
+  time and size, uptime. All of it is about the instance, never from it (no
+  card ids, no metric names, no data rows), behind the same admin bearer as
+  the rest of the surface. The publish workflow now stamps the source
+  revision into the image (`SOURCE_COMMIT`) so `commit` is answerable;
+  local builds serve `null`.
+
 - **Search across every chat, from the conversation drawer.** The drawer lists
   up to 100 conversations and their titles are usually model-generated, so
   finding the chat where you said something meant scrolling and guessing. The
