@@ -324,6 +324,13 @@ The control plane calls these server-to-server with
   match the customer's subdomain before emailing a register link (a
   wrong RP_ID silently produces unusable passkeys); `setup` flips to
   true once the first passkey is registered.
+- `GET /api/admin/info` returns a meta-only operational snapshot:
+  `{ appVersion, commit, cardCount, cardErrorCount, dbSizeBytes,
+  lastHaePushAt, lastHaePayloadBytes, uptimeSeconds }`. Counts, sizes
+  and timestamps about the instance, never values from it (no card ids,
+  no metric names). `commit` is the build's source revision, stamped by
+  the publish workflow; `null` on a local build. `dbSizeBytes` and the
+  two HAE fields are `null` before the datastore/first push exist.
 - `GET /api/admin/credentials` lists the instance's passkeys (read-only,
   no public keys).
 - `POST /api/admin/invites` (body `{ "label": "...", "expiresInDays": 3 }`)
