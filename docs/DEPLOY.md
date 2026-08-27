@@ -326,7 +326,11 @@ The control plane calls these server-to-server with
   true once the first passkey is registered.
 - `GET /api/admin/info` returns a meta-only operational snapshot:
   `{ appVersion, commit, cardCount, cardErrorCount, dbSizeBytes,
-  lastHaePushAt, lastHaePayloadBytes, uptimeSeconds }`. Counts, sizes
+  lastHaePushAt, lastHaePayloadBytes, lastActiveAt, activeDays7,
+  uptimeSeconds }`. `lastActiveAt`/`activeDays7` describe user
+  interaction (session-authenticated shell loads and non-GET API calls;
+  never agent, admin-API, ingest or polled GET traffic), bucketed by UTC
+  day over a trailing 7-day window. Counts, sizes
   and timestamps about the instance, never values from it (no card ids,
   no metric names). `commit` is the build's source revision, stamped by
   the publish workflow; `null` on a local build. `dbSizeBytes` and the

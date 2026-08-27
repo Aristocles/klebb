@@ -15,6 +15,7 @@ const ENV = require('./config/env');
 const registry = require('./manifests/registry');
 const { convertDateKeyedToArray } = require('./scripts/migrate-date-keyed-to-array');
 const { runFirstBoot } = require('./server/first-boot');
+const activity = require('./lib/activity-state');
 const { listTemplates, listPrompts, instantiateTemplate } = require('./server/content');
 const voice = require('./voice/fish');
 const voiceCache = require('./voice/cache');
@@ -837,6 +838,20 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(302, { 'Location': redirect });
     res.end();
     return;
+  }
+
+  // A live session record = a person. Deliberately NOT isAuthenticated():
+  // that is true for agent bearers (tooling) and for pre-setup instances
+  // (everything passes before the first passkey), and neither is a user
+  // interacting. Ingest and admin-API traffic never reach this line, and the
+  // recorder itself drops GET API calls (components poll; an open tab is not
+  // a person).
+  // The cheap filter runs first: readSession writes lastSeen back to disk,
+  // and paying that for every asset GET would be write amplification for a
+  // signal that ignores asset GETs anyway.
+  if ((req.method !== 'GET' || pathname === '/' || pathname === '/index.html')
+      && getSessionRecord(req)) {
+    activity.record(req.method, pathname);
   }
 
   // If setup is not done, redirect non-setup pages to setup. Skipped in demo
@@ -2993,6 +3008,7 @@ server.listen(PORT, HOST, async () => {
 // skips a checkpoint, so anything that throws is logged and we still exit.
 function _shutdown() {
   try { notificationsScheduler.stop(); } catch {}
+  try { activity.flush(); } catch { /* coarse signal; losing a minute is fine */ }
   try { registry.closeStore(); } catch (e) {
     console.warn('[shutdown] datastore close failed:', e.message);
   }

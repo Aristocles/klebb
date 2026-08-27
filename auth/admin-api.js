@@ -24,6 +24,7 @@ const invites = require('./invites');
 const webauthn = require('./webauthn');
 const registry = require('../manifests/registry');
 const haeDiagnostics = require('../health-auto-export/diagnostics');
+const activity = require('../lib/activity-state');
 const APP_VERSION = require('../package.json').version;
 const feedback = require('../lib/feedback');
 
@@ -90,6 +91,7 @@ async function handleAdminRoutes(req, res, pathname) {
     let dbSizeBytes = null;
     try { dbSizeBytes = fs.statSync(PATHS.DB_FILE).size; } catch {}
     const lastPush = haeDiagnostics.readLastPush();
+    const act = activity.summary();
     sendJSON({
       appVersion: APP_VERSION,
       commit: ENV.SOURCE_COMMIT,
@@ -98,6 +100,8 @@ async function handleAdminRoutes(req, res, pathname) {
       dbSizeBytes,
       lastHaePushAt: lastPush?.receivedAt ?? null,
       lastHaePayloadBytes: lastPush?.payloadBytes ?? null,
+      lastActiveAt: act.lastActiveAt,
+      activeDays7: act.activeDays7,
       uptimeSeconds: Math.floor(process.uptime()),
     });
     return true;

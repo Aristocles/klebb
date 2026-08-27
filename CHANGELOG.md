@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- **Activity signal on the control-plane admin API.** `GET /api/admin/info`
+  now carries `lastActiveAt` and `activeDays7`: when a person last interacted
+  with the instance and on how many of the trailing seven days they did at
+  all. Interaction is deliberately narrow: session-authenticated shell loads
+  and non-GET API calls, so agent tooling, the admin API itself, ingest
+  pushes and polled GETs (an open tab) never count. Tracked in a small
+  sidecar under `data/_meta/`, flushed at most once a minute and on
+  shutdown.
+
 - **`GET /api/admin/info`: a meta-only operational snapshot on the
   control-plane API.** A hosting dashboard could ask whether an instance was
   up (`/api/admin/health`) but nothing about what it was running: version,
