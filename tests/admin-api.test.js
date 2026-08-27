@@ -23,7 +23,7 @@ describe('admin API shape pins (#479)', () => {
     const auth = fakeAuthState('customer');
     userCookie = auth.cookie;
     sandbox = createSandbox({ credentials: auth.credentials, sessions: auth.sessions });
-    srv = await spawnServer(sandbox, { KLEBB_ADMIN_TOKEN: ADMIN_TOKEN, KLEBB_CLOUD: '1' });
+    srv = await spawnServer(sandbox, { KLEBB_ADMIN_TOKEN: ADMIN_TOKEN, KLEBB_CLOUD: '1', AGENT_API_TOKEN: 'agent-token-664' });
   });
   after(async () => { if (srv) await srv.kill(); cleanupSandbox(sandbox); });
 
@@ -62,8 +62,8 @@ describe('admin API shape pins (#479)', () => {
     // Exact keys: consumers pin this shape downstream, so even an ADDITIVE
     // field must be a deliberate act in three repos, not a drive-by.
     assert.deepEqual(Object.keys(r.json).sort(), [
-      'appVersion', 'cardCount', 'cardErrorCount', 'commit',
-      'dbSizeBytes', 'lastHaePayloadBytes', 'lastHaePushAt', 'uptimeSeconds',
+      'activeDays7', 'appVersion', 'cardCount', 'cardErrorCount', 'commit',
+      'dbSizeBytes', 'lastActiveAt', 'lastHaePayloadBytes', 'lastHaePushAt', 'uptimeSeconds',
     ]);
     assert.equal(r.json.appVersion, require('../package.json').version);
     assert.equal(r.json.commit, null, 'no SOURCE_COMMIT on a local build');
@@ -75,6 +75,8 @@ describe('admin API shape pins (#479)', () => {
     assert.ok(r.json.dbSizeBytes === null || r.json.dbSizeBytes > 0);
     assert.equal(r.json.lastHaePushAt, null);
     assert.equal(r.json.lastHaePayloadBytes, null);
+    assert.equal(r.json.lastActiveAt, null, 'no interaction recorded yet');
+    assert.equal(r.json.activeDays7, 0);
     // Meta-only means about the instance, never from it: nothing resembling
     // a card id, metric name or subscriber list may ride along.
     const flat = JSON.stringify(r.json);
@@ -102,6 +104,36 @@ describe('admin API shape pins (#479)', () => {
     assert.ok(!flat.includes('secret-card-name'), 'subscriber card ids never surface');
     assert.ok(!flat.includes('heart_rate'), 'metric names never surface');
     assert.ok(!flat.includes('sleep_analysis'), 'available metrics never surface');
+  });
+
+  test('activity moves only on the requests that mean a person (#664)', async () => {
+    const info = async () => (await req(srv.baseUrl, '/api/admin/info', { headers: admin })).json;
+
+    // Traffic that must NOT count: a polled session GET, an agent-bearer
+    // write, and the admin API reads themselves (a dashboard must not mark
+    // instances active by looking at them).
+    await req(srv.baseUrl, '/api/manifests', { headers: { Cookie: userCookie } });
+    await req(srv.baseUrl, '/api/manifests', {
+      method: 'POST', headers: { 'Authorization': 'Bearer agent-token-664' },
+      body: { $schema: 'klebb.datafile.v1', meta: { id: 'agentcard', label: 'A', view: { enabled: true, component: 'generic-card' } } },
+    });
+    const before2 = await info();
+    assert.equal(before2.lastActiveAt, null,
+      'a session GET poll, an agent write and admin reads left no trace');
+
+    await req(srv.baseUrl, '/', { headers: { Cookie: userCookie } });
+    const after = await info();
+    assert.ok(after.lastActiveAt, 'loading the app shell is a person');
+    assert.equal(after.activeDays7, 1);
+
+    await new Promise(r2 => setTimeout(r2, 5));
+    await req(srv.baseUrl, '/api/manifests', {
+      method: 'POST', headers: { Cookie: userCookie },
+      body: { $schema: 'klebb.datafile.v1', meta: { id: 'humancard', label: 'H', view: { enabled: true, component: 'generic-card' } } },
+    });
+    const later = await info();
+    assert.ok(Date.parse(later.lastActiveAt) >= Date.parse(after.lastActiveAt));
+    assert.equal(later.activeDays7, 1, 'same day, still one day');
   });
 
   test('GET /api/admin/credentials lists safe fields only', async () => {
