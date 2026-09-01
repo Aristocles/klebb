@@ -240,6 +240,34 @@ describe('import wizard', { skip }, () => {
       'the snapshot carries restorable auto-export content and rollback brings it back');
   });
 
+  test('a snapshot failure fails the pipeline before the wipe, strict flag passed (#672)', async () => {
+    // A samples-export failure during the snapshot must fail HERE, target
+    // untouched; swallowed, it would produce a snapshot that validates
+    // clean with zero history, and a later rollback would destroy the last
+    // copy and report done.
+    const home = newHome();
+    gen = targetGen(seedHome(home, populatedSeed()));
+    let strictSeen = null;
+    const deps = {
+      ...gen.deps,
+      exportTo: (dir, opts) => {
+        strictSeen = !!(opts && opts.strict);
+        throw new Error('snapshot boom');
+      },
+    };
+    const wizard = gen.wizardMod.createWizard(deps);
+    await wizard.startFromTree(tree);
+    const res = await applySettled(wizard, { nonce: wizard.status().confirmNonce });
+
+    assert.strictEqual(res.state, 'failed');
+    assert.strictEqual(strictSeen, true, 'the snapshot call must ask for strict export');
+    assert.ok(res.findings.some(f => f.code === 'APPLY_ERROR' && /snapshot boom/.test(f.message)),
+      JSON.stringify(res.findings, null, 2));
+    assert.strictEqual(res.stage, 'snapshot', 'the failure must land at the snapshot stage');
+    assert.ok(gen.registry.get('old'), 'the target must be exactly as it was: nothing wiped');
+    assert.strictEqual(gen.freeze.frozen(), null, 'freeze released on the failure path');
+  });
+
   test('verify failure: failed with findings, backups kept, rollback restores pre-import state deep-equal', async () => {
     const home = newHome();
     gen = targetGen(seedHome(home, { ...populatedSeed(), config: { mine: true } }));

@@ -136,6 +136,33 @@ describe('exportTo in-process', { skip }, () => {
     assert.strictEqual(streamed, whole);
   });
 
+  test('strict: a samples-export failure propagates instead of shipping a history-less tree (#672)', () => {
+    // The rollback snapshot uses strict: a snapshot that validates clean
+    // while silently holding no history would let a later rollback wipe the
+    // last copy and report done. Non-strict (the portable-export CLI) keeps
+    // the old warn-and-continue posture.
+    const realStream = samples.exportPushesStream;
+    samples.exportPushesStream = function* () {
+      yield { receivedAt: 't', payload: { data: {} } };
+      throw new Error('mid-stream boom');
+    };
+    try {
+      const target = newTarget();
+      assert.throws(() => exportTo(target, { strict: true }), /mid-stream boom/);
+      assert.ok(!fs.existsSync(path.join(target, 'data', 'auto-export', 'samples.json')),
+        'a strict failure must not leave a partial samples.json either');
+
+      const soft = newTarget();
+      const res = exportTo(soft);
+      assert.equal(res.counts.haePushes, 0);
+      assert.ok(!fs.existsSync(path.join(soft, 'data', 'auto-export', 'samples.json')));
+      assert.ok(fs.existsSync(path.join(soft, 'klebb-export.json')),
+        'non-strict still ships a usable (if history-less) tree');
+    } finally {
+      samples.exportPushesStream = realStream;
+    }
+  });
+
   test('no pushes means no samples file and no empty auto-export dir', () => {
     samples.wipeAll();
     const target = newTarget();

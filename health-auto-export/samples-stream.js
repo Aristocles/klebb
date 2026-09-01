@@ -245,6 +245,10 @@ async function* streamPushes(file, opts = {}) {
         }
 
         if (mode === 'key') {
+          // The one accumulator a hostile header could otherwise grow
+          // without bound: values are capped, so the key must be too (#672).
+          // No real header key comes near this.
+          if (key.length >= HEADER_CAP) throw invalid(`header key exceeds ${HEADER_CAP} characters`);
           if (keyEscape) { key += c; keyEscape = false; continue; }
           if (c === '\\') { keyEscape = true; continue; }
           if (c === '"') { mode = 'colon'; continue; }
