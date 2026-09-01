@@ -9,6 +9,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Large history drains are no longer quadratic.** Each recorded push
+  counts its first-sighting rows to report novelty, and that count scanned
+  the whole samples table per push: most of a big restore's visible
+  progress time was this one query. A `first_push` index (built
+  automatically at first open, like the export index) makes it an
+  index-only count, with the access path pinned by a query-plan test.
+
 - **Import validation no longer reads the history file whole.** The first
   real-sized restore into a memory-capped instance was OOM-killed inside
   `POST /api/import/start`: the samples drain had streamed since the
