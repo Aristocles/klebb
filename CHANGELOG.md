@@ -9,6 +9,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Import/export hardening on the recovery paths.** A samples-export
+  failure during the rollback snapshot now fails the import pipeline at
+  the snapshot stage, before the wipe, instead of producing a snapshot
+  that validates clean while silently holding no history. The stale
+  export-staging sweep is age-gated (only reclaims hour-old orphans), so
+  it can no longer delete a hosting control plane's in-flight staging in
+  the same directory. The streamed header scanner caps header keys the
+  way it already capped values, closing the one buffer a hostile archive
+  could still grow. The wipe's spared raw-archive list is directories
+  only, matching the export's skips exactly, and the zip writer refuses
+  loudly if a spilled entry's body disagrees with the sizes already
+  written into its header.
+
 - **Large history drains are no longer quadratic.** Each recorded push
   counts its first-sighting rows to report novelty, and that count scanned
   the whole samples table per push: most of a big restore's visible

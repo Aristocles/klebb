@@ -339,6 +339,11 @@ function exportTo(targetDir, opts = {}) {
         // whole-array path wrote nothing on error, and a torn samples.json
         // would refuse validation at import.
         try { fs.rmSync(to, { force: true }); } catch {}
+        // Strict callers (the rollback snapshot) fail here instead: a
+        // snapshot that looks complete while silently holding no history
+        // would let a later rollback wipe the last copy and report done
+        // (#672). Failing before the wipe loses nothing.
+        if (opts.strict) throw e;
         console.warn(`  ! HAE sample history not exported: ${e.message}`);
       }
     }
