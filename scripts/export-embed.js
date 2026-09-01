@@ -41,6 +41,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { decompose } = require('../lib/datastore/shape');
+const { rawArchiveDirs } = require('../health-auto-export/raw-archives');
 
 const BACKUP_NAME_RE = /\.json\.[^/\\]+\.json$/i;
 const MANIFEST_NAME = 'klebb-export.json';
@@ -237,19 +238,10 @@ function exportTo(targetDir, opts = {}) {
     const inventory = { cards: [], samples: null, reports: [], other: [] };
     const rel = file => path.relative(target, file).split(path.sep).join('/');
     const fileEntry = file => ({ file: rel(file), sha256: sha256(file) });
-    const skipDirs = new Set();
-    // A pre-#546 tree may still hold the old file archive, and a moved-aside copy
-    // from the migration. Neither is exported: the samples table is the history
-    // now, and copying hundreds of MB of superseded duplicates into a customer's
-    // archive would be worse than useless.
-    skipDirs.add(path.join(PATHS.AUTO_EXPORT_DIR, 'raw'));
-    if (fs.existsSync(PATHS.AUTO_EXPORT_DIR)) {
-      for (const name of fs.readdirSync(PATHS.AUTO_EXPORT_DIR)) {
-        if (name.startsWith('raw.migrated-')) {
-          skipDirs.add(path.join(PATHS.AUTO_EXPORT_DIR, name));
-        }
-      }
-    }
+    // The shared list (health-auto-export/raw-archives.js) keeps these
+    // skips in lockstep with the import wipe's spares: a dir the export
+    // leaves out is a dir the wipe must not destroy (#656).
+    const skipDirs = new Set(rawArchiveDirs(PATHS.AUTO_EXPORT_DIR));
 
     for (const ent of fs.readdirSync(PATHS.DATA_DIR, { withFileTypes: true })) {
       const from = path.join(PATHS.DATA_DIR, ent.name);
