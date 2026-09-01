@@ -203,6 +203,43 @@ describe('import wizard', { skip }, () => {
     assert.deepStrictEqual(norm(snapCard.data), norm(OLD_ROWS));
   });
 
+  test('the wipe spares the raw archives nothing else can restore (#656)', async () => {
+    // auto-export/raw and raw.migrated-* are excluded from every export and
+    // therefore from the rollback snapshot too: destroying them at wipe
+    // time loses the only copy. Everything else under auto-export/ is
+    // restorable from the archive and must still go.
+    const home = newHome();
+    gen = targetGen(seedHome(home, populatedSeed()));
+    const rawDir = path.join(home, 'data', 'auto-export', 'raw');
+    const migratedDir = path.join(home, 'data', 'auto-export', 'raw.migrated-20260810T000000000Z');
+    fs.mkdirSync(rawDir, { recursive: true });
+    fs.mkdirSync(migratedDir, { recursive: true });
+    fs.writeFileSync(path.join(rawDir, 'push-1.json'), '{"data":{"metrics":[]}}');
+    fs.writeFileSync(path.join(migratedDir, 'old.json'), '{"kept":true}');
+    fs.writeFileSync(path.join(home, 'data', 'auto-export', 'stray.json'), '{}');
+
+    const wizard = gen.wizardMod.createWizard(gen.deps);
+    await wizard.startFromTree(tree);
+    const res = await applySettled(wizard, { nonce: wizard.status().confirmNonce });
+    assert.strictEqual(res.state, 'done', JSON.stringify(res.findings, null, 2));
+
+    assert.strictEqual(fs.readFileSync(path.join(rawDir, 'push-1.json'), 'utf8'),
+      '{"data":{"metrics":[]}}', 'the raw archive must survive the wipe');
+    assert.strictEqual(fs.readFileSync(path.join(migratedDir, 'old.json'), 'utf8'), '{"kept":true}');
+    assert.ok(!fs.existsSync(path.join(home, 'data', 'auto-export', 'stray.json')),
+      'restorable auto-export content must still be wiped');
+
+    // The rollback is a second full wipe + snapshot restore: same spares.
+    // stray.json comes back BY the restore (the snapshot holds pre-import
+    // state); the raw archives survive despite being in no snapshot.
+    const rolled = await rollbackSettled(wizard);
+    assert.strictEqual(rolled.state, 'done', JSON.stringify(rolled.findings, null, 2));
+    assert.ok(fs.existsSync(path.join(rawDir, 'push-1.json')), 'rollback must spare the raw archive');
+    assert.ok(fs.existsSync(path.join(migratedDir, 'old.json')));
+    assert.ok(fs.existsSync(path.join(home, 'data', 'auto-export', 'stray.json')),
+      'the snapshot carries restorable auto-export content and rollback brings it back');
+  });
+
   test('verify failure: failed with findings, backups kept, rollback restores pre-import state deep-equal', async () => {
     const home = newHome();
     gen = targetGen(seedHome(home, { ...populatedSeed(), config: { mine: true } }));

@@ -16,6 +16,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   automatically at first open, like the export index) makes it an
   index-only count, with the access path pinned by a query-plan test.
 
+- **The import wipe no longer destroys the raw push archives.** The wipe
+  removes every directory under `data/`, but `auto-export/raw` and
+  `auto-export/raw.migrated-*` are deliberately excluded from every
+  export, and the rollback snapshot inherits the same exclusions, so an
+  import apply (or retry, or rollback) destroyed the only copy with
+  nothing able to restore it. The exclusion list now lives in one shared
+  module consumed by both the export's skips and the wipe's spares, so
+  the two cannot drift; everything else under `auto-export/` is still
+  wiped and restored as before.
+
 - **Import validation no longer reads the history file whole.** The first
   real-sized restore into a memory-capped instance was OOM-killed inside
   `POST /api/import/start`: the samples drain had streamed since the
