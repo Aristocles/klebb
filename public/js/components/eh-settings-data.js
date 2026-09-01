@@ -34,6 +34,7 @@ const POLL_INTERVAL_MS = 1500;
 const MAX_POLL_FAILURES = 10;
 
 const STAGE_LABELS = {
+  freeze: 'Checking the archive',
   snapshot: 'Saving a rollback snapshot',
   wipe: 'Clearing this instance',
   copy: 'Copying the archive in',

@@ -286,7 +286,7 @@ async function handleStart(req, res) {
   }
   fs.rmSync(zipPath, { force: true });
 
-  const started = wizard().startFromTree(staging);
+  const started = await wizard().startFromTree(staging);
   if (started.code === 'JOB_ACTIVE') {
     // Lost the (in-process) race with another start: the tree just staged
     // belongs to no job, so it must not linger.
@@ -300,7 +300,7 @@ async function handleStart(req, res) {
   return true;
 }
 
-function handleScanTree(req, res) {
+async function handleScanTree(req, res) {
   const treeDir = path.join(PATHS.IMPORT_DIR, 'tree');
   let st = null;
   try { st = fs.statSync(treeDir); } catch {}
@@ -308,7 +308,7 @@ function handleScanTree(req, res) {
     send(res, 404, { error: `no extracted tree at ${treeDir}` });
     return true;
   }
-  const started = wizard().startFromTree(treeDir);
+  const started = await wizard().startFromTree(treeDir);
   if (started.code === 'JOB_ACTIVE') {
     send(res, 409, started);
     return true;

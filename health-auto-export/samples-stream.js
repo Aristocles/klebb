@@ -16,7 +16,11 @@
 // bracket depth (so nested arrays/objects stay inside their push). Each
 // element is then genuinely JSON.parse'd, so a malformed push is caught.
 // Header values other than pushes (version etc) are balance-checked and
-// skipped, not re-parsed.
+// skipped, not re-parsed. A caller that needs a header value (the import
+// validator gates on version, #639) passes opts.onHeader(key, value):
+// value is { kind: 'scalar' | 'string', text } with text re-parseable as
+// JSON, or { kind: 'complex' } for objects, arrays, and anything over the
+// capture cap, so a hostile header can never be buffered whole.
 //
 // Errors carry a code the drain dispatches on:
 //   SAMPLES_STREAM_NO_PUSHES  valid-looking JSON with no pushes[] array
@@ -31,6 +35,7 @@ const fsp = require('fs/promises');
 const { StringDecoder } = require('string_decoder');
 
 const CHUNK_SIZE = 64 * 1024;
+const HEADER_CAP = 256;
 
 // A top-level scalar (valid JSON, but nothing to stream) must report
 // NO_PUSHES like the old whole-file parse did, which needs a real parse. A
@@ -79,6 +84,37 @@ async function* streamPushes(file, opts = {}) {
   let scalarLen = 0;
   let pos = 0;
   let ordinal = 0;
+
+  const capture = typeof opts.onHeader === 'function';
+  let hdrKey = null;
+  let hdrParts = null;
+  let hdrLen = 0;
+  let hdrOver = false;
+  const beginHeader = (over) => {
+    if (!capture) return;
+    hdrKey = key;
+    hdrOver = over;
+    hdrParts = over ? null : [];
+    hdrLen = 0;
+  };
+  const hdrPush = (s) => {
+    if (!capture || hdrOver) return;
+    hdrLen += s.length;
+    if (hdrLen > HEADER_CAP) { hdrOver = true; hdrParts = null; return; }
+    hdrParts.push(s);
+  };
+  const emitHeader = (kind) => {
+    if (!capture || hdrKey === null) return;
+    const value = hdrOver
+      ? { kind: 'complex' }
+      : kind === 'string'
+        ? { kind, text: `"${hdrParts.join('')}"` }
+        : { kind, text: hdrParts.join('').trim() };
+    const k = hdrKey;
+    hdrKey = null;
+    hdrParts = null;
+    opts.onHeader(k, value);
+  };
 
   try {
     for (;;) {
@@ -159,26 +195,30 @@ async function* streamPushes(file, opts = {}) {
           else if (c === '{' || c === '[') skipDepth += 1;
           else if (c === '}' || c === ']') {
             skipDepth -= 1;
-            if (skipDepth === 0) mode = 'after-value';
+            if (skipDepth === 0) { emitHeader('complex'); mode = 'after-value'; }
             else if (skipDepth < 0) throw invalid(`unbalanced "${c}" at character ${pos}`);
           }
           continue;
         }
 
         if (mode === 'skip-string') {
-          if (escape) escape = false;
-          else if (c === '\\') escape = true;
-          else if (c === '"') mode = 'after-value';
+          if (escape) { escape = false; hdrPush(c); continue; }
+          if (c === '\\') { escape = true; hdrPush(c); continue; }
+          if (c === '"') { emitHeader('string'); mode = 'after-value'; continue; }
+          hdrPush(c);
           continue;
         }
 
         if (mode === 'skip-scalar') {
-          if (isWs(c)) { mode = 'after-value'; continue; }
-          if (c === ',') { mode = 'header'; continue; }
+          if (isWs(c)) { emitHeader('scalar'); mode = 'after-value'; continue; }
+          if (c === ',') { emitHeader('scalar'); mode = 'header'; continue; }
           if (c === '}') {
+            emitHeader('scalar');
             if (!sawPushes) throw noPushes();
             mode = 'end';
+            continue;
           }
+          hdrPush(c);
           continue;
         }
 
@@ -226,10 +266,10 @@ async function* streamPushes(file, opts = {}) {
             mode = 'elements';
             continue;
           }
-          if (c === '{' || c === '[') { mode = 'skip'; skipDepth = 1; inString = false; escape = false; }
-          else if (c === '"') { mode = 'skip-string'; escape = false; }
+          if (c === '{' || c === '[') { mode = 'skip'; skipDepth = 1; inString = false; escape = false; beginHeader(true); }
+          else if (c === '"') { mode = 'skip-string'; escape = false; beginHeader(false); }
           else if (c === ',' || c === '}' || c === ']') throw invalid(`unexpected "${c}" at character ${pos}`);
-          else mode = 'skip-scalar';
+          else { mode = 'skip-scalar'; beginHeader(false); hdrPush(c); }
           continue;
         }
 

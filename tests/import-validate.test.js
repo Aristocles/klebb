@@ -172,9 +172,9 @@ function sumTreeBytes(root, rel = '') {
 }
 
 describe('validateTree: tree gates', () => {
-  test('VAL_NO_DATA_DIR: refuses a tree without data/', () => {
+  test('VAL_NO_DATA_DIR: refuses a tree without data/', async () => {
     const root = tmpDir('eh-val-');
-    const res = validateTree(root);
+    const res = await validateTree(root);
     const f = one(res, 'VAL_NO_DATA_DIR');
     assert.strictEqual(f.message, 'archive has no data/ directory; not a Klebb export tree');
     assert.strictEqual(f.severity, 'refusal');
@@ -183,34 +183,34 @@ describe('validateTree: tree gates', () => {
     assert.strictEqual(res.ok, false);
   });
 
-  test('VAL_NO_MANIFEST: absent, unparseable, and wrong-format manifests all refuse', () => {
+  test('VAL_NO_MANIFEST: absent, unparseable, and wrong-format manifests all refuse', async () => {
     const message = 'no klebb-export.json manifest: not a Klebb export tree, or an incomplete one; re-export from the source instance';
 
     const absent = makeTree({ cards: { 'a.json': cardBody('a') }, manifest: false });
-    let f = one(validateTree(absent), 'VAL_NO_MANIFEST');
+    let f = one(await validateTree(absent), 'VAL_NO_MANIFEST');
     assert.strictEqual(f.message, message);
     assert.strictEqual(f.severity, 'refusal');
     assert.strictEqual(f.scope, 'tree');
 
     const unparseable = makeTree({ cards: { 'a.json': cardBody('a') }, manifest: false });
     fs.writeFileSync(path.join(unparseable, MANIFEST_NAME), '{ not json');
-    f = one(validateTree(unparseable), 'VAL_NO_MANIFEST');
+    f = one(await validateTree(unparseable), 'VAL_NO_MANIFEST');
     assert.strictEqual(f.message, message);
 
     const wrongFormat = makeTree({
       cards: { 'a.json': cardBody('a') },
       mutateManifest: m => ({ ...m, format: 'klebb.zip.v9' }),
     });
-    f = one(validateTree(wrongFormat), 'VAL_NO_MANIFEST');
+    f = one(await validateTree(wrongFormat), 'VAL_NO_MANIFEST');
     assert.strictEqual(f.message, message);
   });
 
-  test('VAL_FORMAT_NEWER: names both versions', () => {
+  test('VAL_FORMAT_NEWER: names both versions', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('a') },
       mutateManifest: m => ({ ...m, formatVersion: 2 }),
     });
-    const res = validateTree(root);
+    const res = await validateTree(root);
     const f = one(res, 'VAL_FORMAT_NEWER');
     assert.strictEqual(f.message,
       'archive format v2 is newer than this instance supports (v1); update the instance or re-export from a matching version');
@@ -222,9 +222,9 @@ describe('validateTree: tree gates', () => {
 });
 
 describe('validateTree: card checks', () => {
-  test('VAL_BAD_JSON: unparseable card file refuses', () => {
+  test('VAL_BAD_JSON: unparseable card file refuses', async () => {
     const root = makeTree({ cards: { 'a.json': cardBody('a'), 'bad.json': '{ nope' } });
-    const res = validateTree(root);
+    const res = await validateTree(root);
     const f = one(res, 'VAL_BAD_JSON');
     assert.strictEqual(f.message, 'card file is not valid JSON');
     assert.strictEqual(f.severity, 'refusal');
@@ -232,31 +232,31 @@ describe('validateTree: card checks', () => {
     assert.strictEqual(f.ref, 'data/bad.json');
   });
 
-  test('VAL_BAD_CARD: manifest-shape failure refuses with the registry message', () => {
+  test('VAL_BAD_CARD: manifest-shape failure refuses with the registry message', async () => {
     const root = makeTree({
       cards: { 'x.json': { $schema: 'klebb.datafile.v1', meta: { id: 'x' } } },
     });
-    const f = one(validateTree(root), 'VAL_BAD_CARD');
+    const f = one(await validateTree(root), 'VAL_BAD_CARD');
     assert.strictEqual(f.message, 'not a valid card manifest: missing meta.label');
     assert.strictEqual(f.severity, 'refusal');
     assert.strictEqual(f.ref, 'data/x.json');
   });
 
-  test('VAL_SCHEMA_UNSUPPORTED: unknown $schema refuses', () => {
+  test('VAL_SCHEMA_UNSUPPORTED: unknown $schema refuses', async () => {
     const root = makeTree({
       cards: { 'x.json': { $schema: 'klebb.datafile.v2', meta: { id: 'x', label: 'x' } } },
     });
-    const f = one(validateTree(root), 'VAL_SCHEMA_UNSUPPORTED');
+    const f = one(await validateTree(root), 'VAL_SCHEMA_UNSUPPORTED');
     assert.strictEqual(f.message,
       'unsupported $schema "klebb.datafile.v2"; this instance supports klebb.datafile.v1');
     assert.strictEqual(f.severity, 'refusal');
   });
 
-  test('VAL_DUP_ID: names both files; only the first reaches the plan', () => {
+  test('VAL_DUP_ID: names both files; only the first reaches the plan', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('same'), 'b.json': cardBody('same') },
     });
-    const res = validateTree(root);
+    const res = await validateTree(root);
     const f = one(res, 'VAL_DUP_ID');
     assert.strictEqual(f.message,
       'duplicate meta.id "same": data/a.json and data/b.json both declare it; the second would never load or import');
@@ -266,12 +266,12 @@ describe('validateTree: card checks', () => {
       [{ id: 'same', file: 'data/a.json', data: 'none', label: 'same', rows: 0, hae: false }]);
   });
 
-  test('legacy files without a $schema are inert data, not cards', () => {
+  test('legacy files without a $schema are inert data, not cards', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('a') },
       extra: { 'data/legacy.json': JSON.stringify({ rows: [1, 2] }) },
     });
-    const res = validateTree(root);
+    const res = await validateTree(root);
     assert.strictEqual(byCode(res, 'VAL_BAD_CARD').length, 0);
     assert.deepStrictEqual(res.plan.cards,
       [{ id: 'a', file: 'data/a.json', data: 'none', label: 'a', rows: 0, hae: false }]);
@@ -279,7 +279,7 @@ describe('validateTree: card checks', () => {
 });
 
 describe('validateTree: hostile content', () => {
-  test('VAL_FORBIDDEN_FILE: legacy WebAuthn names refuse at any depth under data/', () => {
+  test('VAL_FORBIDDEN_FILE: legacy WebAuthn names refuse at any depth under data/', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('a') },
       extra: {
@@ -287,7 +287,7 @@ describe('validateTree: hostile content', () => {
         'data/nested/webauthn-sessions.json': '{}',
       },
     });
-    const res = validateTree(root);
+    const res = await validateTree(root);
     const found = byCode(res, 'VAL_FORBIDDEN_FILE');
     assert.strictEqual(found.length, 2);
     const creds = found.find(f => f.ref === 'data/webauthn-credentials.json');
@@ -299,13 +299,13 @@ describe('validateTree: hostile content', () => {
     assert.strictEqual(res.ok, false);
   });
 
-  test('VAL_SYMLINK: any symlink in the tree refuses', () => {
+  test('VAL_SYMLINK: any symlink in the tree refuses', async () => {
     const root = makeTree({ cards: { 'a.json': cardBody('a') } });
     fs.mkdirSync(path.join(root, 'linktarget'));
     // A junction on Windows, a directory symlink elsewhere; both read back
     // as symlinks through withFileTypes.
     fs.symlinkSync(path.join(root, 'linktarget'), path.join(root, 'data', 'link'), 'junction');
-    const res = validateTree(root);
+    const res = await validateTree(root);
     const f = one(res, 'VAL_SYMLINK');
     assert.strictEqual(f.message, 'symlink in the archive; an export tree never contains symlinks');
     assert.strictEqual(f.severity, 'refusal');
@@ -315,52 +315,52 @@ describe('validateTree: hostile content', () => {
 });
 
 describe('validateTree: caps', () => {
-  test('VAL_CAP: file count', () => {
+  test('VAL_CAP: file count', async () => {
     const root = makeTree({ cards: { 'a.json': cardBody('a') } });
-    const res = validateTree(root, { caps: { maxFiles: 1 } });
+    const res = await validateTree(root, { caps: { maxFiles: 1 } });
     const f = one(res, 'VAL_CAP');
     assert.strictEqual(f.message, 'tree has 2 files; the cap is 1 (KLEBB_IMPORT_MAX_FILES)');
     assert.strictEqual(f.severity, 'refusal');
     assert.strictEqual(f.scope, 'tree');
   });
 
-  test('VAL_CAP: tree size', () => {
+  test('VAL_CAP: tree size', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('a') },
       extra: { 'data/blob.bin': 'x'.repeat(1048577) },
     });
     const total = sumTreeBytes(root);
-    const res = validateTree(root, { caps: { maxTreeMB: 1, maxFileMB: 64 } });
+    const res = await validateTree(root, { caps: { maxTreeMB: 1, maxFileMB: 64 } });
     const found = byCode(res, 'VAL_CAP');
     assert.strictEqual(found.length, 1);
     assert.strictEqual(found[0].message,
       `tree is ${total} bytes; the cap is 1 MB (KLEBB_IMPORT_MAX_TREE_MB)`);
   });
 
-  test('VAL_CAP: per-file size', () => {
+  test('VAL_CAP: per-file size', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('a') },
       extra: { 'data/blob.bin': 'x'.repeat(1048577) },
     });
-    const res = validateTree(root, { caps: { maxFileMB: 1 } });
+    const res = await validateTree(root, { caps: { maxFileMB: 1 } });
     const f = one(res, 'VAL_CAP');
     assert.strictEqual(f.message,
       'file is 1048577 bytes; the per-file cap is 1 MB (KLEBB_IMPORT_MAX_FILE_MB)');
     assert.strictEqual(f.ref, 'data/blob.bin');
   });
 
-  test('VAL_CAP: rows per card', () => {
+  test('VAL_CAP: rows per card', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('a', { data: [{ n: 1 }, { n: 2 }, { n: 3 }] }) },
     });
-    const res = validateTree(root, { caps: { maxRowsPerCard: 2 } });
+    const res = await validateTree(root, { caps: { maxRowsPerCard: 2 } });
     const f = one(res, 'VAL_CAP');
     assert.strictEqual(f.message,
       'card has 3 data rows; the cap is 2 (KLEBB_IMPORT_MAX_ROWS_PER_CARD)');
     assert.strictEqual(f.scope, 'card');
   });
 
-  test('VAL_CAP: samples pushes', () => {
+  test('VAL_CAP: samples pushes', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('a') },
       samples: {
@@ -368,7 +368,7 @@ describe('validateTree: caps', () => {
         pushes: [{ payload: { data: {} } }, { payload: { data: {} } }],
       },
     });
-    const res = validateTree(root, { caps: { maxPushes: 1 } });
+    const res = await validateTree(root, { caps: { maxPushes: 1 } });
     const f = one(res, 'VAL_CAP');
     assert.strictEqual(f.message,
       'samples.json has 2 pushes; the cap is 1 (KLEBB_IMPORT_MAX_PUSHES)');
@@ -377,7 +377,7 @@ describe('validateTree: caps', () => {
 });
 
 describe('validateTree: round trip', () => {
-  test('VAL_ROUNDTRIP: refuses card data the datastore kernel would corrupt', () => {
+  test('VAL_ROUNDTRIP: refuses card data the datastore kernel would corrupt', async () => {
     // The kernel is lossless for every JSON value, so the guard is
     // exercised by sabotaging reconstruct for a fresh copy of the module.
     const shapePath = require.resolve('../lib/datastore/shape.js');
@@ -390,7 +390,7 @@ describe('validateTree: round trip', () => {
       const root = makeTree({
         cards: { 'a.json': cardBody('a', { data: [{ date: '2026-01-01', kg: 80 }] }) },
       });
-      const res = patched(root);
+      const res = await patched(root);
       const f = one(res, 'VAL_ROUNDTRIP');
       assert.strictEqual(f.message,
         'card data does not survive the datastore decompose/reconstruct round trip; the store would corrupt it');
@@ -403,22 +403,22 @@ describe('validateTree: round trip', () => {
     }
   });
 
-  test('numeric edge cases do not false-refuse: -0 survives JSON normalisation', () => {
+  test('numeric edge cases do not false-refuse: -0 survives JSON normalisation', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('a', { data: [{ date: '2026-01-01', delta: -0 }] }) },
     });
-    const res = validateTree(root);
+    const res = await validateTree(root);
     assert.strictEqual(byCode(res, 'VAL_ROUNDTRIP').length, 0);
     assert.strictEqual(res.ok, true);
   });
 });
 
 describe('validateTree: samples', () => {
-  test('VAL_SAMPLES_SHAPE: pushes not an array, or version not 1, refuses', () => {
+  test('VAL_SAMPLES_SHAPE: pushes not an array, or version not 1, refuses', async () => {
     const message = 'samples.json is not a valid HAE history file; expected an object with a pushes array';
 
     const noPushes = makeTree({ cards: { 'a.json': cardBody('a') }, samples: { version: 1 } });
-    let f = one(validateTree(noPushes), 'VAL_SAMPLES_SHAPE');
+    let f = one(await validateTree(noPushes), 'VAL_SAMPLES_SHAPE');
     assert.strictEqual(f.message, message);
     assert.strictEqual(f.severity, 'refusal');
     assert.strictEqual(f.scope, 'samples');
@@ -428,11 +428,42 @@ describe('validateTree: samples', () => {
       cards: { 'a.json': cardBody('a') },
       samples: { version: 2, pushes: [] },
     });
-    f = one(validateTree(badVersion), 'VAL_SAMPLES_SHAPE');
+    f = one(await validateTree(badVersion), 'VAL_SAMPLES_SHAPE');
     assert.strictEqual(f.message, message);
   });
 
-  test('VAL_SAMPLES_EMPTY_PUSH: warns with the count; plan skips them', () => {
+  test('VAL_SAMPLES_SHAPE: streamed scan preserves every whole-parse refusal (#639)', async () => {
+    // Each of these refused under the old readFileSync + JSON.parse and must
+    // keep refusing now that the scan streams: the legacy bare-array drain
+    // shape, a version that is not the number 1 wherever it sits in the
+    // header (including after the pushes array, which only a streaming
+    // reader could be tempted to skip), and files that do not parse at all.
+    const rawCases = [
+      ['bare array', '[]'],
+      ['version after pushes', '{"pushes":[],"version":2}'],
+      ['string version', '{"version":"1","pushes":[]}'],
+      ['object version', '{"version":{},"pushes":[]}'],
+      ['malformed element', '{"version":1,"pushes":[{"a":}]}'],
+      ['truncated file', '{"version":1,"pushes":['],
+    ];
+    for (const [label, raw] of rawCases) {
+      const root = makeTree({ cards: { 'a.json': cardBody('a') }, samples: raw });
+      const res = await validateTree(root);
+      assert.ok(res.findings.some(f => f.code === 'VAL_SAMPLES_SHAPE'),
+        `${label} must refuse: ${JSON.stringify(res.findings)}`);
+    }
+
+    // And the shapes that passed keep passing.
+    const noVersion = makeTree({ cards: { 'a.json': cardBody('a') }, samples: '{"pushes":[]}' });
+    assert.strictEqual((await validateTree(noVersion)).ok, true, 'version is optional');
+    const trailingVersion = makeTree({
+      cards: { 'a.json': cardBody('a') },
+      samples: '{"pushes":[],"version":1}',
+    });
+    assert.strictEqual((await validateTree(trailingVersion)).ok, true, 'version 1 after pushes is fine');
+  });
+
+  test('VAL_SAMPLES_EMPTY_PUSH: warns with the count; plan skips them', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('a') },
       samples: {
@@ -444,7 +475,7 @@ describe('validateTree: samples', () => {
         ],
       },
     });
-    const res = validateTree(root);
+    const res = await validateTree(root);
     const f = one(res, 'VAL_SAMPLES_EMPTY_PUSH');
     assert.strictEqual(f.message, '2 push(es) have no payload and will be skipped at import');
     assert.strictEqual(f.severity, 'warning');
@@ -454,7 +485,7 @@ describe('validateTree: samples', () => {
 });
 
 describe('validateTree: inventory reconciliation', () => {
-  test('VAL_INVENTORY_MISSING: inventoried file absent from the tree refuses', () => {
+  test('VAL_INVENTORY_MISSING: inventoried file absent from the tree refuses', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('a') },
       mutateManifest: (m) => {
@@ -462,7 +493,7 @@ describe('validateTree: inventory reconciliation', () => {
         return m;
       },
     });
-    const res = validateTree(root);
+    const res = await validateTree(root);
     const f = one(res, 'VAL_INVENTORY_MISSING');
     assert.strictEqual(f.message,
       'listed in klebb-export.json but missing from the tree; the archive is incomplete');
@@ -470,12 +501,12 @@ describe('validateTree: inventory reconciliation', () => {
     assert.strictEqual(f.ref, 'data/ghost.json');
   });
 
-  test('VAL_INVENTORY_EXTRA: uninventoried tree file warns only', () => {
+  test('VAL_INVENTORY_EXTRA: uninventoried tree file warns only', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('a') },
       extra: { 'data/notes.txt': 'hand-added\n' },
     });
-    const res = validateTree(root);
+    const res = await validateTree(root);
     const f = one(res, 'VAL_INVENTORY_EXTRA');
     assert.strictEqual(f.message, 'not listed in klebb-export.json; it will be imported as found');
     assert.strictEqual(f.severity, 'warning');
@@ -483,11 +514,11 @@ describe('validateTree: inventory reconciliation', () => {
     assert.strictEqual(res.ok, true);
   });
 
-  test('VAL_CHECKSUM: hand-edited file warns only', () => {
+  test('VAL_CHECKSUM: hand-edited file warns only', async () => {
     const root = makeTree({ cards: { 'a.json': cardBody('a') } });
     fs.writeFileSync(path.join(root, 'data', 'a.json'),
       JSON.stringify(cardBody('a', { description: 'edited by hand' }), null, 2));
-    const res = validateTree(root);
+    const res = await validateTree(root);
     const f = one(res, 'VAL_CHECKSUM');
     assert.strictEqual(f.message,
       'checksum does not match klebb-export.json; the file was changed after export (hand edits are supported)');
@@ -496,7 +527,7 @@ describe('validateTree: inventory reconciliation', () => {
     assert.strictEqual(res.ok, true);
   });
 
-  test('VAL_STRAY_BACKUP: backup and tmp strays warn and stay out of everything else', () => {
+  test('VAL_STRAY_BACKUP: backup and tmp strays warn and stay out of everything else', async () => {
     const root = makeTree({
       cards: { 'a.json': cardBody('a') },
       extra: {
@@ -504,7 +535,7 @@ describe('validateTree: inventory reconciliation', () => {
         'data/a.json.tmp': '{',
       },
     });
-    const res = validateTree(root);
+    const res = await validateTree(root);
     const found = byCode(res, 'VAL_STRAY_BACKUP');
     assert.strictEqual(found.length, 2);
     for (const f of found) {
@@ -518,12 +549,12 @@ describe('validateTree: inventory reconciliation', () => {
 });
 
 describe('validateTree: config', () => {
-  test('VAL_CONFIG_SECRETS: hae.token or auth.invites warns', () => {
+  test('VAL_CONFIG_SECRETS: hae.token or auth.invites warns', async () => {
     const withToken = makeTree({
       cards: { 'a.json': cardBody('a') },
       config: { hae: { token: 'shh' } },
     });
-    let f = one(validateTree(withToken), 'VAL_CONFIG_SECRETS');
+    let f = one(await validateTree(withToken), 'VAL_CONFIG_SECRETS');
     assert.strictEqual(f.message,
       'config.json carries secrets (hae.token or auth.invites); they will be imported verbatim');
     assert.strictEqual(f.severity, 'warning');
@@ -533,13 +564,13 @@ describe('validateTree: config', () => {
       cards: { 'a.json': cardBody('a') },
       config: { auth: { invites: [{ code: 'shh' }] } },
     });
-    f = one(validateTree(withInvites), 'VAL_CONFIG_SECRETS');
+    f = one(await validateTree(withInvites), 'VAL_CONFIG_SECRETS');
     assert.strictEqual(f.severity, 'warning');
   });
 
-  test('VAL_CONFIG_INVALID: unparseable config warns and plans none', () => {
+  test('VAL_CONFIG_INVALID: unparseable config warns and plans none', async () => {
     const root = makeTree({ cards: { 'a.json': cardBody('a') }, config: '{ nope' });
-    const res = validateTree(root);
+    const res = await validateTree(root);
     const f = one(res, 'VAL_CONFIG_INVALID');
     assert.strictEqual(f.message, 'config.json is not valid JSON and will not be imported');
     assert.strictEqual(f.severity, 'warning');
@@ -563,22 +594,22 @@ describe('validateTree: target freshness', { skip: skipDb }, () => {
       welcome);
   }
 
-  test('factory-fresh target (welcome card + its import backup) is fresh', () => {
+  test('factory-fresh target (welcome card + its import backup) is fresh', async () => {
     const home = makeTarget();
     seedWelcome(home);
     fs.writeFileSync(path.join(home, 'config.json'), '{}');
-    const res = validateTree(happyTree(), { targetHome: home });
+    const res = await validateTree(happyTree(), { targetHome: home });
     assert.strictEqual(byCode(res, 'VAL_TARGET_NOT_FRESH').length, 0);
     assert.strictEqual(res.ok, true);
     assert.strictEqual(res.plan.config, 'keep-existing');
   });
 
-  test('non-welcome card file in data/ is not fresh', () => {
+  test('non-welcome card file in data/ is not fresh', async () => {
     const home = makeTarget();
     seedWelcome(home);
     fs.writeFileSync(path.join(home, 'data', 'mood.json'),
       JSON.stringify(cardBody('mood'), null, 2));
-    const res = validateTree(happyTree(), { targetHome: home });
+    const res = await validateTree(happyTree(), { targetHome: home });
     const f = one(res, 'VAL_TARGET_NOT_FRESH');
     assert.strictEqual(f.message,
       'target instance is not fresh: 1 non-welcome card file(s) in data/; import only writes into a fresh instance');
@@ -587,7 +618,7 @@ describe('validateTree: target freshness', { skip: skipDb }, () => {
     assert.strictEqual(res.ok, false);
   });
 
-  test('orphaned datastore rows (row without a file) are not fresh; welcome row is fine', () => {
+  test('orphaned datastore rows (row without a file) are not fresh; welcome row is fine', async () => {
     const home = makeTarget();
     seedWelcome(home);
     const { open } = require('../lib/datastore');
@@ -596,12 +627,12 @@ describe('validateTree: target freshness', { skip: skipDb }, () => {
     store.setData('welcome', [{ note: 'hi' }]);
     store.setData('mood', [{ date: '2026-01-01', mood: 3 }]);
     store.close();
-    const f = one(validateTree(happyTree(), { targetHome: home }), 'VAL_TARGET_NOT_FRESH');
+    const f = one(await validateTree(happyTree(), { targetHome: home }), 'VAL_TARGET_NOT_FRESH');
     assert.strictEqual(f.message,
       'target instance is not fresh: 1 non-welcome card(s) in the datastore; import only writes into a fresh instance');
   });
 
-  test('HAE pushes alone are not fresh', () => {
+  test('HAE pushes alone are not fresh', async () => {
     const home = makeTarget();
     seedWelcome(home);
     const { DatabaseSync } = require('node:sqlite');
@@ -615,22 +646,22 @@ describe('validateTree: target freshness', { skip: skipDb }, () => {
     db.prepare('INSERT INTO hae_pushes (received_at, source_file) VALUES (?, ?)')
       .run('2026-01-01T00:00:00.000Z', null);
     db.close();
-    const f = one(validateTree(happyTree(), { targetHome: home }), 'VAL_TARGET_NOT_FRESH');
+    const f = one(await validateTree(happyTree(), { targetHome: home }), 'VAL_TARGET_NOT_FRESH');
     assert.strictEqual(f.message,
       'target instance is not fresh: 1 HAE push(es) recorded; import only writes into a fresh instance');
   });
 
-  test('empty target home passes trivially', () => {
+  test('empty target home passes trivially', async () => {
     const home = tmpDir('eh-tgt-');
-    const res = validateTree(happyTree(), { targetHome: home });
+    const res = await validateTree(happyTree(), { targetHome: home });
     assert.strictEqual(byCode(res, 'VAL_TARGET_NOT_FRESH').length, 0);
     assert.strictEqual(res.ok, true);
   });
 });
 
 describe('validateTree: happy tree', () => {
-  test('ok:true with zero findings and a correct plan', () => {
-    const res = validateTree(happyTree());
+  test('ok:true with zero findings and a correct plan', async () => {
+    const res = await validateTree(happyTree());
     assert.deepStrictEqual(res.findings, []);
     assert.strictEqual(res.ok, true);
     assert.deepStrictEqual(res.plan, {
