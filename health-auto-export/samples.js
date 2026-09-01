@@ -181,6 +181,8 @@ function _open(dbFile) {
     );
     CREATE INDEX IF NOT EXISTS idx_hae_samples_metric
       ON hae_samples (metric, sample_date);
+    CREATE INDEX IF NOT EXISTS idx_hae_samples_last_push
+      ON hae_samples (last_push, push_ord);
   `);
 
   _db = db;
@@ -222,10 +224,12 @@ function _open(dbFile) {
     countSamples: db.prepare('SELECT COUNT(*) AS n FROM hae_samples'),
     countFirstPush: db.prepare(
       'SELECT COUNT(*) AS n FROM hae_samples WHERE first_push = ?'),
-    exportRows: db.prepare(
-      'SELECT s.metric, s.metric_meta, s.doc, s.dup_count, s.last_push, p.received_at '
-      + 'FROM hae_samples s JOIN hae_pushes p ON p.push_seq = s.last_push '
-      + 'ORDER BY s.last_push, s.push_ord'),
+    nextPush: db.prepare(
+      'SELECT push_seq, received_at FROM hae_pushes WHERE push_seq > ? '
+      + 'ORDER BY push_seq LIMIT 1'),
+    rowsForPush: db.prepare(
+      'SELECT metric, metric_meta, doc, dup_count FROM hae_samples '
+      + 'WHERE last_push = ? ORDER BY push_ord'),
   };
   return _db;
 }
@@ -330,42 +334,52 @@ function metricSummary(opts = {}) {
 // this list reproduces the same grouping. `dup_count` is expanded back into
 // repeated entries and `metric_meta` back onto the metric wrapper, so what
 // comes out is what went in.
-function exportPushes(opts = {}) {
+//
+// One push at a time: a real table can be bigger than a small container's
+// heap, and materialising every row (plus a JS string per doc column) is
+// what OOM'd a capped instance on a one-click export (#655). The walk is
+// push-by-push (hae_pushes by push_seq, then that push's rows through
+// idx_hae_samples_last_push), so peak memory is one push's rows, the same
+// unit the import drain streams. Pushes whose rows were all superseded by
+// re-sends contribute nothing, exactly as the whole-table build behaved.
+function* exportPushesStream(opts = {}) {
   _open(opts.dbFile || null);
-  const rows = _stmts.exportRows.all();
+  let seq = 0;
+  for (;;) {
+    const p = _stmts.nextPush.get(seq);
+    if (!p) return;
+    seq = Number(p.push_seq);
+    const rows = _stmts.rowsForPush.all(seq);
+    if (!rows.length) continue;
 
-  const byPush = new Map();
-  for (const row of rows) {
-    let push = byPush.get(row.last_push);
-    if (!push) {
-      push = { receivedAt: row.received_at, metrics: new Map(), workouts: [] };
-      byPush.set(row.last_push, push);
+    const metrics = new Map();
+    const workouts = [];
+    for (const row of rows) {
+      const sample = JSON.parse(row.doc);
+      const copies = Math.max(1, Number(row.dup_count) || 1);
+      if (row.metric === 'workouts') {
+        for (let i = 0; i < copies; i++) workouts.push(sample);
+        continue;
+      }
+      const key = `${row.metric}␟${row.metric_meta || ''}`;
+      let stream = metrics.get(key);
+      if (!stream) {
+        const wrapper = row.metric_meta ? JSON.parse(row.metric_meta) : {};
+        stream = { name: row.metric, ...wrapper, data: [] };
+        metrics.set(key, stream);
+      }
+      for (let i = 0; i < copies; i++) stream.data.push(sample);
     }
-    const sample = JSON.parse(row.doc);
-    const copies = Math.max(1, Number(row.dup_count) || 1);
-    if (row.metric === 'workouts') {
-      for (let i = 0; i < copies; i++) push.workouts.push(sample);
-      continue;
-    }
-    const key = `${row.metric}␟${row.metric_meta || ''}`;
-    let stream = push.metrics.get(key);
-    if (!stream) {
-      const wrapper = row.metric_meta ? JSON.parse(row.metric_meta) : {};
-      stream = { name: row.metric, ...wrapper, data: [] };
-      push.metrics.set(key, stream);
-    }
-    for (let i = 0; i < copies; i++) stream.data.push(sample);
-  }
 
-  const out = [];
-  for (const [, push] of [...byPush.entries()].sort((a, b) => a[0] - b[0])) {
     const data = {};
-    const metrics = [...push.metrics.values()];
-    if (metrics.length) data.metrics = metrics;
-    if (push.workouts.length) data.workouts = push.workouts;
-    out.push({ receivedAt: push.receivedAt, payload: { data } });
+    if (metrics.size) data.metrics = [...metrics.values()];
+    if (workouts.length) data.workouts = workouts;
+    yield { receivedAt: p.received_at, payload: { data } };
   }
-  return out;
+}
+
+function exportPushes(opts = {}) {
+  return [...exportPushesStream(opts)];
 }
 
 // One exported-form item ({ receivedAt, payload }) through the ordinary
@@ -435,7 +449,7 @@ function close() {
 
 module.exports = {
   recordPush, forMetric, pushCount, sampleCount, metricSummary, close,
-  exportPushes, importPush, importPushes, wipeAll,
+  exportPushes, exportPushesStream, importPush, importPushes, wipeAll,
   // Exported for tests and for the migration's own hashing.
   canonical, sampleHash, flatten, guessDate,
 };

@@ -125,6 +125,16 @@ async function handleExport(req, res) {
   }
   _exportInFlight = true;
 
+  // A crash mid-export (the process, not this handler) leaves staging
+  // behind that no finally can reach; with _exportInFlight false, anything
+  // matching the pattern is orphaned and reclaimable (#655 leaked 86MB).
+  try {
+    for (const name of fs.readdirSync(PATHS.HEALTH_HOME)) {
+      if (!name.startsWith('export-staging.')) continue;
+      try { fs.rmSync(path.join(PATHS.HEALTH_HOME, name), { recursive: true, force: true }); } catch {}
+    }
+  } catch {}
+
   const stagingDir = path.join(PATHS.HEALTH_HOME, `export-staging.${Date.now()}`);
   const zipFile = `${stagingDir}.zip`;
   let cleaned = false;

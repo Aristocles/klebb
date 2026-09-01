@@ -95,8 +95,47 @@ function writeJSON(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2));
 }
 
+// Chunked on purpose: samples.json can be bigger than a small container's
+// heap, and the export path must not re-materialise what it just streamed
+// out (#655).
 function sha256(file) {
-  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  const hash = crypto.createHash('sha256');
+  const fd = fs.openSync(file, 'r');
+  try {
+    const buf = Buffer.alloc(1024 * 1024);
+    for (;;) {
+      const n = fs.readSync(fd, buf, 0, buf.length, null);
+      if (n === 0) break;
+      hash.update(buf.subarray(0, n));
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+  return hash.digest('hex');
+}
+
+// Write {version:1, pushes:[...]} from an iterator, one push at a time,
+// byte-identical to what writeJSON produced from the whole array (#655).
+// Returns the push count; writes nothing (not even the directory) when the
+// iterator is empty, matching the old "no pushes, no file" behaviour.
+function writeSamplesFile(file, iter) {
+  const first = iter.next();
+  if (first.done) return 0;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const fd = fs.openSync(file, 'w');
+  let n = 0;
+  try {
+    fs.writeSync(fd, '{\n  "version": 1,\n  "pushes": [\n');
+    for (let cur = first; !cur.done; cur = iter.next()) {
+      const text = JSON.stringify(cur.value, null, 2).split('\n').map(l => `    ${l}`).join('\n');
+      fs.writeSync(fd, (n ? ',\n' : '') + text);
+      n += 1;
+    }
+    fs.writeSync(fd, '\n  ]\n}');
+  } finally {
+    fs.closeSync(fd);
+  }
+  return n;
 }
 
 // Manifest row count via the datastore's own decomposition: the sum of the
@@ -295,16 +334,19 @@ function exportTo(targetDir, opts = {}) {
     // Read through the module singleton and leave it OPEN: closing here would
     // take a live server's own handle down with it. The CLI wrapper closes it.
     if (fs.existsSync(PATHS.DB_FILE)) {
+      const to = path.join(target, 'data', 'auto-export', 'samples.json');
       try {
         const samples = require('../health-auto-export/samples');
-        const pushes = samples.exportPushes();
-        if (pushes.length) {
-          const to = path.join(target, 'data', 'auto-export', 'samples.json');
-          writeJSON(to, { version: 1, pushes });
-          counts.haePushes = pushes.length;
-          inventory.samples = { file: rel(to), pushes: pushes.length, sha256: sha256(to) };
+        const haePushes = writeSamplesFile(to, samples.exportPushesStream());
+        if (haePushes) {
+          counts.haePushes = haePushes;
+          inventory.samples = { file: rel(to), pushes: haePushes, sha256: sha256(to) };
         }
       } catch (e) {
+        // A failure mid-stream must not leave a partial file: the old
+        // whole-array path wrote nothing on error, and a torn samples.json
+        // would refuse validation at import.
+        try { fs.rmSync(to, { force: true }); } catch {}
         console.warn(`  ! HAE sample history not exported: ${e.message}`);
       }
     }
