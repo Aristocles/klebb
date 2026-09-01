@@ -21,12 +21,17 @@ const path = require('path');
 // skip set built from this list is stable across the export's own walk.
 function rawArchiveDirs(autoExportDir) {
   const dirs = [path.join(autoExportDir, 'raw')];
-  let names = [];
+  let entries = [];
   try {
-    names = fs.readdirSync(autoExportDir);
+    entries = fs.readdirSync(autoExportDir, { withFileTypes: true });
   } catch {}
-  for (const name of names) {
-    if (name.startsWith('raw.migrated-')) dirs.push(path.join(autoExportDir, name));
+  for (const ent of entries) {
+    // Directories only: the export's skip set is consulted for directories
+    // alone, so sparing a same-named FILE would make the two consumers of
+    // this list disagree (#672).
+    if (ent.isDirectory() && ent.name.startsWith('raw.migrated-')) {
+      dirs.push(path.join(autoExportDir, ent.name));
+    }
   }
   return dirs;
 }

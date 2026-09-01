@@ -77,6 +77,14 @@ describe('samples-stream header capture', () => {
     assert.deepStrictEqual(await collect(content), await collect(content, { onHeader: () => {} }));
   });
 
+  test('a hostile header key is refused at the cap, not buffered (#672)', async () => {
+    // Values were capped from the start; the key was the one accumulator a
+    // crafted in-cap archive could grow without bound.
+    const content = `{"${'k'.repeat(4096)}":1,"pushes":[]}`;
+    await assert.rejects(collect(content), { code: 'SAMPLES_STREAM_INVALID' });
+    await assert.rejects(collect(content, { onHeader: () => {} }), { code: 'SAMPLES_STREAM_INVALID' });
+  });
+
   test('a bare array yields pushes and no headers', async () => {
     const seen = [];
     const pushes = await collect('[{"a":1}]', { onHeader: (k, v) => seen.push([k, v]) });

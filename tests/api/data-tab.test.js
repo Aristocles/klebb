@@ -318,6 +318,32 @@ describe('GET /api/export', { skip }, () => {
     assert.strictEqual(third.status, 200);
     await waitFor(() => noStagingLeft(home), { what: 'export staging cleanup after third' });
   });
+
+  test('the orphan sweep is age-gated: crash leftovers reclaimed, fresh staging untouched (#672)', async () => {
+    // The control plane stages ITS portal exports under the same prefix in
+    // this HEALTH_HOME for a couple of minutes at a time; a sweep that took
+    // everything would hand that customer an empty archive. A crash orphan
+    // is, by definition, old.
+    const oldDir = path.join(home, 'export-staging.1000000000000');
+    const freshDir = path.join(home, `export-staging.${Date.now()}`);
+    fs.mkdirSync(oldDir, { recursive: true });
+    fs.writeFileSync(path.join(oldDir, 'leftover.json'), '{}');
+    const past = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    fs.utimesSync(oldDir, past, past);
+    fs.mkdirSync(freshDir, { recursive: true });
+    fs.writeFileSync(path.join(freshDir, 'inflight.json'), '{}');
+
+    try {
+      const r = await binGet(server.baseUrl, '/api/export', auth.cookie);
+      assert.strictEqual(r.status, 200);
+      assert.ok(!fs.existsSync(oldDir), 'the crash orphan must be reclaimed');
+      assert.ok(fs.existsSync(path.join(freshDir, 'inflight.json')),
+        'a fresh staging dir belongs to someone else and must survive the sweep');
+    } finally {
+      try { fs.rmSync(freshDir, { recursive: true, force: true }); } catch {}
+    }
+    await waitFor(() => noStagingLeft(home), { what: 'export staging cleanup after sweep test' });
+  });
 });
 
 describe('demo mode 403s the whole surface', { skip }, () => {

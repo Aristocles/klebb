@@ -126,12 +126,20 @@ async function handleExport(req, res) {
   _exportInFlight = true;
 
   // A crash mid-export (the process, not this handler) leaves staging
-  // behind that no finally can reach; with _exportInFlight false, anything
-  // matching the pattern is orphaned and reclaimable (#655 leaked 86MB).
+  // behind that no finally can reach (#655 leaked 86MB). Age-gated because
+  // this process is not the only stager: the hosting control plane writes
+  // its own export-staging.* into this HEALTH_HOME for a couple of minutes
+  // per portal export, and sweeping a live one hands the customer an empty
+  // archive (#672). A crash orphan is, by definition, old.
+  const STALE_STAGING_MS = 60 * 60 * 1000;
   try {
     for (const name of fs.readdirSync(PATHS.HEALTH_HOME)) {
       if (!name.startsWith('export-staging.')) continue;
-      try { fs.rmSync(path.join(PATHS.HEALTH_HOME, name), { recursive: true, force: true }); } catch {}
+      const p = path.join(PATHS.HEALTH_HOME, name);
+      let st = null;
+      try { st = fs.statSync(p); } catch { continue; }
+      if (Date.now() - st.mtimeMs < STALE_STAGING_MS) continue;
+      try { fs.rmSync(p, { recursive: true, force: true }); } catch {}
     }
   } catch {}
 
