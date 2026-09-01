@@ -183,6 +183,8 @@ function _open(dbFile) {
       ON hae_samples (metric, sample_date);
     CREATE INDEX IF NOT EXISTS idx_hae_samples_last_push
       ON hae_samples (last_push, push_ord);
+    CREATE INDEX IF NOT EXISTS idx_hae_samples_first_push
+      ON hae_samples (first_push);
   `);
 
   _db = db;
@@ -284,7 +286,10 @@ function recordPush(payload, opts = {}) {
     }
     // `changes` is 1 for both a fresh insert and a conflicting update, so
     // novelty is counted by asking which rows recorded THIS push as their
-    // first sighting. Inside the transaction, so it cannot see another writer.
+    // first sighting. Inside the transaction, so it cannot see another
+    // writer. Runs once per push over idx_hae_samples_first_push; without
+    // the index this count is a full table scan and a large drain goes
+    // quadratic (#640).
     inserted = _stmts.countFirstPush.get(pushSeq).n;
     db.exec('COMMIT');
   } catch (e) {

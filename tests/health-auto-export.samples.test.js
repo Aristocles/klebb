@@ -319,4 +319,49 @@ describe('HAE sample store', () => {
       { receivedAt: 't2', dbFile });
     assert.equal(samples.sampleCount({ dbFile }), 1);
   });
+
+  test('the per-push novelty count runs on the index, not a table scan (#640)', () => {
+    // Structural: recordPush counts first_push = ? once per push, inside the
+    // write transaction. Without idx_hae_samples_first_push that count scans
+    // the whole table and a large drain goes quadratic; a real restore spent
+    // most of its user-visible progress time there. EXPLAIN QUERY PLAN pins
+    // the access path so the index cannot quietly vanish.
+    samples.recordPush(metricPush('step_count', [{ date: '2026-05-06', qty: 7 }]),
+      { receivedAt: 't1', dbFile });
+    samples.close();
+    const { DatabaseSync } = require('node:sqlite');
+    const db = new DatabaseSync(dbFile, { readOnly: true });
+    try {
+      const plan = db.prepare(
+        'EXPLAIN QUERY PLAN SELECT COUNT(*) AS n FROM hae_samples WHERE first_push = ?').all(1);
+      const detail = plan.map(r => r.detail).join('; ');
+      assert.match(detail, /USING COVERING INDEX idx_hae_samples_first_push/, detail);
+    } finally {
+      db.close();
+    }
+  });
+
+  test('an existing database gains the first_push index on reopen', () => {
+    // The index ships as CREATE IF NOT EXISTS in the open bootstrap, so live
+    // instances build it at their next boot with no migration script. Prove
+    // the upgrade path: strip the index the way a pre-#640 database lacks
+    // it, reopen through the module, and it must be back.
+    samples.recordPush(metricPush('step_count', [{ date: '2026-05-06', qty: 7 }]),
+      { receivedAt: 't1', dbFile });
+    samples.close();
+    const { DatabaseSync } = require('node:sqlite');
+    const db = new DatabaseSync(dbFile);
+    db.exec('DROP INDEX idx_hae_samples_first_push;');
+    db.close();
+    fresh();
+    assert.equal(samples.sampleCount({ dbFile }), 1);
+    const check = new DatabaseSync(dbFile, { readOnly: true });
+    try {
+      const idx = check.prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_hae_samples_first_push'").get();
+      assert.ok(idx, 'the reopen did not rebuild the index');
+    } finally {
+      check.close();
+    }
+  });
 });
