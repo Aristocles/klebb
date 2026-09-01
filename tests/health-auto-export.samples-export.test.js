@@ -183,4 +183,31 @@ describe('HAE sample history survives a portable export', () => {
     assert.equal(exported.length, 1, 'an empty push was exported');
     assert.ok(exported[0].payload.data.metrics.length > 0);
   });
+
+  test('the streamed export yields exactly what the array form returns (#655)', () => {
+    seedHistory();
+    const array = samples.exportPushes({ dbFile });
+    const streamed = [...samples.exportPushesStream({ dbFile })];
+    assert.ok(array.length > 0, 'fixture produced no pushes');
+    assert.deepStrictEqual(streamed, array);
+  });
+
+  test('the per-push walk runs on the index, not a table scan (#655)', () => {
+    // Structural: without idx_hae_samples_last_push every push costs a full
+    // scan and a big export goes quadratic. EXPLAIN QUERY PLAN is stable
+    // enough to pin the access path.
+    seedHistory();
+    samples.close();
+    const { DatabaseSync } = require('node:sqlite');
+    const db = new DatabaseSync(dbFile, { readOnly: true });
+    try {
+      const plan = db.prepare(
+        'EXPLAIN QUERY PLAN SELECT metric, metric_meta, doc, dup_count '
+        + 'FROM hae_samples WHERE last_push = ? ORDER BY push_ord').all(1);
+      const detail = plan.map(r => r.detail).join('; ');
+      assert.match(detail, /USING INDEX idx_hae_samples_last_push/, detail);
+    } finally {
+      db.close();
+    }
+  });
 });
