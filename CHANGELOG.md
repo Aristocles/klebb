@@ -7,6 +7,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Import validation no longer reads the history file whole.** The first
+  real-sized restore into a memory-capped instance was OOM-killed inside
+  `POST /api/import/start`: the samples drain had streamed since the
+  incident fix, but validation still read and `JSON.parse`d the entire
+  `samples.json` for its plan counts (twice per job, plus a whole-file
+  read for the inventory checksum). Validation now streams the scan
+  through the same incremental reader as the drain, header values arrive
+  through a capped capture hook, and inventory checksums hash in chunks,
+  so peak memory is one push regardless of history size. The apply
+  pipeline's write freeze also engages before its first await (it used to
+  rely on everything before the wipe being synchronous), so nothing can
+  write into the target after apply-time validation has started.
+
 ### Added
 
 - **Activity signal on the control-plane admin API.** `GET /api/admin/info`

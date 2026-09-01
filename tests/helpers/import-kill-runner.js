@@ -49,7 +49,7 @@ const wizard = createWizard({
 });
 
 (async () => {
-  const started = wizard.startFromTree(tree);
+  const started = await wizard.startFromTree(tree);
   if (started.error || started.state !== 'awaiting-confirm') {
     console.error(`start did not reach awaiting-confirm: ${JSON.stringify(started)}`);
     process.exit(2);
