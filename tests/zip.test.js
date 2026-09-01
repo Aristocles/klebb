@@ -201,6 +201,48 @@ describe('#614 zip writer to reader round trip', () => {
     }
   });
 
+  test('entries above the spill threshold round-trip byte-identical, spill file gone (#655)', async () => {
+    // One compressible (deflate wins: body streams from the spill file) and
+    // one incompressible (store wins: body streams from the source), both
+    // over the 8MB threshold, mixed with a small buffered entry so offsets
+    // interleave the two paths.
+    const base = freshDir();
+    const src = path.join(base, 'src');
+    fs.mkdirSync(src, { recursive: true });
+    const files = {
+      'big-compressible.json': Buffer.from(`[${'{"date":"2026-03-01","qty":123},'.repeat(300000)}null]`),
+      'big-random.bin': crypto.randomBytes(9 * 1024 * 1024),
+      'small.txt': Buffer.from('hello\n'),
+    };
+    for (const [name, data] of Object.entries(files)) {
+      fs.writeFileSync(path.join(src, name), data);
+    }
+    assert.ok(files['big-compressible.json'].length > 8 * 1024 * 1024, 'fixture under threshold');
+
+    const zipFile = path.join(base, 'out.zip');
+    const result = await writeZip(zipFile, Object.keys(files).map((name) => ({
+      name, sourcePath: path.join(src, name),
+    })));
+    assert.equal(result.entryCount, 3);
+    assert.equal(result.bytes, fs.statSync(zipFile).size);
+    assert.ok(!fs.existsSync(`${zipFile}.spill`), 'the spill file must not outlive the write');
+
+    const zip = await openZip(zipFile);
+    try {
+      const byName = Object.fromEntries(zip.entries().map((e) => [e.name, e]));
+      assert.equal(byName['big-compressible.json'].method, 8, 'deflate when it shrinks');
+      assert.equal(byName['big-random.bin'].method, 0, 'store when deflate does not shrink');
+      const dest = path.join(base, 'dest');
+      await zip.extractTo(dest);
+      for (const [name, data] of Object.entries(files)) {
+        assert.ok(fs.readFileSync(path.join(dest, name)).equals(data),
+          `bytes identical: ${name}`);
+      }
+    } finally {
+      await zip.close();
+    }
+  });
+
   test('writer accepts an async iterable of entries', async () => {
     const base = freshDir();
     fs.writeFileSync(path.join(base, 'x.txt'), 'x');

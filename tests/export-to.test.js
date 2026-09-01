@@ -115,4 +115,33 @@ describe('exportTo in-process', { skip }, () => {
     const ok = exportTo(newTarget());
     assert.equal(ok.counts.haePushes, 1);
   });
+
+  test('the streamed samples.json is byte-identical to the whole-array form (#655)', () => {
+    // The writer moved from one JSON.stringify over the full pushes array to
+    // an incremental per-push emit. Downstream (drain, validate, humans,
+    // inventory checksums pinned by contract tests) must not be able to tell.
+    samples.recordPush({ data: {
+      metrics: [{ name: 'heart_rate_variability', data: [
+        { date: '2026-05-02 02:00:00 +1000', qty: 41.20000000000001 },
+        { date: '2026-05-02 02:00:00 +1000', qty: 41.20000000000001 },
+      ] }],
+      workouts: [{ name: 'Running', start: '2026-05-02 07:00:00 +1000', duration: 1800 }],
+    } }, { receivedAt: 't2' });
+
+    const target = newTarget();
+    exportTo(target);
+    const file = path.join(target, 'data', 'auto-export', 'samples.json');
+    const streamed = fs.readFileSync(file, 'utf8');
+    const whole = JSON.stringify({ version: 1, pushes: samples.exportPushes() }, null, 2);
+    assert.strictEqual(streamed, whole);
+  });
+
+  test('no pushes means no samples file and no empty auto-export dir', () => {
+    samples.wipeAll();
+    const target = newTarget();
+    const res = exportTo(target);
+    assert.equal(res.counts.haePushes, 0);
+    assert.ok(!fs.existsSync(path.join(target, 'data', 'auto-export')),
+      'an empty export must not leave the directory behind');
+  });
 });

@@ -22,6 +22,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   rely on everything before the wipe being synchronous), so nothing can
   write into the target after apply-time validation has started.
 
+- **Export no longer reads the whole history table into memory.** One
+  `GET /api/export` on a real-sized history could OOM a memory-capped
+  instance: the samples read was a single `.all()` that materialised
+  every row before a byte was written, the file hash re-read the result
+  whole, and the zip writer held the raw and deflated copies of the
+  staged file at once. The samples export now walks push by push through
+  a new `(last_push, push_ord)` index (built automatically at first open),
+  the samples file is written incrementally (byte-identical output),
+  hashes are chunked, and zip entries above 8MB stream through a spill
+  file. Stale `export-staging.*` directories left by a crash mid-export
+  are also reclaimed at the next export.
+
+
 ### Added
 
 - **Activity signal on the control-plane admin API.** `GET /api/admin/info`
