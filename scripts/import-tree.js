@@ -151,7 +151,7 @@ async function main() {
   if (!args.apply) {
     const { validateTree } = require('../lib/import/validate');
     console.log(`Dry run: validating ${tree} against ${targetHome}`);
-    const res = validateTree(tree, { targetHome });
+    const res = await validateTree(tree, { targetHome });
     printFindings(res.findings);
     // A torn tree is not worth filtering: the selection would be checked
     // against an inventory that describes nothing.

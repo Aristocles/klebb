@@ -219,7 +219,7 @@ test.describe('#618: Settings > Data', () => {
     const applying = pane.locator('.applying-panel');
     await expect(applying).toBeVisible({ timeout: 20_000 });
     await expect(applying.locator('.stage-label')).toContainText(
-      /Saving a rollback snapshot|Clearing this instance|Copying the archive in|Importing history|Importing cards|Reloading|Verifying|Tidying up/);
+      /Checking the archive|Saving a rollback snapshot|Clearing this instance|Copying the archive in|Importing history|Importing cards|Reloading|Verifying|Tidying up/);
     await expect(applying).toContainText('keep this page open');
 
     const result = pane.locator('.result-panel');
@@ -296,7 +296,7 @@ test.describe('#618: Settings > Data', () => {
     const applying = pane.locator('.applying-panel');
     await expect(applying).toBeVisible({ timeout: 20_000 });
     await expect(applying.locator('.stage-label')).toContainText(
-      /Saving a rollback snapshot|Clearing this instance|Copying the archive in|Importing history|Importing cards|Reloading|Verifying|Tidying up/);
+      /Checking the archive|Saving a rollback snapshot|Clearing this instance|Copying the archive in|Importing history|Importing cards|Reloading|Verifying|Tidying up/);
 
     const result = pane.locator('.result-panel');
     await expect(result).toBeVisible({ timeout: 60_000 });
