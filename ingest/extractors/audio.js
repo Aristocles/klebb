@@ -10,7 +10,7 @@ const fs = require('fs');
 const { transcodeToWav } = require('../../voice/transcode');
 const voice = require('../../voice/fish');
 
-// A 15 MB compressed upload can decode to well over 100 MB of 16 kHz mono WAV,
+// A 30 MB compressed upload can decode to well over 200 MB of 16 kHz mono WAV,
 // which is then held in memory and posted to the ASR provider. The browser
 // voice path is inherently short (someone speaking into a microphone); an
 // uploaded file is not, so the extractor bounds the decoded size rather than
