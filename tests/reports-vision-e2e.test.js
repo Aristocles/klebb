@@ -181,13 +181,11 @@ describe('#680 vision reading through the pipeline', () => {
     assert.equal(header.ocrPsm, null, 'no tesseract rung was used');
     assert.ok(settled.body.includes('TSH 2.1'), 'the digest body must carry the transcript');
 
-    if (HAS_TESSERACT) {
-      assert.ok(Array.isArray(header.unwitnessed), 'with tesseract present the witness must run');
-      assert.ok(header.unwitnessed.includes('2.1'),
-        'a blank witness page cannot corroborate the transcript numbers');
-    } else {
-      assert.equal(header.unwitnessed, null, 'without tesseract there is no witness line');
-    }
+    // With tesseract absent there is no witness; with it present, the blank
+    // fixture makes the witness read nothing, and a witness that corroborates
+    // almost nothing is discarded as blind (#688). Both roads honestly end at
+    // "no witness"; the populated-witness path is proven at the unit layer.
+    assert.equal(header.unwitnessed, null);
 
     assert.equal(gw.transcriptionCalls(), 1, 'one page, one transcription call');
     const tx = gw.seen.find(isTranscription);
@@ -211,8 +209,7 @@ describe('#680 vision reading through the pipeline', () => {
     assert.ok(rep, 'the vision report must be listed');
     assert.equal(rep.readBy, 'vision');
     assert.equal(rep.nextRead, '3', 'vision already produced this text, so the next rung is psm 3');
-    if (HAS_TESSERACT) assert.ok(Array.isArray(rep.unwitnessed));
-    else assert.equal(rep.unwitnessed, null);
+    assert.equal(rep.unwitnessed, null, 'no witness, or a blind one discarded (#688)');
   });
 
   test('a seeded header round-trips its witness tokens to the client', async () => {
@@ -316,6 +313,30 @@ describe('#680 local mode never sends a page image anywhere', () => {
       assert.doesNotMatch(settled.error, /vision/,
         'local mode failures must not blame a reader that never ran');
     }
+  });
+
+  test('an explicit vision reader in the body cannot outrank local mode (#689)', async () => {
+    fs.writeFileSync(path.join(sandbox, 'reports', 'local-bypass.md'), [
+      '---', 'klebb_ingest: v2', 'source_file: local-bypass.png', 'source_format: image',
+      'ingested_at: 2026-09-06T01:02:03Z', 'archive_path: reports/_archive/local-bypass.png',
+      'status: ready', 'verify: required', 'title: Local bypass probe',
+      'read_by: tesseract', 'ocr_psm: 3', 'ocr_attempts: 3',
+      '---', '', '# Local bypass probe', '', 'Hb 147 g/L',
+    ].join('\n'));
+    fs.writeFileSync(path.join(sandbox, 'reports', '_archive', 'local-bypass.png'), 'PNGDATA');
+
+    const r = await req(server.baseUrl, '/api/reports/local-bypass/reprocess', {
+      method: 'POST', cookie: auth.cookie, body: { reader: 'vision' },
+    });
+    assert.equal(r.status, 202, r.body);
+    assert.equal(r.json.reader, 'tesseract',
+      'local mode must refuse an explicit vision reader');
+
+    // Belt and braces: even if a vision rung slipped past the route, the
+    // transcriber refuses in local mode, so nothing may reach the gateway.
+    await new Promise(res => setTimeout(res, 800));
+    assert.equal(gw.transcriptionCalls(), 0,
+      'a page image left the box in KLEBB_OCR_MODE=local');
   });
 });
 

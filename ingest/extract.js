@@ -37,13 +37,24 @@ function formatFor(absPath) {
   return EXT_TO_FORMAT[path.extname(absPath).toLowerCase()] || null;
 }
 
+// The rung a call resolves to, exported so the mapping is testable without
+// any binary on the box. A bare {psm} is the legacy spelling of a tesseract
+// rung and must keep meaning exactly that: dropping it silently dispatches
+// the default reader, which is how a "retry at psm 6" once re-ran psm 3.
+function rungFor(fmt, opts = {}) {
+  if (fmt !== 'pdf' && fmt !== 'image') return null;
+  if (opts.rung) return opts.rung;
+  if (Number.isInteger(opts.psm)) return { reader: 'tesseract', psm: opts.psm };
+  return defaultRung();
+}
+
 async function extract(absPath, opts = {}) {
   const fmt = formatFor(absPath);
   if (!fmt) throw new Error(`unsupported format: ${path.extname(absPath).toLowerCase() || '(none)'}`);
   // The reader rung only means something for the two formats a human has to
   // verify afterwards. Resolved here rather than in the pipeline so a direct
   // caller gets the same default a queued upload does.
-  const rung = (fmt === 'pdf' || fmt === 'image') ? (opts.rung || defaultRung()) : null;
+  const rung = rungFor(fmt, opts);
   let result;
   switch (fmt) {
     case 'pdf':      result = await extractPdf(absPath, { rung }); break;
@@ -65,9 +76,13 @@ async function extract(absPath, opts = {}) {
     readBy: result.readBy,
     psm: result.psm,
     unwitnessed: result.unwitnessed,
+    // True when a vision attempt failed for a reason that is a property of
+    // the document (overflow, filtered, empty) and would fail identically on
+    // a retry; the ladder records it as attempted.
+    visionDeterministic: result.visionDeterministic,
     reason: result.reason,
     truncated: result.truncated,
   };
 }
 
-module.exports = { extract, formatFor, EXT_TO_FORMAT, ALLOWED_UPLOAD_EXTS };
+module.exports = { extract, formatFor, rungFor, EXT_TO_FORMAT, ALLOWED_UPLOAD_EXTS };
