@@ -92,6 +92,11 @@ const CAPPED_FALLBACK_MESSAGE =
 // and the stop is explained instead of silently swallowed.
 const CAPPED_SUFFIX =
   '\n\nI had to stop there: that was as many steps as one turn allows. Say "keep going" to continue.';
+// Appended when the gateway cut the generation at its output cap
+// (finish_reason "length"). Same resume path, honestly different cause:
+// the reply outgrew one generation, not the turn's step budget (#695).
+const TRUNCATED_SUFFIX =
+  '\n\nI had to stop there: that reply hit its size limit. Say "keep going" to continue.';
 
 // Four gateway conditions used to collapse into the single string 'No response'
 // (klebb#547), so an exhausted allowance, a dead gateway, a timeout and a
@@ -542,6 +547,15 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-', emit = ()
 
     if (typeof msg.content === 'string' && msg.content.trim()) {
       lastAssistantText = msg.content;
+    }
+
+    // A generation cut at the gateway's output cap is not a considered
+    // answer, and any tool calls it was carrying are incomplete and
+    // unusable. End the turn as capped so progress is kept and the stop is
+    // resumable, never as a clean final reply (#695).
+    if (finish === 'length') {
+      chatLog(reqId, `iter=${i} gw=${gwMs}ms finish=length tools=${toolCount} truncated`);
+      return { finalText: lastAssistantText, cappedOut: true, truncated: true, ctx, iters: i + 1 };
     }
 
     if (finish === 'tool_calls' && Array.isArray(msg.tool_calls) && msg.tool_calls.length) {
@@ -2118,14 +2132,15 @@ Original system prompt follows:
           // The buffered and streamed paths share one reply shaper and one
           // error mapper, so the SSE protocol can never drift from the JSON
           // contract on wording, followup chips, or the capped flag.
-          const logDone = (out) => chatLog(reqId, `done total=${Date.now() - turnStart}ms iters=${out.iters} capped=${!!out.cappedOut}${out.deadlined ? ' deadline' : ''}${out.iterTimedOut ? ' iter_timeout' : ''}`);
-          const shapeReply = ({ finalText, ctx, cappedOut }) => {
+          const logDone = (out) => chatLog(reqId, `done total=${Date.now() - turnStart}ms iters=${out.iters} capped=${!!out.cappedOut}${out.deadlined ? ' deadline' : ''}${out.truncated ? ' truncated' : ''}${out.iterTimedOut ? ' iter_timeout' : ''}`);
+          const shapeReply = ({ finalText, ctx, cappedOut, truncated }) => {
             const followup = buildFollowup(ctx);
             // `capped: true` is the machine-readable form; the appended text
             // is for today's client, which renders only the reply string.
             const flags = cappedOut ? { capped: true } : {};
             if (cappedOut) {
-              finalText = finalText ? finalText + CAPPED_SUFFIX : CAPPED_FALLBACK_MESSAGE;
+              const suffix = truncated ? TRUNCATED_SUFFIX : CAPPED_SUFFIX;
+              finalText = finalText ? finalText + suffix : CAPPED_FALLBACK_MESSAGE;
             }
             if (voiceMode) {
               const parsedReply = extractJsonReply(finalText);
