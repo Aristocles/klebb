@@ -7,6 +7,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **Reports uploads accept files up to 30 MB** (previously 15 MB). The
+  cap bounds ingress only: uploads stream to disk, decoded audio and
+  OCR page counts keep their own limits.
+
 ### Fixed
 
 - **Import/export hardening on the recovery paths.** A samples-export
