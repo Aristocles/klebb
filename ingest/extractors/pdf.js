@@ -15,7 +15,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
-const { extractImage } = require('./image');
+const { extractImage, hasTesseract, PSM_LADDER } = require('./image');
+const vision = require('./vision');
+const { computeUnwitnessed, visionFailureReason } = require('../reader');
 
 // Sparseness thresholds. A digital PDF of a lab report runs to thousands of
 // alphanumerics; a scan yields a handful of stray marks at most. The per-page
@@ -96,7 +98,7 @@ async function _pageCount(absPath) {
   return null;
 }
 
-async function _ocrPages(absPath) {
+async function _ocrPages(absPath, { psm } = {}) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'klebb-pdfocr-'));
   const started = Date.now();
   try {
@@ -118,7 +120,7 @@ async function _ocrPages(absPath) {
     // blank page look like a successful OCR.
     let recovered = 0;
     for (let i = 0; i < rendered.length; i++) {
-      const { text } = await extractImage(path.join(tmp, rendered[i]));
+      const { text } = await extractImage(path.join(tmp, rendered[i]), { psm });
       const pageText = (text || '').trim();
       recovered += _alnumCount(pageText);
       chunks.push(`--- page ${i + 1} ---\n\n${pageText}`);
@@ -135,7 +137,44 @@ async function _ocrPages(absPath) {
   }
 }
 
-async function extractPdf(absPath) {
+// Render the pages small (the vision reader's ceiling is ~1568 px long edge;
+// bigger is discarded server-side) and transcribe them through the gateway.
+// JPEG rather than PNG: a page render compresses to a fraction of the size
+// with no reading cost, and the payload is base64 inside a JSON body.
+async function _visionPages(absPath) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'klebb-pdfvision-'));
+  const started = Date.now();
+  try {
+    const pages = await _pageCount(absPath);
+    const last = pages ? Math.min(pages, OCR_MAX_PAGES) : OCR_MAX_PAGES;
+    const truncated = !!(pages && pages > OCR_MAX_PAGES);
+
+    const prefix = path.join(tmp, 'vpage');
+    await _run('pdftoppm', ['-jpeg', '-scale-to', '1568', '-f', '1', '-l', String(last), absPath, prefix]);
+
+    const rendered = fs.readdirSync(tmp)
+      .filter(f => f.endsWith('.jpg'))
+      .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+    if (!rendered.length) throw new Error('pdftoppm produced no pages');
+
+    const v = await vision.transcribePages(
+      rendered.map(f => ({ path: path.join(tmp, f), mediaType: 'image/jpeg' })));
+    let text = v.text;
+    if (truncated) {
+      text += `\n\n--- truncated ---\n\nOnly the first ${OCR_MAX_PAGES} of ${pages} pages were processed. The rest of this document was not read.`;
+    }
+    console.log(`[ingest] pdf-vision ${rendered.length} page(s), ${v.recovered} chars in ${Date.now() - started}ms`);
+    return { text, pages: rendered.length, truncated, recovered: v.recovered };
+  } finally {
+    try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
+  }
+}
+
+// rung: { reader: 'vision' } or { reader: 'tesseract', psm }; direct callers
+// that pass nothing keep today's tesseract behaviour. The rung only matters
+// once the text layer proves sparse; a digital PDF is exact and never re-read.
+async function extractPdf(absPath, { rung } = {}) {
+  const effective = rung || { reader: 'tesseract', psm: PSM_LADDER[0] };
   const text = await _run('pdftotext', ['-layout', absPath, '-']);
   const alnum = _alnumCount(text);
 
@@ -151,18 +190,50 @@ async function extractPdf(absPath) {
     return { text, sourceFormat: 'pdf', sparse: true, reason: 'scanned pdf; OCR unavailable' };
   }
 
+  let fallbackNote = null;
+  if (effective.reader === 'vision') {
+    try {
+      const v = await _visionPages(absPath);
+      // Compare recovered page text, NOT the assembled body (see the same
+      // check on the OCR path below): a transcription that recovered no more
+      // than the text layer means the document really is blank.
+      if (v.recovered <= alnum) return { text, sourceFormat: 'pdf', sparse: true };
+      let unwitnessed = null;
+      if (hasTesseract()) {
+        try {
+          const w = await _ocrPages(absPath, { psm: PSM_LADDER[0] });
+          unwitnessed = computeUnwitnessed(v.text, w.text);
+        } catch (e) {
+          console.warn(`[ingest] witness OCR failed (${e.message}); vision text stands uncorroborated`);
+        }
+      }
+      return {
+        text: v.text, sourceFormat: 'pdf-ocr', pages: v.pages, truncated: v.truncated,
+        readBy: 'vision', unwitnessed,
+      };
+    } catch (e) {
+      fallbackNote = `vision read unavailable (${visionFailureReason(e)}); read by local OCR`;
+      console.warn(`[ingest] pdf vision read failed, falling back to OCR: ${e.message}`);
+    }
+  }
+
+  const psm = effective.reader === 'vision' ? PSM_LADDER[0] : effective.psm;
   try {
-    const ocr = await _ocrPages(absPath);
+    const ocr = await _ocrPages(absPath, { psm });
     // Compare recovered page text, NOT the assembled body: the page separators
     // are our own scaffolding, and counting them makes a blank scan look like a
     // successful OCR. If OCR recovered no more than the text layer the document
     // really is blank, and claiming pdf-ocr provenance would be a lie that
     // then costs the user a pointless verification step.
-    if (ocr.recovered <= alnum) return { text, sourceFormat: 'pdf', sparse: true };
-    return { text: ocr.text, sourceFormat: 'pdf-ocr', pages: ocr.pages, truncated: ocr.truncated };
+    if (ocr.recovered <= alnum) return { text, sourceFormat: 'pdf', sparse: true, reason: fallbackNote };
+    return {
+      text: ocr.text, sourceFormat: 'pdf-ocr', pages: ocr.pages, truncated: ocr.truncated,
+      readBy: 'tesseract', psm, reason: fallbackNote,
+    };
   } catch (e) {
     console.warn(`[ingest] pdf OCR fallback failed: ${e.message}`);
-    return { text, sourceFormat: 'pdf', sparse: true, reason: `scanned pdf; OCR failed: ${e.message}` };
+    const why = fallbackNote ? `${fallbackNote}; OCR failed: ${e.message}` : `scanned pdf; OCR failed: ${e.message}`;
+    return { text, sourceFormat: 'pdf', sparse: true, reason: why };
   }
 }
 

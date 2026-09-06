@@ -69,7 +69,7 @@ const catalogue = require('./ingest/catalogue');
 const reportsApi = require('./lib/reports-api');
 const { ALLOWED_UPLOAD_EXTS } = require('./ingest/extract');
 const { sanitiseStem } = require('./ingest/writeReport');
-const { nextPsm } = require('./ingest/extractors/image');
+const { nextRung, attemptsFrom } = require('./ingest/reader');
 
 // chat endpoint config (env-driven; see config/env.js). The key and model are
 // read by lib/gateway.js, which owns the transport.
@@ -2710,8 +2710,10 @@ Original system prompt follows:
     }
 
     // POST /api/reports/:name/reprocess — re-extract the archived original and
-    // re-comprehend, overwriting the SAME report. Body may carry {psm} to pick
-    // an OCR rung; the default advances one rung from whatever was recorded.
+    // re-comprehend, overwriting the SAME report. Body may carry {reader:
+    // "vision"} or {psm} to pick a rung explicitly; the default takes the
+    // first rung of the ladder (vision, then psm 3/6/4) the report has not
+    // already been read by.
     if (parts[0] === 'reports' && parts.length === 3 && parts[2] === 'reprocess' && req.method === 'POST') {
       if (ENV.KLEBB_DEMO) return sendJSON(res, { error: 'Not available in demo mode' }, 403);
       if (!originAllowed(req)) return sendJSON(res, { error: 'origin not allowed' }, 403);
@@ -2738,15 +2740,20 @@ Original system prompt follows:
           // missing would be a strictly worse outcome than a failed retry.
           return sendJSON(res, { error: 'the original file for this report is no longer available, so it cannot be reprocessed' }, 404);
         }
-        let requested = null;
-        try { requested = JSON.parse(body || '{}').psm ?? null; } catch {}
-        const psm = Number.isInteger(requested) ? requested : nextPsm(found.header.ocrPsm);
+        let parsed = {};
+        try { parsed = JSON.parse(body || '{}') || {}; } catch {}
+        const rung = parsed.reader === 'vision'
+          ? { reader: 'vision' }
+          : Number.isInteger(parsed.psm)
+            ? { reader: 'tesseract', psm: parsed.psm }
+            : nextRung(found.header);
         inbox.enqueue(source, {
-          psm,
+          rung,
+          priorAttempts: attemptsFrom(found.header),
           overwriteName: name,
           archiveName: path.basename(source),
         });
-        return sendJSON(res, { accepted: true, name, psm }, 202);
+        return sendJSON(res, { accepted: true, name, reader: rung.reader, psm: rung.psm ?? null }, 202);
       });
       return;
     }

@@ -73,7 +73,9 @@ function seedV2(root, name, over = {}) {
   if (o.title) lines.push(`title: ${o.title}`);
   if (o.documentDate) lines.push(`document_date: ${o.documentDate}`);
   if (o.relevance) lines.push(`relevance: ${o.relevance}`);
+  if (o.readBy) lines.push(`read_by: ${o.readBy}`);
   if (Number.isInteger(o.ocrPsm)) lines.push(`ocr_psm: ${o.ocrPsm}`);
+  if (o.ocrAttempts) lines.push(`ocr_attempts: ${o.ocrAttempts}`);
   if (o.reason) lines.push(`reason: ${o.reason}`);
   if (o.bullets?.length) {
     lines.push('bullets:');
@@ -498,31 +500,56 @@ describe('POST /api/reports/:name/reprocess', () => {
       'reprocess consumed the archived original');
   });
 
-  test('an explicit psm is echoed back', async () => {
+  test('an explicit psm is echoed back as a tesseract rung', async () => {
     const r = await request(server.baseUrl, '/api/reports/rp-text/reprocess', {
       method: 'POST', cookie: auth.cookie, body: { psm: 6 },
     });
     assert.equal(r.status, 202);
     assert.equal(r.json.psm, 6);
+    assert.equal(r.json.reader, 'tesseract');
   });
 
-  test('without a psm it advances one rung from the recorded value', async () => {
-    // Its own image-sourced report, seeded fresh: reprocessing rp-text would
-    // rewrite it as a text report with no ocr_psm at all, so the recorded rung
-    // this case is about would be gone by the time it ran.
+  test('an explicit vision reader is honoured', async () => {
+    const r = await request(server.baseUrl, '/api/reports/rp-text/reprocess', {
+      method: 'POST', cookie: auth.cookie, body: { reader: 'vision' },
+    });
+    assert.equal(r.status, 202);
+    assert.equal(r.json.reader, 'vision');
+    assert.equal(r.json.psm, null);
+  });
+
+  test('without a rung it takes the first untried one on the ladder', async () => {
+    // A legacy report knows only its recorded psm; with a gateway configured
+    // (the sandbox sets CHAT_ENDPOINT_URL) the untried vision rung comes first.
     seedV2(sandbox, 'rp-rung', { sourceFile: 'rp-rung.png', sourceFormat: 'image', ocrPsm: 3 });
     const r = await request(server.baseUrl, '/api/reports/rp-rung/reprocess', {
       method: 'POST', cookie: auth.cookie, body: {},
     });
     assert.equal(r.status, 202, r.body);
-    assert.equal(r.json.psm, 6, 'the default should advance from the recorded rung (3 -> 6)');
+    assert.equal(r.json.reader, 'vision', 'an untried vision rung outranks the psm walk');
+    assert.equal(r.json.psm, null);
 
-    // And from the top rung it saturates rather than wrapping back to 3.
-    seedV2(sandbox, 'rp-top', { sourceFile: 'rp-top.png', sourceFormat: 'image', ocrPsm: 4 });
+    // Once vision has produced text, the walk resumes where the psms left off.
+    seedV2(sandbox, 'rp-walk', {
+      sourceFile: 'rp-walk.png', sourceFormat: 'image',
+      readBy: 'tesseract', ocrPsm: 3, ocrAttempts: 'vision 3',
+    });
+    const walk = await request(server.baseUrl, '/api/reports/rp-walk/reprocess', {
+      method: 'POST', cookie: auth.cookie, body: {},
+    });
+    assert.equal(walk.json.reader, 'tesseract');
+    assert.equal(walk.json.psm, 6, 'vision and 3 already produced text, so the next rung is 6');
+
+    // And once every rung has been tried, the bottom one is a fixed point.
+    seedV2(sandbox, 'rp-top', {
+      sourceFile: 'rp-top.png', sourceFormat: 'image',
+      readBy: 'tesseract', ocrPsm: 4, ocrAttempts: 'vision 3 6 4',
+    });
     const top = await request(server.baseUrl, '/api/reports/rp-top/reprocess', {
       method: 'POST', cookie: auth.cookie, body: {},
     });
-    assert.equal(top.json.psm, 4, 'the top rung should be a fixed point, not a wrap');
+    assert.equal(top.json.psm, 4, 'the exhausted ladder should saturate, not wrap');
+    assert.equal(top.json.reader, 'tesseract');
   });
 
   test('404 with a clear message when the original is gone, and the report survives', async () => {

@@ -63,6 +63,16 @@ function parseReportHeader(text) {
     documentDate: scalar(out.document_date),
     relevance: scalar(out.relevance),
     ocrPsm: out.ocr_psm ? Number(out.ocr_psm) : null,
+    // Reader provenance (vision epic). `unwitnessed` is tri-state on purpose:
+    // null means no local witness ran, [] means the witness corroborated
+    // every number, a non-empty array is what the verify screen highlights.
+    readBy: scalar(out.read_by),
+    ocrAttempts: typeof out.ocr_attempts === 'string' && out.ocr_attempts.trim()
+      ? out.ocr_attempts.trim().split(/\s+/)
+      : [],
+    unwitnessed: typeof out.unwitnessed === 'string' && out.unwitnessed.trim()
+      ? (out.unwitnessed.trim() === 'none' ? [] : out.unwitnessed.trim().split(/\s+/))
+      : null,
     reason: scalar(out.reason),
     bullets: Array.isArray(out.bullets) ? out.bullets : [],
   };

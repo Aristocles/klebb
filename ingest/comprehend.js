@@ -45,12 +45,16 @@ KEEP the clinicians and organisations. The requesting doctor, the reporting doct
 
 Keep the structure of the source: keep a results table looking like a table, one analyte per line with its value, units and reference range. Keep headings and section order. Do not summarise the body; the bullets are the summary.`;
 
-function buildUserMessage(text, sourceFormat) {
+function buildUserMessage(text, sourceFormat, readBy = null) {
   const truncated = text.length > MAX_INPUT_CHARS;
   const clipped = truncated ? text.slice(0, MAX_INPUT_CHARS) : text;
-  const provenance = sourceFormat === 'image' || sourceFormat === 'pdf-ocr'
-    ? 'This text came from OCR, so it may contain character-level errors. Reproduce what is there; do not "correct" numbers by guessing.'
-    : `This text was extracted from a ${sourceFormat} document and is exact.`;
+  // A vision model's misreads are plausible-looking where OCR's are garbled;
+  // the summariser needs to know which kind of error it must not "fix".
+  const provenance = readBy === 'vision'
+    ? 'This text was transcribed from a photo or scan by a vision model, so any reading errors in it look plausible rather than garbled. Reproduce what is there; do not second-guess or "correct" values.'
+    : sourceFormat === 'image' || sourceFormat === 'pdf-ocr'
+      ? 'This text came from OCR, so it may contain character-level errors. Reproduce what is there; do not "correct" numbers by guessing.'
+      : `This text was extracted from a ${sourceFormat} document and is exact.`;
   return [
     provenance,
     truncated ? `The document was longer than ${MAX_INPUT_CHARS} characters and has been truncated.` : '',
@@ -134,10 +138,10 @@ function verifyFor(sourceFormat) {
   return NEEDS_VERIFY_FORMATS.has(sourceFormat) ? 'required' : 'not_required';
 }
 
-async function _askGateway(text, sourceFormat, { nudge = false, callGatewayFn }) {
+async function _askGateway(text, sourceFormat, { nudge = false, callGatewayFn, readBy = null }) {
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: buildUserMessage(text, sourceFormat) },
+    { role: 'user', content: buildUserMessage(text, sourceFormat, readBy) },
   ];
   if (nudge) {
     messages.push({
@@ -156,7 +160,7 @@ async function _askGateway(text, sourceFormat, { nudge = false, callGatewayFn })
 // comes back. A distinct `reason` per degradation is deliberate: one generic
 // "comprehension failed" makes a fenced-JSON reply and a dead gateway look
 // like the same problem, and they need different fixes.
-async function comprehend({ text, sourceFormat, ocrPsm = null, callGatewayFn = callGateway, configured } = {}) {
+async function comprehend({ text, sourceFormat, ocrPsm = null, readBy = null, callGatewayFn = callGateway, configured } = {}) {
   const verify = verifyFor(sourceFormat);
   const raw = (result) => ({
     status: 'raw',
@@ -176,8 +180,8 @@ async function comprehend({ text, sourceFormat, ocrPsm = null, callGatewayFn = c
 
   let digest = null;
   try {
-    digest = await _askGateway(text, sourceFormat, { callGatewayFn });
-    if (!digest) digest = await _askGateway(text, sourceFormat, { nudge: true, callGatewayFn });
+    digest = await _askGateway(text, sourceFormat, { callGatewayFn, readBy });
+    if (!digest) digest = await _askGateway(text, sourceFormat, { nudge: true, callGatewayFn, readBy });
   } catch (e) {
     const msg = String(e && e.message || e);
     // Distinguish the failure classes the transport separates for us. Budget
@@ -236,7 +240,7 @@ async function comprehend({ text, sourceFormat, ocrPsm = null, callGatewayFn = c
   // the truth, and the raw text is always available.
   const fidelity = numericFidelity(text, body);
   if (!fidelity.ok) {
-    const retry = await _askGateway(text, sourceFormat, { callGatewayFn }).catch(() => null);
+    const retry = await _askGateway(text, sourceFormat, { callGatewayFn, readBy }).catch(() => null);
     const retryBody = typeof retry?.body === 'string' ? retry.body : '';
     const retryFidelity = retryBody ? numericFidelity(text, retryBody) : { ok: false, invented: fidelity.invented };
     if (!retryFidelity.ok) {
