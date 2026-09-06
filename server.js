@@ -97,6 +97,12 @@ const CAPPED_SUFFIX =
 // the reply outgrew one generation, not the turn's step budget (#695).
 const TRUNCATED_SUFFIX =
   '\n\nI had to stop there: that reply hit its size limit. Say "keep going" to continue.';
+// A truncation can also arrive with no prose at all, when the whole output
+// budget went on a tool call that then got cut mid-arguments. Falling through
+// to CAPPED_FALLBACK_MESSAGE there would blame the step budget for a size
+// limit, which is the one thing #695 exists to stop.
+const TRUNCATED_FALLBACK_MESSAGE =
+  'I ran out of room in that reply before I got anything useful out. Say "keep going" and I\'ll pick up where I stopped.';
 
 // Four gateway conditions used to collapse into the single string 'No response'
 // (klebb#547), so an exhausted allowance, a dead gateway, a timeout and a
@@ -2139,8 +2145,9 @@ Original system prompt follows:
             // is for today's client, which renders only the reply string.
             const flags = cappedOut ? { capped: true } : {};
             if (cappedOut) {
-              const suffix = truncated ? TRUNCATED_SUFFIX : CAPPED_SUFFIX;
-              finalText = finalText ? finalText + suffix : CAPPED_FALLBACK_MESSAGE;
+              finalText = finalText
+                ? finalText + (truncated ? TRUNCATED_SUFFIX : CAPPED_SUFFIX)
+                : (truncated ? TRUNCATED_FALLBACK_MESSAGE : CAPPED_FALLBACK_MESSAGE);
             }
             if (voiceMode) {
               const parsedReply = extractJsonReply(finalText);
