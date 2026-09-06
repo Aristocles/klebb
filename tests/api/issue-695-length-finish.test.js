@@ -112,6 +112,10 @@ describe('#695 a length-truncated generation ends the turn as capped', () => {
         'partial prose is progress and must be kept');
       assert.match(res.json?.reply || '', /keep going/i,
         'the user must learn they can resume');
+      assert.match(res.json?.reply || '', /size limit/i,
+        'the stated cause must be the output cap');
+      assert.doesNotMatch(res.json?.reply || '', /steps/i,
+        'a size limit is not the step budget; naming the wrong cause sends the user to the wrong workaround');
       assert.equal(gateway.hits, 1,
         'a truncated tool call is unusable and must not be dispatched or retried');
     });
@@ -129,13 +133,21 @@ describe('#695 a length-truncated generation ends the turn as capped', () => {
     });
   });
 
-  test('a truncation with no prose still explains itself instead of answering emptily', async () => {
+  // The whole output budget can go on a tool call that is then cut
+  // mid-arguments, leaving no prose. This must not borrow the round-cap
+  // fallback: that one says "ran out of steps", which is a different cause
+  // with a different user workaround (narrow the request vs just resume).
+  test('a truncation with no prose blames the size limit, not the step budget', async () => {
     gateway.reset([lengthFinish('')]);
     await withChatServer(async (server) => {
       const res = await ask(server);
       assert.equal(res.status, 200);
       assert.equal(res.json?.capped, true);
       assert.match(res.json?.reply || '', /keep going/i);
+      assert.match(res.json?.reply || '', /ran out of room/i,
+        'an empty truncation still owes the user a reason');
+      assert.doesNotMatch(res.json?.reply || '', /steps/i,
+        'the round-cap fallback names the wrong cause here');
     });
   });
 
