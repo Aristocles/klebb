@@ -307,16 +307,21 @@ panel, a photo of a lab result, a scanned letter, a DNA export, a csv, a voice
 memo. Each becomes a titled report with a short summary that the chat agent can
 use, with the original kept alongside it.
 
-Extraction is local and deterministic: `pdftotext` for digital PDFs,
-`pdftoppm` + `tesseract` for scans and photos, a built-in reader for `.docx`,
-verbatim for `.txt` / `.md` / `.csv`, and `ffmpeg` + speech recognition for
-audio (needs `FISH_AUDIO_API_KEY`). A background pass then produces the
-summary through your configured chat gateway, with your own identifiers removed
-from the processed text.
+Digital PDFs, `.docx`, `.txt` / `.md` / `.csv` are extracted locally and
+exactly. Photos and scans are read by a vision-capable model through your
+configured chat gateway (dramatically better on phone photos and the only
+option for handwriting), with `tesseract` as the offline fallback and as a
+local witness over the numbers; `KLEBB_OCR_MODE=local` keeps them fully
+on-box. Audio goes through `ffmpeg` + speech recognition (needs
+`FISH_AUDIO_API_KEY`). A background pass then produces the summary through
+your configured chat gateway, with your own identifiers removed from the
+processed text.
 
-Anything read by OCR needs a quick human check first: you compare the text
-against the original, and until you confirm it the chat agent is told the
-report is waiting rather than being allowed to quote possibly-misread numbers.
+Anything read from a photo or scan needs a quick human check first: you
+compare the text against the original (numbers the local witness could not
+corroborate are highlighted), and until you confirm it the chat agent is told
+the report is waiting rather than being allowed to quote possibly-misread
+numbers.
 
 The Docker image ships every binary, so this works out of the box. Default
 limits are 30 MB per file and 20 reports per instance
