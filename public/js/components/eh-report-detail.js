@@ -170,6 +170,16 @@ export class EhReportDetail extends LitElement {
     /* The compare view is now a single full-width column, so the text can use
        the height it needs rather than sharing with a preview pane. */
     .ocr.wide { max-height: 62vh; }
+    /* An uncorroborated number: the local OCR cross-check never saw it, so
+       the human's eye should land there first. Same tint pair in both themes,
+       matching .chip.warn / .note.warn. */
+    .ocr mark, .note mark {
+      background: rgba(255, 170, 0, 0.3);
+      color: inherit;
+      border-radius: 3px;
+      padding: 0 2px;
+      font-weight: 700;
+    }
     .loading { font-size: 13px; color: var(--text-secondary); }
   `;
 
@@ -244,6 +254,79 @@ export class EhReportDetail extends LitElement {
     }
   }
 
+  // No body: the server picks the first rung of the ladder this document has
+  // not been read by, which is exactly what the button label promised.
+  async _reprocess() {
+    this._busy = 'reprocess';
+    this._error = null;
+    try {
+      await this._post('/reprocess');
+      this._announce('reprocessing');
+      this._close();
+    } catch (e) {
+      this._error = e.message;
+    } finally {
+      this._busy = null;
+    }
+  }
+
+  // The server's unwitnessed list holds normalised tokens (no thousands
+  // separators, no trailing decimal zeros), so a number in the displayed
+  // text must be normalised the same way before membership is tested.
+  _normalisedToken(raw) {
+    let n = raw.replace(/,/g, '');
+    if (n.includes('.')) n = n.replace(/0+$/, '').replace(/\.$/, '');
+    n = n.replace(/^0+(?=\d)/, '');
+    return n;
+  }
+
+  // The extracted text as alternating plain strings and <mark> templates.
+  // Built as template parts rather than markup injection on purpose: Lit
+  // escapes the string parts exactly as it escapes a whole-string binding,
+  // so document text can never smuggle live HTML into the pane.
+  _highlightedText() {
+    const text = this._ocrText || '';
+    const tokens = this.report?.unwitnessed;
+    if (!text || !Array.isArray(tokens) || !tokens.length) return text;
+    const suspect = new Set(tokens.map(String));
+    const parts = [];
+    // Same tokeniser as the server: commas only group full triples, and the
+    // lookahead stops "1,234" swallowing the first digit of a date after it.
+    const re = /\d+(?:,\d{3})*(?:\.\d+)?(?!\d)/g;
+    let last = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      if (suspect.has(this._normalisedToken(m[0]))) {
+        parts.push(text.slice(last, m.index), html`<mark>${m[0]}</mark>`);
+        last = m.index + m[0].length;
+      }
+    }
+    parts.push(text.slice(last));
+    return parts;
+  }
+
+  _renderWitnessNote() {
+    const r = this.report;
+    if (r?.readBy !== 'vision') return '';
+    const u = r.unwitnessed;
+    if (!Array.isArray(u)) {
+      return html`<p class="note warn">
+        This was read by the vision model and local OCR could not cross-check
+        it, so check every value against the original.
+      </p>`;
+    }
+    if (u.length) {
+      return html`<p class="note warn">
+        The <mark>highlighted</mark> numbers were not seen by the local OCR
+        cross-check. Give those a specially close look against the original.
+      </p>`;
+    }
+    return html`<p class="note">
+      Every number here was corroborated by a local OCR cross-check. Still
+      worth comparing against the original before you confirm.
+    </p>`;
+  }
+
   async _delete() {
     if (!this._confirmDelete) { this._confirmDelete = true; return; }
     this._busy = 'delete';
@@ -280,8 +363,9 @@ export class EhReportDetail extends LitElement {
         <span class="pane-label">Text read from it</span>
         ${this._ocrText === null
           ? html`<div class="loading">Loading…</div>`
-          : html`<pre class="ocr wide">${this._ocrText || '(no text)'}</pre>`}
+          : html`<pre class="ocr wide">${this._highlightedText() || '(no text)'}</pre>`}
       </div>
+      ${this._renderWitnessNote()}
       <p class="note">
         Check the numbers against the original. Until you confirm it, this
         report is kept out of chat, so the assistant cannot quote a misread
@@ -295,6 +379,12 @@ export class EhReportDetail extends LitElement {
         ${r.hasSource ? html`
           <a class="action" href="${src}" target="_blank" rel="noopener">Open the original</a>
         ` : html`<span class="hint">The original file is no longer stored.</span>`}
+        ${r.hasSource && r.nextRead ? html`
+          <button class="action" ?disabled=${!!this._busy} @click=${this._reprocess}>
+            ${this._busy === 'reprocess' ? 'Retrying…'
+              : r.nextRead === 'vision' ? 'Retry with the vision model' : 'Retry with local OCR'}
+          </button>
+        ` : ''}
         <button class="action danger" ?disabled=${!!this._busy} @click=${this._delete}>
           ${this._busy === 'delete' ? 'Deleting…'
             : this._confirmDelete ? 'Really delete?' : 'Delete'}
@@ -315,6 +405,8 @@ export class EhReportDetail extends LitElement {
       <div class="meta">
         ${r.date ? html`<span class="chip">${r.date}</span>` : ''}
         ${r.sourceFormat ? html`<span class="chip">${r.sourceFormat}</span>` : ''}
+        ${r.readBy === 'vision' ? html`<span class="chip">read by vision</span>` : ''}
+        ${r.readBy === 'tesseract' ? html`<span class="chip">read by local OCR</span>` : ''}
         ${this._isUnverified ? html`<span class="chip warn">Needs checking</span>` : ''}
         ${r.status === 'raw' ? html`<span class="chip warn">Not summarised</span>` : ''}
         ${r.status === 'rejected' ? html`<span class="chip bad">Not a health document</span>` : ''}
