@@ -2575,7 +2575,7 @@ Original system prompt follows:
         if (reservationHeld) { reservationHeld = false; catalogue.releasePendingUpload(); }
       };
 
-      const MAX_BYTES = 15 * 1024 * 1024;
+      const MAX_BYTES = 30 * 1024 * 1024;
       let total = 0;
       let settled = false;
       const sink = fs.createWriteStream(partAbs);
@@ -2613,7 +2613,7 @@ Original system prompt follows:
         if (settled) return;
         total += chunk.length;
         if (total > MAX_BYTES) {
-          return abandon(413, { error: 'File too large (15 MB limit)', maxBytes: MAX_BYTES });
+          return abandon(413, { error: 'File too large (30 MB limit)', maxBytes: MAX_BYTES });
         }
         sink.write(chunk);
       });

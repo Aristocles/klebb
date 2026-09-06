@@ -213,12 +213,12 @@ describe('reports upload: authenticated happy path + guards', () => {
     assert.match(r.json.error, /URL-encoded/);
   });
 
-  test('a 15 MB+ body is refused with 413 and leaves no staging file', async () => {
-    const big = Buffer.alloc(16 * 1024 * 1024, 0x41);
+  test('a 30 MB+ body is refused with 413 and leaves no staging file', async () => {
+    const big = Buffer.alloc(31 * 1024 * 1024, 0x41);
     const r = await upload(server.baseUrl, 'huge.txt', big, { cookie: auth.cookie });
     assert.equal(r.status, 413, `expected 413, got ${r.status}: ${r.body}`);
-    assert.match(r.json.error, /15 MB/);
-    assert.equal(r.json.maxBytes, 15 * 1024 * 1024);
+    assert.match(r.json.error, /30 MB/);
+    assert.equal(r.json.maxBytes, 30 * 1024 * 1024);
 
     const strays = await waitFor(() => {
       const s = fs.readdirSync(path.join(sandbox, 'inbox')).filter(f => f.endsWith('.part'));

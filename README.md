@@ -319,7 +319,7 @@ against the original, and until you confirm it the chat agent is told the
 report is waiting rather than being allowed to quote possibly-misread numbers.
 
 The Docker image ships every binary, so this works out of the box. Default
-limits are 15 MB per file and 20 reports per instance
+limits are 30 MB per file and 20 reports per instance
 (`KLEBB_REPORTS_MAX=100` to raise it). See
 [`docs/REPORTS.md`](docs/REPORTS.md) for the states, the verification loop, the
 privacy boundary, and what is not included.

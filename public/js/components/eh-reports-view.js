@@ -18,7 +18,7 @@ const POLL_MS = 3000;
 // _failed/ would otherwise sit in the inbox forever and be polled forever with
 // it.
 const MAX_POLLS = 20;
-const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 30 * 1024 * 1024;
 
 export class EhReportsView extends LitElement {
   static properties = {
@@ -151,7 +151,7 @@ export class EhReportsView extends LitElement {
     };
 
     if (file.size > MAX_UPLOAD_BYTES) {
-      update({ state: 'error', message: 'Larger than the 15 MB limit' });
+      update({ state: 'error', message: 'Larger than the 30 MB limit' });
       return;
     }
     try {
@@ -289,7 +289,7 @@ export class EhReportsView extends LitElement {
         ${q ? html`<span class="quota">${q.used} of ${q.max} used</span>` : ''}
         ${this._atCap
           ? html`<span class="hint">Delete a report to upload another.</span>`
-          : html`<span class="hint">PDF, photo, Word, text, CSV or audio. Up to 15 MB.</span>`}
+          : html`<span class="hint">PDF, photo, Word, text, CSV or audio. Up to 30 MB.</span>`}
       </div>
       ${this._uploads.length ? html`
         <div class="uploads">
