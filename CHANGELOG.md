@@ -20,6 +20,29 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   change left a bare psm silently ignored, so a direct "retry at psm 6" ran
   the default reader instead. The mapping now lives in the dispatcher, with
   an ungated unit test so the break is visible without tesseract installed.
+- **`KLEBB_OCR_MODE=local` can no longer be bypassed from a request body.**
+  A reprocess asking for `{"reader":"vision"}` used to build a vision rung
+  with no eligibility check, sending page images to the gateway in the very
+  mode that promises they never leave the box. The route now refuses an
+  ineligible reader, and the transcriber itself refuses to run in local
+  mode, so the wire is unreachable whatever a caller sends.
+- **An empty or cut-short vision read can no longer publish or destroy a
+  report.** A finish reason other than a clean stop is an incomplete page;
+  a whole-document empty transcript is a vision failure that falls back to
+  tesseract; and any re-read (either reader) that recovered almost nothing
+  compared to the existing report refuses to overwrite it: a failed retry
+  costs the retry, never the document.
+- **The witness diff strips reader scaffolding first.** The `--- page N ---`
+  separators and the truncation note sat in both compared texts, so every
+  integer up to the page count could silently "corroborate" a misread.
+- **A witness with more flags than the header can hold is discarded** rather
+  than silently truncated, which rendered the overflow as corroborated.
+- **One oversized upload can no longer disable vision reading until
+  restart.** Size and limit complaints in a gateway 400 stay per-file
+  failures; only capability-shaped complaints mark the model image-incapable.
+- **An off-ladder psm in a reprocess body is neither run nor recorded**, and
+  a reprocess arriving while one is already queued answers 409 instead of
+  promising a rung that will never run.
 
 ### Added
 

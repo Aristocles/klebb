@@ -134,6 +134,28 @@ describe('#688 a blind witness is discarded, not amplified', () => {
     const witness = Array.from({ length: 60 }, (_, i) => 1000 + i).join(' ');
     assert.equal(witnessOrNull(vision, witness), null);
   });
+
+  test('more flags than the display cap is discarded, never silently truncated (#689)', () => {
+    // 41/100 flagged: under the blindness ratio but past the 40-token cap; a
+    // truncated list would render token 41 as corroborated.
+    const vision = Array.from({ length: 100 }, (_, i) => 1000 + i).join(' ');
+    const witness = Array.from({ length: 59 }, (_, i) => 1000 + i).join(' ');
+    assert.equal(witnessOrNull(vision, witness), null);
+  });
+
+  test('page scaffolding cannot corroborate a misread (#689)', () => {
+    // Vision misreads a value as '18' on an 18+ page document: the witness
+    // text contains '--- page 18 ---' but never the number in page content.
+    const vision = 'Hb 18 g/L x 152 y 289 z 27 w 2.4';
+    const witness = '--- page 18 ---\n\nHb 11.8 g/L x 152 y 289 z 27 w 2.4';
+    assert.deepEqual(witnessOrNull(vision, witness), ['18']);
+  });
+
+  test('the truncation note cannot corroborate either (#689)', () => {
+    const vision = 'count 34 a 1 b 2 c 3 d 4';
+    const witness = 'a 1 b 2 c 3 d 4\n--- truncated ---\n\nOnly the first 20 of 34 pages were processed. The rest of this document was not read.';
+    assert.deepEqual(witnessOrNull(vision, witness), ['34']);
+  });
 });
 
 describe('#687 the legacy psm argument keeps meaning a tesseract rung', () => {
@@ -161,6 +183,9 @@ describe('#680 vision failure reasons', () => {
   test('each failure class maps to a distinct human phrase', () => {
     assert.match(visionFailureReason(new Error('vision_unsupported: x')), /rejects image input/);
     assert.match(visionFailureReason(new Error('vision_truncated: x')), /overflowed/);
+    assert.match(visionFailureReason(new Error('vision_disabled: x')), /KLEBB_OCR_MODE=local/);
+    assert.match(visionFailureReason(new Error('vision_incomplete: x')), /cut a page short/);
+    assert.match(visionFailureReason(new Error('vision_empty: x')), /came back empty/);
     assert.match(visionFailureReason(new Error('vision_parse: x')), /unreadable/);
     assert.match(visionFailureReason(new Error('gateway_budget: Budget has been exceeded!')), /allowance/);
     assert.match(visionFailureReason(new Error('gateway_timeout')), /timed out/);

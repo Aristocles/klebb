@@ -23,6 +23,12 @@ const { extract, formatFor } = require('./extract');
 const { writeReport } = require('./writeReport');
 const { comprehend } = require('./comprehend');
 const { quota, countIngestedReports, parseReportHeader } = require('./catalogue');
+const { bodyText } = require('../lib/reports-api');
+
+function _alnumCount(s) {
+  const m = (s || '').match(/[a-z0-9]/gi);
+  return m ? m.length : 0;
+}
 
 const _inFlight = new Set();
 const _queue = [];
@@ -157,12 +163,20 @@ async function processOne(absPath, opts = {}) {
 
     // The ladder's memory: rungs that PRODUCED text, prior ones first. A
     // vision attempt that failed transiently is deliberately not recorded, so
-    // it stays retryable once the gateway is back.
+    // it stays retryable once the gateway is back; one that failed for a
+    // document-deterministic reason IS recorded, or the retry button would
+    // offer the same doomed spend forever.
     const producedRung = extracted.readBy
       ? (extracted.readBy === 'vision' ? 'vision' : String(extracted.psm ?? 3))
       : null;
     const priorAttempts = Array.isArray(opts.priorAttempts) ? opts.priorAttempts.map(String) : [];
-    const ocrAttempts = producedRung ? [...new Set([...priorAttempts, producedRung])] : null;
+    const ocrAttempts = producedRung
+      ? [...new Set([
+          ...priorAttempts,
+          ...(extracted.visionDeterministic ? ['vision'] : []),
+          producedRung,
+        ])]
+      : null;
 
     // Reprocessing with a dead gateway would otherwise replace a perfectly good
     // digest with `raw` and no title or bullets: the user asks to re-read a
@@ -179,6 +193,23 @@ async function processOne(absPath, opts = {}) {
         digest.relevance = previous.relevance;
         digest.bullets = previous.bullets;
         digest.reason = `previous summary kept; this re-read could not be summarised (${digest.reason})`;
+      }
+    }
+
+    // A failed retry must cost the retry, never the document: a re-read that
+    // recovered almost nothing (a gateway returning empty pages, a blank OCR
+    // pass) must not replace a report that had real content. The archived
+    // original is untouched either way, so nothing is lost by refusing.
+    if (opts.overwriteName) {
+      let previousAlnum = 0;
+      try {
+        previousAlnum = _alnumCount(bodyText(
+          fs.readFileSync(path.join(PATHS.REPORTS_DIR, `${opts.overwriteName}.md`), 'utf8')));
+      } catch {}
+      const nextAlnum = _alnumCount(digest.body || '');
+      if (previousAlnum >= 40 && nextAlnum < previousAlnum / 10) {
+        console.warn(`[ingest] re-read of ${opts.overwriteName} recovered ${nextAlnum} chars against the existing ${previousAlnum}; keeping the report as it was`);
+        return { skipped: 'thin-rewrite' };
       }
     }
 
@@ -271,10 +302,14 @@ async function _drive() {
   if (_queue.length) _drive();
 }
 
+// Returns whether the file was actually queued: a dedupe hit means an earlier
+// request's run (with ITS options) is what will happen, and the caller should
+// not report otherwise.
 function enqueue(absPath, opts = {}) {
-  if (_queue.some(e => e.absPath === absPath)) return;
+  if (_queue.some(e => e.absPath === absPath)) return false;
   _queue.push({ absPath, opts });
   _drive();
+  return true;
 }
 
 function queueDepth() { return _queue.length + (_running ? 1 : 0); }

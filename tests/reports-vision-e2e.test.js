@@ -314,6 +314,30 @@ describe('#680 local mode never sends a page image anywhere', () => {
         'local mode failures must not blame a reader that never ran');
     }
   });
+
+  test('an explicit vision reader in the body cannot outrank local mode (#689)', async () => {
+    fs.writeFileSync(path.join(sandbox, 'reports', 'local-bypass.md'), [
+      '---', 'klebb_ingest: v2', 'source_file: local-bypass.png', 'source_format: image',
+      'ingested_at: 2026-09-06T01:02:03Z', 'archive_path: reports/_archive/local-bypass.png',
+      'status: ready', 'verify: required', 'title: Local bypass probe',
+      'read_by: tesseract', 'ocr_psm: 3', 'ocr_attempts: 3',
+      '---', '', '# Local bypass probe', '', 'Hb 147 g/L',
+    ].join('\n'));
+    fs.writeFileSync(path.join(sandbox, 'reports', '_archive', 'local-bypass.png'), 'PNGDATA');
+
+    const r = await req(server.baseUrl, '/api/reports/local-bypass/reprocess', {
+      method: 'POST', cookie: auth.cookie, body: { reader: 'vision' },
+    });
+    assert.equal(r.status, 202, r.body);
+    assert.equal(r.json.reader, 'tesseract',
+      'local mode must refuse an explicit vision reader');
+
+    // Belt and braces: even if a vision rung slipped past the route, the
+    // transcriber refuses in local mode, so nothing may reach the gateway.
+    await new Promise(res => setTimeout(res, 800));
+    assert.equal(gw.transcriptionCalls(), 0,
+      'a page image left the box in KLEBB_OCR_MODE=local');
+  });
 });
 
 describe('#680 an unreachable gateway falls back to local OCR', () => {

@@ -552,6 +552,40 @@ describe('POST /api/reports/:name/reprocess', () => {
     assert.equal(top.json.reader, 'tesseract');
   });
 
+  test('an off-ladder psm is neither honoured nor recorded (#689)', async () => {
+    seedV2(sandbox, 'rp-psm42', { sourceFile: 'rp-psm42.png', sourceFormat: 'image', ocrPsm: 3 });
+    const r = await request(server.baseUrl, '/api/reports/rp-psm42/reprocess', {
+      method: 'POST', cookie: auth.cookie, body: { psm: 42 },
+    });
+    assert.equal(r.status, 202);
+    assert.notEqual(r.json.psm, 42, 'a rung that cannot run must not be promised');
+  });
+
+  test('a re-read that recovered almost nothing keeps the report as it was (#689)', async () => {
+    const longBody = 'Haemoglobin 147 g/L (130-180)\n'.repeat(4)
+      + 'Ferritin 88 ug/L (30-300)\nTSH 2.1 mIU/L';
+    fs.writeFileSync(path.join(sandbox, 'reports', 'rp-thin.md'), [
+      '---', 'klebb_ingest: v2', 'source_file: rp-thin.txt', 'source_format: text',
+      'ingested_at: 2026-08-09T01:02:03Z', 'archive_path: reports/_archive/rp-thin.txt',
+      'status: ready', 'verify: not_required', 'title: Thin rewrite guard',
+      '---', '', '# Thin rewrite guard', '', longBody,
+    ].join('\n'));
+    // The archived "original" now holds almost nothing, as if the source were
+    // replaced or the reader failed: the re-read recovers one character.
+    fs.writeFileSync(path.join(sandbox, 'reports', '_archive', 'rp-thin.txt'), 'x');
+
+    const r = await request(server.baseUrl, '/api/reports/rp-thin/reprocess', {
+      method: 'POST', cookie: auth.cookie, body: {},
+    });
+    assert.equal(r.status, 202);
+    // The refusal leaves no marker on the file, so give the queue time to
+    // have done its worst before asserting nothing changed.
+    await new Promise(res => setTimeout(res, 2500));
+    const after = fs.readFileSync(path.join(sandbox, 'reports', 'rp-thin.md'), 'utf8');
+    assert.ok(after.includes('Ferritin 88 ug/L'),
+      'a re-read that recovered 1 character replaced a report with real content');
+  });
+
   test('404 with a clear message when the original is gone, and the report survives', async () => {
     const r = await request(server.baseUrl, '/api/reports/rp-orphan/reprocess', {
       method: 'POST', cookie: auth.cookie, body: {},

@@ -69,7 +69,7 @@ const catalogue = require('./ingest/catalogue');
 const reportsApi = require('./lib/reports-api');
 const { ALLOWED_UPLOAD_EXTS } = require('./ingest/extract');
 const { sanitiseStem } = require('./ingest/writeReport');
-const { nextRung, attemptsFrom } = require('./ingest/reader');
+const { nextRung, attemptsFrom, visionEligible, RUNGS } = require('./ingest/reader');
 
 // chat endpoint config (env-driven; see config/env.js). The key and model are
 // read by lib/gateway.js, which owns the transport.
@@ -2742,17 +2742,26 @@ Original system prompt follows:
         }
         let parsed = {};
         try { parsed = JSON.parse(body || '{}') || {}; } catch {}
-        const rung = parsed.reader === 'vision'
+        // An explicit reader must still be eligible: local mode's promise is
+        // that page images never leave the box, and a request body cannot
+        // outrank it. An off-ladder psm falls through the same way rather
+        // than being recorded as provenance for a rung that never ran.
+        const rung = parsed.reader === 'vision' && visionEligible()
           ? { reader: 'vision' }
-          : Number.isInteger(parsed.psm)
+          : Number.isInteger(parsed.psm) && RUNGS.includes(parsed.psm)
             ? { reader: 'tesseract', psm: parsed.psm }
             : nextRung(found.header);
-        inbox.enqueue(source, {
+        const queued = inbox.enqueue(source, {
           rung,
           priorAttempts: attemptsFrom(found.header),
           overwriteName: name,
           archiveName: path.basename(source),
         });
+        if (!queued) {
+          // A second answer of 202 here would name a rung that will never
+          // run; the queued re-read proceeds with its own.
+          return sendJSON(res, { error: 'this document is already queued for a re-read' }, 409);
+        }
         return sendJSON(res, { accepted: true, name, reader: rung.reader, psm: rung.psm ?? null }, 202);
       });
       return;

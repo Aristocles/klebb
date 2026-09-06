@@ -322,8 +322,8 @@ export class EhReportDetail extends LitElement {
       </p>`;
     }
     return html`<p class="note">
-      Every number here was corroborated by a local OCR cross-check. Still
-      worth comparing against the original before you confirm.
+      Every number here also appears in a local OCR cross-check of the
+      document. Still compare against the original before you confirm.
     </p>`;
   }
 

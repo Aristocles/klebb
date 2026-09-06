@@ -76,6 +76,10 @@ async function extract(absPath, opts = {}) {
     readBy: result.readBy,
     psm: result.psm,
     unwitnessed: result.unwitnessed,
+    // True when a vision attempt failed for a reason that is a property of
+    // the document (overflow, filtered, empty) and would fail identically on
+    // a retry; the ladder records it as attempted.
+    visionDeterministic: result.visionDeterministic,
     reason: result.reason,
     truncated: result.truncated,
   };

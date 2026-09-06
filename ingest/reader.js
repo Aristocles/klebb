@@ -64,13 +64,29 @@ function nextRung(header, opts) {
   return { reader: 'tesseract', psm: 4 };
 }
 
+// Both assembled texts carry reader scaffolding: '--- page N ---' separators
+// and the truncation note. Left in, every integer up to the page count is
+// permanently "corroborated" (the witness text always contains it), which is
+// exactly the wrong direction for a safety net. Stripped from both sides
+// before any token is compared.
+function _stripScaffolding(text) {
+  return String(text || '')
+    .split('\n')
+    .filter(line => {
+      const t = line.trim();
+      return !/^--- (?:page \d+|truncated) ---$/.test(t)
+        && !/^Only the first \d+ of \d+ pages were processed\./.test(t);
+    })
+    .join('\n');
+}
+
 // Numbers the vision transcription contains that local OCR could not see.
 // The witness is advisory: tesseract misses digits routinely, so this never
 // gates anything; it aims the human's eye during verification.
 function computeUnwitnessed(visionText, witnessText) {
-  const witness = numericTokens(witnessText);
+  const witness = numericTokens(_stripScaffolding(witnessText));
   const out = [];
-  for (const [token] of numericTokens(visionText)) {
+  for (const [token] of numericTokens(_stripScaffolding(visionText))) {
     if (!witness.has(token)) {
       out.push(token);
       if (out.length >= UNWITNESSED_CAP) break;
@@ -90,14 +106,21 @@ const WITNESS_BLIND_RATIO = 0.6;
 const WITNESS_MIN_TOKENS = 5;
 
 function witnessOrNull(visionText, witnessText) {
-  const witness = numericTokens(witnessText);
-  const vision = numericTokens(visionText);
+  const witness = numericTokens(_stripScaffolding(witnessText));
+  const vision = numericTokens(_stripScaffolding(visionText));
   let flagged = 0;
   for (const [token] of vision) {
     if (!witness.has(token)) flagged++;
   }
   if (vision.size >= WITNESS_MIN_TOKENS && flagged / vision.size > WITNESS_BLIND_RATIO) {
     console.warn(`[ingest] witness corroborated ${vision.size - flagged}/${vision.size} numbers; discarding it as blind`);
+    return null;
+  }
+  // More flags than the header cap cannot be displayed faithfully, and a
+  // silently truncated list renders the overflow as corroborated: the one
+  // thing the highlights must never do. Too many flags = no witness.
+  if (flagged > UNWITNESSED_CAP) {
+    console.warn(`[ingest] witness flagged ${flagged} numbers, past the display cap; discarding it as blind`);
     return null;
   }
   return computeUnwitnessed(visionText, witnessText);
@@ -107,8 +130,11 @@ function witnessOrNull(visionText, witnessText) {
 // the report's reason field next to "read by local OCR".
 function visionFailureReason(err) {
   const msg = String((err && err.message) || err || '');
+  if (msg.startsWith('vision_disabled')) return 'vision reading is switched off (KLEBB_OCR_MODE=local)';
   if (msg.startsWith('vision_unsupported')) return 'the gateway model rejects image input';
   if (msg.startsWith('vision_truncated')) return 'a page transcription overflowed';
+  if (msg.startsWith('vision_incomplete')) return 'the gateway cut a page short';
+  if (msg.startsWith('vision_empty')) return 'the vision read came back empty';
   if (msg.startsWith('vision_parse')) return 'the gateway returned an unreadable reply';
   const cause = classifyGatewayError(err);
   if (cause === 'budget') return "this month's AI allowance is used up";

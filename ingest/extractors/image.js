@@ -127,10 +127,17 @@ async function readImage(absPath, { rung } = {}) {
   }
 
   const { vision, imageprep, reader } = _deps();
-  const fallback = async (why) => {
+  // A failure that is a property of the DOCUMENT (a page overflowing the
+  // transcription ceiling, a filtered or empty read) will fail identically on
+  // every retry; recording the vision rung as attempted stops the ladder
+  // offering an attempt that only burns allowance. Transport failures stay
+  // unrecorded so vision remains retryable once the gateway is back.
+  const fallback = async (why, cause) => {
     const note = `vision read unavailable (${why}); read by local OCR`;
+    const deterministic = /^vision_(?:truncated|incomplete|empty)/.test(String((cause && cause.message) || ''));
     try {
-      return await _tesseractRead(absPath, PSM_LADDER[0], note);
+      const read = await _tesseractRead(absPath, PSM_LADDER[0], note);
+      return deterministic ? { ...read, visionDeterministic: true } : read;
     } catch (e) {
       throw new Error(`vision read failed (${why}) and local OCR failed: ${e.message}`);
     }
@@ -144,8 +151,14 @@ async function readImage(absPath, { rung } = {}) {
     let transcribed;
     try {
       transcribed = await vision.transcribePages([{ path: prep.path, mediaType: prep.mediaType }]);
+      if (!transcribed.text.trim()) {
+        // An empty reading is far more often a filter or model artefact than
+        // a genuinely blank upload; publishing it would replace real content
+        // with nothing on a re-read.
+        throw new Error('vision_empty: the vision read came back empty');
+      }
     } catch (e) {
-      return await fallback(reader.visionFailureReason(e));
+      return await fallback(reader.visionFailureReason(e), e);
     }
 
     // The witness reads the ORIGINAL at full resolution, not the downscaled
