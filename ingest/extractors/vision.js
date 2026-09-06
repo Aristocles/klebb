@@ -14,6 +14,7 @@
 // is why nothing here relaxes the human verification gate: vision-read text
 // stays `verify: required` exactly like OCR text.
 
+const ENV = require('../../config/env');
 const { callGateway, isConfigured } = require('../../lib/gateway');
 const { toDataUrl } = require('./imageprep');
 
@@ -54,6 +55,10 @@ const IMAGE_REJECTION_MARKERS = [
 function looksLikeImageRejection(message) {
   const msg = String(message || '');
   if (!msg.startsWith('gateway_http_400')) return false;
+  // A size or limit complaint is about THIS payload, not about the model's
+  // capability: memoising on one oversized file would disable vision for
+  // every later upload until restart.
+  if (/size|too (?:large|big)|exceed|limit/i.test(msg)) return false;
   return IMAGE_REJECTION_MARKERS.some(re => re.test(msg));
 }
 
@@ -75,6 +80,11 @@ function _alnumCount(s) {
 //   'vision_unsupported: ...'  the model rejects image input (memoised)
 //   'vision_truncated: ...'    the transcription hit the output ceiling
 async function transcribePage({ path: imagePath, mediaType, callGatewayFn = callGateway } = {}) {
+  // Enforced at the wire, not only at rung selection: local mode's promise
+  // is that page images never leave the box, whatever a request body says.
+  if (ENV.OCR_MODE === 'local') {
+    throw new Error('vision_disabled: KLEBB_OCR_MODE=local keeps page images on this machine');
+  }
   if (_imageInputUnsupported) {
     throw new Error('vision_unsupported: the configured model rejects image input');
   }
@@ -110,6 +120,13 @@ async function transcribePage({ path: imagePath, mediaType, callGatewayFn = call
   }
   if (choice.finish_reason === 'length') {
     throw new Error('vision_truncated: the page transcription hit the output ceiling');
+  }
+  // Anything else that ended generation early (a content filter, a provider
+  // stop) also means an incomplete prefix; only a clean stop (or a gateway
+  // that reports none) is a whole page. A silently amputated page is the one
+  // outcome worse than no page.
+  if (choice.finish_reason && choice.finish_reason !== 'stop') {
+    throw new Error(`vision_incomplete: the gateway ended the page early (${choice.finish_reason})`);
   }
   return { text: content.replace(/\s+$/, '') };
 }

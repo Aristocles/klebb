@@ -17,7 +17,7 @@ const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 const { extractImage, hasTesseract, PSM_LADDER } = require('./image');
 const vision = require('./vision');
-const { computeUnwitnessed, visionFailureReason } = require('../reader');
+const { witnessOrNull, visionFailureReason } = require('../reader');
 
 // Sparseness thresholds. A digital PDF of a lab report runs to thousands of
 // alphanumerics; a scan yields a handful of stray marks at most. The per-page
@@ -191,18 +191,24 @@ async function extractPdf(absPath, { rung } = {}) {
   }
 
   let fallbackNote = null;
+  let visionDeterministic = false;
   if (effective.reader === 'vision') {
     try {
       const v = await _visionPages(absPath);
-      // Compare recovered page text, NOT the assembled body (see the same
-      // check on the OCR path below): a transcription that recovered no more
-      // than the text layer means the document really is blank.
-      if (v.recovered <= alnum) return { text, sourceFormat: 'pdf', sparse: true };
+      // A transcription that recovered no more than the text layer is NOT
+      // trusted as a blankness verdict: an empty model reading is far more
+      // often a filter artefact, and on a reprocess it would rewrite a good
+      // pdf-ocr report into a near-empty ungated pdf. Treat it as a vision
+      // failure; tesseract's own blank-scan judgement below still stands for
+      // documents that really are blank.
+      if (v.recovered <= alnum) {
+        throw new Error('vision_empty: the vision read recovered no more than the text layer');
+      }
       let unwitnessed = null;
       if (hasTesseract()) {
         try {
           const w = await _ocrPages(absPath, { psm: PSM_LADDER[0] });
-          unwitnessed = computeUnwitnessed(v.text, w.text);
+          unwitnessed = witnessOrNull(v.text, w.text);
         } catch (e) {
           console.warn(`[ingest] witness OCR failed (${e.message}); vision text stands uncorroborated`);
         }
@@ -213,11 +219,16 @@ async function extractPdf(absPath, { rung } = {}) {
       };
     } catch (e) {
       fallbackNote = `vision read unavailable (${visionFailureReason(e)}); read by local OCR`;
+      visionDeterministic = /^vision_(?:truncated|incomplete|empty)/.test(String((e && e.message) || ''));
       console.warn(`[ingest] pdf vision read failed, falling back to OCR: ${e.message}`);
     }
   }
 
-  const psm = effective.reader === 'vision' ? PSM_LADDER[0] : effective.psm;
+  // Clamped so an off-ladder request can never be recorded as the rung that
+  // ran; extractImage would run its own default while the header lied.
+  const psm = (effective.reader === 'vision' || !PSM_LADDER.includes(effective.psm))
+    ? PSM_LADDER[0]
+    : effective.psm;
   try {
     const ocr = await _ocrPages(absPath, { psm });
     // Compare recovered page text, NOT the assembled body: the page separators
@@ -228,7 +239,7 @@ async function extractPdf(absPath, { rung } = {}) {
     if (ocr.recovered <= alnum) return { text, sourceFormat: 'pdf', sparse: true, reason: fallbackNote };
     return {
       text: ocr.text, sourceFormat: 'pdf-ocr', pages: ocr.pages, truncated: ocr.truncated,
-      readBy: 'tesseract', psm, reason: fallbackNote,
+      readBy: 'tesseract', psm, reason: fallbackNote, visionDeterministic,
     };
   } catch (e) {
     console.warn(`[ingest] pdf OCR fallback failed: ${e.message}`);

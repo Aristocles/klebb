@@ -86,6 +86,19 @@ describe('#679 vision transcription', () => {
       /vision_truncated/);
   });
 
+  test('any other early finish reason is an incomplete page, not a complete one (#689)', async () => {
+    const gw = stubGateway({ choices: [{ message: { content: 'half a page' }, finish_reason: 'content_filter' }] });
+    await assert.rejects(
+      transcribePage({ ...page('three-b.png'), callGatewayFn: gw }),
+      /vision_incomplete.*content_filter/);
+  });
+
+  test('a missing finish_reason is tolerated as a whole page', async () => {
+    const gw = stubGateway({ choices: [{ message: { content: 'whole page' } }] });
+    const r = await transcribePage({ ...page('three-c.png'), callGatewayFn: gw });
+    assert.equal(r.text, 'whole page');
+  });
+
   test('a reply with no text content is a parse failure', async () => {
     const gw = stubGateway({ choices: [] });
     await assert.rejects(
@@ -130,6 +143,19 @@ describe('#679 vision transcription', () => {
     assert.equal(looksLikeImageRejection('gateway_http_400: invalid content type for vision'), true);
     assert.equal(looksLikeImageRejection('gateway_http_400: bad request'), false);
     assert.equal(looksLikeImageRejection('gateway_http_500: image service down'), false);
+  });
+
+  test('a per-file size complaint never poisons the memo (#689)', async () => {
+    assert.equal(looksLikeImageRejection('gateway_http_400: image exceeds the 5 MB maximum'), false);
+    assert.equal(looksLikeImageRejection('gateway_http_400: image too large for this model'), false);
+
+    const gw = stubGateway(new Error('gateway_http_400: image exceeds the 5 MB maximum'));
+    await assert.rejects(
+      transcribePage({ ...page('big.png'), callGatewayFn: gw }),
+      /gateway_http_400/);
+    const gw2 = stubGateway('still reading fine');
+    const r = await transcribePage({ ...page('big.png'), callGatewayFn: gw2 });
+    assert.equal(r.text, 'still reading fine');
   });
 
   test('multi-page documents assemble with the tesseract-style page scaffolding', async () => {

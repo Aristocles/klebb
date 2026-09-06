@@ -115,7 +115,7 @@ test.describe('Reports: vision verify screen (#681)', () => {
 
     const sheet = await openCompare(page, view, 'e2e-vis-clean');
     await expect(sheet.locator('pre.ocr mark')).toHaveCount(0);
-    await expect(sheet.locator('.note', { hasText: 'corroborated by a local OCR cross-check' }))
+    await expect(sheet.locator('.note', { hasText: 'also appears in a local OCR cross-check' }))
       .toBeVisible();
   });
 
