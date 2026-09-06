@@ -63,7 +63,7 @@ instead, and the report records `source_format: pdf-ocr`. Capped at 20 pages,
 and if a document is longer the report says so rather than letting you believe
 you have the whole thing.
 
-Limits: 15 MB per file, and 20 reports per instance by default (see
+Limits: 30 MB per file, and 20 reports per instance by default (see
 `KLEBB_REPORTS_MAX` below).
 
 ---

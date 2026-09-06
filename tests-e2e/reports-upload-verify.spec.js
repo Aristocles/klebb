@@ -66,7 +66,7 @@ test.describe('Reports: upload and the managed list', () => {
     // "X of N used" is the pre-attempt affordance: the user should know where
     // they stand before picking a file.
     await expect(upload.locator('.quota')).toContainText(/\d+ of \d+ used/);
-    await expect(upload).toContainText('15 MB');
+    await expect(upload).toContainText('30 MB');
   });
 
   test('uploading a csv produces a visible report card', async ({ page }) => {
