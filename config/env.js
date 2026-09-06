@@ -235,6 +235,18 @@ const REPORTS_MAX = (() => {
   return n;
 })();
 
+// How photos and scans are read. `auto` (default) transcribes them through
+// the configured chat gateway's vision input when one is set, with tesseract
+// as the fallback and as the corroborating witness; `local` keeps extraction
+// fully on-box (tesseract only), which also keeps page images from ever
+// leaving the machine.
+const OCR_MODE = (() => {
+  const raw = (process.env.KLEBB_OCR_MODE || 'auto').trim().toLowerCase();
+  if (raw === 'auto' || raw === 'local') return raw;
+  console.warn(`[env] KLEBB_OCR_MODE="${process.env.KLEBB_OCR_MODE}" is not auto|local; using auto`);
+  return 'auto';
+})();
+
 // --- Import caps ---
 // Bounds on what the export-tree importer (lib/import/validate.js) will
 // accept. An export tree is operator-supplied input, so the caps exist to
@@ -736,6 +748,7 @@ module.exports = {
   KLEBB_ADMIN_TOKEN,
   SOURCE_COMMIT,
   REPORTS_MAX,
+  OCR_MODE,
   IMPORT_MAX_TREE_MB,
   IMPORT_MAX_FILE_MB,
   IMPORT_MAX_FILES,

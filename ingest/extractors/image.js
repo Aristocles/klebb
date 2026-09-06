@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // ingest/extractors/image.js
-// Tesseract OCR for image reports.
+// Reading image reports: vision transcription through the gateway on the
+// vision rung, tesseract OCR on the local rungs and as the fallback. When
+// vision produced the text and tesseract is present, tesseract still reads
+// the original as a witness, so the verify screen can point at numbers local
+// OCR could not corroborate.
 
-const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { spawn, spawnSync } = require('child_process');
 
 // Page segmentation modes, in the order a human retrying a bad scan should
 // walk them:
@@ -79,4 +86,86 @@ function extractImage(absPath, { psm = PSM_LADDER[0] } = {}) {
   });
 }
 
-module.exports = { extractImage, PSM_LADDER, nextPsm, tesseractArgs, SPAWN_TIMEOUT_MS };
+let _tesseractProbe = null;
+function hasTesseract() {
+  if (_tesseractProbe === null) {
+    const probe = spawnSync('tesseract', ['--version'], { stdio: 'ignore' });
+    _tesseractProbe = !probe.error;
+  }
+  return _tesseractProbe;
+}
+
+// Read one image document at the given rung. Requiring these lazily keeps
+// the module graph acyclic (reader.js knows nothing about extractors' guts,
+// but this orchestration needs reader.js's witness diff).
+function _deps() {
+  return {
+    vision: require('./vision'),
+    imageprep: require('./imageprep'),
+    reader: require('../reader'),
+  };
+}
+
+async function _tesseractRead(absPath, psm, fallbackReason) {
+  const r = await extractImage(absPath, { psm });
+  return {
+    text: r.text,
+    psm: r.psm,
+    readBy: 'tesseract',
+    reason: fallbackReason || null,
+  };
+}
+
+// rung: { reader: 'vision' } or { reader: 'tesseract', psm }. A failed vision
+// attempt falls back to the base tesseract rung with the reason recorded; a
+// box with neither reader available fails the document with both causes named,
+// so the .error sidecar explains itself.
+async function readImage(absPath, { rung } = {}) {
+  const effective = rung || { reader: 'tesseract', psm: PSM_LADDER[0] };
+  if (effective.reader !== 'vision') {
+    return _tesseractRead(absPath, effective.psm);
+  }
+
+  const { vision, imageprep, reader } = _deps();
+  const fallback = async (why) => {
+    const note = `vision read unavailable (${why}); read by local OCR`;
+    try {
+      return await _tesseractRead(absPath, PSM_LADDER[0], note);
+    } catch (e) {
+      throw new Error(`vision read failed (${why}) and local OCR failed: ${e.message}`);
+    }
+  };
+
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'klebb-vision-'));
+  try {
+    const prep = await imageprep.prepareImage(absPath, tmp);
+    if (!prep.ok) return await fallback(prep.reason);
+
+    let transcribed;
+    try {
+      transcribed = await vision.transcribePages([{ path: prep.path, mediaType: prep.mediaType }]);
+    } catch (e) {
+      return await fallback(reader.visionFailureReason(e));
+    }
+
+    // The witness reads the ORIGINAL at full resolution, not the downscaled
+    // copy: its whole value is an independent opinion about the digits.
+    let unwitnessed = null;
+    if (hasTesseract()) {
+      try {
+        const w = await extractImage(absPath, { psm: PSM_LADDER[0] });
+        unwitnessed = reader.computeUnwitnessed(transcribed.text, w.text);
+      } catch (e) {
+        console.warn(`[ingest] witness OCR failed (${e.message}); vision text stands uncorroborated`);
+      }
+    }
+    return { text: transcribed.text, readBy: 'vision', unwitnessed };
+  } finally {
+    try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
+  }
+}
+
+module.exports = {
+  extractImage, readImage, hasTesseract,
+  PSM_LADDER, nextPsm, tesseractArgs, SPAWN_TIMEOUT_MS,
+};

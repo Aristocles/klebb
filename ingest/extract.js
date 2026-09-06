@@ -6,9 +6,10 @@
 const path = require('path');
 const { extractText } = require('./extractors/text');
 const { extractPdf } = require('./extractors/pdf');
-const { extractImage } = require('./extractors/image');
+const { readImage } = require('./extractors/image');
 const { extractAudio } = require('./extractors/audio');
 const { extractDocx } = require('./extractors/docx');
+const { defaultRung } = require('./reader');
 
 const EXT_TO_FORMAT = {
   '.pdf': 'pdf',
@@ -39,10 +40,14 @@ function formatFor(absPath) {
 async function extract(absPath, opts = {}) {
   const fmt = formatFor(absPath);
   if (!fmt) throw new Error(`unsupported format: ${path.extname(absPath).toLowerCase() || '(none)'}`);
+  // The reader rung only means something for the two formats a human has to
+  // verify afterwards. Resolved here rather than in the pipeline so a direct
+  // caller gets the same default a queued upload does.
+  const rung = (fmt === 'pdf' || fmt === 'image') ? (opts.rung || defaultRung()) : null;
   let result;
   switch (fmt) {
-    case 'pdf':      result = await extractPdf(absPath); break;
-    case 'image':    result = await extractImage(absPath, { psm: opts.psm }); break;
+    case 'pdf':      result = await extractPdf(absPath, { rung }); break;
+    case 'image':    result = await readImage(absPath, { rung }); break;
     case 'text':
     case 'markdown': result = await extractText(absPath); break;
     case 'docx':     result = await extractDocx(absPath); break;
@@ -54,8 +59,12 @@ async function extract(absPath, opts = {}) {
     // PDF comes back as 'pdf-ocr', which decides whether the result needs
     // human OCR verification downstream.
     sourceFormat: result.sourceFormat || fmt,
-    // Image only; recorded so a "retry OCR" can advance the ladder.
+    // Which reader actually produced the text (image/pdf-ocr only), the
+    // tesseract rung when that reader ran, and the numbers a vision read
+    // carries that the local witness could not corroborate.
+    readBy: result.readBy,
     psm: result.psm,
+    unwitnessed: result.unwitnessed,
     reason: result.reason,
     truncated: result.truncated,
   };

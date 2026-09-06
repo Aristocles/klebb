@@ -411,6 +411,15 @@ describe('comprehend: the prompt', () => {
     assert.match(buildUserMessage('x', 'docx'), /exact/);
   });
 
+  test('vision provenance names the plausible-error failure mode (#680)', () => {
+    const msg = buildUserMessage('x', 'image', 'vision');
+    assert.match(msg, /vision model/);
+    assert.match(msg, /plausible/);
+    assert.doesNotMatch(msg, /came from OCR/);
+    // A tesseract read of the same format keeps the OCR line.
+    assert.match(buildUserMessage('x', 'image', 'tesseract'), /came from OCR/);
+  });
+
   test('input is capped and the truncation is disclosed to the model', () => {
     const msg = buildUserMessage('x'.repeat(MAX_INPUT_CHARS + 5000), 'text');
     assert.match(msg, /truncated/i);
