@@ -424,7 +424,7 @@ function extractJsonReply(raw) {
 // with conversation length; the model re-reads older state through its
 // tools when it genuinely needs it. The newest message always goes through,
 // however large.
-const CHAT_CONTEXT_CHAR_BUDGET = 24000;
+const CHAT_CONTEXT_CHAR_BUDGET = 72000;
 function windowTranscript(stored) {
   const out = [];
   let used = 0;

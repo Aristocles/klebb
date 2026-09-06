@@ -134,17 +134,19 @@ function getSessionSecret() {
 const DEBUG_LOG = process.env.HEALTH_DEBUG === '1';
 
 // Soft per-iter cap on the chat agent loop's gateway calls. The transport
-// already enforces a 180s hard ceiling (see callGateway), but a single
+// already enforces a 540s hard ceiling (see callGateway), but a single
 // iteration that runs that long is almost always the model fudging an
 // over-large generation through the wrong tool ("write_manifest_data" on a
 // 75 KB data block to do a trivial reorder, etc.). A tighter per-iter
 // budget lets us return a fast refusal instead of leaving the user staring
-// at a 3-minute spinner. Set to 0 to disable (fall back to the 180s ceiling).
+// at a multi-minute spinner. Set to 0 to disable (fall back to the 540s
+// ceiling). Must stay strictly below the transport ceiling or the timeout
+// stops being soft and surfaces as a hard gateway_timeout 504 (#694).
 const CHAT_ITER_TIMEOUT_MS = (() => {
   const raw = process.env.CHAT_ITER_TIMEOUT_MS;
-  if (raw === undefined || raw === '') return 60000;
+  if (raw === undefined || raw === '') return 180000;
   const n = parseInt(raw, 10);
-  if (!Number.isFinite(n) || n < 0) return 60000;
+  if (!Number.isFinite(n) || n < 0) return 180000;
   return n;
 })();
 
@@ -152,12 +154,13 @@ const CHAT_ITER_TIMEOUT_MS = (() => {
 // which may batch several tool calls. Five was enough for single-task turns,
 // but the prompt's own validate-before-create / read-before-append workflow
 // makes a multi-card request cost well over five round-trips once the model
-// serialises its calls (#600).
+// serialises its calls (#600). Setup-sized jobs cost 2-3 round-trips per
+// card, so 12 capped out at 4-6 cards; 36 fits a full first-run setup (#694).
 const CHAT_MAX_TURNS = (() => {
   const raw = process.env.CHAT_MAX_TURNS;
-  if (raw === undefined || raw === '') return 12;
+  if (raw === undefined || raw === '') return 36;
   const n = parseInt(raw, 10);
-  if (!Number.isFinite(n) || n < 1) return 12;
+  if (!Number.isFinite(n) || n < 1) return 36;
   return n;
 })();
 
@@ -168,9 +171,9 @@ const CHAT_MAX_TURNS = (() => {
 // and transport ceilings still apply).
 const CHAT_TURN_DEADLINE_MS = (() => {
   const raw = process.env.CHAT_TURN_DEADLINE_MS;
-  if (raw === undefined || raw === '') return 240000;
+  if (raw === undefined || raw === '') return 720000;
   const n = parseInt(raw, 10);
-  if (!Number.isFinite(n) || n < 0) return 240000;
+  if (!Number.isFinite(n) || n < 0) return 720000;
   return n;
 })();
 

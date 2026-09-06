@@ -7,6 +7,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **The chat turn envelope is three times bigger.** Setup-sized jobs
+  (create and validate many cards in one conversation) cost 2-3 gateway
+  round-trips per card and kept capping out mid-task. Defaults move from
+  12 round-trips / 4 minutes / 60s per step to `CHAT_MAX_TURNS=36`,
+  `CHAT_TURN_DEADLINE_MS=720000` and `CHAT_ITER_TIMEOUT_MS=180000`, the
+  transport's per-hop ceiling moves 180s -> 540s so the step budget stays
+  a soft cap, and the conversation context window grows 24k -> 72k chars.
+  All remain env-tunable.
+
 ### Fixed
 
 - **Morning writes are no longer rejected as future-dated when the server
