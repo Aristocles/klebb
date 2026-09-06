@@ -734,6 +734,7 @@ class HealthChat extends LitElement {
     this._recordingStarted = 0;
     this._recordTimerId = null;
     this._abortController = null;
+    this._streaming = false;
     this._mediaRecorder = null;
     this._recordedChunks = [];
     this._playbackSpeed = parseFloat(localStorage.getItem('klebb-playback-speed') || '1');
@@ -938,15 +939,18 @@ class HealthChat extends LitElement {
 
   // Pull the server's copy when it is ahead of ours (a turn finished
   // while the app was backgrounded or closed).
+  // Resolves true when the server was ahead and we adopted its copy, which
+  // is how a caller tells "the turn finished while we were disconnected"
+  // apart from "the turn is gone" (#696).
   async _refreshConversation() {
-    if (!this._conversationId) return;
+    if (!this._conversationId) return false;
     const convo = await getConversation(this._conversationId);
-    if (!convo) return;
+    if (!convo) return false;
     const localCount = this._messages.filter(m => m.role !== 'error').length;
-    if (convo.messages.length > localCount) {
-      this._messages = convo.messages;
-      this._scrollToBottom();
-    }
+    if (convo.messages.length <= localCount) return false;
+    this._messages = convo.messages;
+    this._scrollToBottom();
+    return true;
   }
 
   // Unpack a /api/chat response's followup block into the extra fields
@@ -1403,6 +1407,13 @@ class HealthChat extends LitElement {
     this._statusText = '';
     this._streamTail = '';
     let aborted = false;
+    // Losing our connection to a turn says nothing about the turn: the
+    // server runs it to completion and keeps the reply either way (#602).
+    // So a drop reattaches first and only reports a failure once there is
+    // provably nothing left to collect (#696).
+    let recover = false;
+    let dropCopy = null;
+    this._streaming = true;
     try {
       const conversationId = await this._ensureConversation();
       const body = {
@@ -1420,27 +1431,44 @@ class HealthChat extends LitElement {
         // Pre-stream refusal, or a proxy stripped the stream down to the
         // buffered reply. Either way the JSON speaks for itself.
         if (outcome.status === 409) {
-          this._pushError('Still finishing the previous reply. Give it a moment.');
-          this._reattachIfRunning();
+          // This message never reached the server, so say so plainly. The
+          // turn that beat us to it is still worth watching.
+          this._pushError('Still finishing the previous reply, so that didn\'t send. Try again once it lands.');
+          recover = true;
         } else if (outcome.json?.error) {
           this._pushError(outcome.json.error);
         } else if (outcome.json?.reply) {
           this._turnReply = outcome.json;
         }
+      } else if (!this._turnReply && !this._turnError && !this._turnStopped) {
+        // The stream ended without a terminal event, so nothing decided
+        // this turn: a cut socket or a buffering proxy, never a reply.
+        recover = true;
+        dropCopy = 'Lost the connection to that reply.';
       }
     } catch (e) {
       if (this._userAbortedChat) {
         this._userAbortedChat = false;
         aborted = true;
       } else {
-        this._pushError(e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect');
+        recover = true;
+        dropCopy = e.name === 'AbortError' ? 'Request timed out' : 'Failed to connect';
       }
     }
+    this._streaming = false;
     this._statusText = '';
     this._streamTail = '';
     this._abortController = null;
     if (!aborted) await this._applyTurnOutcome(useVoice);
     this._loading = false;
+    if (recover && document.visibilityState !== 'hidden') {
+      // A drop while hidden is explained by being hidden: iOS kills the
+      // in-flight fetch on background. The visibilitychange handler
+      // reattaches on return, so do not race it and do not blame the
+      // network in the transcript for it.
+      const found = await this._reattachIfRunning();
+      if (dropCopy && found === 'none') this._pushError(dropCopy);
+    }
     this._scrollToBottom();
     this._saveHistory();
   }
@@ -1481,23 +1509,37 @@ class HealthChat extends LitElement {
   }
 
   // On returning to the foreground (or booting into an active
-  // conversation), pick up whatever happened while we were away: a
-  // still-running turn resumes its event stream, a finished one is
-  // already in the conversation.
+  // conversation, or losing a stream mid-turn), pick up whatever happened
+  // while we were away. Resolves 'attached' when a turn was still running
+  // and we saw it out, 'refreshed' when one had already finished and its
+  // reply was pulled in, 'none' when there was nothing to collect.
+  //
+  // The guard is on _streaming, not _loading: a turn of our own that just
+  // lost its socket still has _loading set, and refusing to reattach in
+  // exactly that state was the bug (#696).
   async _reattachIfRunning() {
-    if (!this._conversationId || this._loading || this._reattaching) return;
+    if (!this._conversationId || this._streaming || this._reattaching) return 'none';
     this._reattaching = true;
+    const controller = new AbortController();
     try {
       this._turnReply = null;
       this._turnError = null;
       this._turnStopped = false;
       const result = await reattachTurn({
         conversationId: this._conversationId,
+        signal: controller.signal,
         onEvent: (ev) => this._onTurnEvent(ev),
+        // A running turn we adopt owns the UI exactly as one we started:
+        // the status line, the streaming tail and the Stop button all gate
+        // on _loading, so an attached turn that leaves it false renders as
+        // idle while tokens arrive, and cannot be stopped.
+        onAttach: () => {
+          this._abortController = controller;
+          this._loading = true;
+        },
       });
       if (result === 'none') {
-        await this._refreshConversation();
-        return;
+        return (await this._refreshConversation()) ? 'refreshed' : 'none';
       }
       this._statusText = '';
       this._streamTail = '';
@@ -1511,9 +1553,19 @@ class HealthChat extends LitElement {
         }
       }
       this._saveHistory();
-    } catch {} finally {
+      return 'attached';
+    } catch {
+      // Our own Stop aborted the read, which is not a drop to report.
+      return controller.signal.aborted ? 'attached' : 'none';
+    } finally {
       this._reattaching = false;
+      // Set by _stopTurn; nothing else consumes it on this path, and left
+      // standing it would swallow the next turn's real failure.
+      this._userAbortedChat = false;
+      if (this._abortController === controller) this._abortController = null;
       this._loading = false;
+      this._statusText = '';
+      this._streamTail = '';
     }
   }
 
