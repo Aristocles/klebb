@@ -137,9 +137,9 @@ async function processOne(absPath, opts = {}) {
     }
     let extracted;
     try {
-      const rung = opts.rung
-        || (Number.isInteger(opts.psm) ? { reader: 'tesseract', psm: opts.psm } : undefined);
-      extracted = await extract(absPath, { rung });
+      // extract owns the legacy {psm} -> rung mapping; forwarding both keeps
+      // exactly one place that knows what a bare psm means.
+      extracted = await extract(absPath, { rung: opts.rung, psm: opts.psm });
     } catch (e) {
       await abandon(`extraction failed: ${e.message}`);
       return { failed: true, reason: 'extract-error' };

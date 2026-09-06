@@ -79,6 +79,30 @@ function computeUnwitnessed(visionText, witnessText) {
   return out;
 }
 
+// A witness that fails to corroborate most of what the model read is not
+// witnessing (a low-resolution photo local OCR cannot read is precisely the
+// document vision exists for). Highlighting every number reads as targeted
+// suspicion and buries the real signal, so a mostly-blind witness is
+// discarded: null means "no witness", which the verify screen already
+// renders as "check every value". The ratio is measured uncapped; the
+// returned list stays capped.
+const WITNESS_BLIND_RATIO = 0.6;
+const WITNESS_MIN_TOKENS = 5;
+
+function witnessOrNull(visionText, witnessText) {
+  const witness = numericTokens(witnessText);
+  const vision = numericTokens(visionText);
+  let flagged = 0;
+  for (const [token] of vision) {
+    if (!witness.has(token)) flagged++;
+  }
+  if (vision.size >= WITNESS_MIN_TOKENS && flagged / vision.size > WITNESS_BLIND_RATIO) {
+    console.warn(`[ingest] witness corroborated ${vision.size - flagged}/${vision.size} numbers; discarding it as blind`);
+    return null;
+  }
+  return computeUnwitnessed(visionText, witnessText);
+}
+
 // One short human phrase for why a vision read did not happen, recorded in
 // the report's reason field next to "read by local OCR".
 function visionFailureReason(err) {
@@ -101,5 +125,6 @@ module.exports = {
   attemptsFrom,
   nextRung,
   computeUnwitnessed,
+  witnessOrNull,
   visionFailureReason,
 };

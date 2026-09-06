@@ -154,7 +154,7 @@ async function readImage(absPath, { rung } = {}) {
     if (hasTesseract()) {
       try {
         const w = await extractImage(absPath, { psm: PSM_LADDER[0] });
-        unwitnessed = reader.computeUnwitnessed(transcribed.text, w.text);
+        unwitnessed = reader.witnessOrNull(transcribed.text, w.text);
       } catch (e) {
         console.warn(`[ingest] witness OCR failed (${e.message}); vision text stands uncorroborated`);
       }

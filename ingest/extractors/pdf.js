@@ -17,7 +17,7 @@ const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 const { extractImage, hasTesseract, PSM_LADDER } = require('./image');
 const vision = require('./vision');
-const { computeUnwitnessed, visionFailureReason } = require('../reader');
+const { witnessOrNull, visionFailureReason } = require('../reader');
 
 // Sparseness thresholds. A digital PDF of a lab report runs to thousands of
 // alphanumerics; a scan yields a handful of stray marks at most. The per-page
@@ -202,7 +202,7 @@ async function extractPdf(absPath, { rung } = {}) {
       if (hasTesseract()) {
         try {
           const w = await _ocrPages(absPath, { psm: PSM_LADDER[0] });
-          unwitnessed = computeUnwitnessed(v.text, w.text);
+          unwitnessed = witnessOrNull(v.text, w.text);
         } catch (e) {
           console.warn(`[ingest] witness OCR failed (${e.message}); vision text stands uncorroborated`);
         }

@@ -12,8 +12,9 @@ const assert = require('node:assert');
 
 const {
   RUNGS, rungLabel, visionEligible, defaultRung, attemptsFrom, nextRung,
-  computeUnwitnessed, visionFailureReason, UNWITNESSED_CAP,
+  computeUnwitnessed, witnessOrNull, visionFailureReason, UNWITNESSED_CAP,
 } = require('../ingest/reader');
+const { rungFor } = require('../ingest/extract');
 
 const AUTO = { mode: 'auto', available: true };
 const NO_VISION = { mode: 'auto', available: false };
@@ -102,6 +103,57 @@ describe('#680 the witness diff', () => {
   test('the list is capped so a pathological page cannot bloat the header', () => {
     const vision = Array.from({ length: 100 }, (_, i) => 1000 + i).join(' ');
     assert.equal(computeUnwitnessed(vision, '').length, UNWITNESSED_CAP);
+  });
+});
+
+describe('#688 a blind witness is discarded, not amplified', () => {
+  const table = 'Hb 152 g/L (130-180) WCC 6.4 Plt 289 Ferritin 27 TSH 2.4 CRP 1.8';
+
+  test('a witness that read only the headings is discarded to null', () => {
+    assert.equal(witnessOrNull(table, 'Hb WCC Plt Ferritin TSH CRP'), null);
+  });
+
+  test('a witness that corroborates most numbers keeps its targeted flags', () => {
+    const witness = 'Hb 152 g/L (130-180) WCC 6.4 Plt 289 Ferritin 21 TSH 2.4 CRP 1.8';
+    assert.deepEqual(witnessOrNull(table, witness), ['27']);
+  });
+
+  test('a fully corroborating witness returns the empty list, never null', () => {
+    assert.deepEqual(witnessOrNull(table, table), []);
+  });
+
+  test('a document with too few numbers never triggers the blindness rule', () => {
+    // 2 tokens, both unwitnessed: below the floor, so the flags stand.
+    assert.deepEqual(witnessOrNull('dose 5 mg then 10 mg', 'dose mg then mg'), ['5', '10']);
+  });
+
+  test('the ratio is measured uncapped, so a long blind read still discards', () => {
+    const vision = Array.from({ length: 200 }, (_, i) => 1000 + i).join(' ');
+    // A witness that saw only the first 60: 140/200 uncorroborated. The capped
+    // list would be 40/200 = 20% and would wrongly look targeted.
+    const witness = Array.from({ length: 60 }, (_, i) => 1000 + i).join(' ');
+    assert.equal(witnessOrNull(vision, witness), null);
+  });
+});
+
+describe('#687 the legacy psm argument keeps meaning a tesseract rung', () => {
+  test('a bare psm maps to the tesseract rung it always meant', () => {
+    assert.deepEqual(rungFor('image', { psm: 6 }), { reader: 'tesseract', psm: 6 });
+    assert.deepEqual(rungFor('pdf', { psm: 4 }), { reader: 'tesseract', psm: 4 });
+  });
+
+  test('an explicit rung outranks the legacy spelling', () => {
+    assert.deepEqual(rungFor('image', { rung: { reader: 'vision' }, psm: 6 }), { reader: 'vision' });
+  });
+
+  test('formats that are never re-read resolve to no rung at all', () => {
+    assert.equal(rungFor('text', { psm: 6 }), null);
+    assert.equal(rungFor('docx', {}), null);
+  });
+
+  test('no rung and no psm falls back to the reader default', () => {
+    const r = rungFor('image', {});
+    assert.ok(r && (r.reader === 'vision' || (r.reader === 'tesseract' && r.psm === 3)));
   });
 });
 

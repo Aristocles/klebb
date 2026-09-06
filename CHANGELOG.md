@@ -7,6 +7,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A mostly-blind OCR witness is discarded instead of flooding the verify
+  screen.** When local OCR could not read the document the vision model just
+  read (a low-resolution photo: precisely the case vision exists for), every
+  number came back "uncorroborated" and the verify screen highlighted all of
+  them, burying the signal the highlights exist to carry. A witness that
+  fails to corroborate most of the numbers now counts as no witness, which
+  the verify screen already renders honestly as "check every value".
+- **`extract()` honours its legacy `{psm}` argument again.** The reader-rung
+  change left a bare psm silently ignored, so a direct "retry at psm 6" ran
+  the default reader instead. The mapping now lives in the dispatcher, with
+  an ungated unit test so the break is visible without tesseract installed.
+
 ### Added
 
 - **Photos and scans are read by a vision model when a chat gateway is

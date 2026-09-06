@@ -181,13 +181,11 @@ describe('#680 vision reading through the pipeline', () => {
     assert.equal(header.ocrPsm, null, 'no tesseract rung was used');
     assert.ok(settled.body.includes('TSH 2.1'), 'the digest body must carry the transcript');
 
-    if (HAS_TESSERACT) {
-      assert.ok(Array.isArray(header.unwitnessed), 'with tesseract present the witness must run');
-      assert.ok(header.unwitnessed.includes('2.1'),
-        'a blank witness page cannot corroborate the transcript numbers');
-    } else {
-      assert.equal(header.unwitnessed, null, 'without tesseract there is no witness line');
-    }
+    // With tesseract absent there is no witness; with it present, the blank
+    // fixture makes the witness read nothing, and a witness that corroborates
+    // almost nothing is discarded as blind (#688). Both roads honestly end at
+    // "no witness"; the populated-witness path is proven at the unit layer.
+    assert.equal(header.unwitnessed, null);
 
     assert.equal(gw.transcriptionCalls(), 1, 'one page, one transcription call');
     const tx = gw.seen.find(isTranscription);
@@ -211,8 +209,7 @@ describe('#680 vision reading through the pipeline', () => {
     assert.ok(rep, 'the vision report must be listed');
     assert.equal(rep.readBy, 'vision');
     assert.equal(rep.nextRead, '3', 'vision already produced this text, so the next rung is psm 3');
-    if (HAS_TESSERACT) assert.ok(Array.isArray(rep.unwitnessed));
-    else assert.equal(rep.unwitnessed, null);
+    assert.equal(rep.unwitnessed, null, 'no witness, or a blind one discarded (#688)');
   });
 
   test('a seeded header round-trips its witness tokens to the client', async () => {
