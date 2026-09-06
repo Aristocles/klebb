@@ -102,9 +102,13 @@ function _existingDigest(name) {
   } catch { return null; }
 }
 
-// `opts.psm` selects an OCR rung (reprocess). `opts.overwriteName` rewrites an
-// existing report rather than allocating a new name, and `opts.archiveName`
-// names the already-archived original when reprocessing (nothing to move).
+// `opts.rung` selects the reader for a reprocess ({reader:'vision'} or
+// {reader:'tesseract', psm}); `opts.psm` is the legacy spelling of the
+// tesseract rung and still honoured. `opts.priorAttempts` carries the rung
+// labels that already produced text, so the retry ladder has memory.
+// `opts.overwriteName` rewrites an existing report rather than allocating a
+// new name, and `opts.archiveName` names the already-archived original when
+// reprocessing (nothing to move).
 async function processOne(absPath, opts = {}) {
   const base = path.basename(absPath);
   if (_inFlight.has(base)) return { skipped: 'in-flight' };
@@ -133,7 +137,9 @@ async function processOne(absPath, opts = {}) {
     }
     let extracted;
     try {
-      extracted = await extract(absPath, { psm: opts.psm });
+      const rung = opts.rung
+        || (Number.isInteger(opts.psm) ? { reader: 'tesseract', psm: opts.psm } : undefined);
+      extracted = await extract(absPath, { rung });
     } catch (e) {
       await abandon(`extraction failed: ${e.message}`);
       return { failed: true, reason: 'extract-error' };
@@ -145,8 +151,18 @@ async function processOne(absPath, opts = {}) {
     const digest = await comprehend({
       text: extracted.text,
       sourceFormat: extracted.sourceFormat,
-      ocrPsm: extracted.psm ?? opts.psm ?? null,
+      ocrPsm: extracted.psm ?? null,
+      readBy: extracted.readBy ?? null,
     });
+
+    // The ladder's memory: rungs that PRODUCED text, prior ones first. A
+    // vision attempt that failed transiently is deliberately not recorded, so
+    // it stays retryable once the gateway is back.
+    const producedRung = extracted.readBy
+      ? (extracted.readBy === 'vision' ? 'vision' : String(extracted.psm ?? 3))
+      : null;
+    const priorAttempts = Array.isArray(opts.priorAttempts) ? opts.priorAttempts.map(String) : [];
+    const ocrAttempts = producedRung ? [...new Set([...priorAttempts, producedRung])] : null;
 
     // Reprocessing with a dead gateway would otherwise replace a perfectly good
     // digest with `raw` and no title or bullets: the user asks to re-read a
@@ -193,9 +209,16 @@ async function processOne(absPath, opts = {}) {
         documentDate: digest.documentDate,
         relevance: digest.relevance,
         ocrPsm: digest.ocrPsm,
-        // An extractor-level note (a truncated scan, OCR unavailable) is worth
-        // keeping when comprehension has nothing of its own to report.
-        reason: digest.reason || extracted.reason || null,
+        readBy: extracted.readBy ?? null,
+        ocrAttempts,
+        unwitnessed: extracted.unwitnessed ?? null,
+        // An extractor-level note (a truncated scan, a reader fallback) is
+        // kept even when comprehension has its own reason: "nothing to
+        // comprehend" without "the vision read was unavailable" hides the
+        // half of the story the user can actually act on.
+        reason: digest.reason && extracted.reason
+          ? `${digest.reason} (${extracted.reason})`
+          : digest.reason || extracted.reason || null,
         bullets: digest.bullets,
         overwriteName: opts.overwriteName || null,
       });

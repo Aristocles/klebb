@@ -7,6 +7,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Photos and scans are read by a vision model when a chat gateway is
+  configured.** Tesseract misreads phone photos and cannot read handwriting;
+  the gateway model reads both. Pages are downscaled before the call (the
+  original file never leaves the box), tesseract remains the fallback when
+  the gateway is unreachable and the independent witness over the numbers
+  when it is not (`unwitnessed` in the report header), and vision-read text
+  stays behind the human verification gate exactly like OCR text. Reports
+  record `read_by`, and the reprocess ladder unifies to vision then the
+  tesseract psm walk, with memory of which rungs have already produced text.
+  `KLEBB_OCR_MODE=local` keeps extraction fully on-box.
+
 ### Changed
 
 - **Reports uploads accept files up to 30 MB** (previously 15 MB). The

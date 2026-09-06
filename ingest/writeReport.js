@@ -10,6 +10,9 @@ const path = require('path');
 const MAX_TITLE = 120;
 const MAX_BULLET = 200;
 const MAX_BULLETS = 5;
+// Reasons can stack (a comprehension degradation wrapping a reader fallback),
+// so they get more room than a title before the line is clipped.
+const MAX_REASON = 240;
 
 function sanitiseStem(rawStem) {
   return rawStem
@@ -64,6 +67,7 @@ function buildFrontmatter(fields) {
   const {
     sourceFile, sourceFormat, ingestedAt, archivePath,
     status, verify, title, documentDate, relevance, ocrPsm, reason, bullets,
+    readBy, ocrAttempts, unwitnessed,
     version = 1,
   } = fields;
 
@@ -95,8 +99,25 @@ function buildFrontmatter(fields) {
   const safeDate = sanitiseHeaderValue(documentDate, 10);
   if (safeDate) lines.push(`document_date: ${safeDate}`);
   if (relevance) lines.push(`relevance: ${sanitiseHeaderValue(relevance, 20)}`);
+  if (readBy === 'vision' || readBy === 'tesseract') lines.push(`read_by: ${readBy}`);
   if (Number.isInteger(ocrPsm)) lines.push(`ocr_psm: ${ocrPsm}`);
-  const safeReason = sanitiseHeaderValue(reason, MAX_TITLE);
+  // Space-separated rung labels ('vision', '3', '6', '4'), the retry ladder's
+  // memory of what has already produced text for this document.
+  const safeAttempts = (Array.isArray(ocrAttempts) ? ocrAttempts : [])
+    .map(a => String(a).trim())
+    .filter(a => /^[a-z0-9]+$/.test(a))
+    .slice(0, 8);
+  if (safeAttempts.length) lines.push(`ocr_attempts: ${safeAttempts.join(' ')}`);
+  // Present only when a local witness actually ran: `none` means every number
+  // was corroborated; an absent line means nothing could check the reading.
+  if (Array.isArray(unwitnessed)) {
+    const tokens = unwitnessed
+      .map(t => String(t).trim())
+      .filter(t => /^[0-9.]+$/.test(t))
+      .slice(0, 40);
+    lines.push(`unwitnessed: ${tokens.length ? tokens.join(' ') : 'none'}`);
+  }
+  const safeReason = sanitiseHeaderValue(reason, MAX_REASON);
   if (safeReason) lines.push(`reason: ${safeReason}`);
 
   const safeBullets = (Array.isArray(bullets) ? bullets : [])
@@ -118,6 +139,7 @@ function buildFrontmatter(fields) {
 function writeReport({
   reportsDir, text, sourceFile, sourceFormat, ingestedAt, archivePath,
   status, verify, title, documentDate, relevance, ocrPsm, reason, bullets,
+  readBy = null, ocrAttempts = null, unwitnessed = null,
   version = 1, overwriteName = null,
 }) {
   const { abs, name } = overwriteName
@@ -129,6 +151,7 @@ function writeReport({
     buildFrontmatter({
       sourceFile, sourceFormat, ingestedAt, archivePath,
       status, verify, title, documentDate, relevance, ocrPsm, reason, bullets,
+      readBy, ocrAttempts, unwitnessed,
       version,
     }),
     `# ${heading}`,
@@ -151,4 +174,5 @@ module.exports = {
   MAX_TITLE,
   MAX_BULLET,
   MAX_BULLETS,
+  MAX_REASON,
 };
