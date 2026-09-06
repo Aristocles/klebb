@@ -64,7 +64,10 @@ export async function streamChat({ body, signal, onEvent }) {
 
 // Reattach to a running (or just-finished) turn. Resolves 'none' when
 // there is nothing to attach to, 'stream' after replay + live completion.
-export async function reattachTurn({ conversationId, afterId, signal, onEvent }) {
+// onAttach fires once the stream is confirmed and before any event: the
+// caller needs that edge to claim the turn-in-progress UI, and firing it
+// earlier would flash that UI on the common "nothing running" answer.
+export async function reattachTurn({ conversationId, afterId, signal, onEvent, onAttach }) {
   const suffix = afterId ? `?after=${afterId}` : '';
   const res = await fetch(`/api/chat/turn/${encodeURIComponent(conversationId)}${suffix}`, {
     signal,
@@ -73,6 +76,7 @@ export async function reattachTurn({ conversationId, afterId, signal, onEvent })
   if (res.status === 204) return 'none';
   const type = res.headers.get('content-type') || '';
   if (!res.ok || !type.includes('text/event-stream')) return 'none';
+  if (onAttach) onAttach();
   await readSse(res, onEvent);
   return 'stream';
 }
