@@ -214,16 +214,22 @@ Voice input and voice replies are supported via Fish Audio. See
 
 Users upload documents from the Reports page: PDFs, photos of lab
 results, scans, `.docx` letters, `.txt` / `.md` / `.csv`, and audio.
-Klebb extracts the text locally, then produces a summary through the
-configured chat gateway, and the agent reads them via `read_report`.
+Exact formats are extracted locally; photos and scans are read by a
+vision-capable model through the configured chat gateway when one is
+set (`KLEBB_OCR_MODE=local` keeps them on tesseract alone), a summary
+is produced through the same gateway, and the agent reads reports via
+`read_report`.
 
 System packages required for bare-metal deploys (the published Docker
 image ships all of them):
 
 - `poppler-utils` (`pdftotext` for a PDF's text layer, plus `pdftoppm`
-  and `pdfinfo`, which rasterise scanned PDFs so they can be OCRed)
-- `tesseract-ocr` + `tesseract-ocr-eng` (OCR for photos and scans)
-- `ffmpeg` (already required for voice; reused for audio)
+  and `pdfinfo`, which render scanned PDFs into page images for either
+  reader)
+- `tesseract-ocr` + `tesseract-ocr-eng` (local OCR: the fallback reader
+  and the witness that cross-checks a vision read's numbers)
+- `ffmpeg` (already required for voice; reused for audio, and to
+  downscale oversized photos before a vision read)
 
 ```bash
 sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-eng ffmpeg
