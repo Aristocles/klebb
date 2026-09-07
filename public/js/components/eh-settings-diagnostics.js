@@ -126,8 +126,10 @@ export class EhSettingsDiagnostics extends LitElement {
         <dl class="kv">
           <dt>Version</dt>
           <dd>${d.version || '(unknown)'}</dd>
-          <dt>Timezone</dt>
+          <dt>Server timezone</dt>
           <dd>${d.tz || '(unset)'}</dd>
+          <dt>Your timezone</dt>
+          <dd>${d.user_tz || '(not reported yet)'}</dd>
           <dt>VAPID key id</dt>
           <dd>${d.vapid_key_id}</dd>
           <dt>Quiet hours</dt>

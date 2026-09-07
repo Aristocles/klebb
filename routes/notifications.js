@@ -19,6 +19,7 @@ const { originAllowed } = require('../lib/origin-check');
 const vapid = require('../lib/vapid');
 const subs = require('../lib/push-subscriptions');
 const stateStore = require('../lib/notifications-state');
+const userTz = require('../lib/user-tz');
 const webPushSend = require('../lib/web-push-send');
 const VERSION = require('../package.json').version;
 
@@ -263,6 +264,9 @@ async function handle(req, res, parts, ctx) {
     _send(res, 200, {
       version: VERSION,
       tz: process.env.TZ || null,
+      // Effective user timezone: what the scheduler and the write-date
+      // gate actually resolve "today" in (browser-reported, else tz above).
+      user_tz: userTz.readUserTz(),
       vapid_key_id: vapid.getKeyId(),
       subscriptions: subList,
       recent_fires: cur.recent_fires || [],
