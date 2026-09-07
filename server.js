@@ -299,10 +299,14 @@ function createTurnHub(conversationId) {
   return hub;
 }
 
-// Server-local "today" in the configured TZ (Node already honours process.env.TZ,
-// so this uses the server's clock and timezone).
+// "Today" in the user's timezone when the browser has reported one
+// (POST /api/user/tz), falling back to the server's TZ. The client stamps
+// rows with its local date, so anything comparing against "today" must
+// agree with the client's calendar, not the container's: a UTC container
+// would otherwise reject every morning write from a UTC+ browser as
+// future-dated until mid-morning local time (#699).
 function todayIso() {
-  return new Date().toLocaleDateString('en-CA', { timeZone: ENV.TZ });
+  return new Date().toLocaleDateString('en-CA', { timeZone: userTz.readUserTz() });
 }
 
 // Given the previously stored data array and an incoming one, decide whether
@@ -1959,10 +1963,11 @@ const server = http.createServer(async (req, res) => {
           }
 
           // Inject today's absolute date + a pre-computed weekday lookup
-          // table in the server's TZ. Language models are unreliable at
-          // weekday arithmetic from an ISO date, so we hand them the
-          // answer rather than asking them to compute it.
-          const todayBlock = buildDateContextBlock({ tz: ENV.TZ });
+          // table in the user's TZ (falling back to the server's).
+          // Language models are unreliable at weekday arithmetic from an
+          // ISO date, so we hand them the answer rather than asking them
+          // to compute it.
+          const todayBlock = buildDateContextBlock({ tz: userTz.readUserTz() });
 
           // Inject the HAE catalogue's row shapes so the chat agent writes
           // display templates referencing fields the dispatcher actually

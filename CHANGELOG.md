@@ -9,6 +9,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Morning writes are no longer rejected as future-dated when the server
+  runs in a different timezone.** The client stamps rows with the
+  browser-local date and reports its IANA timezone on every session boot
+  (`POST /api/user/tz`), but the write-date gate compared against the
+  server's `TZ`. On a UTC container, a browser at UTC+10 was refused every
+  daily-prompt answer until 10:00 local ("future-dated entry not allowed"),
+  and the chat agent's date block believed it was still yesterday. `todayIso()`
+  and the chat date context now resolve "today" through the same
+  user-timezone helper the notifications scheduler already uses (stored
+  browser timezone, falling back to the server's `TZ`). `GET /api/diagnostics`
+  gains a `user_tz` field and the Diagnostics pane shows both zones, so a
+  mismatch is visible at a glance. Instances whose container `TZ` already
+  matches the user, or where no timezone was ever reported, behave exactly
+  as before. (#699)
 - **A mostly-blind OCR witness is discarded instead of flooding the verify
   screen.** When local OCR could not read the document the vision model just
   read (a low-resolution photo: precisely the case vision exists for), every
