@@ -481,6 +481,9 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-', emit = ()
       const remaining = deadline - elapsed;
       iterBudget = iterBudget ? Math.min(iterBudget, remaining) : remaining;
     }
+    // Keep the budget under the transport ceiling, or a slow step rejects as a
+    // hard timeout and costs the whole turn instead of capping it (#694).
+    iterBudget = gateway.softStepBudget(iterBudget);
     emit('status', { phase: 'thinking' });
     let tokensThisIter = false;
     const gwStart = Date.now();

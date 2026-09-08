@@ -169,6 +169,15 @@ server {
 }
 ```
 
+`proxy_read_timeout` is an **idle** timeout, which is why 120s is enough for a
+chat turn that can legitimately run to `CHAT_TURN_DEADLINE_MS` (12 minutes by
+default): the browser always streams, and the SSE writer emits a heartbeat
+comment every 15s, so the connection is never idle. A caller that asks for a
+**buffered** turn (no `stream: true`: a curl probe, the eval harness, an
+integration) produces nothing until the whole agent loop finishes, so nginx
+cuts it at 120s with a 504 while the server keeps working. Raise
+`proxy_read_timeout` past `CHAT_TURN_DEADLINE_MS` if you rely on that path.
+
 Enable + reload:
 
 ```bash

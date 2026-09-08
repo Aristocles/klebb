@@ -3,7 +3,7 @@
 // tests/api/issue-399.test.js
 // Regression seed for #399: chat agent must fail fast with a refusal reply
 // when no available tool fits the user's request, instead of letting the
-// gateway sit on the call until the 180s hard ceiling fires. We can't
+// gateway sit on the call until the hard per-hop ceiling fires. We can't
 // trigger the model's "fudge it through write_manifest_data" path from a
 // stub, but we CAN drive the same outcome: a hanging gateway response
 // past the soft per-iter budget. The agent loop must convert that into

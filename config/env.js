@@ -139,9 +139,11 @@ const DEBUG_LOG = process.env.HEALTH_DEBUG === '1';
 // over-large generation through the wrong tool ("write_manifest_data" on a
 // 75 KB data block to do a trivial reorder, etc.). A tighter per-iter
 // budget lets us return a fast refusal instead of leaving the user staring
-// at a multi-minute spinner. Set to 0 to disable (fall back to the 540s
-// ceiling). Must stay strictly below the transport ceiling or the timeout
-// stops being soft and surfaces as a hard gateway_timeout 504 (#694).
+// at a multi-minute spinner. Set to 0 to disable, leaving whatever is left
+// of CHAT_TURN_DEADLINE_MS as the only per-step budget. Whichever value wins,
+// gateway.softStepBudget clamps it under the transport ceiling, without which
+// a slow step rejects as a hard gateway_timeout 504 and costs the whole turn
+// instead of capping it (#694).
 const CHAT_ITER_TIMEOUT_MS = (() => {
   const raw = process.env.CHAT_ITER_TIMEOUT_MS;
   if (raw === undefined || raw === '') return 180000;
