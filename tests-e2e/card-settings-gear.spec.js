@@ -97,10 +97,14 @@ test.describe('#456: per-card settings gear', () => {
     if ((await sparkToggle.getAttribute('aria-checked')) !== 'true') await sparkToggle.click();
     await expectMeta(page, baseUrl, 'weight', m => !!m.view?.showSparkline, true);
 
-    // Close the modal; the sparkline now renders on the card.
+    // Close the modal; the sparkline now renders on the card. The close
+    // triggers a full view refresh (#460), and under full-suite load that
+    // fetch + re-render can outlast the default 5s expectation window
+    // while staying well-formed, so this one assertion gets a wider
+    // window rather than a flaky pass/fail coin flip (#723).
     await modal.locator('.close-btn').click();
     await expect(modal).toHaveCount(0);
-    await expect(weightCard.locator('eh-sparkline')).toBeVisible();
+    await expect(weightCard.locator('eh-sparkline')).toBeVisible({ timeout: 20_000 });
 
     await page.request.fetch(`${baseUrl}/api/manifests/weight`, {
       method: 'PATCH',
