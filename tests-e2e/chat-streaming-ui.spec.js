@@ -179,12 +179,14 @@ test.describe('#605 streaming conversation client', () => {
     await expect(widget.locator('.msg.user').last()).toContainText('old question');
     await expect(widget.locator('.msg.assistant').last()).toContainText('old answer');
 
-    const state = await page.evaluate(async () => ({
-      convo: localStorage.getItem('klebb-active-conversation'),
-      legacy: await (await fetch('/api/chat/history')).json(),
-    }));
-    expect(state.convo).toBeTruthy();
-    expect(state.legacy.messages).toHaveLength(0);
+    expect(await page.evaluate(() => localStorage.getItem('klebb-active-conversation')))
+      .toBeTruthy();
+    // The clear is the step AFTER the one that rendered those messages, so the
+    // render is no evidence it has landed. Poll the file itself (#714).
+    await expect.poll(async () => (await page.evaluate(async () => {
+      const r = await fetch('/api/chat/history', { cache: 'no-store' });
+      return (await r.json())?.messages?.length;
+    })), { message: 'the legacy history file was never cleared' }).toBe(0);
   });
 
   test('a second send while a turn runs is refused kindly', async ({ page }) => {
