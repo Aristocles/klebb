@@ -1006,7 +1006,19 @@ const server = http.createServer(async (req, res) => {
         } catch (e) {
           return sendJSON(res, { error: 'invalid JSON body' }, 400);
         }
-        if (ENV.KLEBB_DEMO && patch && patch.meta && Object.prototype.hasOwnProperty.call(patch.meta, 'enabled')) {
+        // Same stance as POST /data on pre-serialised strings (#342): HTTP
+        // clients get a hard 400 rather than the registry's rescue path,
+        // which exists for the chat tools (#702). The whole-body check must
+        // run BEFORE the demo gate: a double-serialised body is a string,
+        // so it would sail past every property check on `patch` and reach
+        // the registry rescue with the gate never consulted.
+        if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+          return sendJSON(res, { error: 'patch must be a JSON object, not a string' }, 400);
+        }
+        if (typeof patch.meta === 'string') {
+          return sendJSON(res, { error: 'meta must be a JSON object, not a string' }, 400);
+        }
+        if (ENV.KLEBB_DEMO && patch.meta && Object.prototype.hasOwnProperty.call(patch.meta, 'enabled')) {
           return sendJSON(res, { error: 'demo mode: cards cannot be hidden' }, 403);
         }
         try {
@@ -1014,7 +1026,11 @@ const server = http.createServer(async (req, res) => {
           return sendJSON(res, { ok: true, id: result.id });
         } catch (e) {
           const msg = e.message || 'patch failed';
-          const status = /unknown manifest/.test(msg) ? 404
+          // Typed codes first: the message-regex fallbacks below can be
+          // spoofed by client-controlled text interpolated into an error
+          // (an unknown patch key named "unknown manifest x" would 404).
+          const status = (e.code === 'UNKNOWN_KEY' || e.code === 'WRONG_TYPE') ? 400
+            : /unknown manifest/.test(msg) ? 404
             : /protected field|patch must be|missing|description must/.test(msg) ? 400
             : /^invalid id/.test(msg) ? 422
             : /^invalid notifications:/.test(msg) ? 422

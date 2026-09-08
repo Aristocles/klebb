@@ -225,7 +225,9 @@ const TOOL_DEFS = [
         type: 'object',
         properties: {
           manifest: {
+            type: 'object',
             description: 'The full candidate klebb.datafile.v1 manifest object to check (same shape you would pass to create_manifest).',
+            additionalProperties: true,
           },
         },
         required: ['manifest'],
@@ -367,7 +369,7 @@ const TOOL_DEFS = [
         properties: {
           id: { type: 'string', description: 'Manifest id.' },
           path: { type: 'string', description: 'Path to the array to append to. May be empty for an array-rooted card.' },
-          value: { description: 'The row to append. Shape matches the existing rows in that array.' },
+          value: { description: 'The row to append. Shape matches the existing rows in that array. Pass the row value itself (object, or bare string for string-rowed cards), never a JSON-serialised string of an object.' },
         },
         required: ['id', 'path', 'value'],
         additionalProperties: false,
@@ -528,7 +530,7 @@ function dispatchToolCall(tc, ctx) {
   try {
     switch (name) {
       case 'create_manifest': {
-        const result = registry.createManifest(args.manifest);
+        const result = registry.createManifest(_rescueObjectArg('create_manifest', 'manifest', args.manifest));
         recordTouch(ctx, { id: result.id, flow: 'create' });
         return JSON.stringify({ ok: true, ...result });
       }
@@ -579,9 +581,15 @@ function dispatchToolCall(tc, ctx) {
         return JSON.stringify({ ok: true, id: args.id });
       }
       case 'patch_manifest': {
-        const result = registry.patchManifest(args.id, args.patch);
-        recordTouch(ctx, { id: args.id, flow: 'edit' });
-        return JSON.stringify({ ok: true, ...result });
+        try {
+          const result = registry.patchManifest(args.id, args.patch);
+          recordTouch(ctx, { id: args.id, flow: 'edit' });
+          return JSON.stringify({ ok: true, ...result });
+        } catch (e) {
+          // Through _toolErrorPayload so the typed codes the registry sets
+          // (UNKNOWN_KEY, WRONG_TYPE) reach the model like the row tools'.
+          return _toolErrorPayload(e, args);
+        }
       }
       case 'read_manifest_meta': {
         const entry = registry.get(args.id);
@@ -668,7 +676,7 @@ function dispatchToolCall(tc, ctx) {
         return JSON.stringify(scanHygiene(registry, serverTodayIso()));
       }
       case 'validate_manifest': {
-        return JSON.stringify(validateManifest(args.manifest));
+        return JSON.stringify(validateManifest(_rescueObjectArg('validate_manifest', 'manifest', args.manifest)));
       }
       case 'note_feedback': {
         return JSON.stringify(appendFeedback({
@@ -809,6 +817,26 @@ function _writeableGate(id) {
     });
   }
   return null;
+}
+
+// Parse-once rescue for an object argument the model double-serialised
+// (sent a JSON string where the schema wants an object), the #342 class
+// again (#701). Scalars and non-JSON strings pass through untouched so the
+// normal shape error still names the real problem. Without this, the
+// mandated validate-before-write gate rejects every stringified manifest
+// and a compliant model can never write.
+function _rescueObjectArg(tool, argName, value) {
+  if (typeof value !== 'string') return value;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      console.warn(`[chat] ${tool}: rescued double-serialised ${argName} (model passed a JSON string); accepting parsed value`);
+      return parsed;
+    }
+  } catch {
+    // not JSON; fall through
+  }
+  return value;
 }
 
 function _toolErrorPayload(e, args) {
