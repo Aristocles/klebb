@@ -50,6 +50,29 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   the generation was carrying. A truncated turn now ends as capped:
   progress kept, the size-limit stop explained, `capped: true` so the
   client offers "keep going".
+- **A chat turn whose connection dies is picked back up instead of being
+  stranded.** A turn keeps running server-side and its reply is kept even
+  when this browser's stream dies, but the client only tried to reattach on
+  returning to the foreground. Now every way of losing a stream reattaches:
+  a 409 from a second send (which previously called reattach in a state the
+  reattach guard refused, making it a no-op), a socket that dies mid-turn,
+  and a stream that closes cleanly without ever sending a reply. The
+  "failed to connect" bubble appears only once there is provably nothing
+  left to collect, and a drop while the app is backgrounded no longer
+  blames the network at all.
+- **An adopted turn renders as running and can be stopped.** Reattaching
+  left the loading flag clear, so a turn picked up from the server showed no
+  status line, no streaming text and no Stop button while it worked.
+- **A reattach resumes from the last event it saw.** A finished turn stays
+  replayable for half a minute so a client that missed the end can still
+  collect its reply, and reattaching without a resume point was handed the
+  whole turn again: switching tabs moments after a reply re-rendered that
+  reply as a second, still-typing bubble, disabled the composer, and offered
+  a Stop button for a turn that had already finished.
+- **The composer stays shut until a lost turn is accounted for.** Sending was
+  re-enabled before the recovery reattach came back, so a second message could
+  land while a turn was still running server-side and collide with the
+  recovery over one slot of turn state, losing both.
 - **A mostly-blind OCR witness is discarded instead of flooding the verify
   screen.** When local OCR could not read the document the vision model just
   read (a low-resolution photo: precisely the case vision exists for), every
