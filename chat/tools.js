@@ -403,7 +403,7 @@ const TOOL_DEFS = [
     function: {
       name: 'remove_row',
       description:
-        "Remove ONE row from its parent array, identified by `path`. Path resolves the SAME way read_manifest_rows resolves. The path's leaf must be an array element (a filtered segment, e.g. `items[name=\"X\"]` or `items[name=\"X\"].doses[scheduledDate=\"YYYY-MM-DD\"]`); you cannot remove a property of an object with this tool, and you cannot remove the root data value (use write_manifest_data for those). The path MUST resolve unambiguously. Rejected if meta.writeable.fromWebapp is not true. Errors return {error, code}. Confirm with the user EXACTLY ONCE before calling: removal is destructive and not undoable.",
+        "Remove ONE row from its parent array, identified by `path`. Path resolves the SAME way read_manifest_rows resolves. The path's leaf must be an array element (a filtered segment, e.g. `items[name=\"X\"]` or `items[name=\"X\"].doses[scheduledDate=\"YYYY-MM-DD\"]`); you cannot remove a property of an object with this tool, and you cannot remove the root data value (use write_manifest_data for those). The path MUST resolve unambiguously: on a card with meta.writeable.maxReadingsPerDay > 1 a date can hold SEVERAL dose entries, so a bare `doses[scheduledDate=...]` filter returns AMBIGUOUS; read the rows first and use `[index=N]` to pick the exact entry. Rejected if meta.writeable.fromWebapp is not true. Errors return {error, code}. Confirm with the user EXACTLY ONCE before calling: removal is destructive and not undoable.",
       parameters: {
         type: 'object',
         properties: {

@@ -83,6 +83,21 @@ function cycleProgress(item, dateStr) {
   return { day, total, type: c.type || 'on', cycle: c };
 }
 
+// A stacked entry's display time (#705). When the log instant's local
+// calendar date differs from the entry's scheduledDate (backfill: logged
+// today against a past day), a bare time would read as that past day's
+// time, so the label carries the log date too.
+function _entryTimeLabel(e) {
+  if (!e.takenAt) return '';
+  const dt = new Date(e.takenAt);
+  const t = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const localDate = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  if (e.scheduledDate && localDate !== e.scheduledDate) {
+    return `logged ${dt.toLocaleDateString([], { day: 'numeric', month: 'short' })} ${t}`;
+  }
+  return t;
+}
+
 export class EhScheduleCard extends EhBaseCard {
   static supportsSettingsGear = true;
   static displayName = 'Schedule';
@@ -99,12 +114,14 @@ export class EhScheduleCard extends EhBaseCard {
     ...EhBaseCard.properties,
     _expandedItemKey: { state: true },
     _formError: { state: true },
+    _entriesExpandedKey: { state: true },
   };
 
   constructor() {
     super();
     this._expandedItemKey = null;
     this._formError = null;
+    this._entriesExpandedKey = null;
   }
 
   static styles = [
@@ -158,6 +175,52 @@ export class EhScheduleCard extends EhBaseCard {
         font-size: 12px;
         color: var(--text-secondary);
         margin-top: 1px;
+      }
+      .multi-count {
+        border: 1px solid var(--border, #333);
+        background: none;
+        color: var(--text-secondary);
+        border-radius: 10px;
+        font-size: 11px;
+        line-height: 1.4;
+        padding: 1px 7px;
+        cursor: pointer;
+      }
+      .multi-count.open {
+        color: var(--accent, #00d4aa);
+        border-color: var(--accent, #00d4aa);
+      }
+      .day-entries {
+        margin: 4px 8px 6px 52px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .day-entry {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+      .entry-time {
+        font-variant-numeric: tabular-nums;
+      }
+      .entry-summary {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .entry-remove {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 11px;
+        padding: 2px 4px;
+      }
+      .entry-remove:hover {
+        color: var(--danger, #e05661);
       }
       .cycle-text {
         font-size: 11px;
@@ -357,8 +420,36 @@ export class EhScheduleCard extends EhBaseCard {
 
   _isTakenOn(item, dateStr) {
     if (!Array.isArray(item.doses)) return false;
-    const hit = item.doses.find(d => d.scheduledDate === dateStr);
-    return !!(hit && hit.takenAt);
+    // .some, not find-first: an unticked entry (takenAt null) followed by
+    // a taken one must still read as taken, and multi mode (#705) can hold
+    // several same-day entries.
+    return item.doses.some(d => d && d.scheduledDate === dateStr && d.takenAt);
+  }
+
+  // Taken entries for one date, oldest first (stacking order, #705).
+  _takenEntriesOn(item, dateStr = this.date) {
+    if (!Array.isArray(item.doses)) return [];
+    return item.doses.filter(d => d && d.scheduledDate === dateStr && d.takenAt);
+  }
+
+  // The entry that represents a date: the latest taken one, else the
+  // date's untaken placeholder. Identical to find-first when a date can
+  // only hold one entry.
+  _doseEntryOn(item, dateStr = this.date) {
+    if (!Array.isArray(item.doses)) return null;
+    const same = item.doses.filter(d => d && d.scheduledDate === dateStr);
+    if (same.length === 0) return null;
+    const taken = same.filter(d => d.takenAt);
+    if (taken.length === 0) return same[same.length - 1];
+    return taken.reduce((a, b) => ((a.takenAt || '') >= (b.takenAt || '') ? a : b));
+  }
+
+  // meta.writeable.maxReadingsPerDay, the existing schema knob for
+  // multiple same-day entries (#705). 1 (or anything invalid) keeps the
+  // one-entry-per-date behaviour byte-identical.
+  _maxReadingsPerDay() {
+    const v = this._meta?.writeable?.maxReadingsPerDay;
+    return Number.isInteger(v) && v > 1 ? v : 1;
   }
 
   _statusChip(item) {
@@ -434,18 +525,11 @@ export class EhScheduleCard extends EhBaseCard {
     return out;
   }
 
-  // The most recent dose with a takenAt timestamp set, OR null. Walks
-  // backwards to skip scheduled-but-untaken entries (takenAt: null) and
-  // any dose for the currently-viewed date — when the user logs today
-  // and re-opens the form to fill in the previous-dose reaction, the
-  // "previous" dose is the one before today, not today itself.
+  // The dose the form's "Last:" context line describes. Delegates to
+  // _resolvePreviousDose so the line always names the SAME dose the
+  // submit-time review merge will write to.
   _findPreviousDose(item) {
-    if (!Array.isArray(item.doses)) return null;
-    for (let i = item.doses.length - 1; i >= 0; i--) {
-      const d = item.doses[i];
-      if (d && d.takenAt && d.scheduledDate !== this.date) return { dose: d, index: i };
-    }
-    return null;
+    return this._resolvePreviousDose(item.doses);
   }
 
   _itemKey(item) {
@@ -510,30 +594,70 @@ export class EhScheduleCard extends EhBaseCard {
     if (!this._canWrite) return;
     const doses = Array.isArray(item.doses) ? [...item.doses] : [];
     const idx = doses.findIndex(d => d.scheduledDate === this.date);
-    const alreadyTaken = idx >= 0 && doses[idx].takenAt;
+    const alreadyTaken = doses.some(d => d.scheduledDate === this.date && d.takenAt);
+    const maxPerDay = this._maxReadingsPerDay();
 
     // Form-driven path: only fires on the "take a dose" tap, never on
     // untick. Untick clears takenAt and saves immediately, same as
-    // before. The form also skips on disable.
+    // before. The form also skips on disable. In multi mode (#705) every
+    // tap goes through the form: under the cap it logs another entry, at
+    // the cap it edits the latest. The form session (prefill + edit
+    // target) is snapshotted HERE, at open time: deriving it per render
+    // let any state change beside the open form (badge toggle, entry
+    // remove) reset typed input and silently retarget Submit.
     const formCfg = this._checkOffFormConfig();
-    if (formCfg && !alreadyTaken) {
+    if (formCfg && (!alreadyTaken || maxPerDay > 1)) {
+      const underCap = maxPerDay > 1 && this._takenEntriesOn(item).length < maxPerDay;
+      const editTarget = maxPerDay > 1 && !underCap ? this._doseEntryOn(item) : null;
+      const prefill = maxPerDay > 1
+        ? editTarget
+        : this._doseEntryOn(item);
+      this._formSession = {
+        values: prefill ? { ...prefill } : {},
+        editTarget,
+      };
       this._formError = null;
       this._expandedItemKey = this._itemKey(item) + (opts.offSchedule ? ':offschedule' : '');
       return;
     }
 
-    if (idx >= 0) {
-      if (doses[idx].takenAt) doses[idx] = { ...doses[idx], takenAt: null };
-      else {
-        const updated = { ...doses[idx], takenAt: new Date().toISOString() };
-        if (opts.offSchedule) updated.offSchedule = true;
-        doses[idx] = updated;
+    if (maxPerDay > 1) {
+      // Multi mode, no form: each tap stacks a fresh entry up to the cap.
+      // The checkbox never unticks; entries are removed individually via
+      // the day's entry list. At the cap a tap is a no-op rather than
+      // silently dropping the oldest record.
+      if (this._takenEntriesOn(item).length >= maxPerDay) return;
+      const entry = { scheduledDate: this.date, takenAt: new Date().toISOString() };
+      if (opts.offSchedule) entry.offSchedule = true;
+      doses.push(entry);
+      await this._persistDoses(item, doses);
+      return;
+    }
+
+    if (alreadyTaken) {
+      // Untick clears EVERY same-date taken entry: the readers use .some,
+      // so a lingering taken duplicate (chat- or import-written) would
+      // otherwise leave the checkbox stuck checked while taps silently
+      // flipped only the first entry.
+      for (let i = 0; i < doses.length; i++) {
+        const d = doses[i];
+        if (d.scheduledDate === this.date && d.takenAt) doses[i] = { ...d, takenAt: null };
       }
+    } else if (idx >= 0) {
+      const updated = { ...doses[idx], takenAt: new Date().toISOString() };
+      if (opts.offSchedule) updated.offSchedule = true;
+      doses[idx] = updated;
     } else {
       const entry = { scheduledDate: this.date, takenAt: new Date().toISOString() };
       if (opts.offSchedule) entry.offSchedule = true;
       doses.push(entry);
     }
+    await this._persistDoses(item, doses);
+  }
+
+  async _removeDoseEntry(item, entry) {
+    if (!this._canWrite) return;
+    const doses = (item.doses || []).filter(d => d !== entry);
     await this._persistDoses(item, doses);
   }
 
@@ -575,11 +699,7 @@ export class EhScheduleCard extends EhBaseCard {
     // pushing the new one (so "previous" doesn't accidentally point at
     // itself).
     const doses = Array.isArray(item.doses) ? [...item.doses] : [];
-    let prev = null;
-    for (let i = doses.length - 1; i >= 0; i--) {
-      const d = doses[i];
-      if (d && d.takenAt && d.scheduledDate !== this.date) { prev = { dose: d, index: i }; break; }
-    }
+    const prev = this._resolvePreviousDose(doses);
     if (prev && formCfg.previousDoseFields.length > 0) {
       const merged = { ...prev.dose };
       for (const key of formCfg.previousDoseFields) {
@@ -588,18 +708,88 @@ export class EhScheduleCard extends EhBaseCard {
       doses[prev.index] = merged;
     }
 
-    // Replace any existing same-date dose entry, otherwise append.
-    const idx = doses.findIndex(d => d.scheduledDate === this.date);
-    if (idx >= 0) doses[idx] = newDose; else doses.push(newDose);
+    // Single mode: replace any existing same-date dose entry, otherwise
+    // append. Multi mode (#705): the open-time form session decides.
+    // Appends get the fresh takenAt; an at-cap edit MERGES onto its
+    // target and keeps the original take time, or "edit" would silently
+    // restamp the dose to now and drop fields the form never carried.
+    const maxPerDay = this._maxReadingsPerDay();
+    if (maxPerDay > 1) {
+      const target = this._formSession?.editTarget;
+      const ti = target ? doses.indexOf(target) : -1;
+      if (ti >= 0) {
+        doses[ti] = { ...target, ...newDose, takenAt: target.takenAt };
+      } else {
+        doses.push(newDose);
+      }
+    } else {
+      const idx = doses.findIndex(d => d.scheduledDate === this.date);
+      if (idx >= 0) doses[idx] = newDose; else doses.push(newDose);
+    }
 
     this._expandedItemKey = null;
     this._formError = null;
+    this._formSession = null;
     await this._persistDoses(item, doses);
+  }
+
+  // "Previous dose" for the retroactive-review merge. Single mode keeps
+  // the shipped rule: latest taken entry on a PRIOR date (today's entry
+  // is the one being edited). Multi mode (#705) resolves by recency
+  // instead: today's earlier stacked entries are legitimate review
+  // targets, and only an at-cap edit's own target is excluded, or the
+  // 14:00 form would merge the 08:00 dose's review onto yesterday.
+  _resolvePreviousDose(doses) {
+    if (!Array.isArray(doses)) return null;
+    if (this._maxReadingsPerDay() > 1) {
+      const target = this._formSession?.editTarget;
+      let best = -1;
+      for (let i = 0; i < doses.length; i++) {
+        const d = doses[i];
+        if (!d || !d.takenAt || d === target) continue;
+        if (best < 0 || d.takenAt > doses[best].takenAt) best = i;
+      }
+      return best >= 0 ? { dose: doses[best], index: best } : null;
+    }
+    for (let i = doses.length - 1; i >= 0; i--) {
+      const d = doses[i];
+      if (d && d.takenAt && d.scheduledDate !== this.date) return { dose: d, index: i };
+    }
+    return null;
   }
 
   _cancelCheckOffForm() {
     this._expandedItemKey = null;
     this._formError = null;
+    this._formSession = null;
+  }
+
+  // The viewed day's taken entries, oldest first: time, form summary when
+  // configured, and a per-entry remove. This is the untick surface in
+  // multi mode, where the checkbox only ever adds (#705).
+  _renderDayEntries(item) {
+    const entries = this._takenEntriesOn(item);
+    if (entries.length === 0) return '';
+    const formCfg = this._checkOffFormConfig();
+    return html`
+      <div class="day-entries">
+        ${entries.map(e => {
+          const t = _entryTimeLabel(e);
+          const summary = formCfg ? this._summariseDoseForCard(e, formCfg) : '';
+          return html`
+            <div class="day-entry">
+              <span class="entry-time">${t}</span>
+              ${summary ? html`<span class="entry-summary">${summary}</span>` : ''}
+              ${this._canWrite ? html`
+                <button
+                  class="entry-remove"
+                  @click=${() => this._removeDoseEntry(item, e)}
+                  aria-label="remove the ${t} entry for ${item.name}"
+                  title="Remove this entry"
+                >✕</button>` : ''}
+            </div>`;
+        })}
+      </div>`;
   }
 
   _renderRing(cp, colour) {
@@ -680,14 +870,23 @@ export class EhScheduleCard extends EhBaseCard {
     const onSubmit = (e) => this._submitCheckOffForm(item, opts, e);
     const onCancel = () => this._cancelCheckOffForm();
 
-    // Prefill the form when a dose entry already exists for the viewed
-    // date — lets the user edit a logged dose by re-tapping ✓ instead
-    // of having to untick + re-fill from scratch. eh-input-form's
-    // willUpdate handles chips-multi array coercion already.
-    const existingDose = Array.isArray(item.doses)
-      ? item.doses.find(d => d.scheduledDate === this.date)
-      : null;
-    const formValues = existingDose ? { ...existingDose } : {};
+    // The prefill was snapshotted when the form opened (_toggleDose):
+    // single mode prefills from the date's entry so re-tapping ✓ edits
+    // it; multi mode (#705) starts BLANK under the cap (the tap logs
+    // another entry) and prefills from the latest at the cap (Submit
+    // then edits that entry). The snapshot's identity is stable across
+    // re-renders, so eh-input-form never re-seeds over typed input when
+    // unrelated state (badge toggle, entry remove) changes beside the
+    // open form.
+    const formValues = this._formSession?.values || {};
+    // eh-input-form reseeds its internal state whenever the IDENTITY of
+    // .values or .inputs changes. Both are frozen for the life of the
+    // form session, or any re-render beside the open form (badge toggle,
+    // entry remove) would wipe typed input.
+    if (this._formSession && !this._formSession.inputs) {
+      this._formSession.inputs = visibleInputs;
+    }
+    const formInputs = this._formSession?.inputs || visibleInputs;
 
     // When previousDoseFields is non-empty, render a divider after
     // its last field so the previous-dose section (panel + reactions
@@ -724,7 +923,7 @@ export class EhScheduleCard extends EhBaseCard {
     return html`
       <div class="checkoff-form">
         <eh-input-form
-          .inputs=${visibleInputs}
+          .inputs=${formInputs}
           .values=${formValues}
           .date=${this.date}
           .headerSlot=${prevDoseSlot}
@@ -758,8 +957,7 @@ export class EhScheduleCard extends EhBaseCard {
           const isRestToday = scheduledStatus === 'rest';
           // Off-schedule dose taken when the date's status is 'rest' but
           // we have a takenAt — or the dose entry itself has offSchedule.
-          const doseEntry = Array.isArray(item.doses)
-            ? item.doses.find(d => d.scheduledDate === this.date) : null;
+          const doseEntry = this._doseEntryOn(item);
           const isOffScheduleTaken = !!(taken && (isRestToday || doseEntry?.offSchedule));
           const itemKey = this._itemKey(item);
           const formKey = this._expandedItemKey;
@@ -768,6 +966,9 @@ export class EhScheduleCard extends EhBaseCard {
           const formCfg = this._checkOffFormConfig();
           const doseSummary = (formCfg && doseEntry && doseEntry.takenAt)
             ? this._summariseDoseForCard(doseEntry, formCfg) : '';
+          const maxPerDay = this._maxReadingsPerDay();
+          const takenToday = maxPerDay > 1 ? this._takenEntriesOn(item) : [];
+          const entriesExpanded = this._entriesExpandedKey === itemKey;
           return html`
             <div class="item-row">
               <div class="item">
@@ -785,6 +986,14 @@ export class EhScheduleCard extends EhBaseCard {
                 </div>
                 <div class="right">
                   ${chip ? html`<span class="chip ${chip.cls}">${chip.text}</span>` : ''}
+                  ${maxPerDay > 1 && takenToday.length > 0 ? html`
+                    <button
+                      class="multi-count ${entriesExpanded ? 'open' : ''}"
+                      @click=${() => { this._entriesExpandedKey = entriesExpanded ? null : itemKey; }}
+                      aria-expanded=${entriesExpanded ? 'true' : 'false'}
+                      aria-label="${entriesExpanded ? 'hide' : 'show'} ${takenToday.length} logged ${takenToday.length === 1 ? 'entry' : 'entries'} for ${item.name}"
+                      title="Entries logged this day"
+                    >×${takenToday.length}</button>` : ''}
                   ${isScheduledToday ? html`
                     <div
                       class="checkbox ${taken ? 'checked' : ''} ${this._canWrite ? '' : 'disabled'}"
@@ -805,6 +1014,7 @@ export class EhScheduleCard extends EhBaseCard {
               </div>
               ${formExpandedScheduled ? this._renderCheckOffForm(item, { offSchedule: false }) : ''}
               ${formExpandedOffSchedule ? this._renderCheckOffForm(item, { offSchedule: true }) : ''}
+              ${entriesExpanded ? this._renderDayEntries(item) : ''}
             </div>
           `;
         })}
