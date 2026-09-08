@@ -15,6 +15,34 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   visible on rest-day and off-cycle rows too, `"never"` suppresses it.
   Unrecognised values behave as the default, so a typo can never blank
   the line.
+- **Multiple check-offs per item per day.** With
+  `meta.writeable.maxReadingsPerDay > 1`, schedule-card and
+  checklist-card check-offs (`doses[]` shapes) stack a fresh
+  `{scheduledDate, takenAt}` entry per ✓ tap up to the cap, each with
+  its own timestamp (and form fields when `checkOffForm` is
+  configured). A ×N badge next to the checkbox expands the day's entry
+  list, where entries are removed individually; at the cap a formless
+  tap is a no-op rather than silently dropping the oldest record, and
+  a `checkOffForm` tap opens the form prefilled from the latest entry,
+  which Submit then edits in place (original take time kept). The
+  previous-dose review resolves by recency in this mode, so a same-day
+  earlier dose is reviewable. The open form's state is snapshotted per
+  session, so expanding the entry list beside it no longer resets
+  typed input. Cards without the flag keep the single-toggle behaviour
+  exactly, except that untick now clears every same-date taken entry:
+  with duplicated entries (chat- or import-written) the checkbox used
+  to stay stuck checked while taps flipped only the first one.
+  `takenDates` shapes ignore the flag: date-set membership cannot
+  carry timestamps.
+- **Adherence percentages are consistent and bounded.** The cycle
+  maths moved to a unit-tested lib and now counts unique dates, never
+  entries, so a stacked day contributes once; a dose taken today moves
+  today into the past denominator (the bar could previously pass 100
+  whenever today sat inside the cycle window); the headline percentage
+  uses the same formula as the per-cycle rows (off-schedule extras
+  subtract) instead of a laxer one; and a latent weekly-schedule
+  defect is fixed (rest and off-cycle days counted as scheduled
+  because a truthy status string passed the filter).
 
 ### Fixed
 

@@ -17,9 +17,34 @@ import { adherenceSeries, hasAdherenceSignal, adherenceItems } from '../lib/adhe
 import { adherenceSparklineDescriptor } from '../lib/card-settings.js';
 import './eh-sparkline.js';
 
+// A stacked entry's display time (#705). When the log instant's local
+// calendar date differs from the entry's scheduledDate (backfill: logged
+// today against a past day), a bare time would read as that past day's
+// time, so the label carries the log date too.
+function _entryTimeLabel(e) {
+  if (!e.takenAt) return '';
+  const dt = new Date(e.takenAt);
+  const t = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const localDate = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  if (e.scheduledDate && localDate !== e.scheduledDate) {
+    return `logged ${dt.toLocaleDateString([], { day: 'numeric', month: 'short' })} ${t}`;
+  }
+  return t;
+}
+
 export class EhChecklistCard extends EhBaseCard {
   static supportsSettingsGear = true;
   static displayName = 'Checklist';
+
+  static properties = {
+    ...EhBaseCard.properties,
+    _entriesExpandedKey: { state: true },
+  };
+
+  constructor() {
+    super();
+    this._entriesExpandedKey = null;
+  }
 
   static get settingsSchema() {
     return [adherenceSparklineDescriptor(hasAdherenceSignal, adherenceItems)];
@@ -30,6 +55,44 @@ export class EhChecklistCard extends EhBaseCard {
     css`
       .list { list-style: none; padding: 0; margin: 0; }
       .cl-spark { margin: 0 0 10px; line-height: 0; }
+      .multi-count {
+        border: 1px solid var(--border, #333);
+        background: none;
+        color: var(--text-secondary);
+        border-radius: 10px;
+        font-size: 11px;
+        line-height: 1.4;
+        padding: 1px 7px;
+        cursor: pointer;
+        margin-right: 8px;
+      }
+      .multi-count.open {
+        color: var(--accent, #00d4aa);
+        border-color: var(--accent, #00d4aa);
+      }
+      .day-entries {
+        padding: 0 0 8px 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .day-entry {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+      .entry-time { font-variant-numeric: tabular-nums; }
+      .entry-remove {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 11px;
+        padding: 2px 4px;
+      }
+      .entry-remove:hover { color: var(--danger, #e05661); }
 
       .item {
         display: flex;
@@ -190,13 +253,57 @@ export class EhChecklistCard extends EhBaseCard {
     // doses[] shape (peptides-style)
     const now = new Date().toISOString();
     const doses = hasDoses ? [...item.doses] : [];
-    const idx = doses.findIndex(dd => dd.scheduledDate === this.date);
-    if (idx >= 0) {
-      if (doses[idx].takenAt) doses[idx] = { ...doses[idx], takenAt: null };
-      else doses[idx] = { ...doses[idx], takenAt: now };
-    } else {
+    const maxPerDay = this._maxReadingsPerDay();
+    if (maxPerDay > 1) {
+      // Multi mode (#705): each tap stacks a fresh entry up to the cap;
+      // the checkbox never unticks. Entries are removed individually via
+      // the day's entry list. At the cap a tap is a no-op rather than
+      // silently dropping the oldest record.
+      if (this._takenEntriesOn(item).length >= maxPerDay) return;
       doses.push({ scheduledDate: this.date, takenAt: now });
+      this._updateItem(item, { ...item, doses }, listPath);
+      await this._persist();
+      return;
     }
+    const alreadyTaken = doses.some(dd => dd.scheduledDate === this.date && dd.takenAt);
+    if (alreadyTaken) {
+      // Untick clears EVERY same-date taken entry: the reader uses .some,
+      // so a lingering taken duplicate (chat- or import-written) would
+      // otherwise leave the checkbox stuck checked.
+      for (let i = 0; i < doses.length; i++) {
+        const dd = doses[i];
+        if (dd.scheduledDate === this.date && dd.takenAt) doses[i] = { ...dd, takenAt: null };
+      }
+    } else {
+      const idx = doses.findIndex(dd => dd.scheduledDate === this.date);
+      if (idx >= 0) doses[idx] = { ...doses[idx], takenAt: now };
+      else doses.push({ scheduledDate: this.date, takenAt: now });
+    }
+    this._updateItem(item, { ...item, doses }, listPath);
+    await this._persist();
+  }
+
+  // meta.writeable.maxReadingsPerDay (#705): 1 or anything invalid keeps
+  // the one-entry-per-date toggle byte-identical. Only doses[] shapes
+  // support multi mode; takenDates is date-set membership and cannot
+  // carry timestamps.
+  _maxReadingsPerDay() {
+    const v = this._meta?.writeable?.maxReadingsPerDay;
+    return Number.isInteger(v) && v > 1 ? v : 1;
+  }
+
+  _takenEntriesOn(item, date = this.date) {
+    if (!Array.isArray(item.doses)) return [];
+    return item.doses.filter(d => d && d.scheduledDate === date && d.takenAt);
+  }
+
+  async _removeDoseEntry(item, entry) {
+    if (!this._canWrite) return;
+    let listPath = null;
+    const d = this.data;
+    if (Array.isArray(d?.items)) listPath = 'items';
+    else if (Array.isArray(d?.current)) listPath = 'current';
+    const doses = (item.doses || []).filter(x => x !== entry);
     this._updateItem(item, { ...item, doses }, listPath);
     await this._persist();
   }
@@ -214,10 +321,11 @@ export class EhChecklistCard extends EhBaseCard {
   }
 
   _isDone(item, date = this.date) {
-    // Prefer doses[] if present (peptides)
+    // Prefer doses[] if present (peptides). .some, not find-first: an
+    // unticked entry followed by a taken one must still read as done,
+    // and multi mode (#705) can hold several same-day entries.
     if (Array.isArray(item.doses)) {
-      const match = item.doses.find(d => d.scheduledDate === date);
-      return !!(match && match.takenAt);
+      return item.doses.some(d => d && d.scheduledDate === date && d.takenAt);
     }
     // Fallback: takenDates array (supplements / simple daily checklist)
     if (Array.isArray(item.takenDates)) return item.takenDates.includes(date);
@@ -267,6 +375,10 @@ export class EhChecklistCard extends EhBaseCard {
         ${items.map(item => {
           const done = this._isDone(item);
           const writeable = this._canWrite;
+          const maxPerDay = this._maxReadingsPerDay();
+          const takenToday = maxPerDay > 1 ? this._takenEntriesOn(item) : [];
+          const entryKey = item.name || '';
+          const entriesExpanded = this._entriesExpandedKey === entryKey && takenToday.length > 0;
           // Build a sub-line: dose + optional timing separator
           const subParts = [];
           if (item.dose) subParts.push(item.dose);
@@ -279,6 +391,14 @@ export class EhChecklistCard extends EhBaseCard {
                 ${sub ? html`<div class="item-sub">${sub}</div>` : ''}
               </div>
               <div class="item-right">
+                ${maxPerDay > 1 && takenToday.length > 0 ? html`
+                  <button
+                    class="multi-count ${entriesExpanded ? 'open' : ''}"
+                    @click=${() => { this._entriesExpandedKey = entriesExpanded ? null : entryKey; }}
+                    aria-expanded=${entriesExpanded ? 'true' : 'false'}
+                    aria-label="${entriesExpanded ? 'hide' : 'show'} ${takenToday.length} logged ${takenToday.length === 1 ? 'entry' : 'entries'} for ${item.name}"
+                    title="Entries logged this day"
+                  >×${takenToday.length}</button>` : ''}
                 <span
                   class="checkbox ${done ? 'checked' : ''} ${writeable ? '' : 'disabled'}"
                   @click=${() => this._toggle(item)}
@@ -289,6 +409,20 @@ export class EhChecklistCard extends EhBaseCard {
                 ></span>
               </div>
             </li>
+            ${entriesExpanded ? html`
+              <li class="day-entries">
+                ${takenToday.map(e => html`
+                  <div class="day-entry">
+                    <span class="entry-time">${_entryTimeLabel(e)}</span>
+                    ${writeable ? html`
+                      <button
+                        class="entry-remove"
+                        @click=${() => this._removeDoseEntry(item, e)}
+                        aria-label="remove this entry for ${item.name}"
+                        title="Remove this entry"
+                      >✕</button>` : ''}
+                  </div>`)}
+              </li>` : ''}
           `;
         })}
       </ul>
