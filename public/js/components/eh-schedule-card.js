@@ -380,6 +380,18 @@ export class EhScheduleCard extends EhBaseCard {
     return '';
   }
 
+  // meta.view.doseLine controls when the per-item dose text renders:
+  // 'scheduled' (the default, and the pre-#706 behaviour) on scheduled
+  // days only, 'always' also on rest and off-cycle rows, 'never' not at
+  // all. An unrecognised value falls back to the default so a typo can
+  // never blank the line.
+  _doseLineVisible(isScheduledToday) {
+    const mode = this._config?.doseLine;
+    if (mode === 'always') return true;
+    if (mode === 'never') return false;
+    return isScheduledToday;
+  }
+
   // Per-dose-metadata config (see #345). When meta.view.checkOffForm is
   // present with a non-empty currentDoseFields list, tapping ✓ expands
   // an inline form sourced from meta.writeable.inputs instead of
@@ -762,7 +774,7 @@ export class EhScheduleCard extends EhBaseCard {
                 ${this._renderRing(cp, colour)}
                 <div class="info">
                   <div class="name">${item.short_name || item.name}</div>
-                  ${isScheduledToday ? html`<div class="dose">${this._doseLabel(item)}${item.dose_units ? ' · ' + item.dose_units + 'u' : ''}</div>` : ''}
+                  ${this._doseLineVisible(isScheduledToday) ? html`<div class="dose">${this._doseLabel(item)}${item.dose_units ? ' · ' + item.dose_units + 'u' : ''}</div>` : ''}
                   <div class="cycle-text">
                     ${cp.type === 'off' ? 'Off cycle' : 'Cycle'} · Day ${cp.day}${cp.total ? ' of ' + cp.total : ''}
                     ${todChipsFor(item.schedule?.time_of_day).map(c => html`<span class="tod-chip" aria-label=${c.label} title=${c.label}>${c.emoji}</span>`)}

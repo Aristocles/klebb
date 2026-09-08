@@ -1099,6 +1099,10 @@ of "I patched the manifest and nothing changed".
 **Reads:**
 - `meta.view.colorMap` (item-name → colour map; legacy alias
   `meta.colorMap` also accepted).
+- `meta.view.doseLine` (optional; when the per-item dose text renders:
+  `"scheduled"` on scheduled days only, the default; `"always"` also on
+  rest-day and off-cycle rows; `"never"` suppresses it. Unrecognised
+  values behave as the default).
 - `meta.view.checkOffForm` (optional; opts the card into the per-dose
   metadata flow — see "schedule-card per-dose metadata" below).
 - `meta.writeable.inputs[]` — ONLY when `meta.view.checkOffForm` is
