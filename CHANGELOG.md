@@ -7,6 +7,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **`meta.view.doseLine` on schedule-card.** Controls when the per-item
+  dose text renders: `"scheduled"` (the default, and the previous
+  behaviour) shows it on scheduled days only, `"always"` keeps the dose
+  visible on rest-day and off-cycle rows too, `"never"` suppresses it.
+  Unrecognised values behave as the default, so a typo can never blank
+  the line.
+
 ### Fixed
 
 - **Double-serialised tool arguments no longer block or corrupt chat
