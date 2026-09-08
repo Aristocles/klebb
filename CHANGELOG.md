@@ -7,6 +7,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+
+- **`note_feedback` rejects placeholder intents.** Half the collected
+  feedback log turned out to be placeholder lines the assistant wrote
+  when it decided mid-turn there was nothing to report ("placeholder",
+  "skip", "noop", "n/a - ..."), each costing real triage attention.
+  Unambiguous placeholder prefixes and whole-line filler words are now
+  refused with a readable reason, and the tool description says
+  plainly: no gap means no call. Real reports that merely open with an
+  ambiguous word ("skip button does nothing") still log.
+
 ### Added
 
 - **`meta.view.doseLine` on schedule-card.** Controls when the per-item
