@@ -2,16 +2,16 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // eh-greeting-banner.js — top-slot card showing the day context + a rotating motd.
 // Data: array of short message strings (pre-seeded at install time).
-// Rotation: once per day, on the first today-view render, pop messages[0], push it
-//           to the end, and POST the new order back. A bare YYYY-MM-DD stamp in
-//           localStorage guards it to at most one rotation per day. Rotation only
-//           happens when the card is writeable (meta.writeable.fromWebapp); a
-//           read-only greeting shows the message but never writes.
-//
-// When rendered on a non-today date, shows just the date context (no message rotation).
+// Rotation: the shown message is a pure function of the viewed date
+//           (days-since-epoch modulo message count), so it advances once per
+//           calendar day, is identical on every device, and never writes
+//           anything back. Rotation used to be a data write gated on
+//           meta.writeable.fromWebapp, which froze every read-only greeting
+//           on messages[0] forever (#704); docs/CARDS.md has always
+//           documented this renderer as "Writes: None".
 
 import { html, css } from 'https://esm.sh/lit@3';
-import { EhBaseCard, invalidateManifestCache } from './eh-base-card.js';
+import { EhBaseCard } from './eh-base-card.js';
 import { registerRenderer } from '../renderer-registry.js';
 
 function _today() {
@@ -73,8 +73,6 @@ export class EhGreetingBanner extends EhBaseCard {
     const rel = _formatRelDate(this.date);
     const long = _formatLongDate(this.date);
     const msg = this._currentMessage();
-    // Trigger rotation in background (non-blocking)
-    if (this.dateMode === 'today') this._maybeRotate();
     return html`
       <div class="greeting">
         <div class="date-line">
@@ -86,57 +84,14 @@ export class EhGreetingBanner extends EhBaseCard {
     `;
   }
 
+  // The viewed date picks the message deterministically. UTC-anchored so
+  // the day index is an exact integer regardless of the browser timezone
+  // or DST; the date string itself is already the user's local calendar
+  // date, supplied by the view.
   _currentMessage() {
     if (!Array.isArray(this.data) || this.data.length === 0) return null;
-    return this.data[0];
-  }
-
-  _rotationStampKey() {
-    return `eh:${this.card.id}:lastRot`;
-  }
-
-  // Claim today's rotation atomically. localStorage is synchronous, so the
-  // read-then-write here runs to completion before any other greeting
-  // instance can interleave — the view renderer recreates the element on
-  // every view re-render, so two instances can both reach _maybeRotate in
-  // the same tick before the first POST resolves. The stamp is the
-  // cross-instance guard; the bare YYYY-MM-DD clears itself at day rollover.
-  _claimRotationToday() {
-    try {
-      if (localStorage.getItem(this._rotationStampKey()) === _today()) return false;
-      localStorage.setItem(this._rotationStampKey(), _today());
-      return true;
-    } catch {
-      // No localStorage (private mode / disabled) — fall back to the
-      // per-instance guard only, accepting a possible extra POST.
-      return true;
-    }
-  }
-
-  async _maybeRotate() {
-    if (this._rotating || !Array.isArray(this.data) || this.data.length < 2) return;
-    // Read-only greeting cards render the message but never write it back.
-    if (!this._meta.writeable?.fromWebapp) return;
-    if (!this._claimRotationToday()) return;
-    this._rotating = true;
-    // Rotate: shift first -> push at end
-    const rotated = this.data.slice();
-    const first = rotated.shift();
-    rotated.push(first);
-    try {
-      const r = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: rotated }),
-      });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      invalidateManifestCache(this.card.id);
-      this.data = rotated;
-    } catch (e) {
-      console.warn('[greeting] rotation failed:', e.message);
-    } finally {
-      this._rotating = false;
-    }
+    const dayIndex = Math.floor(new Date(`${this.date || _today()}T00:00:00Z`).getTime() / 86400000);
+    return this.data[dayIndex % this.data.length];
   }
 }
 customElements.define('eh-greeting-banner', EhGreetingBanner);
