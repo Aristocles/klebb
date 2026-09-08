@@ -424,7 +424,7 @@ function extractJsonReply(raw) {
 // with conversation length; the model re-reads older state through its
 // tools when it genuinely needs it. The newest message always goes through,
 // however large.
-const CHAT_CONTEXT_CHAR_BUDGET = 24000;
+const CHAT_CONTEXT_CHAR_BUDGET = 72000;
 function windowTranscript(stored) {
   const out = [];
   let used = 0;
@@ -481,6 +481,9 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-', emit = ()
       const remaining = deadline - elapsed;
       iterBudget = iterBudget ? Math.min(iterBudget, remaining) : remaining;
     }
+    // Keep the budget under the transport ceiling, or a slow step rejects as a
+    // hard timeout and costs the whole turn instead of capping it (#694).
+    iterBudget = gateway.softStepBudget(iterBudget);
     emit('status', { phase: 'thinking' });
     let tokensThisIter = false;
     const gwStart = Date.now();
