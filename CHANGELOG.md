@@ -34,6 +34,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   mismatch is visible at a glance. Instances whose container `TZ` already
   matches the user, or where no timezone was ever reported, behave exactly
   as before. (#699)
+- **A slow chat step is capped instead of failing the whole turn.**
+  `CHAT_ITER_TIMEOUT_MS` is meant to be a soft cap: the step aborts, the
+  loop catches it and returns the work done so far with a resume prompt.
+  That only held while the per-step budget stayed under the transport's
+  per-hop ceiling, and nothing enforced it, so raising the step timeout to
+  the ceiling (or setting it to 0, which fell back to the whole turn
+  deadline) turned a slow step into a 504 that discarded every round of the
+  turn. The budget is now clamped just under the ceiling wherever it comes
+  from.
 - **A mostly-blind OCR witness is discarded instead of flooding the verify
   screen.** When local OCR could not read the document the vision model just
   read (a low-resolution photo: precisely the case vision exists for), every
