@@ -151,6 +151,43 @@ describe('#695 a length-truncated generation ends the turn as capped', () => {
     });
   });
 
+  // Only the deployed gateway spells the output cap 'length'. Any
+  // OpenAI-compatible gateway can be configured here, and they variously send
+  // 'max_tokens', 'MAX_TOKENS' or 'model_length' for the same condition, plus
+  // 'content_filter' for a safety cut. All are fragments, so the rule is "not
+  // a clean stop" rather than a list of spellings that goes stale in silence.
+  for (const finish of ['content_filter', 'max_tokens', 'MAX_TOKENS', 'model_length']) {
+    test(`a '${finish}' finish ends the turn as capped, not as an answer`, async () => {
+      gateway.reset([{
+        choices: [{ finish_reason: finish, message: { content: 'Halfway through the' } }],
+      }]);
+      await withChatServer(async (server) => {
+        const res = await ask(server);
+        assert.equal(res.status, 200);
+        assert.equal(res.json?.capped, true,
+          `a '${finish}' finish is a fragment and must carry the resume flag`);
+        assert.match(res.json?.reply || '', /^Halfway through the/, 'partial prose is progress');
+        assert.match(res.json?.reply || '', /keep going/i);
+        assert.doesNotMatch(res.json?.reply || '', /steps/i,
+          'the step budget was not the cause here');
+      });
+    });
+  }
+
+  // Some gateways simply never send finish_reason. Treating that as a cut would
+  // brand every ordinary reply from such a gateway as truncated, so an absent
+  // value has to stay a clean answer.
+  test('an absent finish_reason is still a clean reply', async () => {
+    gateway.reset([{ choices: [{ message: { content: 'no finish reason here' } }] }]);
+    await withChatServer(async (server) => {
+      const res = await ask(server);
+      assert.equal(res.status, 200);
+      assert.equal(res.json?.reply, 'no finish reason here');
+      assert.equal(res.json?.capped, undefined,
+        'a missing finish_reason is a quirk of the gateway, not a truncation');
+    });
+  });
+
   test('a clean stop finish is unaffected', async () => {
     gateway.reset([toolRound(1), { choices: [{ finish_reason: 'stop', message: { content: 'all done' } }] }]);
     await withChatServer(async (server) => {

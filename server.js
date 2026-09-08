@@ -103,6 +103,14 @@ const TRUNCATED_SUFFIX =
 // limit, which is the one thing #695 exists to stop.
 const TRUNCATED_FALLBACK_MESSAGE =
   'I ran out of room in that reply before I got anything useful out. Say "keep going" and I\'ll pick up where I stopped.';
+// Any other early finish (a safety filter cutting the generation, or one of
+// the several ways a gateway can spell its own output cap) is the same class
+// of stop: a fragment, not an answer. Deliberately cause-neutral, because
+// naming a mechanism we did not identify would be a guess (#695).
+const CUTSHORT_SUFFIX =
+  '\n\nI had to stop there: the service ended that reply early. Say "keep going" to continue.';
+const CUTSHORT_FALLBACK_MESSAGE =
+  'The service ended that reply early, before I got anything useful out. Say "keep going" and I\'ll pick up where I stopped.';
 
 // Four gateway conditions used to collapse into the single string 'No response'
 // (klebb#547), so an exhausted allowance, a dead gateway, a timeout and a
@@ -560,8 +568,8 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-', emit = ()
     // unusable. End the turn as capped so progress is kept and the stop is
     // resumable, never as a clean final reply (#695).
     if (finish === 'length') {
-      chatLog(reqId, `iter=${i} gw=${gwMs}ms finish=length tools=${toolCount} truncated`);
-      return { finalText: lastAssistantText, cappedOut: true, truncated: true, ctx, iters: i + 1 };
+      chatLog(reqId, `iter=${i} gw=${gwMs}ms finish=length tools=${toolCount} cut=size`);
+      return { finalText: lastAssistantText, cappedOut: true, cutShort: 'size', ctx, iters: i + 1 };
     }
 
     if (finish === 'tool_calls' && Array.isArray(msg.tool_calls) && msg.tool_calls.length) {
@@ -601,6 +609,18 @@ async function runAgentLoop({ systemPrompt, userMessages, reqId = '-', emit = ()
         });
       }
       continue;
+    }
+
+    // Every remaining non-stop finish reason means the gateway ended the
+    // generation for its own reasons rather than the model being done, so what
+    // we hold is a fragment. Matching on "not a clean stop" rather than a list
+    // of spellings is deliberate: any OpenAI-compatible gateway can be
+    // configured here, and a list of vendor synonyms for the output cap goes
+    // stale silently. An ABSENT finish_reason is left alone, since some
+    // gateways simply never send one and that is a normal reply.
+    if (finish && finish !== 'stop') {
+      chatLog(reqId, `iter=${i} gw=${gwMs}ms finish=${finish} tools=${toolCount} cut=early`);
+      return { finalText: lastAssistantText, cappedOut: true, cutShort: 'early', ctx, iters: i + 1 };
     }
 
     return { finalText: msg.content || lastAssistantText || '', cappedOut: false, ctx, iters: i + 1 };
@@ -2138,16 +2158,24 @@ Original system prompt follows:
           // The buffered and streamed paths share one reply shaper and one
           // error mapper, so the SSE protocol can never drift from the JSON
           // contract on wording, followup chips, or the capped flag.
-          const logDone = (out) => chatLog(reqId, `done total=${Date.now() - turnStart}ms iters=${out.iters} capped=${!!out.cappedOut}${out.deadlined ? ' deadline' : ''}${out.truncated ? ' truncated' : ''}${out.iterTimedOut ? ' iter_timeout' : ''}`);
-          const shapeReply = ({ finalText, ctx, cappedOut, truncated }) => {
+          const logDone = (out) => chatLog(reqId, `done total=${Date.now() - turnStart}ms iters=${out.iters} capped=${!!out.cappedOut}${out.deadlined ? ' deadline' : ''}${out.cutShort ? ` cut=${out.cutShort}` : ''}${out.iterTimedOut ? ' iter_timeout' : ''}`);
+          const shapeReply = ({ finalText, ctx, cappedOut, cutShort }) => {
             const followup = buildFollowup(ctx);
             // `capped: true` is the machine-readable form; the appended text
             // is for today's client, which renders only the reply string.
             const flags = cappedOut ? { capped: true } : {};
             if (cappedOut) {
-              finalText = finalText
-                ? finalText + (truncated ? TRUNCATED_SUFFIX : CAPPED_SUFFIX)
-                : (truncated ? TRUNCATED_FALLBACK_MESSAGE : CAPPED_FALLBACK_MESSAGE);
+              // Three distinct causes, three distinct workarounds: a size cap
+              // means ask for less, an early finish means just resume, and the
+              // step budget means the turn itself ran out. Borrowing one
+              // another's copy sends the user after the wrong one.
+              const suffix = cutShort === 'size' ? TRUNCATED_SUFFIX
+                : cutShort ? CUTSHORT_SUFFIX
+                : CAPPED_SUFFIX;
+              const fallback = cutShort === 'size' ? TRUNCATED_FALLBACK_MESSAGE
+                : cutShort ? CUTSHORT_FALLBACK_MESSAGE
+                : CAPPED_FALLBACK_MESSAGE;
+              finalText = finalText ? finalText + suffix : fallback;
             }
             if (voiceMode) {
               const parsedReply = extractJsonReply(finalText);
