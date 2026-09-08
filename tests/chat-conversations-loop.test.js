@@ -136,7 +136,7 @@ describe('#603 /api/chat with a conversationId', () => {
   test('the loop gets a windowed transcript, not the whole history', async () => {
     gateway.push({ content: 'ok', finish: 'stop' });
     const convo = await newConvo({ title: 't' });
-    const bulk = Array.from({ length: 30 }, (_, i) => ({
+    const bulk = Array.from({ length: 80 }, (_, i) => ({
       role: i % 2 ? 'assistant' : 'user',
       content: `msg${i}:` + 'x'.repeat(2000),
     }));
@@ -150,7 +150,7 @@ describe('#603 /api/chat with a conversationId', () => {
     assert.ok(!history.some(m => m.content.startsWith('msg0:')),
       'the oldest history must be windowed out');
     const chars = history.reduce((n, m) => n + m.content.length, 0);
-    assert.ok(chars <= 25000, `forwarded history must respect the budget (got ${chars})`);
+    assert.ok(chars <= 73000, `forwarded history must respect the budget (got ${chars})`);
     assert.ok(history.length >= 5, 'the window is a budget, not an amputation');
     assert.ok(!history.some(m => 'followupText' in m || 'hasVoice' in m || 'id' in m),
       'stored extras never reach the gateway');

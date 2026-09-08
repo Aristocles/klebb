@@ -93,19 +93,21 @@ tool instead.
 
 The agent loop has three budgets, all env-tunable:
 
-- **`CHAT_MAX_TURNS`** (default `12`): gateway round-trips per turn. One
+- **`CHAT_MAX_TURNS`** (default `36`): gateway round-trips per turn. One
   round-trip may batch several tool calls, but the prompt's own
   validate-before-create / read-before-append workflow means multi-card
   requests legitimately need many round-trips. When the cap is hit the
   reply keeps any progress text the model produced, appends how to
   resume ("keep going" works because the client resends the transcript),
   and carries `capped: true` for the client.
-- **`CHAT_ITER_TIMEOUT_MS`** (default `60000`, `0` disables): soft
-  per-iteration budget under the transport's hard 180s per-hop ceiling.
+- **`CHAT_ITER_TIMEOUT_MS`** (default `180000`, `0` disables): soft
+  per-iteration budget under the transport's hard 540s per-hop ceiling.
   A single step running past it aborts the in-flight gateway call and
   answers with timeout copy (HTTP 200), emitting
-  `[chat:<id>] iter=N gw=<ms>ms iter_timeout` in debug logs.
-- **`CHAT_TURN_DEADLINE_MS`** (default `240000`, `0` disables): total
+  `[chat:<id>] iter=N gw=<ms>ms iter_timeout` in debug logs. Keep it
+  strictly below the transport ceiling or it stops being soft and the
+  turn errors 504 instead.
+- **`CHAT_TURN_DEADLINE_MS`** (default `720000`, `0` disables): total
   wall clock for the whole turn. Without it, a raised iteration cap
   could stack per-step timeouts into a multi-minute silent spinner. The
   loop stops starting new round-trips past the deadline (shrinking the
