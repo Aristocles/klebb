@@ -513,6 +513,24 @@ function _coerceWriteData(id, newData) {
   return parsed;
 }
 
+// Parse-once rescue shared by the other write seats that can receive a
+// double-serialised structured argument (#701/#702/#703, same class as
+// #342). Returns the parsed value when the string decodes to a structured
+// value, undefined when it does not decode or decodes to a scalar. Callers
+// decide what a non-structured string means: writeData treats it as an
+// error, appendRow treats it as data (greeting-style cards hold bare-string
+// rows).
+function _parseStructuredString(value) {
+  if (typeof value !== 'string') return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed !== null && typeof parsed === 'object') return parsed;
+  } catch {
+    // not JSON; the caller keeps the original string
+  }
+  return undefined;
+}
+
 // Sanity-check the runtime shape of `newData` against the manifest's
 // declared `schema.type`, when present. Catches a wider class of writer
 // bugs (bare value where an array is expected, etc.) without pulling a
@@ -605,13 +623,33 @@ function _mutateData(id, mutate) {
 
 // Append one row to the array at pathString. Throws WRONG_TYPE if the
 // resolved target isn't an array. NO_MATCH / BAD_PATH bubble up from the
-// path module unchanged.
+// path module unchanged. A value that arrived as a JSON string of an
+// object row is rescued (#703), but only where the target's own rows say
+// an object belongs: on a string-rowed card (greeting-banner) a
+// JSON-looking string IS the row, and converting it would corrupt exactly
+// the shape the guard below protects. Appending a non-object onto an
+// array whose every row is an object is rejected: that shape mismatch is
+// how a double-serialised row used to become a blank row.
 function appendRow(id, pathString, value) {
   return _mutateData(id, (staged) => {
     const segments = parsePath(pathString || '');
     const r = resolvePath(staged, segments);
     if (!Array.isArray(r.value)) {
       const err = new Error(`appendRow target at "${pathString}" is not an array`);
+      err.code = 'WRONG_TYPE';
+      throw err;
+    }
+    const rowsAreObjects = r.value.length > 0 && r.value.every(isPlainObject);
+    if (typeof value === 'string' && (rowsAreObjects || r.value.length === 0)) {
+      const parsed = _parseStructuredString(value);
+      if (isPlainObject(parsed)) {
+        console.warn(`[manifest] appendRow(${id}): rescued double-serialised row (caller passed a JSON string); accepting parsed value`);
+        value = parsed;
+      }
+    }
+    if (rowsAreObjects && !isPlainObject(value)) {
+      const got = Array.isArray(value) ? 'array' : typeof value;
+      const err = new Error(`appendRow value must be a plain object to match the existing rows at "${pathString}" (got ${got}); pass the row itself, not a pre-serialised string`);
       err.code = 'WRONG_TYPE';
       throw err;
     }
@@ -984,6 +1022,11 @@ function maybeAutoHideWelcome(createdId) {
 function patchManifest(id, patch) {
   const entry = _entries.get(id);
   if (!entry) throw new Error(`unknown manifest: ${id}`);
+  const rescuedPatch = _parseStructuredString(patch);
+  if (isPlainObject(rescuedPatch)) {
+    console.warn(`[manifest] patchManifest(${id}): rescued double-serialised patch (caller passed a JSON string); accepting parsed value`);
+    patch = rescuedPatch;
+  }
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
     throw new Error('patch must be an object');
   }
@@ -991,15 +1034,39 @@ function patchManifest(id, patch) {
   if ('$schema' in patch) {
     throw new Error('patch touches protected field: $schema');
   }
-  if (isPlainObject(patch.meta) && 'id' in patch.meta) {
-    throw new Error('patch touches protected field: meta.id');
-  }
   if ('data' in patch) {
     throw new Error('patch touches protected field: data (use writeData)');
   }
+  // Anything else outside the patchable pair used to be silently ignored
+  // while the call still reported success (#702). Reject it instead.
+  for (const key of Object.keys(patch)) {
+    if (key !== 'meta' && key !== 'description') {
+      const err = new Error(`unknown patch key: ${key} (only meta and description are patchable)`);
+      err.code = 'UNKNOWN_KEY';
+      throw err;
+    }
+  }
+  let patchMeta;
+  if ('meta' in patch) {
+    patchMeta = patch.meta;
+    const rescuedMeta = _parseStructuredString(patchMeta);
+    if (isPlainObject(rescuedMeta)) {
+      console.warn(`[manifest] patchManifest(${id}): rescued double-serialised patch.meta (caller passed a JSON string); accepting parsed value`);
+      patchMeta = rescuedMeta;
+    }
+    if (!isPlainObject(patchMeta)) {
+      const got = Array.isArray(patchMeta) ? 'array' : patchMeta === null ? 'null' : typeof patchMeta;
+      const err = new Error(`patch.meta must be an object (got ${got}); to remove a key, set it to null inside meta`);
+      err.code = 'WRONG_TYPE';
+      throw err;
+    }
+    if ('id' in patchMeta) {
+      throw new Error('patch touches protected field: meta.id');
+    }
+  }
 
-  const newMeta = isPlainObject(patch.meta)
-    ? mergePatch(entry.meta, patch.meta)
+  const newMeta = patchMeta !== undefined
+    ? mergePatch(entry.meta, patchMeta)
     : entry.meta;
   let newDescription = entry.description || null;
   // description: patch can set (string) or remove (null). Undefined = keep.
