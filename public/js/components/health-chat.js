@@ -735,6 +735,7 @@ class HealthChat extends LitElement {
     this._recordTimerId = null;
     this._abortController = null;
     this._streaming = false;
+    this._lastEventId = 0;
     this._mediaRecorder = null;
     this._recordedChunks = [];
     this._playbackSpeed = parseFloat(localStorage.getItem('klebb-playback-speed') || '1');
@@ -989,8 +990,10 @@ class HealthChat extends LitElement {
   async _flushConversation() {
     this._saveTimer = null;
     // Never race a running turn: the server is appending to the same
-    // conversation, and a whole-replace mid-turn would clobber it.
-    if (!this._conversationId || this._loading) return;
+    // conversation, and a whole-replace mid-turn would clobber it. A reattach
+    // in flight is a running turn we have not claimed the UI for yet, so
+    // _loading alone is not enough of a test (#696).
+    if (!this._conversationId || this._loading || this._reattaching) return;
     const keep = this._messages
       .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.voiceUnconfiguredNotice)
       .map(m => ({ id: m.id, role: m.role, content: m.content, ...this._persistExtras(m) }))
@@ -1088,6 +1091,9 @@ class HealthChat extends LitElement {
     this._loading = false;
     this._statusText = '';
     this._streamTail = '';
+    // Event ids are per turn, so a mark from the conversation we are leaving
+    // would make the next reattach ask to resume past the new turn's end.
+    this._lastEventId = 0;
     stopSharedAudio();
     this._audioCache.forEach(v => { try { URL.revokeObjectURL(v.url); } catch {} });
     this._audioCache.clear();
@@ -1380,6 +1386,11 @@ class HealthChat extends LitElement {
   // pre-stream errors and stripped-SSE proxies degrade gracefully.
 
   _onTurnEvent(ev) {
+    // Remembered so a reattach can resume from here instead of replaying the
+    // turn from the start. The server ids every event for exactly this, and
+    // replaying from zero is what let an already-collected reply re-render
+    // itself as a second, still-typing bubble (#696).
+    if (Number.isInteger(ev.id)) this._lastEventId = ev.id;
     if (ev.event === 'status') {
       this._statusText = ev.data.phase === 'tool' ? toolLabel(ev.data.tool, ev.data.id) : '';
     } else if (ev.event === 'token') {
@@ -1406,6 +1417,10 @@ class HealthChat extends LitElement {
     this._turnStopped = false;
     this._statusText = '';
     this._streamTail = '';
+    // Each turn gets a fresh hub on the server, so event ids restart at 1.
+    // Carrying the previous turn's high-water mark over would make a reattach
+    // ask to resume past the end of a turn that has barely started.
+    this._lastEventId = 0;
     let aborted = false;
     // Losing our connection to a turn says nothing about the turn: the
     // server runs it to completion and keeps the reply either way (#602).
@@ -1460,7 +1475,11 @@ class HealthChat extends LitElement {
     this._streamTail = '';
     this._abortController = null;
     if (!aborted) await this._applyTurnOutcome(useVoice);
-    this._loading = false;
+    // _loading stays set across the recovery reattach below: it is what
+    // disables the composer, and clearing it first re-enabled sending for a
+    // whole round trip while a turn was still running server-side. A second
+    // send landing in that window collides with the reattach over the single
+    // slot of turn state and loses both messages (#696).
     if (recover && document.visibilityState !== 'hidden') {
       // A drop while hidden is explained by being hidden: iOS kills the
       // in-flight fetch on background. The visibilitychange handler
@@ -1469,6 +1488,7 @@ class HealthChat extends LitElement {
       const found = await this._reattachIfRunning();
       if (dropCopy && found === 'none') this._pushError(dropCopy);
     }
+    this._loading = false;
     this._scrollToBottom();
     this._saveHistory();
   }
@@ -1510,15 +1530,26 @@ class HealthChat extends LitElement {
 
   // On returning to the foreground (or booting into an active
   // conversation, or losing a stream mid-turn), pick up whatever happened
-  // while we were away. Resolves 'attached' when a turn was still running
-  // and we saw it out, 'refreshed' when one had already finished and its
-  // reply was pulled in, 'none' when there was nothing to collect.
+  // while we were away. Resolves:
+  //   'attached'  a turn was still running and we saw it out
+  //   'refreshed' one had already finished and its reply was pulled in
+  //   'busy'      we declined to look; says nothing about the turn
+  //   'none'      we looked, and there was provably nothing to collect
+  //
+  // Only 'none' licenses a caller to report a failure. Collapsing 'busy' into
+  // it is what puts a "failed to connect" bubble above a reply that arrived.
   //
   // The guard is on _streaming, not _loading: a turn of our own that just
   // lost its socket still has _loading set, and refusing to reattach in
   // exactly that state was the bug (#696).
   async _reattachIfRunning() {
-    if (!this._conversationId || this._streaming || this._reattaching) return 'none';
+    if (!this._conversationId) return 'none';
+    // 'busy', not 'none': a caller uses 'none' as proof that there was nothing
+    // left to collect, and refusing to look is not proof of anything. Reporting
+    // a refusal as an answer is the same mistake as the original bug, one level
+    // up, and it would blame the network for a turn another reattach is at that
+    // moment recovering successfully.
+    if (this._streaming || this._reattaching) return 'busy';
     this._reattaching = true;
     const controller = new AbortController();
     try {
@@ -1527,6 +1558,7 @@ class HealthChat extends LitElement {
       this._turnStopped = false;
       const result = await reattachTurn({
         conversationId: this._conversationId,
+        afterId: this._lastEventId,
         signal: controller.signal,
         onEvent: (ev) => this._onTurnEvent(ev),
         // A running turn we adopt owns the UI exactly as one we started:
@@ -1541,6 +1573,12 @@ class HealthChat extends LitElement {
       if (result === 'none') {
         return (await this._refreshConversation()) ? 'refreshed' : 'none';
       }
+      // Events arrived but none of them decided the turn (the server restarted
+      // mid-turn, or the hub ended without a terminal event). _runTurn treats
+      // exactly this as a drop rather than a result, and so must this: calling
+      // it 'attached' would suppress the caller's drop message and leave the
+      // user with no reply, no error and no explanation.
+      if (!this._turnReply && !this._turnError && !this._turnStopped) return 'none';
       this._statusText = '';
       this._streamTail = '';
       // The replayed reply may already be in our transcript (we saw it
@@ -1571,7 +1609,10 @@ class HealthChat extends LitElement {
 
   async _sendText() {
     const text = this._input.trim();
-    if (!text || this._loading) return;
+    // _reattaching as well as _loading: a reattach can be in flight with
+    // _loading still false (it only claims the UI once an event arrives), and a
+    // send in that window fights it for the single slot of turn state (#696).
+    if (!text || this._loading || this._reattaching) return;
     this._addMsg('user', text);
     this._input = '';
     this.updateComplete.then(() => {

@@ -62,11 +62,21 @@ export async function streamChat({ body, signal, onEvent }) {
   return { kind: 'stream' };
 }
 
-// Reattach to a running (or just-finished) turn. Resolves 'none' when
-// there is nothing to attach to, 'stream' after replay + live completion.
-// onAttach fires once the stream is confirmed and before any event: the
-// caller needs that edge to claim the turn-in-progress UI, and firing it
-// earlier would flash that UI on the common "nothing running" answer.
+// Reattach to a running (or just-finished) turn, resuming after `afterId`.
+// Resolves 'stream' only when at least one event actually arrived, otherwise
+// 'none'.
+//
+// That distinction matters because the endpoint has THREE answers, not two:
+// 204 (nothing), a live turn, and a replay of an already-finished turn, which
+// the server keeps attachable for TURN_LINGER_MS so a client that missed
+// `done` can still collect it. A 200 therefore does not mean a turn is
+// running, and treating it as if it did claims the turn-in-progress UI for a
+// reply the user is already looking at.
+//
+// onAttach fires once, on the first event rather than on the response headers,
+// for the same reason: a caller uses it to claim that UI, and an already-seen
+// turn replays nothing (its events are all at or below `afterId`), so there is
+// nothing to claim it for.
 export async function reattachTurn({ conversationId, afterId, signal, onEvent, onAttach }) {
   const suffix = afterId ? `?after=${afterId}` : '';
   const res = await fetch(`/api/chat/turn/${encodeURIComponent(conversationId)}${suffix}`, {
@@ -76,9 +86,15 @@ export async function reattachTurn({ conversationId, afterId, signal, onEvent, o
   if (res.status === 204) return 'none';
   const type = res.headers.get('content-type') || '';
   if (!res.ok || !type.includes('text/event-stream')) return 'none';
-  if (onAttach) onAttach();
-  await readSse(res, onEvent);
-  return 'stream';
+  let claimed = false;
+  await readSse(res, (ev) => {
+    if (!claimed) {
+      claimed = true;
+      if (onAttach) onAttach();
+    }
+    onEvent(ev);
+  });
+  return claimed ? 'stream' : 'none';
 }
 
 // Ask the server to abort the running turn. Fire-and-forget from the
