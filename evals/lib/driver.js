@@ -3,7 +3,12 @@
 // evals/lib/driver.js — talk to a running Klebb instance the way the chat
 // widget does. Pure HTTP against public surfaces: no test hooks in the app.
 
-const DEFAULT_TURN_TIMEOUT_MS = 120000;
+// Must sit above the server's CHAT_TURN_DEADLINE_MS (720000 since #694) so the
+// server's own cap is what ends a long turn. These calls are buffered, not
+// streamed, so nothing arrives until the whole agent loop finishes: abort too
+// early and a setup-sized scenario is reported as a scenario error while the
+// server keeps looping for another ten minutes.
+const DEFAULT_TURN_TIMEOUT_MS = 780000;
 
 // One chat turn. `history` is the full prior [{role, content}...] thread;
 // the server is stateless per request, so the caller threads history.
