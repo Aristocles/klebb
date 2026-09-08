@@ -43,6 +43,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   deadline) turned a slow step into a 504 that discarded every round of the
   turn. The budget is now clamped just under the ceiling wherever it comes
   from.
+- **A length-truncated chat generation is no longer presented as a clean
+  final answer.** The gateway cuts an oversized generation with
+  `finish_reason: "length"`; the loop used to return whatever partial
+  prose existed as the considered reply, silently dropping any tool calls
+  the generation was carrying. A truncated turn now ends as capped:
+  progress kept, the size-limit stop explained, `capped: true` so the
+  client offers "keep going".
 - **A mostly-blind OCR witness is discarded instead of flooding the verify
   screen.** When local OCR could not read the document the vision model just
   read (a low-resolution photo: precisely the case vision exists for), every
