@@ -7,6 +7,28 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Double-serialised tool arguments no longer block or corrupt chat
+  writes.** When the chat model sends a structured argument as a JSON
+  string (the #342 class), three seats mishandled it: `validate_manifest`
+  rejected every candidate with "manifest must be an object", which the
+  mandatory validate-before-write gate turned into a total block on chat
+  card creation and conversion (#701); `patchManifest` silently dropped a
+  non-object `meta` and any unknown top-level key while still reporting
+  success and rewriting the manifest file (#702); and `appendRow` pushed
+  the string verbatim, persisting a blank row that also wedged
+  `reorder_rows` for the card (#703). Manifest-shaped strings are now
+  rescued with a warning (validate/create/patch/append), unknown patch
+  keys and non-object `meta` are typed errors (HTTP 400 over REST, where a
+  stringified body or `meta` is rejected outright like the existing
+  data-write route, before the demo-mode gate consults it),
+  and appending a non-object onto an array of object rows is refused;
+  bare-string rows on string-rowed cards (greeting banners) still append
+  unchanged. New structural guards pin the class: every tool parameter
+  must declare a schema type unless allowlisted as any-shape, and every
+  registry write seat must rescue or reject a stringified argument.
+
 ### Changed
 
 - **The chat turn envelope is three times bigger.** Setup-sized jobs
