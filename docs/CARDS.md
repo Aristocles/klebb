@@ -494,7 +494,9 @@ change. The five currently shipped cover the common cases.
   by the generic input form.
 - `maxReadingsPerDay` (int, default `1`): how many entries per day are allowed.
   `1` = upsert (the new entry replaces the old); `>1` = append (capped at
-  `max`); keep the newest.
+  `max`); keep the newest. Schedule/checklist check-offs treat the cap
+  differently (no-op, never dropping a dose record): see
+  MANIFEST-SCHEMA.md "writeable".
 - `inputs`: array of input field descriptors — see below.
 
 ---
@@ -1127,6 +1129,10 @@ of "I patched the manifest and nothing changed".
   `{ scheduledDate: <viewed date>, takenAt: <ISO now> }`.
   The off-schedule (dashed-border) variant adds `offSchedule: true`.
 - Untick → sets `takenAt: null` on the matching dose entry.
+- With `meta.writeable.maxReadingsPerDay > 1`, each tap stacks a fresh
+  entry up to the cap (a no-op at the cap) and the checkbox never
+  unticks; a ×N count badge expands the day's entry list, where entries
+  are removed individually. See MANIFEST-SCHEMA.md "writeable".
 
 **Writes (with `meta.view.checkOffForm`):**
 - Tap the ✓ checkbox → expands an inline form below the row, sourced
@@ -1137,8 +1143,16 @@ of "I patched the manifest and nothing changed".
   (retroactive review — see "schedule-card per-dose metadata" below).
 - Re-tapping ✓ on a date that already has a dose entry opens the
   form pre-filled with that entry's values for editing. Submit
-  replaces the entry wholesale (no second dose stacked).
-- Untick → unchanged. Always immediate, never opens the form.
+  replaces the entry wholesale (no second dose stacked). With
+  `meta.writeable.maxReadingsPerDay > 1`, a re-tap under the cap opens
+  a BLANK form instead and Submit stacks another entry; at the cap it
+  prefills from the latest entry and Submit edits that entry in place
+  (form fields merge onto it, its original `takenAt` is kept). The
+  previous-dose review then targets the most recent other entry by
+  recency, so a same-day earlier dose is reviewable.
+- Untick → unchanged. Always immediate, never opens the form. In
+  multi mode the checkbox never unticks; use the ×N badge's entry
+  list.
 
 **Renders (with `meta.view.checkOffForm`):**
 - A muted summary line on the item itself for the viewed date,

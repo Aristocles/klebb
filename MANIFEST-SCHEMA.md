@@ -679,6 +679,21 @@ the calendar.
 existing entry for that date). Values `>1` append and keep the N most
 recent same-day entries.
 
+On `schedule-card` and `checklist-card` check-offs (`items[].doses[]`
+shapes), `maxReadingsPerDay > 1` makes each ✓ tap stack a fresh
+`{scheduledDate, takenAt}` entry up to the cap; at the cap a further tap
+is a no-op rather than silently dropping the oldest record (dose
+entries are records, not readings-in-place). With
+`meta.view.checkOffForm` set, an at-cap tap instead opens the form
+prefilled from the latest entry and Submit edits that entry in place,
+keeping its original `takenAt`; see `docs/CARDS.md` "Writes (with
+`meta.view.checkOffForm`)". The checkbox never unticks
+in this mode: a count badge next to it expands the day's entry list,
+where entries are removed individually. The adherence report counts a
+day once however many entries it holds. `takenDates` shapes (simple
+checklists) ignore the flag: date-set membership cannot carry
+timestamps.
+
 `requireAny` is an optional "either-or" list. When present, the edit
 form's Save button stays disabled until at least one of the listed
 keys has a value. Individual inputs' `required: true` flags still

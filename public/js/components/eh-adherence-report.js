@@ -18,9 +18,9 @@
 
 import { html, css } from 'https://esm.sh/lit@3';
 import { EhBaseCard } from './eh-base-card.js';
-import { isScheduledOnDate, enumerateDates } from '../../../lib/schedule.mjs';
 import { registerRenderer } from '../renderer-registry.js';
 import { chipsFor as todChipsFor } from '../lib/time-of-day.esm.js';
+import { cycleStats, adherencePct } from '../lib/adherence-cycle.esm.js';
 
 function todayStr() {
   const d = new Date();
@@ -32,68 +32,6 @@ function fmtDate(s) {
   const d = new Date(s + 'T00:00:00');
   if (isNaN(d.getTime())) return s;
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-// Aggregate dose-status counts for one cycle.
-// Returns { scheduled, taken, missed, offSchedule, upcoming }.
-function cycleStats(item, cycle) {
-  const today = todayStr();
-  const { start_date, end_date, status } = cycle;
-  if (!start_date || !end_date) {
-    return { scheduled: 0, taken: 0, missed: 0, offSchedule: 0, upcoming: 0, cycleIsFuture: false };
-  }
-
-  // Enumerate every date in the cycle window
-  let dates = [];
-  try { dates = enumerateDates(start_date, end_date); } catch { dates = []; }
-
-  // Dates on which the schedule says a dose IS due
-  const scheduledSet = new Set(dates.filter(d => isScheduledOnDate(item, d)));
-
-  // All dose records for this item (item-level, not cycle-scoped)
-  const doses = Array.isArray(item.doses) ? item.doses : [];
-  // Doses WITHIN this cycle's date range
-  const dosesInCycle = doses.filter(x => {
-    const d = x.scheduledDate || (x.takenAt ? x.takenAt.slice(0, 10) : null);
-    return d && d >= start_date && d <= end_date;
-  });
-
-  // Taken = count of dosesInCycle with takenAt
-  const taken = dosesInCycle.filter(x => x.takenAt).length;
-
-  // Off-schedule = taken doses where that date isn't in scheduledSet
-  const offSchedule = dosesInCycle.filter(x => {
-    if (!x.takenAt) return false;
-    const d = x.scheduledDate || x.takenAt.slice(0, 10);
-    return !scheduledSet.has(d);
-  }).length;
-
-  // Missed = scheduled dates before today, no takenAt entry
-  const takenScheduledDates = new Set(
-    dosesInCycle.filter(x => x.takenAt && x.scheduledDate).map(x => x.scheduledDate)
-  );
-  const missed = [...scheduledSet].filter(d => d < today && !takenScheduledDates.has(d)).length;
-
-  // Upcoming = scheduled dates today or future
-  const upcoming = [...scheduledSet].filter(d => d >= today).length;
-
-  // A cycle can be completely in the future → nothing counts as missed yet
-  const cycleIsFuture = status === 'scheduled' && start_date > today;
-
-  return {
-    scheduled: scheduledSet.size,
-    taken,
-    missed: cycleIsFuture ? 0 : missed,
-    offSchedule,
-    upcoming,
-    cycleIsFuture,
-  };
-}
-
-function adherencePct(stats) {
-  const past = stats.scheduled - stats.upcoming;
-  if (past <= 0) return null;
-  return Math.round((stats.taken - stats.offSchedule) / past * 100);
 }
 
 function sortCyclesAcrossItems(items) {
@@ -287,7 +225,7 @@ export class EhAdherenceReport extends EhBaseCard {
 
     // Aggregate totals across every cycle in-window (active + past)
     const today = todayStr();
-    let totScheduled = 0, totTaken = 0, totMissed = 0, totOff = 0;
+    let totScheduled = 0, totTaken = 0, totMissed = 0, totOff = 0, totUpcoming = 0;
     let activeCycles = 0, upcomingCycles = 0;
     for (const { item, cycle } of rows) {
       if (cycle.status === 'active') activeCycles++;
@@ -297,9 +235,14 @@ export class EhAdherenceReport extends EhBaseCard {
       totTaken     += s.taken;
       totMissed    += s.missed;
       totOff       += s.offSchedule;
+      totUpcoming  += s.upcoming;
     }
-    const overallPct = totScheduled - (rows.reduce((a, { item, cycle }) => a + cycleStats(item, cycle).upcoming, 0))
-      ? Math.round(totTaken / (totScheduled - rows.reduce((a, { item, cycle }) => a + cycleStats(item, cycle).upcoming, 0)) * 100)
+    // Same formula as the per-cycle rows (adherencePct): off-schedule
+    // extras subtract from the numerator, or the headline could pass 100
+    // and disagree with every row beneath it.
+    const overallPast = totScheduled - totUpcoming;
+    const overallPct = overallPast > 0
+      ? Math.round((totTaken - totOff) / overallPast * 100)
       : null;
 
     return html`
