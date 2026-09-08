@@ -28,6 +28,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   unchanged. New structural guards pin the class: every tool parameter
   must declare a schema type unless allowlisted as any-shape, and every
   registry write seat must rescue or reject a stringified argument.
+- **The greeting banner rotates on read-only cards.** Rotation was
+  implemented as a data write (shift `messages[0]` to the end and POST the
+  reordered array back) gated on `meta.writeable.fromWebapp`, so a
+  read-only greeting: the natural authoring for a card with no inputs:
+  showed the same message forever, and writeable ones could double-rotate
+  across devices because the once-per-day stamp lived in per-browser
+  localStorage. The shown message is now a pure function of the viewed
+  date (days-since-epoch modulo message count) and the write path,
+  localStorage stamp and gate dependency are gone, matching the renderer
+  contract docs/CARDS.md has always documented ("Writes: None"). Known
+  benign change: the sequence is calendar-locked, so days the app is not
+  opened still consume messages. A new structural e2e pins the class: a
+  fully seeded dashboard render must fire zero manifest writes.
 
 ### Changed
 
