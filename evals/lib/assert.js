@@ -21,7 +21,11 @@
 //                       'meta.view.combines[index=0].sourceId',
 //                       'data[date="2026-07-05"].value'. '$created' resolves
 //                       to the single card created this turn (the model picks
-//                       its id). A matcher is an object combining any of:
+//                       its id). '$today' inside a path resolves to the run
+//                       date (facts.today, YYYY-MM-DD in the instance's
+//                       effective timezone), so "log X today" scenarios don't
+//                       rot into a literal date (#729). A matcher is an
+//                       object combining any of:
 //                         exists:    true | false
 //                         equals:    deep-equal to this value
 //                         oneOf:     deep-equal to one of these values
@@ -94,7 +98,7 @@ function evalTurn(expect, facts) {
   }
 
   if (e.cardShape) {
-    findings.push(...evalCardShape(e.cardShape, { snapshot, diff }));
+    findings.push(...evalCardShape(e.cardShape, { snapshot, diff, today: facts.today }));
   }
 
   if (e.registryClean && registryErrors && registryErrors.length) {
@@ -122,7 +126,7 @@ function evalTurn(expect, facts) {
 // snapshot. This is the "how did it change" oracle: state/diff tell you a
 // card was modified, cardShape tells you it ended up with the right fields.
 // Deterministic — it reads the same /api/manifests snapshot the differ uses.
-function evalCardShape(spec, { snapshot, diff }) {
+function evalCardShape(spec, { snapshot, diff, today }) {
   const findings = [];
   const cards = (snapshot && snapshot.cards) || null;
   if (!cards) {
@@ -144,7 +148,17 @@ function evalCardShape(spec, { snapshot, diff }) {
       continue;
     }
     for (const [pathExpr, matcher] of Object.entries(pathSpecs)) {
-      findings.push(...matchAtPath(cardKey, card, pathExpr, matcher));
+      // Findings carry the substituted path: a concrete date in a failure
+      // beats an opaque token when eyeballing a report.
+      let expr = pathExpr;
+      if (expr.includes('$today')) {
+        if (!today) {
+          findings.push(`cardShape[${cardKey}].${pathExpr}: path uses $today but no run date was captured`);
+          continue;
+        }
+        expr = expr.split('$today').join(today);
+      }
+      findings.push(...matchAtPath(cardKey, card, expr, matcher));
     }
   }
   return findings;

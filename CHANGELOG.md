@@ -7,6 +7,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Evals: "today" assertions no longer rot.** The
+  `multi-card-read-then-update-one` scenario pinned "log my weight
+  today" to the literal date it was written on, so every rep failed on
+  any other day. `cardShape` paths now accept a `$today` token,
+  resolved at each turn's start to that day's date in the target
+  instance's effective timezone (read from `GET /api/diagnostics`,
+  falling back to the runner's `TZ`, then UTC — the same chain a fresh
+  sandbox resolves). A corpus sweep found no other run-date-dependent
+  assertions.
+
 ### Changed
 
 - **`note_feedback` rejects placeholder intents.** Half the collected
