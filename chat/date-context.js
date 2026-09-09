@@ -67,4 +67,4 @@ Never hardcode a year from training data.
 `;
 }
 
-module.exports = { buildDateContextBlock };
+module.exports = { buildDateContextBlock, todayIsoInTz };

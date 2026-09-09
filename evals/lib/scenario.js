@@ -32,6 +32,7 @@ const { chatTurn, snapshotState, deleteManifest, createManifest, fetchData } = r
 const { diffSnapshots } = require('./diff');
 const { evalTurn } = require('./assert');
 const { judgeReply } = require('./judge');
+const { todayIsoInTz } = require('../../chat/date-context');
 
 // Write one seeded report into $HEALTH_HOME/reports/ and return its absolute
 // path so the runner can remove it afterwards.
@@ -81,7 +82,7 @@ function toolCaptureUnreliable(expect, captureAlive) {
   return !!(expect && expect.tools) && typeof captureAlive === 'function' && !captureAlive();
 }
 
-async function runScenario(scenario, { baseUrl, token, collector, captureAlive, judge = null, healthHome = null, log = () => {} }) {
+async function runScenario(scenario, { baseUrl, token, collector, captureAlive, judge = null, healthHome = null, tz = process.env.TZ || 'UTC', log = () => {} }) {
   const seeded = [];
   const seededReports = [];
   const turnResults = [];
@@ -131,6 +132,11 @@ async function runScenario(scenario, { baseUrl, token, collector, captureAlive, 
 
       const before = await snapshotState(baseUrl, token, dataIds);
       if (collector) collector.mark();
+      // Resolved at turn start: the server builds the model's "Today is ..."
+      // block when the request lands, so this is the date the model was told.
+      // A corpus run crossing midnight re-resolves per turn instead of
+      // freezing the date the process started on.
+      const today = todayIsoInTz(new Date(), tz);
 
       history.push({ role: 'user', content: userText });
       const res = await chatTurn(baseUrl, token, history, { viewedCardId: turn.viewedCardId });
@@ -173,6 +179,7 @@ async function runScenario(scenario, { baseUrl, token, collector, captureAlive, 
         diff,
         snapshot: after,
         registryErrors: after.errors,
+        today,
       });
 
       // Engagement guard: a live model always produces SOMETHING (reply text

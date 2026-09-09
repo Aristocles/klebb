@@ -224,7 +224,7 @@ module.exports = [
           state: { modifiedOnly: ['eval-weight'] },
           cardShape: {
             'eval-weight': {
-              'data[date="2026-07-10"].kg': { equals: 80 },
+              'data[date="$today"].kg': { equals: 80 },
             },
           },
           registryClean: true,

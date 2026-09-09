@@ -37,6 +37,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { runScenario } = require('./lib/scenario');
+const { fetchUserTz } = require('./lib/driver');
 const { createLogCollector, attachLogCmd } = require('./lib/toollog');
 const { judgeConfig } = require('./lib/judge');
 const { estimateRun, needsConfirm, formatEstimate, DEFAULT_MODEL } = require('./lib/cost');
@@ -180,6 +181,15 @@ async function main() {
     cleanup = sandbox.kill;
   }
 
+  // '$today' assertions must agree with the TARGET's calendar, not this
+  // machine's: the instance resolves "today" in its stored user tz (see
+  // lib/user-tz.js), which a remote box's browser set and this runner cannot
+  // know from env. Diagnostics reports the effective value; the fallback
+  // mirrors readUserTz() for a fresh sandbox (no stored tz → env TZ → UTC).
+  const instanceTz = await fetchUserTz(target.baseUrl, target.token);
+  const tz = instanceTz || process.env.TZ || 'UTC';
+  console.log(`"$today" resolves in ${tz}${instanceTz ? '' : ' (diagnostics unavailable; local fallback)'}`);
+
   // When there is no tool-log source, strip tool expectations so scenarios
   // degrade gracefully instead of failing on "required tool not observed".
   const stripTools = !collector;
@@ -197,7 +207,7 @@ async function main() {
       : scenario;
     for (let rep = 0; rep < args.reps; rep++) {
       try {
-        const result = await runScenario(effective, { ...target, collector, captureAlive, judge, log: m => console.log(m) });
+        const result = await runScenario(effective, { ...target, collector, captureAlive, judge, tz, log: m => console.log(m) });
         runs.push(result);
         console.log(`  rep ${rep + 1}: ${result.passed ? (result.inconclusive ? 'INCONCLUSIVE' : 'PASS') : 'FAIL'}`);
       } catch (e) {

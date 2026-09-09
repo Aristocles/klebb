@@ -80,6 +80,24 @@ async function fetchData(baseUrl, token, id) {
   return body.data;
 }
 
+// The instance's effective user timezone: what the write-date gate and the
+// system-prompt "Today is ..." block resolve "today" in (browser-reported,
+// else the server's TZ). Null when unavailable (demo mode blocks diagnostics;
+// older images predate the field) — the caller falls back to its own TZ.
+async function fetchUserTz(baseUrl, token) {
+  try {
+    const res = await fetch(`${baseUrl}/api/diagnostics`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return (typeof body.user_tz === 'string' && body.user_tz) ? body.user_tz : null;
+  } catch {
+    return null;
+  }
+}
+
 async function deleteManifest(baseUrl, token, id) {
   const res = await fetch(`${baseUrl}/api/manifests/${encodeURIComponent(id)}`, {
     method: 'DELETE',
@@ -101,4 +119,4 @@ async function createManifest(baseUrl, token, manifest) {
   return body.id;
 }
 
-module.exports = { chatTurn, snapshotState, fetchData, deleteManifest, createManifest };
+module.exports = { chatTurn, snapshotState, fetchData, fetchUserTz, deleteManifest, createManifest };
