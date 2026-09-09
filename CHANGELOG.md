@@ -99,7 +99,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `CHAT_TURN_DEADLINE_MS=720000` and `CHAT_ITER_TIMEOUT_MS=180000`, the
   transport's per-hop ceiling moves 180s -> 540s so the step budget stays
   a soft cap, and the conversation context window grows 24k -> 72k chars.
-  All remain env-tunable.
+  The three named defaults are env-tunable; the transport ceiling and the
+  context window are constants.
 
 ### Fixed
 
