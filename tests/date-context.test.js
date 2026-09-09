@@ -11,7 +11,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildDateContextBlock } = require('../chat/date-context');
+const { buildDateContextBlock, todayIsoInTz } = require('../chat/date-context');
 
 test('today line names the correct weekday', () => {
   // 2026-05-06 is a Wednesday.
@@ -54,6 +54,14 @@ test('respects TZ when computing "today"', () => {
   const syd = buildDateContextBlock({ now, tz: 'Australia/Sydney', pastDays: 0, futureDays: 0 });
   assert.match(utc, /Today is Wednesday, 2026-05-06\./);
   assert.match(syd, /Today is Thursday, 2026-05-07\./);
+});
+
+test('todayIsoInTz gives the calendar date in the requested tz', () => {
+  // Same instant, either side of midnight: the eval harness leans on this
+  // export to predict what "today" the server told the model (#729).
+  const now = new Date('2026-05-06T14:00:00Z');
+  assert.equal(todayIsoInTz(now, 'UTC'), '2026-05-06');
+  assert.equal(todayIsoInTz(now, 'Australia/Sydney'), '2026-05-07');
 });
 
 test('tells the model not to compute weekdays itself', () => {

@@ -255,6 +255,36 @@ describe('#501 cardShape assertion', () => {
     assert.match(findings[0], /no snapshot available/);
   });
 
+  test('$today in a path resolves to the run date from facts', () => {
+    const snap = { cards: { weight: { meta: { id: 'weight' }, data: [{ date: '2026-09-09', kg: 80 }] } } };
+    assert.deepEqual(
+      evalCardShape({ weight: { 'data[date="$today"].kg': { equals: 80 } } }, { snapshot: snap, diff, today: '2026-09-09' }),
+      [],
+    );
+    // On any other day the row is absent: the finding must carry the
+    // substituted date, not the token, so a report failure reads concretely.
+    const other = evalCardShape({ weight: { 'data[date="$today"].kg': { equals: 80 } } }, { snapshot: snap, diff, today: '2026-09-10' });
+    assert.equal(other.length, 1);
+    assert.match(other[0], /2026-09-10/);
+    assert.doesNotMatch(other[0], /\$today/);
+  });
+
+  test('$today without a captured run date fails loudly, not as a missing path', () => {
+    const snap = { cards: { weight: { meta: { id: 'weight' }, data: [{ date: '2026-09-09', kg: 80 }] } } };
+    const findings = evalCardShape({ weight: { 'data[date="$today"].kg': { equals: 80 } } }, { snapshot: snap, diff });
+    assert.equal(findings.length, 1);
+    assert.match(findings[0], /\$today but no run date/);
+  });
+
+  test('evalTurn threads facts.today into cardShape', () => {
+    const snap = { cards: { weight: { meta: { id: 'weight' }, data: [{ date: '2026-09-09', kg: 80 }] } } };
+    const facts = {
+      reply: 'Logged.', followup: null, status: 200, tools: [],
+      diff, snapshot: snap, registryErrors: [], today: '2026-09-09',
+    };
+    assert.deepEqual(evalTurn({ cardShape: { weight: { 'data[date="$today"].kg': { equals: 80 } } } }, facts), []);
+  });
+
   test('evalTurn threads cardShape through', () => {
     const facts = {
       reply: '', followup: null, status: 200, tools: [],

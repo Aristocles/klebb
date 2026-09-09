@@ -164,6 +164,7 @@ cardShape: {
     'meta.trends.enabled':                 { equals: true },
     'meta.view.combines[index=0].sourceId': { exists: true },
     'data[date="2026-07-05"].value':        { equals: 82.1 },
+    'data[date="$today"].kg':               { equals: 80 },
   },
   '$created': {
     'meta.view.component':  { equals: 'combination-card' },
@@ -177,6 +178,12 @@ Matchers (combine any on one path): `exists` (true/false), `equals`
 (`array`/`object`/`string`/`number`/`boolean`/`null`), `length`, `minLength`.
 A value matcher on a path that resolves to nothing is a failure (not a silent
 pass). `$created` fails unless exactly one card was created this turn.
+
+`$today` inside a path resolves at each turn's start to that day's date in the
+target's effective timezone (read from `GET /api/diagnostics`; falls back to
+the runner's `TZ`, then UTC — the same chain a fresh sandbox resolves). Use it
+whenever the utterance says "today": a literal date pins the scenario to the
+day it was written and every rep fails on any other day (#729).
 
 > Card data lives in the datastore, so `GET /api/manifests` is meta-only; the
 > runner fetches each card's `data` block separately and merges it into the
