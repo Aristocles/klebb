@@ -502,3 +502,90 @@ describe('#502 judge tier: config, prompt assembly, score parsing', () => {
     ].sort());
   });
 });
+
+describe('#731 corpus date hygiene + fetchUserTz', () => {
+  const { fetchUserTz } = require('../evals/lib/driver');
+  const http = require('node:http');
+
+  // The #729 class, not the instance: an utterance anchored to a relative
+  // day while the assertion pins an absolute one passes only on the day the
+  // scenario was written. $today is the sanctioned spelling.
+  test('a relative-day utterance never pins a literal date in cardShape', () => {
+    const corpus = [
+      ...require('../evals/scenarios/happy'),
+      ...require('../evals/scenarios/features'),
+      ...require('../evals/scenarios/adversarial'),
+      ...require('../evals/scenarios/reports'),
+    ];
+    for (const scenario of corpus) {
+      for (const turn of scenario.turns) {
+        if (!turn.say || !/\b(today|tonight|tomorrow|yesterday)\b/i.test(turn.say)) continue;
+        for (const pathSpecs of Object.values((turn.expect && turn.expect.cardShape) || {})) {
+          for (const pathExpr of Object.keys(pathSpecs)) {
+            assert.doesNotMatch(pathExpr, /date="\d{4}-\d{2}-\d{2}"/,
+              `${scenario.name}: "${turn.say.slice(0, 60)}" asserts a literal date via ${pathExpr}; use $today`);
+          }
+        }
+      }
+    }
+  });
+
+  // fetchUserTz decides which timezone every $today assertion resolves in.
+  // Every failure mode must degrade to null (the caller falls back to local
+  // TZ) — a throw or a garbage value silently shifts "today" for a run.
+  function withServer(handler, fn) {
+    return new Promise((resolve, reject) => {
+      const srv = http.createServer(handler);
+      srv.listen(0, '127.0.0.1', async () => {
+        const base = `http://127.0.0.1:${srv.address().port}`;
+        try { resolve(await fn(base)); }
+        catch (e) { reject(e); }
+        finally { srv.close(); }
+      });
+    });
+  }
+
+  test('returns the diagnostics user_tz and sends the bearer token', async () => {
+    let seenAuth = null;
+    const tz = await withServer((req, res) => {
+      seenAuth = req.headers.authorization;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ user_tz: 'Australia/Melbourne', tz: 'UTC' }));
+    }, base => fetchUserTz(base, 'tok-123'));
+    assert.equal(tz, 'Australia/Melbourne');
+    assert.equal(seenAuth, 'Bearer tok-123');
+  });
+
+  test('non-ok status degrades to null even when the body carries a user_tz', async () => {
+    // The body deliberately tempts: if the status check ever disappears,
+    // this leaks through instead of passing vacuously on an empty body.
+    const tz = await withServer((req, res) => {
+      res.statusCode = 401;
+      res.end(JSON.stringify({ user_tz: 'Mars/Olympus' }));
+    }, base => fetchUserTz(base, 'bad'));
+    assert.equal(tz, null);
+  });
+
+  test('invalid JSON degrades to null', async () => {
+    const tz = await withServer((req, res) => {
+      res.end('<html>gateway error</html>');
+    }, base => fetchUserTz(base, 't'));
+    assert.equal(tz, null);
+  });
+
+  test('missing or empty user_tz degrades to null', async () => {
+    const missing = await withServer((req, res) => {
+      res.end(JSON.stringify({ version: '1', subscriptions: [] }));
+    }, base => fetchUserTz(base, 't'));
+    assert.equal(missing, null);
+    const empty = await withServer((req, res) => {
+      res.end(JSON.stringify({ user_tz: '' }));
+    }, base => fetchUserTz(base, 't'));
+    assert.equal(empty, null);
+  });
+
+  test('unreachable target degrades to null, never throws', async () => {
+    const tz = await fetchUserTz('http://127.0.0.1:1', 't');
+    assert.equal(tz, null);
+  });
+});
