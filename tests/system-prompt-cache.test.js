@@ -185,13 +185,40 @@ describe('#637 the chat payload carries cache breakpoints in the right order', (
       'a static catalogue must come BEFORE the daily date, or nothing after the date caches');
     assert.ok(cards < today,
       'the per-instance card list must come before the daily date');
-    assert.ok(today < inFocus || inFocus > cards,
-      'the per-request focused card belongs in the volatile tail');
+    assert.ok(inFocus > cards && inFocus > categories,
+      'the per-request focused card must come after every stable block');
 
     // Both volatile headings must live in the final, unmarked block.
     const tail = sys.content[sys.content.length - 1].text;
     assert.ok(tail.includes("## Today's date"), 'the date belongs in the uncached tail');
     assert.ok(tail.includes('## Card in focus'), 'the focused card belongs in the uncached tail');
+  });
+
+  test('voice mode keeps its envelope inside the cacheable block, ahead of the static text', async () => {
+    const res = await req(server.baseUrl, '/api/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'hi' }], viewedCardId: 'w', voiceMode: true },
+    });
+    assert.equal(res.status, 200);
+    const sys = gateway.seen[gateway.seen.length - 1].messages[0];
+    const first = sys.content[0];
+
+    // The envelope says "Original system prompt follows", so it has to precede
+    // that prompt: a voice turn buys its own cache entry rather than sharing the
+    // text-mode one. Moving the envelope elsewhere would change what the prompt
+    // MEANS, so pin it here rather than trusting the comment in server.js.
+    const envelope = first.text.indexOf('Voice mode is active');
+    const handover = first.text.indexOf('Original system prompt follows');
+    assert.ok(envelope > -1, 'the voice envelope should be in the first block');
+    assert.ok(handover > envelope, 'the handover line comes after the envelope it introduces');
+    assert.ok(first.text.indexOf('## Manifest categories') > handover,
+      'the static prompt must follow the handover, in the same cacheable block');
+
+    // A voice turn is still worth caching, and its tail is still uncached.
+    assert.deepEqual(first.cache_control, { type: 'ephemeral' });
+    const tail = sys.content[sys.content.length - 1];
+    assert.equal('cache_control' in tail, false);
+    assert.ok(tail.text.includes("## Today's date"));
   });
 });
 
