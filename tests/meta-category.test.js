@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { createSandbox, cleanupSandbox, spawnServer, req } = require('./helpers/sandbox');
+const { systemMessageText } = require('../chat/system-prompt');
 
 const { CATEGORIES, isValidCategory } = require('../config/categories');
 
@@ -153,7 +154,7 @@ describe('chat system prompt: category constraint injection', () => {
         try {
           const parsed = JSON.parse(body);
           const sys = parsed.messages?.find(m => m.role === 'system');
-          lastSystemPrompt = sys?.content || null;
+          lastSystemPrompt = systemMessageText(sys);
         } catch {}
         response.writeHead(200, { 'Content-Type': 'application/json' });
         response.end(JSON.stringify({
