@@ -26,6 +26,7 @@ const {
   spawnServer, req,
   fakeAuthState,
 } = require('../helpers/sandbox');
+const { systemMessageText } = require('../../chat/system-prompt');
 
 const SERVER_TZ = 'Pacific/Niue';      // UTC-11
 const USER_TZ = 'Pacific/Kiritimati';  // UTC+14
@@ -62,7 +63,7 @@ function startStubGateway() {
       try {
         const parsed = JSON.parse(body);
         const sys = parsed.messages?.find(m => m.role === 'system');
-        lastSystemPrompt = sys?.content || null;
+        lastSystemPrompt = systemMessageText(sys);
       } catch {}
       response.writeHead(200, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify({
