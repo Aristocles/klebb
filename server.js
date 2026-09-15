@@ -547,11 +547,12 @@ async function runAgentLoop({ systemMessage, userMessages, reqId = '-', emit = (
     const finish = choice?.finish_reason;
     const toolCount = Array.isArray(msg.tool_calls) ? msg.tool_calls.length : 0;
     // Token and cache counters per step, so a prompt-caching change can be
-    // proved rather than assumed. Cache writes cost more than uncached input,
-    // so a change that lands with a zero hit rate makes the bill go up; without
-    // these numbers that is invisible. `usage=none` stays distinct from a row
-    // of zeroes on purpose: a gateway reporting nothing and a gateway reporting
-    // a genuine zero hit rate are different faults with different fixes.
+    // proved rather than assumed. Where a gateway bills cache writes above
+    // uncached input, a change that lands with a zero hit rate makes the bill
+    // go up; without these numbers that is invisible. `usage=none` stays
+    // distinct from a row of zeroes on purpose: a gateway reporting nothing and
+    // a gateway reporting a genuine zero hit rate are different faults with
+    // different fixes.
     const usage = gateway.readUsage(gw);
     const usageBits = usage
       ? `in=${usage.promptTokens} out=${usage.completionTokens}`

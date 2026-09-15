@@ -525,8 +525,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   catalogue, which made almost nothing cacheable. Same prompt text,
   reordered into static (breakpoint), per-instance (breakpoint) and
   volatile (no breakpoint) segments. Marking the volatile tail would
-  write a fresh cache entry per request, and cache writes cost more than
-  uncached input, so it would be worse than not caching. Voice mode
+  write a fresh cache entry per request, which on a gateway that bills
+  writes above uncached input is worse than not caching. Voice mode
   keeps its envelope in front of the static text, since that text says
   "Original system prompt follows", so voice turns get their own cache
   entry. `CHAT_PROMPT_CACHE=0` restores the previous flat string for

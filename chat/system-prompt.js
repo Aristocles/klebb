@@ -35,9 +35,9 @@ const CACHE_BREAKPOINT = { type: 'ephemeral' };
 const SEGMENT_ORDER = ['static', 'instance', 'volatile'];
 
 // Which segments carry a cache breakpoint. `volatile` deliberately does not:
-// marking it would create a fresh cache entry on every request, and cache
-// writes are billed ABOVE uncached input, so it would cost more than doing
-// nothing at all.
+// marking it would create a fresh cache entry on every request, and a gateway
+// that bills cache writes above uncached input would then cost more than one
+// that never cached at all.
 const CACHEABLE = new Set(['static', 'instance']);
 
 // Build the `messages[0]` system entry.

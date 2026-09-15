@@ -12,8 +12,8 @@
 // asserts a volatile heading cannot appear before a stable one. Without it, a
 // future edit that appends a per-request block wherever it is convenient would
 // silently switch caching off, and the only visible symptom would be the bill
-// going up (cache writes are billed ABOVE uncached input, so a zero hit rate is
-// worse than never having tried).
+// going up: where cache writes are billed above uncached input, a zero hit rate
+// is worse than never having tried.
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');

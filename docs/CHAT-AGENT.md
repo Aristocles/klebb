@@ -136,8 +136,8 @@ Caching is a **prefix match**: the gateway hashes everything up to a
 breakpoint and only serves a hit if every byte before it is identical.
 That is why the order matters and why the volatile blocks come last and
 carry no breakpoint of their own. Marking them would write a fresh cache
-entry on every request, and cache writes cost *more* than uncached
-input, so it would be worse than not caching at all. Tool schemas are
+entry on every request, which on a gateway that bills cache writes above
+uncached input is worse than not caching at all. Tool schemas are
 hashed ahead of the system message, which is fine: they are static.
 
 A breakpoint caches everything up to itself, not just its own block, so
@@ -148,6 +148,21 @@ Voice mode keeps its output-format envelope in front of the static text,
 because that text says "Original system prompt follows". A voice turn
 therefore gets its own cache entry rather than sharing the text-mode
 one.
+
+Two behaviours were measured against real gateways rather than assumed,
+and both are worth re-checking whenever the model behind the gateway
+changes:
+
+- **Nothing caches without the breakpoint.** A control request carrying
+  the same prefix with no breakpoint returned a zero hit rate on every
+  attempt against one gateway, and an unreliable partial hit against
+  another. Implicit caching is not something to count on.
+- **The breakpoint does not always bound the cache unit.** One gateway
+  serves the cached prefix even when the volatile tail changes, which is
+  the intent. Another treats the whole system instruction as one cache
+  unit, so any tail change re-writes the prefix rather than reading it.
+  That costs the gap between a write and a read rather than breaking
+  anything. Growing `messages` breaks neither.
 
 Set **`CHAT_PROMPT_CACHE=0`** to send the old flat string instead. The
 blocks are standard OpenAI-compatible content parts, but a gateway that
