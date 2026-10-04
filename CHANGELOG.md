@@ -9,6 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Voice replies with a multi-line answer no longer come through raw.**
+  When a spoken reply's written half spanned several lines, some models
+  put literal line breaks inside the JSON envelope instead of `\n`
+  escapes. The envelope then failed to parse, so the chat bubble showed
+  the raw `speak`/`display` keys and the voice read both halves aloud,
+  key names included. The envelope reader now tolerates unescaped
+  control characters inside strings (line breaks are kept in the
+  display) and ignores braces that sit inside string values. Replies
+  already stored in a conversation keep their raw text.
+
 - **Evals: "today" assertions no longer rot.** The
   `multi-card-read-then-update-one` scenario pinned "log my weight
   today" to the literal date it was written on, so every rep failed on
