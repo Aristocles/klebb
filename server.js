@@ -33,6 +33,7 @@ const haeSamples = require('./health-auto-export/samples');
 const haeSamplesInbox = require('./health-auto-export/samples-inbox');
 const conversationsLib = require('./lib/conversations');
 const { generateTitle } = require('./chat/title');
+const { extractJsonReply } = require('./chat/voice-envelope');
 
 // Opened on first use: an instance whose user never opens the chat pays
 // nothing. Holds its own handle on the shared database file (the samples
@@ -388,49 +389,6 @@ function getDateRange(dir, start, end) {
     }
   }
   return result;
-}
-
-// Extract a { speak, display } JSON object from a model's raw reply.
-// The model is instructed to emit pure JSON, but handle stray text/fences +
-// tool-use intermixing by grabbing the LAST JSON object in the response
-// (that one is always the final answer).
-function extractJsonReply(raw) {
-  if (!raw || typeof raw !== 'string') return null;
-  // Strip common markdown fences
-  let s = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  // Try direct parse first (common case: clean JSON reply)
-  try {
-    const obj = JSON.parse(s);
-    if (obj && typeof obj === 'object') return obj;
-  } catch {}
-  // Find all {...} blocks and try each from last to first.
-  // Walk the string and track brace depth to extract balanced objects.
-  const candidates = [];
-  let depth = 0;
-  let start = -1;
-  for (let i = 0; i < s.length; i++) {
-    const c = s[i];
-    if (c === '{') {
-      if (depth === 0) start = i;
-      depth++;
-    } else if (c === '}') {
-      depth--;
-      if (depth === 0 && start >= 0) {
-        candidates.push(s.slice(start, i + 1));
-        start = -1;
-      }
-    }
-  }
-  // Try from last to first (the final answer is usually last)
-  for (let i = candidates.length - 1; i >= 0; i--) {
-    try {
-      const obj = JSON.parse(candidates[i]);
-      if (obj && typeof obj === 'object' && (typeof obj.speak === 'string' || typeof obj.display === 'string')) {
-        return obj;
-      }
-    } catch {}
-  }
-  return null;
 }
 
 // callGateway now lives in lib/gateway.js so the report comprehension pass
