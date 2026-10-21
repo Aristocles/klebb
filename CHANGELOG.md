@@ -29,6 +29,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   sandbox resolves). A corpus sweep found no other run-date-dependent
   assertions.
 
+- **E2E: the time-of-day chip specs no longer flake.** They read a
+  card's rows as soon as the card was visible, but every renderer
+  fetches its own data after it mounts, so on a slow runner the read
+  saw an empty card. It was a race, not the UTC-window clock problem
+  it had been filed as. Each failure also skipped its cleanup and left
+  a card behind that failed `settings-alpha-toggle` too. The specs now
+  wait for the rows (with the data fetch held so a non-waiting read
+  fails every run), clean up in `afterEach`, and the alphabetical spec
+  ignores cards it did not seed.
+
 ### Changed
 
 - **`note_feedback` rejects placeholder intents.** Half the collected
