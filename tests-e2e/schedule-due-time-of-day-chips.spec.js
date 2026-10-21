@@ -120,21 +120,42 @@ async function seed(request, baseUrl, m) {
   expect([201, 409]).toContain(r.status());
 }
 
+// A card renders its header before its own data fetch lands, so a read
+// that only waits for the card to be visible can see it empty (#623).
+// Holding the fetch makes that mistake fail every run instead of only on
+// a slow runner.
+async function holdCardData(page, id) {
+  await page.route(`**/api/manifests/${id}/data`, async (route) => {
+    await new Promise(r => setTimeout(r, 1000));
+    await route.fallback();
+  });
+}
+
 async function cleanup(request, baseUrl, id) {
   await request.delete(`${baseUrl}/api/manifests/${id}`).catch(() => {});
 }
+
+// Runs after a failure too: a card left behind leaks into every later
+// spec sharing the sandbox, and fails them for this spec's reason (#623).
+test.afterEach(async ({ page, sandboxState }) => {
+  for (const id of [SCHEDULE_CARD_ID, CHECKLIST_CARD_ID, NOTIFY_CARD_ID]) {
+    await cleanup(page.request, sandboxState.baseUrl, id);
+  }
+});
 
 test.describe('#397 Phase 2a: time-of-day chips on schedule-card', () => {
   test('chips render per item per token, ordered by slot, none when absent', async ({ page, sandboxState }) => {
     const today = todayISO();
     const m = scheduleCardManifest(today);
     await seed(page.request, sandboxState.baseUrl, m);
+    await holdCardData(page, SCHEDULE_CARD_ID);
 
     await page.goto('/');
     await expect(page.locator('eh-date-view')).toBeVisible({ timeout: 10_000 });
 
     const card = page.locator(`[data-card-id="${SCHEDULE_CARD_ID}"] eh-schedule-card`);
     await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.item-row')).toHaveCount(3);
 
     // The renderer iterates the manifest items in declared order. Walk
     // .item-row entries in DOM order and capture their tod-chip emojis +
@@ -175,8 +196,6 @@ test.describe('#397 Phase 2a: time-of-day chips on schedule-card', () => {
 
     expect(noTod).toBeTruthy();
     expect(noTod.chips).toEqual([]);
-
-    await cleanup(page.request, sandboxState.baseUrl, SCHEDULE_CARD_ID);
   });
 });
 
@@ -185,12 +204,14 @@ test.describe('#397 Phase 2a: time-of-day chips on checklist-card', () => {
     const today = todayISO();
     const m = checklistCardManifest(today);
     await seed(page.request, sandboxState.baseUrl, m);
+    await holdCardData(page, CHECKLIST_CARD_ID);
 
     await page.goto('/');
     await expect(page.locator('eh-date-view')).toBeVisible({ timeout: 10_000 });
 
     const card = page.locator(`[data-card-id="${CHECKLIST_CARD_ID}"] eh-checklist-card`);
     await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.tod-chip')).toHaveCount(1);
 
     const chips = await card.evaluate((root) => {
       const sr = root.shadowRoot;
@@ -206,8 +227,6 @@ test.describe('#397 Phase 2a: time-of-day chips on checklist-card', () => {
     expect(chips).toEqual([
       { emoji: '🌤️', label: 'Midday', title: 'Midday' },
     ]);
-
-    await cleanup(page.request, sandboxState.baseUrl, CHECKLIST_CARD_ID);
   });
 });
 
@@ -277,6 +296,5 @@ test.describe('#397 Phase 2c: schedule_due notification round-trips through POST
     // The schedule item's time_of_day passes through validation intact.
     expect(body.data.items[0].schedule.time_of_day).toBe('morning');
 
-    await cleanup(page.request, baseUrl, NOTIFY_CARD_ID);
   });
 });

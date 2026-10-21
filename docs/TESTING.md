@@ -178,6 +178,28 @@ intentionally minimal (one weight, one mood). For a spec that needs
 richer fixtures, write to the sandbox via the API or directly to the
 `sandboxState.sandbox` directory in `test.beforeAll`.
 
+One sandbox server serves the whole run, so a card a spec seeds is seen
+by every spec after it. Delete it in `test.afterEach`, not at the end of
+the test body: a failing assertion skips the rest of the body, and the
+leftover card then fails unrelated specs (an exact card list, an
+alphabetical order) for this spec's reason.
+
+### A visible card is not a loaded card
+
+Every renderer extends `EhBaseCard`, which fetches its own data from
+`/api/manifests/:id/data` after it mounts and renders its header
+meanwhile. `toBeVisible()` on the card passes before its rows exist, so
+a one-shot read straight after it (`evaluate`, `allInnerTexts`) can see
+an empty card and fail only on a slow runner. Wait for the content
+itself first, which retries:
+
+```js
+await expect(card.locator('.item-row')).toHaveCount(3);
+```
+
+Playwright's CSS locators pierce open shadow roots, so this reaches into
+the renderer. Use `expect.poll` around a read that has no locator form.
+
 ### Selectors
 
 Prefer Lit custom-element selectors (`eh-generic-card`, `eh-schedule-card`,
