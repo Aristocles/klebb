@@ -7,60 +7,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
-### Fixed
-
-- **Voice replies with a multi-line answer no longer come through raw.**
-  When a spoken reply's written half spanned several lines, some models
-  put literal line breaks inside the JSON envelope instead of `\n`
-  escapes. The envelope then failed to parse, so the chat bubble showed
-  the raw `speak`/`display` keys and the voice read both halves aloud,
-  key names included. The envelope reader now tolerates unescaped
-  control characters inside strings (line breaks are kept in the
-  display) and ignores braces that sit inside string values. Replies
-  already stored in a conversation keep their raw text.
-
-- **Evals: "today" assertions no longer rot.** The
-  `multi-card-read-then-update-one` scenario pinned "log my weight
-  today" to the literal date it was written on, so every rep failed on
-  any other day. `cardShape` paths now accept a `$today` token,
-  resolved at each turn's start to that day's date in the target
-  instance's effective timezone (read from `GET /api/diagnostics`,
-  falling back to the runner's `TZ`, then UTC — the same chain a fresh
-  sandbox resolves). A corpus sweep found no other run-date-dependent
-  assertions.
-
-- **E2E: the time-of-day chip specs no longer flake.** They read a
-  card's rows as soon as the card was visible, but every renderer
-  fetches its own data after it mounts, so on a slow runner the read
-  saw an empty card. It was a race, not the UTC-window clock problem
-  it had been filed as. Each failure also skipped its cleanup and left
-  a card behind that failed `settings-alpha-toggle` too. The specs now
-  wait for the rows (with the data fetch held so a non-waiting read
-  fails every run), clean up in `afterEach`, and the alphabetical spec
-  ignores cards it did not seed.
-
-### Changed
-
-- **Reloading the app opens a fresh chat.** The chat used to reopen
-  whichever conversation was last active on the device, so every reload
-  dropped the user back into an old thread. A page load now starts an
-  empty chat; closing and reopening the panel without reloading keeps
-  the current one, and earlier conversations open from the drawer as
-  before. The exception is a reply still being written: iOS kills a
-  backgrounded app and relaunches it as a fresh load, so a conversation
-  with a turn in flight is resumed rather than stranded.
-  `GET /api/conversations/:id` now carries `running` to make that call,
-  since the reattach endpoint replays a just-finished turn as readily as
-  it attaches to a live one.
-
-- **`note_feedback` rejects placeholder intents.** Half the collected
-  feedback log turned out to be placeholder lines the assistant wrote
-  when it decided mid-turn there was nothing to report ("placeholder",
-  "skip", "noop", "n/a - ..."), each costing real triage attention.
-  Unambiguous placeholder prefixes and whole-line filler words are now
-  refused with a readable reason, and the tool description says
-  plainly: no gap means no call. Real reports that merely open with an
-  ambiguous word ("skip button does nothing") still log.
+## [3.6.0] - 2026-10-22
 
 ### Added
 
@@ -99,145 +46,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   defect is fixed (rest and off-cycle days counted as scheduled
   because a truthy status string passed the filter).
 
-### Fixed
-
-- **Double-serialised tool arguments no longer block or corrupt chat
-  writes.** When the chat model sends a structured argument as a JSON
-  string (the #342 class), three seats mishandled it: `validate_manifest`
-  rejected every candidate with "manifest must be an object", which the
-  mandatory validate-before-write gate turned into a total block on chat
-  card creation and conversion (#701); `patchManifest` silently dropped a
-  non-object `meta` and any unknown top-level key while still reporting
-  success and rewriting the manifest file (#702); and `appendRow` pushed
-  the string verbatim, persisting a blank row that also wedged
-  `reorder_rows` for the card (#703). Manifest-shaped strings are now
-  rescued with a warning (validate/create/patch/append), unknown patch
-  keys and non-object `meta` are typed errors (HTTP 400 over REST, where a
-  stringified body or `meta` is rejected outright like the existing
-  data-write route, before the demo-mode gate consults it),
-  and appending a non-object onto an array of object rows is refused;
-  bare-string rows on string-rowed cards (greeting banners) still append
-  unchanged. New structural guards pin the class: every tool parameter
-  must declare a schema type unless allowlisted as any-shape, and every
-  registry write seat must rescue or reject a stringified argument.
-- **The greeting banner rotates on read-only cards.** Rotation was
-  implemented as a data write (shift `messages[0]` to the end and POST the
-  reordered array back) gated on `meta.writeable.fromWebapp`, so a
-  read-only greeting: the natural authoring for a card with no inputs:
-  showed the same message forever, and writeable ones could double-rotate
-  across devices because the once-per-day stamp lived in per-browser
-  localStorage. The shown message is now a pure function of the viewed
-  date (days-since-epoch modulo message count) and the write path,
-  localStorage stamp and gate dependency are gone, matching the renderer
-  contract docs/CARDS.md has always documented ("Writes: None"). Known
-  benign change: the sequence is calendar-locked, so days the app is not
-  opened still consume messages. A new structural e2e pins the class: a
-  fully seeded dashboard render must fire zero manifest writes.
-
-### Changed
-
-- **The chat turn envelope is three times bigger.** Setup-sized jobs
-  (create and validate many cards in one conversation) cost 2-3 gateway
-  round-trips per card and kept capping out mid-task. Defaults move from
-  12 round-trips / 4 minutes / 60s per step to `CHAT_MAX_TURNS=36`,
-  `CHAT_TURN_DEADLINE_MS=720000` and `CHAT_ITER_TIMEOUT_MS=180000`, the
-  transport's per-hop ceiling moves 180s -> 540s so the step budget stays
-  a soft cap, and the conversation context window grows 24k -> 72k chars.
-  The three named defaults are env-tunable; the transport ceiling and the
-  context window are constants.
-
-### Fixed
-
-- **Morning writes are no longer rejected as future-dated when the server
-  runs in a different timezone.** The client stamps rows with the
-  browser-local date and reports its IANA timezone on every session boot
-  (`POST /api/user/tz`), but the write-date gate compared against the
-  server's `TZ`. On a UTC container, a browser at UTC+10 was refused every
-  daily-prompt answer until 10:00 local ("future-dated entry not allowed"),
-  and the chat agent's date block believed it was still yesterday. `todayIso()`
-  and the chat date context now resolve "today" through the same
-  user-timezone helper the notifications scheduler already uses (stored
-  browser timezone, falling back to the server's `TZ`). `GET /api/diagnostics`
-  gains a `user_tz` field and the Diagnostics pane shows both zones, so a
-  mismatch is visible at a glance. Instances whose container `TZ` already
-  matches the user, or where no timezone was ever reported, behave exactly
-  as before. (#699)
-- **A slow chat step is capped instead of failing the whole turn.**
-  `CHAT_ITER_TIMEOUT_MS` is meant to be a soft cap: the step aborts, the
-  loop catches it and returns the work done so far with a resume prompt.
-  That only held while the per-step budget stayed under the transport's
-  per-hop ceiling, and nothing enforced it, so raising the step timeout to
-  the ceiling (or setting it to 0, which fell back to the whole turn
-  deadline) turned a slow step into a 504 that discarded every round of the
-  turn. The budget is now clamped just under the ceiling wherever it comes
-  from.
-- **A length-truncated chat generation is no longer presented as a clean
-  final answer.** The gateway cuts an oversized generation with
-  `finish_reason: "length"`; the loop used to return whatever partial
-  prose existed as the considered reply, silently dropping any tool calls
-  the generation was carrying. A truncated turn now ends as capped:
-  progress kept, the size-limit stop explained, `capped: true` so the
-  client offers "keep going".
-- **A chat turn whose connection dies is picked back up instead of being
-  stranded.** A turn keeps running server-side and its reply is kept even
-  when this browser's stream dies, but the client only tried to reattach on
-  returning to the foreground. Now every way of losing a stream reattaches:
-  a 409 from a second send (which previously called reattach in a state the
-  reattach guard refused, making it a no-op), a socket that dies mid-turn,
-  and a stream that closes cleanly without ever sending a reply. The
-  "failed to connect" bubble appears only once there is provably nothing
-  left to collect, and a drop while the app is backgrounded no longer
-  blames the network at all.
-- **An adopted turn renders as running and can be stopped.** Reattaching
-  left the loading flag clear, so a turn picked up from the server showed no
-  status line, no streaming text and no Stop button while it worked.
-- **A reattach resumes from the last event it saw.** A finished turn stays
-  replayable for half a minute so a client that missed the end can still
-  collect its reply, and reattaching without a resume point was handed the
-  whole turn again: switching tabs moments after a reply re-rendered that
-  reply as a second, still-typing bubble, disabled the composer, and offered
-  a Stop button for a turn that had already finished.
-- **The composer stays shut until a lost turn is accounted for.** Sending was
-  re-enabled before the recovery reattach came back, so a second message could
-  land while a turn was still running server-side and collide with the
-  recovery over one slot of turn state, losing both.
-- **A mostly-blind OCR witness is discarded instead of flooding the verify
-  screen.** When local OCR could not read the document the vision model just
-  read (a low-resolution photo: precisely the case vision exists for), every
-  number came back "uncorroborated" and the verify screen highlighted all of
-  them, burying the signal the highlights exist to carry. A witness that
-  fails to corroborate most of the numbers now counts as no witness, which
-  the verify screen already renders honestly as "check every value".
-- **`extract()` honours its legacy `{psm}` argument again.** The reader-rung
-  change left a bare psm silently ignored, so a direct "retry at psm 6" ran
-  the default reader instead. The mapping now lives in the dispatcher, with
-  an ungated unit test so the break is visible without tesseract installed.
-- **`KLEBB_OCR_MODE=local` can no longer be bypassed from a request body.**
-  A reprocess asking for `{"reader":"vision"}` used to build a vision rung
-  with no eligibility check, sending page images to the gateway in the very
-  mode that promises they never leave the box. The route now refuses an
-  ineligible reader, and the transcriber itself refuses to run in local
-  mode, so the wire is unreachable whatever a caller sends.
-- **An empty or cut-short vision read can no longer publish or destroy a
-  report.** A finish reason other than a clean stop is an incomplete page;
-  a whole-document empty transcript is a vision failure that falls back to
-  tesseract; and any re-read (either reader) that recovered almost nothing
-  compared to the existing report refuses to overwrite it: a failed retry
-  costs the retry, never the document.
-- **The witness diff strips reader scaffolding first.** The `--- page N ---`
-  separators and the truncation note sat in both compared texts, so every
-  integer up to the page count could silently "corroborate" a misread.
-- **A witness with more flags than the header can hold is discarded** rather
-  than silently truncated, which rendered the overflow as corroborated.
-- **One oversized upload can no longer disable vision reading until
-  restart.** Size and limit complaints in a gateway 400 stay per-file
-  failures; only capability-shaped complaints mark the model image-incapable.
-- **An off-ladder psm in a reprocess body is neither run nor recorded**, and
-  a reprocess arriving while one is already queued answers 409 instead of
-  promising a rung that will never run.
-
-### Added
-
 - **Photos and scans are read by a vision model when a chat gateway is
   configured.** Tesseract misreads phone photos and cannot read handwriting;
   the gateway model reads both. Pages are downscaled before the call (the
@@ -248,72 +56,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   record `read_by`, and the reprocess ladder unifies to vision then the
   tesseract psm walk, with memory of which rungs have already produced text.
   `KLEBB_OCR_MODE=local` keeps extraction fully on-box.
-
-### Changed
-
-- **Reports uploads accept files up to 30 MB** (previously 15 MB). The
-  cap bounds ingress only: uploads stream to disk, decoded audio and
-  OCR page counts keep their own limits.
-
-### Fixed
-
-- **Import/export hardening on the recovery paths.** A samples-export
-  failure during the rollback snapshot now fails the import pipeline at
-  the snapshot stage, before the wipe, instead of producing a snapshot
-  that validates clean while silently holding no history. The stale
-  export-staging sweep is age-gated (only reclaims hour-old orphans), so
-  it can no longer delete a hosting control plane's in-flight staging in
-  the same directory. The streamed header scanner caps header keys the
-  way it already capped values, closing the one buffer a hostile archive
-  could still grow. The wipe's spared raw-archive list is directories
-  only, matching the export's skips exactly, and the zip writer refuses
-  loudly if a spilled entry's body disagrees with the sizes already
-  written into its header.
-
-- **Large history drains are no longer quadratic.** Each recorded push
-  counts its first-sighting rows to report novelty, and that count scanned
-  the whole samples table per push: most of a big restore's visible
-  progress time was this one query. A `first_push` index (built
-  automatically at first open, like the export index) makes it an
-  index-only count, with the access path pinned by a query-plan test.
-
-- **The import wipe no longer destroys the raw push archives.** The wipe
-  removes every directory under `data/`, but `auto-export/raw` and
-  `auto-export/raw.migrated-*` are deliberately excluded from every
-  export, and the rollback snapshot inherits the same exclusions, so an
-  import apply (or retry, or rollback) destroyed the only copy with
-  nothing able to restore it. The exclusion list now lives in one shared
-  module consumed by both the export's skips and the wipe's spares, so
-  the two cannot drift; everything else under `auto-export/` is still
-  wiped and restored as before.
-
-- **Import validation no longer reads the history file whole.** The first
-  real-sized restore into a memory-capped instance was OOM-killed inside
-  `POST /api/import/start`: the samples drain had streamed since the
-  incident fix, but validation still read and `JSON.parse`d the entire
-  `samples.json` for its plan counts (twice per job, plus a whole-file
-  read for the inventory checksum). Validation now streams the scan
-  through the same incremental reader as the drain, header values arrive
-  through a capped capture hook, and inventory checksums hash in chunks,
-  so peak memory is one push regardless of history size. The apply
-  pipeline's write freeze also engages before its first await (it used to
-  rely on everything before the wipe being synchronous), so nothing can
-  write into the target after apply-time validation has started.
-
-- **Export no longer reads the whole history table into memory.** One
-  `GET /api/export` on a real-sized history could OOM a memory-capped
-  instance: the samples read was a single `.all()` that materialised
-  every row before a byte was written, the file hash re-read the result
-  whole, and the zip writer held the raw and deflated copies of the
-  staged file at once. The samples export now walks push by push through
-  a new `(last_push, push_ord)` index (built automatically at first open),
-  the samples file is written incrementally (byte-identical output),
-  hashes are chunked, and zip entries above 8MB stream through a spill
-  file. Stale `export-staging.*` directories left by a crash mid-export
-  are also reclaimed at the next export.
-
-
-### Added
 
 - **Activity signal on the control-plane admin API.** `GET /api/admin/info`
   now carries `lastActiveAt` and `activeDays7`: when a person last interacted
@@ -347,123 +89,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   and it matches with an escaped-literal regexp so a term containing `.` or `*`
   searches for those characters. Escape in the field clears the term before it
   closes the field, and only then the drawer. (#659)
-
-### Changed
-
-- **The hamburger stays put when the drawer opens, and folds it back in.** The
-  drawer is positioned over the whole panel, so opening it hid the control that
-  opened it, leaving a scrim tap or Escape as the only ways back: neither is
-  discoverable. Its head now carries a hamburger of its own, with padding and
-  button metrics mirroring the panel header's (phone breakpoint included) so it
-  lands on the same pixels at the same 44px size and reads as the same icon
-  staying still. Cancelling a rename with Escape no longer closes the whole
-  drawer along with the edit. (#659)
-
-- **New chat is a chat-panel header control, and the conversation drawer
-  scrolls instead of expanding.** Starting a fresh chat cost two taps because
-  the button lived pinned at the top of the drawer, which nothing else about a
-  new chat needs: it is now a header pill immediately right of the hamburger,
-  and the drawer no longer carries one. The drawer also listed only five
-  conversations behind a "Show all (N)" expander, which the store already makes
-  pointless: it hard-caps at 100 and prunes the least recently active whenever
-  a conversation is created, so the whole list is bounded and now renders in
-  the scroller the list already was. The drawer keeps a header strip carrying a
-  "Conversations" label, because that strip is what holds the safe-area top
-  inset off a phone's status bar. (#657)
-
-### Fixed
-
-- **A refused zip write no longer leaves the partial archive on disk.** The
-  writer opens its destination before it validates the first entry, and
-  `stream.destroy()` does not cancel an open that is still in flight: node
-  defers the teardown until the descriptor exists. The cleanup removed the
-  file without waiting for that, so a refusal raised before the open landed
-  (an unsafe entry name, the entry-count limit) deleted nothing and the late
-  open then created the very archive the caller was told did not exist. It
-  waits for the descriptor to close first. The race went either way roughly a
-  third of the time, so `tests/zip.test.js` now drives the refusal forty
-  times over and lets a single stray file fail the run, rather than asserting
-  once and passing on luck; a companion test covers a failure raised after
-  bytes are written, where there is an open descriptor to close instead of a
-  pending open. (#652)
-- **An import's wipe now clears directories under `data/`, so no state from
-  the previous instance survives a replace.** The wipe enumerated only files
-  at the top of `data/`, which left the whole of `data/auto-export/` behind:
-  the Apple Health ingest inbox, the discovered-metrics list, the last-push
-  diagnostic and any quarantined payloads, plus `data/_archive/` when an old
-  migration had parked the previous owner's original card files there. The
-  ingest inbox mattered most, because the apply drains it after the copy
-  regardless of what the archive carries: importing an archive with no
-  history onto an instance that had a `samples.json` sitting in its inbox
-  slot imported the OLD instance's push history into the restored tree, and
-  verification then failed the whole import with `VERIFY_PUSHES_MISMATCH`.
-  Rollback is unaffected: the snapshot is a full export of the instance, so
-  it restores those directories with everything else. (#645)
-- **Applying an import no longer holds one HTTP request open for the whole
-  pipeline.** Hosted instances sit behind reverse proxies with response-time
-  ceilings around a minute or two, so a long apply always surfaced a gateway
-  error in the wizard while the import carried on server-side and usually
-  succeeded; a crash mid-apply turned the held request into a bare 502 with
-  the eventual recovery invisible. `POST /api/import/apply` and `/rollback`
-  now answer **202 immediately** with the applying snapshot and the pipeline
-  runs detached; the wizard polls `GET /api/import/status` and renders live
-  stage labels ("Clearing this instance", "Importing history", ...), and a
-  page opened mid-import lands in the same progress view from status alone.
-  Boot crash-recovery resumes are detached the same way, so a multi-minute
-  resume no longer starves `/healthz` or blocks boot. State still moves to
-  `applying` and the write freeze still engages before the request answers,
-  so concurrent applies refuse exactly as before. The freeze gate is also
-  **widened**: while a pipeline runs, every `/api/*` route (reads included)
-  answers 503 `IMPORT_FROZEN` except `/api/import/*` and the health probe,
-  because mid-pipeline the registry is transiently wiped and serving a read
-  would present an empty instance as truth. (#633)
-- **Importing a large HAE history no longer blows the heap of a small
-  container.** A real restore whose `data/auto-export/samples.json`
-  weighed tens of MB died of `FatalProcessOutOfMemory` inside a 256 MB
-  container: the samples drain read and JSON.parse'd the whole file, then
-  bound large strings per sample, and boot recovery re-crashed on every
-  restart until one pass squeaked under the ceiling. The drain now streams
-  the file one push at a time through a minimal JSON-aware scanner (string
-  and escape state, bracket depth; no new dependencies), so peak memory is
-  proportional to one push, never the file; a subprocess test drains a
-  synthetic 60 MB history under a 48 MB heap that provably kills the old
-  approach. Imports stay one transaction per push with the same
-  rename-aside semantics, and the drain yields to the event loop between
-  batches, so `/healthz` now answers during a long boot drain instead of
-  the whole boot blocking; every other route waits for boot to settle,
-  exactly as before. The import pipeline is async end to end (wizard
-  apply/rollback/resume, boot recovery, the offline CLI), with freeze
-  engage/release and watcher stop/resume still guaranteed across the new
-  await points. (#632)
-- **Multi-step chat requests no longer die at a hardcoded 5-iteration
-  cap.** The agent loop's round-trip cap is now `CHAT_MAX_TURNS`
-  (default 12), and a new total-turn deadline (`CHAT_TURN_DEADLINE_MS`,
-  default 240s) stops a raised cap stacking per-step timeouts into a
-  multi-minute silent spinner. Capped turns keep any progress text the
-  model produced, explain how to resume ("keep going"), and carry
-  `capped: true` for the client. The per-step timeout also stops
-  claiming the request "doesn't fit any of the tools" when the truth
-  was a slow step. (#600)
-- **Voice replies show one play control, and it actually toggles.** The
-  shared audio element rendered its native controls bar inside the bubble
-  next to the custom play button: two play arrows for one clip, and the
-  custom glyph never changed while playing. The element is now a hidden
-  playback engine; each voice bubble gets a single play/pause control
-  whose glyph tracks state, a seekable progress strip while playing, and
-  the playback-speed cycler relocated from the header. (#599, #606)
-- **The chat panel is now a true full-screen sheet on phones.** The old
-  panel sized itself with `100vh` (the large viewport), pushing its
-  header up under the iPhone status bar where taps belong to the OS, and
-  its header controls were ~24px pills: close/new-chat were effectively
-  untappable and the only way out was a page refresh. The sheet now uses
-  `100dvh` with safe-area padding top and bottom, every header control
-  is a 44px target, swipe-down on the header closes it (Escape and the
-  close button still work), the page behind is scroll-locked (including
-  pull-to-refresh), and the on-screen keyboard lifts the composer via
-  visualViewport instead of covering it. Desktop keeps the windowed
-  panel. (#598, #604)
-
-### Added
 
 - **An import can restore part of an archive instead of all of it.**
   `lib/import/selection.js` turns a validated plan into a selectable
@@ -783,7 +408,390 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `docs/CI.md` now states the actual Node matrix (22 + 24, engines floor
   22.13). (Fixes #595)
 
+### Changed
+
+- **Reloading the app opens a fresh chat.** The chat used to reopen
+  whichever conversation was last active on the device, so every reload
+  dropped the user back into an old thread. A page load now starts an
+  empty chat; closing and reopening the panel without reloading keeps
+  the current one, and earlier conversations open from the drawer as
+  before. The exception is a reply still being written: iOS kills a
+  backgrounded app and relaunches it as a fresh load, so a conversation
+  with a turn in flight is resumed rather than stranded.
+  `GET /api/conversations/:id` now carries `running` to make that call,
+  since the reattach endpoint replays a just-finished turn as readily as
+  it attaches to a live one.
+
+- **`note_feedback` rejects placeholder intents.** Half the collected
+  feedback log turned out to be placeholder lines the assistant wrote
+  when it decided mid-turn there was nothing to report ("placeholder",
+  "skip", "noop", "n/a - ..."), each costing real triage attention.
+  Unambiguous placeholder prefixes and whole-line filler words are now
+  refused with a readable reason, and the tool description says
+  plainly: no gap means no call. Real reports that merely open with an
+  ambiguous word ("skip button does nothing") still log.
+
+- **The chat turn envelope is three times bigger.** Setup-sized jobs
+  (create and validate many cards in one conversation) cost 2-3 gateway
+  round-trips per card and kept capping out mid-task. Defaults move from
+  12 round-trips / 4 minutes / 60s per step to `CHAT_MAX_TURNS=36`,
+  `CHAT_TURN_DEADLINE_MS=720000` and `CHAT_ITER_TIMEOUT_MS=180000`, the
+  transport's per-hop ceiling moves 180s -> 540s so the step budget stays
+  a soft cap, and the conversation context window grows 24k -> 72k chars.
+  The three named defaults are env-tunable; the transport ceiling and the
+  context window are constants.
+
+- **Reports uploads accept files up to 30 MB** (previously 15 MB). The
+  cap bounds ingress only: uploads stream to disk, decoded audio and
+  OCR page counts keep their own limits.
+
+- **The hamburger stays put when the drawer opens, and folds it back in.** The
+  drawer is positioned over the whole panel, so opening it hid the control that
+  opened it, leaving a scrim tap or Escape as the only ways back: neither is
+  discoverable. Its head now carries a hamburger of its own, with padding and
+  button metrics mirroring the panel header's (phone breakpoint included) so it
+  lands on the same pixels at the same 44px size and reads as the same icon
+  staying still. Cancelling a rename with Escape no longer closes the whole
+  drawer along with the edit. (#659)
+
+- **New chat is a chat-panel header control, and the conversation drawer
+  scrolls instead of expanding.** Starting a fresh chat cost two taps because
+  the button lived pinned at the top of the drawer, which nothing else about a
+  new chat needs: it is now a header pill immediately right of the hamburger,
+  and the drawer no longer carries one. The drawer also listed only five
+  conversations behind a "Show all (N)" expander, which the store already makes
+  pointless: it hard-caps at 100 and prunes the least recently active whenever
+  a conversation is created, so the whole list is bounded and now renders in
+  the scroller the list already was. The drawer keeps a header strip carrying a
+  "Conversations" label, because that strip is what holds the safe-area top
+  inset off a phone's status bar. (#657)
+
+- **A test file that dies now says why.** When a test file's process is killed,
+  `node:test` loses every result it had not yet flushed (a file wrapped in one
+  top-level `describe` reports nothing at all), and the default reporter discards
+  the child's exit code, so the entire output is a bare `'test failed'`. That is
+  indistinguishable from "the change you just made is broken", and it has sent
+  people hunting a regression that was not there more than once.
+
+  `npm run test:diag` runs the suite through a reporter that prints the exit code
+  in hex, the signal, the stderr tail, and a one-line diagnosis, so a failure can
+  be classified at a glance: an ordinary assertion, a lost port race, an
+  out-of-memory abort, or a native process kill. Caught in the act on this repo:
+  three files in one run had exit code `0xC0000409`, the Windows `__fastfail`
+  path, with empty stderr, and all of them passed when re-run.
+
+  Also: `--test-concurrency` is now pinned to 6 rather than defaulting to the core
+  count, which reduces the process churn those kills correlate with (measured
+  cost: 203s versus 196s); `npm run test:retry` re-runs only natively killed
+  files, gated hard on the exit code so a genuine failure can never be retried
+  into green; and `tests/helpers/sandbox.js` gains a `waitFor(check)` helper,
+  because a fixed `setTimeout` while waiting for an event is a guess about
+  machine speed and the source of a whole class of these.
+
+- The chevron that opens a card's full trend chart now sits beside the
+  sparkline instead of in the header. It used to render between the edit
+  pencil and the settings gear, where nothing connected it to the trend line
+  it opens, and where it partly sat under the edit button. It is a proper
+  keyboard-reachable button; tapping the card header still expands too, so
+  no existing gesture changed.
+
 ### Fixed
+
+- **Voice replies with a multi-line answer no longer come through raw.**
+  When a spoken reply's written half spanned several lines, some models
+  put literal line breaks inside the JSON envelope instead of `\n`
+  escapes. The envelope then failed to parse, so the chat bubble showed
+  the raw `speak`/`display` keys and the voice read both halves aloud,
+  key names included. The envelope reader now tolerates unescaped
+  control characters inside strings (line breaks are kept in the
+  display) and ignores braces that sit inside string values. Replies
+  already stored in a conversation keep their raw text.
+
+- **Evals: "today" assertions no longer rot.** The
+  `multi-card-read-then-update-one` scenario pinned "log my weight
+  today" to the literal date it was written on, so every rep failed on
+  any other day. `cardShape` paths now accept a `$today` token,
+  resolved at each turn's start to that day's date in the target
+  instance's effective timezone (read from `GET /api/diagnostics`,
+  falling back to the runner's `TZ`, then UTC — the same chain a fresh
+  sandbox resolves). A corpus sweep found no other run-date-dependent
+  assertions.
+
+- **E2E: the time-of-day chip specs no longer flake.** They read a
+  card's rows as soon as the card was visible, but every renderer
+  fetches its own data after it mounts, so on a slow runner the read
+  saw an empty card. It was a race, not the UTC-window clock problem
+  it had been filed as. Each failure also skipped its cleanup and left
+  a card behind that failed `settings-alpha-toggle` too. The specs now
+  wait for the rows (with the data fetch held so a non-waiting read
+  fails every run), clean up in `afterEach`, and the alphabetical spec
+  ignores cards it did not seed.
+
+- **Double-serialised tool arguments no longer block or corrupt chat
+  writes.** When the chat model sends a structured argument as a JSON
+  string (the #342 class), three seats mishandled it: `validate_manifest`
+  rejected every candidate with "manifest must be an object", which the
+  mandatory validate-before-write gate turned into a total block on chat
+  card creation and conversion (#701); `patchManifest` silently dropped a
+  non-object `meta` and any unknown top-level key while still reporting
+  success and rewriting the manifest file (#702); and `appendRow` pushed
+  the string verbatim, persisting a blank row that also wedged
+  `reorder_rows` for the card (#703). Manifest-shaped strings are now
+  rescued with a warning (validate/create/patch/append), unknown patch
+  keys and non-object `meta` are typed errors (HTTP 400 over REST, where a
+  stringified body or `meta` is rejected outright like the existing
+  data-write route, before the demo-mode gate consults it),
+  and appending a non-object onto an array of object rows is refused;
+  bare-string rows on string-rowed cards (greeting banners) still append
+  unchanged. New structural guards pin the class: every tool parameter
+  must declare a schema type unless allowlisted as any-shape, and every
+  registry write seat must rescue or reject a stringified argument.
+- **The greeting banner rotates on read-only cards.** Rotation was
+  implemented as a data write (shift `messages[0]` to the end and POST the
+  reordered array back) gated on `meta.writeable.fromWebapp`, so a
+  read-only greeting: the natural authoring for a card with no inputs:
+  showed the same message forever, and writeable ones could double-rotate
+  across devices because the once-per-day stamp lived in per-browser
+  localStorage. The shown message is now a pure function of the viewed
+  date (days-since-epoch modulo message count) and the write path,
+  localStorage stamp and gate dependency are gone, matching the renderer
+  contract docs/CARDS.md has always documented ("Writes: None"). Known
+  benign change: the sequence is calendar-locked, so days the app is not
+  opened still consume messages. A new structural e2e pins the class: a
+  fully seeded dashboard render must fire zero manifest writes.
+
+- **Morning writes are no longer rejected as future-dated when the server
+  runs in a different timezone.** The client stamps rows with the
+  browser-local date and reports its IANA timezone on every session boot
+  (`POST /api/user/tz`), but the write-date gate compared against the
+  server's `TZ`. On a UTC container, a browser at UTC+10 was refused every
+  daily-prompt answer until 10:00 local ("future-dated entry not allowed"),
+  and the chat agent's date block believed it was still yesterday. `todayIso()`
+  and the chat date context now resolve "today" through the same
+  user-timezone helper the notifications scheduler already uses (stored
+  browser timezone, falling back to the server's `TZ`). `GET /api/diagnostics`
+  gains a `user_tz` field and the Diagnostics pane shows both zones, so a
+  mismatch is visible at a glance. Instances whose container `TZ` already
+  matches the user, or where no timezone was ever reported, behave exactly
+  as before. (#699)
+- **A slow chat step is capped instead of failing the whole turn.**
+  `CHAT_ITER_TIMEOUT_MS` is meant to be a soft cap: the step aborts, the
+  loop catches it and returns the work done so far with a resume prompt.
+  That only held while the per-step budget stayed under the transport's
+  per-hop ceiling, and nothing enforced it, so raising the step timeout to
+  the ceiling (or setting it to 0, which fell back to the whole turn
+  deadline) turned a slow step into a 504 that discarded every round of the
+  turn. The budget is now clamped just under the ceiling wherever it comes
+  from.
+- **A length-truncated chat generation is no longer presented as a clean
+  final answer.** The gateway cuts an oversized generation with
+  `finish_reason: "length"`; the loop used to return whatever partial
+  prose existed as the considered reply, silently dropping any tool calls
+  the generation was carrying. A truncated turn now ends as capped:
+  progress kept, the size-limit stop explained, `capped: true` so the
+  client offers "keep going".
+- **A chat turn whose connection dies is picked back up instead of being
+  stranded.** A turn keeps running server-side and its reply is kept even
+  when this browser's stream dies, but the client only tried to reattach on
+  returning to the foreground. Now every way of losing a stream reattaches:
+  a 409 from a second send (which previously called reattach in a state the
+  reattach guard refused, making it a no-op), a socket that dies mid-turn,
+  and a stream that closes cleanly without ever sending a reply. The
+  "failed to connect" bubble appears only once there is provably nothing
+  left to collect, and a drop while the app is backgrounded no longer
+  blames the network at all.
+- **An adopted turn renders as running and can be stopped.** Reattaching
+  left the loading flag clear, so a turn picked up from the server showed no
+  status line, no streaming text and no Stop button while it worked.
+- **A reattach resumes from the last event it saw.** A finished turn stays
+  replayable for half a minute so a client that missed the end can still
+  collect its reply, and reattaching without a resume point was handed the
+  whole turn again: switching tabs moments after a reply re-rendered that
+  reply as a second, still-typing bubble, disabled the composer, and offered
+  a Stop button for a turn that had already finished.
+- **The composer stays shut until a lost turn is accounted for.** Sending was
+  re-enabled before the recovery reattach came back, so a second message could
+  land while a turn was still running server-side and collide with the
+  recovery over one slot of turn state, losing both.
+- **A mostly-blind OCR witness is discarded instead of flooding the verify
+  screen.** When local OCR could not read the document the vision model just
+  read (a low-resolution photo: precisely the case vision exists for), every
+  number came back "uncorroborated" and the verify screen highlighted all of
+  them, burying the signal the highlights exist to carry. A witness that
+  fails to corroborate most of the numbers now counts as no witness, which
+  the verify screen already renders honestly as "check every value".
+- **`extract()` honours its legacy `{psm}` argument again.** The reader-rung
+  change left a bare psm silently ignored, so a direct "retry at psm 6" ran
+  the default reader instead. The mapping now lives in the dispatcher, with
+  an ungated unit test so the break is visible without tesseract installed.
+- **`KLEBB_OCR_MODE=local` can no longer be bypassed from a request body.**
+  A reprocess asking for `{"reader":"vision"}` used to build a vision rung
+  with no eligibility check, sending page images to the gateway in the very
+  mode that promises they never leave the box. The route now refuses an
+  ineligible reader, and the transcriber itself refuses to run in local
+  mode, so the wire is unreachable whatever a caller sends.
+- **An empty or cut-short vision read can no longer publish or destroy a
+  report.** A finish reason other than a clean stop is an incomplete page;
+  a whole-document empty transcript is a vision failure that falls back to
+  tesseract; and any re-read (either reader) that recovered almost nothing
+  compared to the existing report refuses to overwrite it: a failed retry
+  costs the retry, never the document.
+- **The witness diff strips reader scaffolding first.** The `--- page N ---`
+  separators and the truncation note sat in both compared texts, so every
+  integer up to the page count could silently "corroborate" a misread.
+- **A witness with more flags than the header can hold is discarded** rather
+  than silently truncated, which rendered the overflow as corroborated.
+- **One oversized upload can no longer disable vision reading until
+  restart.** Size and limit complaints in a gateway 400 stay per-file
+  failures; only capability-shaped complaints mark the model image-incapable.
+- **An off-ladder psm in a reprocess body is neither run nor recorded**, and
+  a reprocess arriving while one is already queued answers 409 instead of
+  promising a rung that will never run.
+
+- **Import/export hardening on the recovery paths.** A samples-export
+  failure during the rollback snapshot now fails the import pipeline at
+  the snapshot stage, before the wipe, instead of producing a snapshot
+  that validates clean while silently holding no history. The stale
+  export-staging sweep is age-gated (only reclaims hour-old orphans), so
+  it can no longer delete a hosting control plane's in-flight staging in
+  the same directory. The streamed header scanner caps header keys the
+  way it already capped values, closing the one buffer a hostile archive
+  could still grow. The wipe's spared raw-archive list is directories
+  only, matching the export's skips exactly, and the zip writer refuses
+  loudly if a spilled entry's body disagrees with the sizes already
+  written into its header.
+
+- **Large history drains are no longer quadratic.** Each recorded push
+  counts its first-sighting rows to report novelty, and that count scanned
+  the whole samples table per push: most of a big restore's visible
+  progress time was this one query. A `first_push` index (built
+  automatically at first open, like the export index) makes it an
+  index-only count, with the access path pinned by a query-plan test.
+
+- **The import wipe no longer destroys the raw push archives.** The wipe
+  removes every directory under `data/`, but `auto-export/raw` and
+  `auto-export/raw.migrated-*` are deliberately excluded from every
+  export, and the rollback snapshot inherits the same exclusions, so an
+  import apply (or retry, or rollback) destroyed the only copy with
+  nothing able to restore it. The exclusion list now lives in one shared
+  module consumed by both the export's skips and the wipe's spares, so
+  the two cannot drift; everything else under `auto-export/` is still
+  wiped and restored as before.
+
+- **Import validation no longer reads the history file whole.** The first
+  real-sized restore into a memory-capped instance was OOM-killed inside
+  `POST /api/import/start`: the samples drain had streamed since the
+  incident fix, but validation still read and `JSON.parse`d the entire
+  `samples.json` for its plan counts (twice per job, plus a whole-file
+  read for the inventory checksum). Validation now streams the scan
+  through the same incremental reader as the drain, header values arrive
+  through a capped capture hook, and inventory checksums hash in chunks,
+  so peak memory is one push regardless of history size. The apply
+  pipeline's write freeze also engages before its first await (it used to
+  rely on everything before the wipe being synchronous), so nothing can
+  write into the target after apply-time validation has started.
+
+- **Export no longer reads the whole history table into memory.** One
+  `GET /api/export` on a real-sized history could OOM a memory-capped
+  instance: the samples read was a single `.all()` that materialised
+  every row before a byte was written, the file hash re-read the result
+  whole, and the zip writer held the raw and deflated copies of the
+  staged file at once. The samples export now walks push by push through
+  a new `(last_push, push_ord)` index (built automatically at first open),
+  the samples file is written incrementally (byte-identical output),
+  hashes are chunked, and zip entries above 8MB stream through a spill
+  file. Stale `export-staging.*` directories left by a crash mid-export
+  are also reclaimed at the next export.
+
+- **A refused zip write no longer leaves the partial archive on disk.** The
+  writer opens its destination before it validates the first entry, and
+  `stream.destroy()` does not cancel an open that is still in flight: node
+  defers the teardown until the descriptor exists. The cleanup removed the
+  file without waiting for that, so a refusal raised before the open landed
+  (an unsafe entry name, the entry-count limit) deleted nothing and the late
+  open then created the very archive the caller was told did not exist. It
+  waits for the descriptor to close first. The race went either way roughly a
+  third of the time, so `tests/zip.test.js` now drives the refusal forty
+  times over and lets a single stray file fail the run, rather than asserting
+  once and passing on luck; a companion test covers a failure raised after
+  bytes are written, where there is an open descriptor to close instead of a
+  pending open. (#652)
+- **An import's wipe now clears directories under `data/`, so no state from
+  the previous instance survives a replace.** The wipe enumerated only files
+  at the top of `data/`, which left the whole of `data/auto-export/` behind:
+  the Apple Health ingest inbox, the discovered-metrics list, the last-push
+  diagnostic and any quarantined payloads, plus `data/_archive/` when an old
+  migration had parked the previous owner's original card files there. The
+  ingest inbox mattered most, because the apply drains it after the copy
+  regardless of what the archive carries: importing an archive with no
+  history onto an instance that had a `samples.json` sitting in its inbox
+  slot imported the OLD instance's push history into the restored tree, and
+  verification then failed the whole import with `VERIFY_PUSHES_MISMATCH`.
+  Rollback is unaffected: the snapshot is a full export of the instance, so
+  it restores those directories with everything else. (#645)
+- **Applying an import no longer holds one HTTP request open for the whole
+  pipeline.** Hosted instances sit behind reverse proxies with response-time
+  ceilings around a minute or two, so a long apply always surfaced a gateway
+  error in the wizard while the import carried on server-side and usually
+  succeeded; a crash mid-apply turned the held request into a bare 502 with
+  the eventual recovery invisible. `POST /api/import/apply` and `/rollback`
+  now answer **202 immediately** with the applying snapshot and the pipeline
+  runs detached; the wizard polls `GET /api/import/status` and renders live
+  stage labels ("Clearing this instance", "Importing history", ...), and a
+  page opened mid-import lands in the same progress view from status alone.
+  Boot crash-recovery resumes are detached the same way, so a multi-minute
+  resume no longer starves `/healthz` or blocks boot. State still moves to
+  `applying` and the write freeze still engages before the request answers,
+  so concurrent applies refuse exactly as before. The freeze gate is also
+  **widened**: while a pipeline runs, every `/api/*` route (reads included)
+  answers 503 `IMPORT_FROZEN` except `/api/import/*` and the health probe,
+  because mid-pipeline the registry is transiently wiped and serving a read
+  would present an empty instance as truth. (#633)
+- **Importing a large HAE history no longer blows the heap of a small
+  container.** A real restore whose `data/auto-export/samples.json`
+  weighed tens of MB died of `FatalProcessOutOfMemory` inside a 256 MB
+  container: the samples drain read and JSON.parse'd the whole file, then
+  bound large strings per sample, and boot recovery re-crashed on every
+  restart until one pass squeaked under the ceiling. The drain now streams
+  the file one push at a time through a minimal JSON-aware scanner (string
+  and escape state, bracket depth; no new dependencies), so peak memory is
+  proportional to one push, never the file; a subprocess test drains a
+  synthetic 60 MB history under a 48 MB heap that provably kills the old
+  approach. Imports stay one transaction per push with the same
+  rename-aside semantics, and the drain yields to the event loop between
+  batches, so `/healthz` now answers during a long boot drain instead of
+  the whole boot blocking; every other route waits for boot to settle,
+  exactly as before. The import pipeline is async end to end (wizard
+  apply/rollback/resume, boot recovery, the offline CLI), with freeze
+  engage/release and watcher stop/resume still guaranteed across the new
+  await points. (#632)
+- **Multi-step chat requests no longer die at a hardcoded 5-iteration
+  cap.** The agent loop's round-trip cap is now `CHAT_MAX_TURNS`
+  (default 12), and a new total-turn deadline (`CHAT_TURN_DEADLINE_MS`,
+  default 240s) stops a raised cap stacking per-step timeouts into a
+  multi-minute silent spinner. Capped turns keep any progress text the
+  model produced, explain how to resume ("keep going"), and carry
+  `capped: true` for the client. The per-step timeout also stops
+  claiming the request "doesn't fit any of the tools" when the truth
+  was a slow step. (#600)
+- **Voice replies show one play control, and it actually toggles.** The
+  shared audio element rendered its native controls bar inside the bubble
+  next to the custom play button: two play arrows for one clip, and the
+  custom glyph never changed while playing. The element is now a hidden
+  playback engine; each voice bubble gets a single play/pause control
+  whose glyph tracks state, a seekable progress strip while playing, and
+  the playback-speed cycler relocated from the header. (#599, #606)
+- **The chat panel is now a true full-screen sheet on phones.** The old
+  panel sized itself with `100vh` (the large viewport), pushing its
+  header up under the iPhone status bar where taps belong to the OS, and
+  its header controls were ~24px pills: close/new-chat were effectively
+  untappable and the only way out was a page refresh. The sheet now uses
+  `100dvh` with safe-area padding top and bottom, every header control
+  is a 44px target, swipe-down on the header closes it (Escape and the
+  close button still work), the page behind is scroll-locked (including
+  pull-to-refresh), and the on-screen keyboard lifts the composer via
+  visualViewport instead of covering it. Desktop keeps the windowed
+  panel. (#598, #604)
 
 - **Subscribing a card to a metric the HAE catalogue does not know is now an
   error instead of a silence.** `meta.ingest` was never validated: a misspelt
@@ -840,49 +848,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   export reads a running container), so the same collision made a customer's
   export fail. (Fixes #580)
 
-### Changed
-
-- **A test file that dies now says why.** When a test file's process is killed,
-  `node:test` loses every result it had not yet flushed (a file wrapped in one
-  top-level `describe` reports nothing at all), and the default reporter discards
-  the child's exit code, so the entire output is a bare `'test failed'`. That is
-  indistinguishable from "the change you just made is broken", and it has sent
-  people hunting a regression that was not there more than once.
-
-  `npm run test:diag` runs the suite through a reporter that prints the exit code
-  in hex, the signal, the stderr tail, and a one-line diagnosis, so a failure can
-  be classified at a glance: an ordinary assertion, a lost port race, an
-  out-of-memory abort, or a native process kill. Caught in the act on this repo:
-  three files in one run had exit code `0xC0000409`, the Windows `__fastfail`
-  path, with empty stderr, and all of them passed when re-run.
-
-  Also: `--test-concurrency` is now pinned to 6 rather than defaulting to the core
-  count, which reduces the process churn those kills correlate with (measured
-  cost: 203s versus 196s); `npm run test:retry` re-runs only natively killed
-  files, gated hard on the exit code so a genuine failure can never be retried
-  into green; and `tests/helpers/sandbox.js` gains a `waitFor(check)` helper,
-  because a fixed `setTimeout` while waiting for an event is a guess about
-  machine speed and the source of a whole class of these.
-
-### Fixed
-
 - Two defects in the test harness, both of which made an unrelated problem look
   like the reported one. `spawnServer` had no `'error'` listener, so a spawn that
   never started became an unhandled event and surfaced as a 30-second timeout
   with a stack pointing at the harness instead of at the real cause. And `kill()`
   left its SIGKILL escalation timer pending after a prompt exit, holding a
   ref'd handle for a further two seconds per suite across dozens of them.
-
-### Changed
-
-- The chevron that opens a card's full trend chart now sits beside the
-  sparkline instead of in the header. It used to render between the edit
-  pencil and the settings gear, where nothing connected it to the trend line
-  it opens, and where it partly sat under the edit button. It is a proper
-  keyboard-reachable button; tapping the card header still expands too, so
-  no existing gesture changed.
-
-### Fixed
 
 - **Recording an HAE push no longer costs memory per sample, so a small payload
   cannot exhaust a small container.** `recordPush` built an array of every
