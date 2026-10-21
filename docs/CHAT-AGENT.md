@@ -295,6 +295,13 @@ requests (the send button becomes a stop button mid-turn), a legacy
 time the new client loads, and the legacy endpoints remain only for
 that import path.
 
+Every page load opens a fresh chat; the active conversation lives in
+memory for the life of the page, so closing and reopening the panel
+keeps it, and earlier ones open from the drawer. The device remembers
+the last active conversation only to resume a reply still in flight: a
+load whose parked conversation reports `running` reattaches to it,
+unless the user has already started or opened another chat.
+
 ### Legacy env vars
 
 Older deploys used `CHAT_GATEWAY_HOST` + `CHAT_GATEWAY_PORT` +

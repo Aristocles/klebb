@@ -49,10 +49,13 @@ test.describe('#191: chat embellishment chips persist across reload', () => {
     await expect(page.getByText('Switch to stack', { exact: true }))
       .toBeVisible();
 
-    // Reload to prove the persistence sticks across a fresh load.
+    // Reload to prove the persistence sticks across a fresh load. A reload
+    // opens a fresh chat (#748), so the conversation comes from the drawer.
     await page.reload();
     await expect(page.locator('eh-date-view')).toBeVisible();
     await page.getByRole('button', { name: /open chat/i }).click();
+    await page.locator('health-chat button[aria-label="Conversations"]').click();
+    await page.locator('health-chat chat-drawer .row').first().click();
     await expect(page.getByText('Colour-code the rings', { exact: true }))
       .toBeVisible({ timeout: 10_000 });
     await expect(page.getByText('Switch to stack', { exact: true }))
