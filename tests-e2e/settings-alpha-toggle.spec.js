@@ -17,14 +17,8 @@ test.describe('#194: Settings card list is alphabetical and toggles in place', (
     await page.locator('eh-settings-view [data-tab="cards"]').click();
     await expect(page.locator('eh-settings-cards')).toBeVisible();
 
-    // Read the ids shown in each card (the <span class="id"> inside
-    // .card-title). They're declared in the seed with known labels,
-    // so id order maps 1:1 to label order.
-    const ids = await page
-      .locator('eh-settings-cards .card .card-title .id')
-      .allInnerTexts();
-
-    // Seeded cards by label (case-insensitive alpha):
+    // Seeded cards by label (case-insensitive alpha). Label order differs
+    // from id order (peptides is "Schedule"), so this proves the sort key:
     //   HRV                 (id: hrv)
     //   Mood                (id: mood)
     //   Recovery Overview   (id: recovery-overview)
@@ -33,7 +27,7 @@ test.describe('#194: Settings card list is alphabetical and toggles in place', (
     //   Water               (id: water-intake)
     //   Weight              (id: weight)
     //   Workouts            (id: workouts)
-    expect(ids).toEqual([
+    const seededByLabel = [
       'hrv',
       'mood',
       'recovery-overview',
@@ -42,7 +36,15 @@ test.describe('#194: Settings card list is alphabetical and toggles in place', (
       'water-intake',
       'weight',
       'workouts',
-    ]);
+    ];
+
+    // Read the ids shown in each card (the <span class="id"> inside
+    // .card-title). Retried, because the list loads after the component
+    // shows; filtered to the seeded ids, because other specs share this
+    // sandbox and a card one of them leaves behind is not an ordering bug.
+    const ids = page.locator('eh-settings-cards .card .card-title .id');
+    await expect.poll(async () => (await ids.allInnerTexts()).filter(id => seededByLabel.includes(id)))
+      .toEqual(seededByLabel);
   });
 
   test('toggling a card does not reshuffle the list or change scroll position', async ({ page }) => {
