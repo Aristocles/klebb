@@ -274,6 +274,11 @@ in-flight turn's reply had nowhere to go. Mechanics:
   still replay; after that the conversation is the durable copy. A
   replay that lost its head to the per-turn event cap (5000) starts
   with a `reset`.
+- `GET /api/conversations/:id` carries `running`: true while a turn is
+  in flight (exactly when a send would get the 409), false once it has
+  finished, linger window included. The reattach endpoint cannot answer
+  this, because it replays a finished turn just as it attaches to a live
+  one.
 
 The intended client loop: on `visibilitychange` back to visible, hit
 the reattach endpoint; on 204, refresh the conversation.
@@ -289,6 +294,13 @@ requests (the send button becomes a stop button mid-turn), a legacy
 `chat/history.json` transcript is folded into a conversation the first
 time the new client loads, and the legacy endpoints remain only for
 that import path.
+
+Every page load opens a fresh chat; the active conversation lives in
+memory for the life of the page, so closing and reopening the panel
+keeps it, and earlier ones open from the drawer. The device remembers
+the last active conversation only to resume a reply still in flight: a
+load whose parked conversation reports `running` reattaches to it,
+unless the user has already started or opened another chat.
 
 ### Legacy env vars
 

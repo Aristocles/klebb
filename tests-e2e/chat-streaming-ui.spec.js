@@ -5,10 +5,11 @@
 // streamed conversation requests, token/reply events land in the
 // transcript, capped replies offer "keep going", the send button becomes
 // a working stop button mid-turn, and transcripts live in conversations:
-// they survive reloads through the server, and a legacy history file is
-// folded into a conversation on first load. /api/chat is stubbed with
-// event-stream bodies; the conversation CRUD runs against the real
-// sandbox server.
+// one survives closing the panel, a reload starts a fresh chat (unless a
+// reply is still being written) with the old one in the drawer, and a
+// legacy history file is folded into a conversation on first load.
+// /api/chat is stubbed with event-stream bodies; the conversation CRUD
+// runs against the real sandbox server.
 
 const { test, expect } = require('./helpers/auth-fixture');
 
@@ -18,6 +19,11 @@ const sse = (events) => events
 
 async function openChat(page) {
   await page.goto('/');
+  return openPanel(page);
+}
+
+// Open the panel on the page as loaded, without navigating first.
+async function openPanel(page) {
   await expect(page.locator('eh-date-view')).toBeVisible();
   const promptModal = page.locator('eh-prompt-modal dialog');
   await promptModal.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
@@ -133,7 +139,7 @@ test.describe('#605 streaming conversation client', () => {
     await expect(widget.locator('button[aria-label="Send"]')).toBeVisible();
   });
 
-  test('the transcript survives a reload through the conversation store', async ({ page }) => {
+  test('a chat survives closing the panel; a reload starts fresh and the drawer reopens it (#748)', async ({ page }) => {
     await page.route('**/api/chat', async (route) => {
       if (route.request().method() !== 'POST') return route.fallback();
       await route.fulfill({
@@ -152,16 +158,111 @@ test.describe('#605 streaming conversation client', () => {
     await expect(widget.locator('.msg.assistant').last()).toContainText('Remembered.');
     await saved;
 
+    // Closing the panel drops its DOM; reopening rebuilds it from the
+    // conversation still held in memory.
+    await page.keyboard.press('Escape');
+    await expect(widget.locator('.chat-panel')).toHaveCount(0);
+    await page.getByRole('button', { name: /open chat/i }).click();
+    await expect(widget.locator('.msg.assistant').last()).toContainText('Remembered.');
+
+    // An empty transcript proves nothing until the boot read of the parked
+    // conversation has landed, so wait for it.
+    const bootRead = page.waitForResponse(r =>
+      /\/api\/conversations\/[^/]+$/.test(new URL(r.url()).pathname) && r.request().method() === 'GET');
     await page.reload();
-    const again = await openChat(page);
+    const again = await openPanel(page);
+    await bootRead;
+    await expect(again.locator('.msg')).toHaveCount(0);
+
+    await again.locator('button[aria-label="Conversations"]').click();
+    await again.locator('chat-drawer .row').first().click();
     await expect(again.locator('.msg.user').last()).toContainText('please remember this');
     await expect(again.locator('.msg.assistant').last()).toContainText('Remembered.');
   });
 
+  // The sandbox runs no real turn, so a running one is stood in at the two
+  // endpoints the boot path reads: the conversation fetch reports
+  // running, and the reattach GET replays the reply.
+  async function parkRunningConversation(page, { holdFetch = null } = {}) {
+    await page.goto('/');
+    const id = await page.evaluate(async () => {
+      const r = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'a slow question' }] }),
+      });
+      const { conversation } = await r.json();
+      localStorage.setItem('klebb-active-conversation', conversation.id);
+      return conversation.id;
+    });
+    await page.route(`**/api/conversations/${id}`, async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      if (holdFetch) await holdFetch;
+      const response = await route.fetch();
+      const { conversation } = await response.json();
+      await route.fulfill({ response, json: { conversation: { ...conversation, running: true } } });
+    });
+    const turn = { reattaches: 0 };
+    await page.route(`**/api/chat/turn/${id}*`, async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      turn.reattaches += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: sse([['reply', { reply: 'The slow answer.' }], ['done', {}]]),
+      });
+    });
+    return { id, turn };
+  }
+
+  test('a reload while a reply is being written resumes that conversation (#748)', async ({ page }) => {
+    const { turn } = await parkRunningConversation(page);
+    await page.reload();
+    const widget = await openPanel(page);
+    await expect(widget.locator('.msg.user').last()).toContainText('a slow question');
+    await expect(widget.locator('.msg.assistant').last()).toContainText('The slow answer.');
+    expect(turn.reattaches).toBe(1);
+  });
+
+  test('a chat started before the boot read lands is not swapped for the running one (#748)', async ({ page }) => {
+    let release;
+    const holdFetch = new Promise(r => { release = r; });
+    const { id, turn } = await parkRunningConversation(page, { holdFetch });
+    await page.route('**/api/chat', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: sse([['reply', { reply: 'A fresh reply.' }], ['done', {}]]),
+      });
+    });
+    await page.reload();
+    const widget = await openPanel(page);
+    await widget.locator('.chat-input').fill('a new question');
+    await widget.locator('.chat-input').press('Enter');
+    await expect(widget.locator('.msg.assistant').last()).toContainText('A fresh reply.');
+
+    const bootRead = page.waitForResponse(r =>
+      new URL(r.url()).pathname === `/api/conversations/${id}` && r.request().method() === 'GET');
+    release();
+    await bootRead;
+    // A swap would reattach straight after the read; give it the chance.
+    await page.waitForTimeout(500);
+    expect(turn.reattaches).toBe(0);
+    await expect(widget.locator('.msg.user')).toHaveCount(1);
+    await expect(widget.locator('.msg.user')).toContainText('a new question');
+    expect(await page.evaluate(() => localStorage.getItem('klebb-active-conversation'))).not.toBe(id);
+  });
+
   test('a legacy history file folds into a conversation on first load', async ({ page }) => {
     // Seed the legacy transcript and make sure no conversation pointer
-    // exists, the state of an instance upgrading across the cutover.
+    // exists, the state of an instance upgrading across the cutover. This
+    // load's own fold-in check must finish first, or it could import the
+    // seed itself and leave the reload below nothing to show.
+    const firstCheck = page.waitForResponse(r =>
+      new URL(r.url()).pathname === '/api/chat/history' && r.request().method() === 'GET');
     await page.goto('/');
+    await firstCheck;
     await page.evaluate(async () => {
       localStorage.removeItem('klebb-active-conversation');
       await fetch('/api/chat/history', {
@@ -174,8 +275,10 @@ test.describe('#605 streaming conversation client', () => {
       });
     });
 
+    // The fold-in shows on the load that performs it; navigating again
+    // would be a second load, which opens a fresh chat (#748).
     await page.reload();
-    const widget = await openChat(page);
+    const widget = await openPanel(page);
     await expect(widget.locator('.msg.user').last()).toContainText('old question');
     await expect(widget.locator('.msg.assistant').last()).toContainText('old answer');
 

@@ -115,6 +115,10 @@ test.describe('#606 speak-replies toggle + audio row', () => {
     await page.reload();
     const again = await openChat(page);
     await expect(again.locator('button[aria-label="Speak replies"]')).toHaveAttribute('aria-pressed', 'true');
+    // A reload opens a fresh chat (#748); the spoken one is in the drawer.
+    await again.locator('button[aria-label="Conversations"]').click();
+    await again.locator('chat-drawer .row').first().click();
+    await expect(again.locator('.msg.assistant')).toHaveText(/Spoken reply/);
     // hasVoice round-tripped through the real history endpoint: the play
     // affordance survives even though the audio blob did not.
     await expect(again.locator('.msg.assistant .audio-row .play-btn')).toHaveCount(1);
