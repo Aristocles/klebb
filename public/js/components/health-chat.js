@@ -757,9 +757,9 @@ class HealthChat extends LitElement {
     this._saveTimer = null;
     this._starterChips = null;
     this._hygieneFindings = null;
-    // The active conversation follows the device: the server owns the
-    // transcript, this is just the pointer into it.
-    this._conversationId = localStorage.getItem('klebb-active-conversation') || null;
+    // Every page load opens a fresh chat; _loadConversation decides whether
+    // the conversation parked in localStorage needs resuming instead.
+    this._conversationId = null;
     this._statusText = '';
     this._streamTail = '';
     this._drawerOpen = false;
@@ -888,22 +888,23 @@ class HealthChat extends LitElement {
     }
   }
 
+  // A reload starts over (#748); earlier chats are a drawer tap away. The
+  // exception is a reply still being written: iOS kills a backgrounded app
+  // and relaunches it as a fresh page load, and an empty chat then would
+  // strand the answer the user switched away to wait for.
   async _loadConversation() {
     try {
-      if (this._conversationId) {
-        const convo = await getConversation(this._conversationId);
-        if (convo) {
-          this._adoptMessages(convo.messages);
-          // An answer may have finished (or still be running) while the
-          // app was closed: pick it up.
-          this._reattachIfRunning();
-          return;
-        }
-        // The conversation was pruned or deleted elsewhere.
-        this._conversationId = null;
-        localStorage.removeItem('klebb-active-conversation');
+      const parked = localStorage.getItem('klebb-active-conversation');
+      if (!parked) {
+        await this._importLegacyHistory();
+        return;
       }
-      await this._importLegacyHistory();
+      const convo = await getConversation(parked);
+      // A chat the user started or opened while the fetch was out wins.
+      if (!convo?.running || this._conversationId || this._messages.length) return;
+      this._conversationId = parked;
+      this._adoptMessages(convo.messages);
+      this._reattachIfRunning();
     } catch {}
   }
 

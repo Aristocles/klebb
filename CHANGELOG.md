@@ -31,6 +31,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Reloading the app opens a fresh chat.** The chat used to reopen
+  whichever conversation was last active on the device, so every reload
+  dropped the user back into an old thread. A page load now starts an
+  empty chat; closing and reopening the panel without reloading keeps
+  the current one, and earlier conversations open from the drawer as
+  before. The exception is a reply still being written: iOS kills a
+  backgrounded app and relaunches it as a fresh load, so a conversation
+  with a turn in flight is resumed rather than stranded.
+  `GET /api/conversations/:id` now carries `running` to make that call,
+  since the reattach endpoint replays a just-finished turn as readily as
+  it attaches to a live one.
+
 - **`note_feedback` rejects placeholder intents.** Half the collected
   feedback log turned out to be placeholder lines the assistant wrote
   when it decided mid-turn there was nothing to report ("placeholder",

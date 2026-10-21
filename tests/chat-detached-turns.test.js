@@ -222,6 +222,24 @@ describe('#602 detached conversation turns', () => {
     assert.equal(attached.events.at(-1).event, 'done');
   });
 
+  test('a fetched conversation says whether a turn is still running (#748)', async () => {
+    gateway.push({ content: 'slow answer', finish: 'stop', delayMs: 500 });
+    const convo = await newConvo();
+    assert.equal((await getConvo(convo.id)).running, false, 'an idle conversation is not running');
+    const turn = req(server.baseUrl, '/api/chat', {
+      method: 'POST', body: { conversationId: convo.id, messages: [{ role: 'user', content: 'go' }] },
+    });
+    await waitFor(async () => (await getConvo(convo.id)).running === true);
+    assert.equal((await turn).status, 200);
+
+    // The finished turn still replays here, which is why the reattach
+    // endpoint cannot tell "running" from "just finished".
+    const replay = await sseCollect(server.baseUrl, `/api/chat/turn/${convo.id}`);
+    assert.ok(replay.events.length > 0, 'the turn is inside its linger window');
+    assert.equal((await getConvo(convo.id)).running, false,
+      'a finished turn is not running, even while it lingers');
+  });
+
   test('DELETE /api/chat/turn stops the loop, keeps the user message, releases the lock', async () => {
     for (let i = 0; i < 20; i++) {
       gateway.push({ toolName: 'list_manifests', toolArgs: {}, finish: 'tool_calls', delayMs: 200 });
