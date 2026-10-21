@@ -274,6 +274,11 @@ in-flight turn's reply had nowhere to go. Mechanics:
   still replay; after that the conversation is the durable copy. A
   replay that lost its head to the per-turn event cap (5000) starts
   with a `reset`.
+- `GET /api/conversations/:id` carries `running`: true while a turn is
+  in flight (exactly when a send would get the 409), false once it has
+  finished, linger window included. The reattach endpoint cannot answer
+  this, because it replays a finished turn just as it attaches to a live
+  one.
 
 The intended client loop: on `visibilitychange` back to visible, hit
 the reattach endpoint; on 204, refresh the conversation.

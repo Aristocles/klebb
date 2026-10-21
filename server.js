@@ -320,6 +320,13 @@ function createTurnHub(conversationId) {
   return hub;
 }
 
+// A lingering hub is finished, so it neither holds the one-turn lock nor
+// counts as a reply still on its way.
+function turnRunning(conversationId) {
+  const hub = _activeTurns.get(conversationId);
+  return !!hub && !hub.done;
+}
+
 // "Today" in the user's timezone when the browser has reported one
 // (POST /api/user/tz), falling back to the server's TZ. The client stamps
 // rows with its local date, so anything comparing against "today" must
@@ -1733,7 +1740,7 @@ const server = http.createServer(async (req, res) => {
     if (parts[0] === 'conversations' && parts.length === 2 && req.method === 'GET') {
       const conversation = conversationsStore().get(parts[1]);
       if (!conversation) return send404(res, 'Unknown conversation');
-      return sendJSON(res, { conversation });
+      return sendJSON(res, { conversation: { ...conversation, running: turnRunning(conversation.id) } });
     }
     if (parts[0] === 'conversations' && parts.length === 2 && req.method === 'PATCH') {
       let body = '';
@@ -2111,8 +2118,7 @@ Original system prompt follows:
           let hub = null;
           let loopMessages = messages;
           if (convo) {
-            const existing = _activeTurns.get(convo.id);
-            if (existing && !existing.done) {
+            if (turnRunning(convo.id)) {
               return sendJSON(res, {
                 error: 'A reply is already being generated for this conversation.',
               }, 409);
