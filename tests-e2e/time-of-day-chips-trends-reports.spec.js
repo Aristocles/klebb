@@ -88,9 +88,26 @@ async function seed(request, baseUrl, m) {
   expect([201, 409]).toContain(r.status());
 }
 
+// A card renders its header before its own data fetch lands, so a read
+// that only waits for the card to be visible can see it empty (#623).
+// Holding the fetch makes that mistake fail every run instead of only on
+// a slow runner.
+async function holdCardData(page, id) {
+  await page.route(`**/api/manifests/${id}/data`, async (route) => {
+    await new Promise(r => setTimeout(r, 1000));
+    await route.fallback();
+  });
+}
+
 async function cleanup(request, baseUrl, id) {
   await request.delete(`${baseUrl}/api/manifests/${id}`).catch(() => {});
 }
+
+// Runs after a failure too: a card left behind leaks into every later
+// spec sharing the sandbox, and fails them for this spec's reason (#623).
+test.afterEach(async ({ page, sandboxState }) => {
+  await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
+});
 
 function harvestChipsByCycleName(rendererTag) {
   return async (root) => {
@@ -115,12 +132,14 @@ test.describe('#401: time-of-day chips on Trends (eh-schedule-timeline)', () => 
     const today = todayISO();
     const m = manifestForViews(today);
     await seed(page.request, sandboxState.baseUrl, m);
+    await holdCardData(page, CARD_ID);
 
     await page.goto('/trends');
     await expect(page.locator('eh-trends-view')).toBeVisible({ timeout: 10_000 });
 
     const card = page.locator(`[data-card-id="${CARD_ID}"] eh-schedule-timeline`);
     await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.cycle-block, .cycle-row')).toHaveCount(3);
 
     const rows = await card.evaluate(harvestChipsByCycleName('eh-schedule-timeline'));
     expect(rows).not.toBeNull();
@@ -146,8 +165,6 @@ test.describe('#401: time-of-day chips on Trends (eh-schedule-timeline)', () => 
 
     expect(noTod).toBeTruthy();
     expect(noTod.chips).toEqual([]);
-
-    await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
   });
 });
 
@@ -156,12 +173,14 @@ test.describe('#401: time-of-day chips on Reports (eh-adherence-report)', () => 
     const today = todayISO();
     const m = manifestForViews(today);
     await seed(page.request, sandboxState.baseUrl, m);
+    await holdCardData(page, CARD_ID);
 
     await page.goto('/reports');
     await expect(page.locator('eh-reports-view')).toBeVisible({ timeout: 10_000 });
 
     const card = page.locator(`[data-card-id="${CARD_ID}"] eh-adherence-report`);
     await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.cycle-block, .cycle-row')).toHaveCount(3);
 
     const rows = await card.evaluate(harvestChipsByCycleName('eh-adherence-report'));
     expect(rows).not.toBeNull();
@@ -185,7 +204,5 @@ test.describe('#401: time-of-day chips on Reports (eh-adherence-report)', () => 
 
     expect(noTod).toBeTruthy();
     expect(noTod.chips).toEqual([]);
-
-    await cleanup(page.request, sandboxState.baseUrl, CARD_ID);
   });
 });
