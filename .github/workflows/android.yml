@@ -42,6 +42,8 @@ jobs:
             -AlphaAar build/sdk-artifacts/connect-client-1.2.0-alpha06.aar \
             -OutputRoot build/sdk-inventory-ci
           pwsh -File tools/check-inventory.ps1 -InventoryRoot build/sdk-inventory-ci
+          pwsh -File tools/test-inventory-ownership.ps1
+          pwsh -File tools/check-inventory-ownership.ps1 -InventoryRoot build/sdk-inventory-ci
           for inventory in build/sdk-inventory-ci/*.txt; do
             diff -u "docs/sdk-inventory/$(basename "$inventory")" "$inventory"
           done

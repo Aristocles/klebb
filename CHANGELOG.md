@@ -28,6 +28,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- Exclude getters on non-public unit classes from the compiled Health Connect
+  source-field inventories, verify each public declaring owner independently
+  and report actual public class totals.
 - Include the planned exercise explicit-time and changes pagination boolean
   properties in both pinned compiled Health Connect SDK inventories, with
   independent coverage assertions.
