@@ -75,11 +75,12 @@ for (const mode of ['sqlite-full', 'outbox-insert-full', 'compact-insert-refusal
     async () => {
       const data = await fixture();
       try {
-        // A real existing tombstone makes its in-transaction clearing observable.
+        // A distinct existing tombstone makes preservation observable without suppressing the upload.
         const template = makeObject(data.binding);
         const seedPayload = { binding: data.binding, recordType: TYPE, sequence: '1',
           batchId: 'a-preexisting-source-delete',
-          changes: [{ operation: 'delete', identity: template.header.identity }] };
+          changes: [{ operation: 'delete', identity: { ...template.header.identity,
+            nativeRecordId: 'independent-retained-tombstone' } } ] };
         const payloadJson = JSON.stringify(seedPayload);
         const seedDigest = sha(Buffer.from(payloadJson, 'utf8'));
         const seedReceipt = { version: 1, kind: 'durable-receipt', binding: data.binding,
@@ -93,7 +94,7 @@ for (const mode of ['sqlite-full', 'outbox-insert-full', 'compact-insert-refusal
         const nativeBefore = coldReadNative(data.home);
         const objectsBefore = coldReadObjects(data.home);
         assert.deepEqual(nativeBefore.records, []);
-        assert.deepEqual(nativeBefore.tombstoneIds, ['large-raw-only']);
+        assert.deepEqual(nativeBefore.tombstoneIds, ['independent-retained-tombstone']);
         assert.deepEqual(nativeBefore.receipts, [seedReceipt]);
         assert.equal(nativeBefore.frontiers[0].acknowledgedSequence, '1');
         assert.equal(objectsBefore.physicalPartCount, 3);
@@ -115,7 +116,7 @@ for (const mode of ['sqlite-full', 'outbox-insert-full', 'compact-insert-refusal
           assert.ok(fired[0].rawWrites > 0 && fired[0].receiptWritten);
         }
         assert.deepEqual(coldReadNative(data.home), nativeBefore,
-          'rollback restores the actually cleared source tombstone and all ordinary effects');
+          'rollback preserves the independent source tombstone and all ordinary effects');
         assert.deepEqual(coldReadObjects(data.home), objectsBefore,
           'rollback preserves exact staged bytes/reservation and no compact ACK metadata');
         await restart(data, {});
@@ -123,7 +124,7 @@ for (const mode of ['sqlite-full', 'outbox-insert-full', 'compact-insert-refusal
         const saved = coldReadNative(data.home);
         assert.deepEqual(saved.records, [{ identity: object.header.identity,
           record: object.payload.changes[0].record }]);
-        assert.deepEqual(saved.tombstoneIds, []);
+        assert.deepEqual(saved.tombstoneIds, ['independent-retained-tombstone']);
         assert.deepEqual(saved.receipts, [seedReceipt, object.receipt]);
         assert.deepEqual(saved.frontiers, [{ recordType: TYPE, acknowledgedSequence: '2' }]);
         assert.deepEqual(saved.jobs, [
