@@ -12,10 +12,21 @@ import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.RespiratoryRateRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
+import androidx.health.connect.client.records.BasalMetabolicRateRecord
+import androidx.health.connect.client.records.BasalBodyTemperatureRecord
+import androidx.health.connect.client.records.BodyTemperatureRecord
+import androidx.health.connect.client.records.BloodGlucoseRecord
+import androidx.health.connect.client.records.BloodPressureRecord
+import androidx.health.connect.client.records.OxygenSaturationRecord
+import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Mass
 import androidx.health.connect.client.units.Length
 import androidx.health.connect.client.units.Percentage
+import androidx.health.connect.client.units.Power
+import androidx.health.connect.client.units.Temperature
+import androidx.health.connect.client.units.BloodGlucose
+import androidx.health.connect.client.units.Pressure
 import java.util.Collections
 import java.time.Instant
 import java.time.ZoneOffset
@@ -35,7 +46,9 @@ object RecordCodecs {
     val supportedRecordTypes: Set<String> =
         Collections.unmodifiableSet(linkedSetOf("StepsRecord", "WeightRecord", "BodyFatRecord",
             "BodyWaterMassRecord", "BoneMassRecord", "LeanBodyMassRecord", "HeightRecord",
-            "HeartRateVariabilityRmssdRecord", "RespiratoryRateRecord", "RestingHeartRateRecord"))
+            "HeartRateVariabilityRmssdRecord", "RespiratoryRateRecord", "RestingHeartRateRecord",
+            "BasalMetabolicRateRecord", "BasalBodyTemperatureRecord", "BodyTemperatureRecord",
+            "BloodGlucoseRecord", "BloodPressureRecord", "OxygenSaturationRecord", "Vo2MaxRecord"))
 
     fun encode(record: Record): EncodedRecord {
         val (type, fields) = when (record) {
@@ -69,6 +82,35 @@ object RecordCodecs {
             is RestingHeartRateRecord -> "RestingHeartRateRecord" to instantaneous(
                 record.metadata, record.time, record.zoneOffset, "beatsPerMinute",
                 LosslessValues.int64(record.beatsPerMinute))
+            is BasalMetabolicRateRecord -> "BasalMetabolicRateRecord" to instantaneous(
+                record.metadata, record.time, record.zoneOffset, "basalMetabolicRate",
+                power(record.basalMetabolicRate))
+            is BasalBodyTemperatureRecord -> "BasalBodyTemperatureRecord" to instantaneous(
+                record.metadata, record.time, record.zoneOffset, "temperature", temperature(record.temperature)
+            ).apply { put("measurementLocation", record.measurementLocation) }
+            is BodyTemperatureRecord -> "BodyTemperatureRecord" to instantaneous(
+                record.metadata, record.time, record.zoneOffset, "temperature", temperature(record.temperature)
+            ).apply { put("measurementLocation", record.measurementLocation) }
+            is BloodGlucoseRecord -> "BloodGlucoseRecord" to instantaneous(
+                record.metadata, record.time, record.zoneOffset, "level", bloodGlucose(record.level)
+            ).apply {
+                put("specimenSource", record.specimenSource)
+                put("mealType", record.mealType)
+                put("relationToMeal", record.relationToMeal)
+            }
+            is BloodPressureRecord -> "BloodPressureRecord" to instantaneous(
+                record.metadata, record.time, record.zoneOffset, "systolic", pressure(record.systolic)
+            ).apply {
+                put("diastolic", pressure(record.diastolic))
+                put("bodyPosition", record.bodyPosition)
+                put("measurementLocation", record.measurementLocation)
+            }
+            is OxygenSaturationRecord -> "OxygenSaturationRecord" to instantaneous(
+                record.metadata, record.time, record.zoneOffset, "percentage", percentage(record.percentage))
+            is Vo2MaxRecord -> "Vo2MaxRecord" to instantaneous(
+                record.metadata, record.time, record.zoneOffset, "vo2MillilitersPerMinuteKilogram",
+                LosslessValues.float64(record.vo2MillilitersPerMinuteKilogram)
+            ).apply { put("measurementMethod", record.measurementMethod) }
             else -> throw RecordCodecException("unsupported-record")
         }
         return EncodedRecord(type, record.metadata.id, RecordJson.text(fields))
@@ -107,6 +149,33 @@ object RecordCodecs {
         "unit" to "percent",
         "value" to LosslessValues.float64(value.value),
         "sdkUnitValues" to linkedMapOf("percent" to LosslessValues.float64(value.value)))
+
+    private fun power(value: Power) = linkedMapOf(
+        "unit" to "W",
+        "value" to LosslessValues.float64(value.inWatts),
+        "sdkUnitValues" to linkedMapOf(
+            "W" to LosslessValues.float64(value.inWatts),
+            "kcal/day" to LosslessValues.float64(value.inKilocaloriesPerDay)))
+
+    private fun temperature(value: Temperature) = linkedMapOf(
+        "unit" to "degC",
+        "value" to LosslessValues.float64(value.inCelsius),
+        "sdkUnitValues" to linkedMapOf(
+            "degC" to LosslessValues.float64(value.inCelsius),
+            "degF" to LosslessValues.float64(value.inFahrenheit)))
+
+    private fun bloodGlucose(value: BloodGlucose) = linkedMapOf(
+        "unit" to "mmol/L",
+        "value" to LosslessValues.float64(value.inMillimolesPerLiter),
+        "sdkUnitValues" to linkedMapOf(
+            "mmol/L" to LosslessValues.float64(value.inMillimolesPerLiter),
+            "mg/dL" to LosslessValues.float64(value.inMilligramsPerDeciliter)))
+
+    private fun pressure(value: Pressure) = linkedMapOf(
+        "unit" to "mmHg",
+        "value" to LosslessValues.float64(value.inMillimetersOfMercury),
+        "sdkUnitValues" to linkedMapOf(
+            "mmHg" to LosslessValues.float64(value.inMillimetersOfMercury)))
 
     private fun metadata(value: Metadata): Map<String, Any?> {
         if (value.id.isEmpty() || value.id.codePointCount(0, value.id.length) > 256 ||

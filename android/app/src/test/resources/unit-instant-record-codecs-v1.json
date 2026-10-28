@@ -1,0 +1,469 @@
+{
+  "provenance": "Independently fixed synthetic cases reused before seven unit-instant adapters; SDK-only unit observations precede mapping, and old golden JSON strings come only from the previously reviewed literal fixtures.",
+  "U01": {
+    "metadata": {
+      "recordingMethod": 2,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 1,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model \u0394"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "basalMetabolicRate": {
+      "unit": "W",
+      "value": "80.125",
+      "sdkUnitValues": {
+        "W": "80.125",
+        "kcal/day": "1654.5889110196651"
+      }
+    }
+  },
+  "U02": {
+    "metadata": {
+      "recordingMethod": 2,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 1,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model \u0394"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "temperature": {
+      "unit": "degC",
+      "value": "36.625",
+      "sdkUnitValues": {
+        "degC": "36.625",
+        "degF": "97.925"
+      }
+    },
+    "measurementLocation": 0
+  },
+  "U03": {
+    "metadata": {
+      "recordingMethod": 2,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 1,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model \u0394"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "temperature": {
+      "unit": "degC",
+      "value": "37.125",
+      "sdkUnitValues": {
+        "degC": "37.125",
+        "degF": "98.825"
+      }
+    },
+    "measurementLocation": 0
+  },
+  "U04": {
+    "metadata": {
+      "recordingMethod": 2,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 1,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model \u0394"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "level": {
+      "unit": "mmol/L",
+      "value": "5.125",
+      "sdkUnitValues": {
+        "mmol/L": "5.125",
+        "mg/dL": "92.25"
+      }
+    },
+    "specimenSource": 2,
+    "mealType": 1,
+    "relationToMeal": 2
+  },
+  "U05": {
+    "metadata": {
+      "recordingMethod": 2,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 1,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model \u0394"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "systolic": {
+      "unit": "mmHg",
+      "value": "120.125",
+      "sdkUnitValues": {
+        "mmHg": "120.125"
+      }
+    },
+    "diastolic": {
+      "unit": "mmHg",
+      "value": "80.25",
+      "sdkUnitValues": {
+        "mmHg": "80.25"
+      }
+    },
+    "bodyPosition": 2,
+    "measurementLocation": 3
+  },
+  "U06": {
+    "metadata": {
+      "recordingMethod": 2,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 1,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model \u0394"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "percentage": {
+      "unit": "percent",
+      "value": "97.125",
+      "sdkUnitValues": {
+        "percent": "97.125"
+      }
+    }
+  },
+  "U07": {
+    "metadata": {
+      "recordingMethod": 2,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 1,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model \u0394"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "vo2MillilitersPerMinuteKilogram": "42.125",
+    "measurementMethod": 1
+  },
+  "U08": {
+    "metadata": {
+      "recordingMethod": 3,
+      "id": "synthetic-provider-id-device-null-fields",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.000000001Z",
+      "clientRecordId": "",
+      "clientRecordVersion": "9223372036854775807",
+      "device": {
+        "type": 0,
+        "manufacturer": null,
+        "model": null
+      }
+    },
+    "time": "2001-02-03T04:05:06.000000001Z",
+    "zoneOffset": null,
+    "basalMetabolicRate": {
+      "unit": "W",
+      "value": "96.86395828147499",
+      "sdkUnitValues": {
+        "W": "96.86395828147499",
+        "kcal/day": "2000.25"
+      }
+    }
+  },
+  "U09": {
+    "metadata": {
+      "recordingMethod": 9024,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 9025,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model \u0394"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "temperature": {
+      "unit": "degC",
+      "value": "36.99999999999999",
+      "sdkUnitValues": {
+        "degC": "36.99999999999999",
+        "degF": "98.6"
+      }
+    },
+    "measurementLocation": 9026
+  },
+  "U10": {
+    "metadata": {
+      "recordingMethod": 9024,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 9025,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model \u0394"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "level": {
+      "unit": "mmol/L",
+      "value": "5.638888888888888",
+      "sdkUnitValues": {
+        "mmol/L": "5.638888888888888",
+        "mg/dL": "101.5"
+      }
+    },
+    "specimenSource": 9027,
+    "mealType": 9028,
+    "relationToMeal": 9029
+  },
+  "enum-basal-temperature": {
+    "metadata": {
+      "recordingMethod": 9024,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 9025,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model \u0394"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "temperature": {
+      "unit": "degC",
+      "value": "36.625",
+      "sdkUnitValues": {
+        "degC": "36.625",
+        "degF": "97.925"
+      }
+    },
+    "measurementLocation": 9030
+  },
+  "enum-blood-pressure": {
+    "metadata": {
+      "recordingMethod": 9024,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 9025,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model \u0394"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "systolic": {
+      "unit": "mmHg",
+      "value": "120.125",
+      "sdkUnitValues": {
+        "mmHg": "120.125"
+      }
+    },
+    "diastolic": {
+      "unit": "mmHg",
+      "value": "80.25",
+      "sdkUnitValues": {
+        "mmHg": "80.25"
+      }
+    },
+    "bodyPosition": 9031,
+    "measurementLocation": 9032
+  },
+  "enum-vo2": {
+    "metadata": {
+      "recordingMethod": 9024,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 9025,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model \u0394"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "vo2MillilitersPerMinuteKilogram": "42.125",
+    "measurementMethod": 9033
+  },
+  "expectedPublicGetters": {
+    "androidx.health.connect.client.records.BasalMetabolicRateRecord": {
+      "getTime": "java.time.Instant",
+      "getZoneOffset": "java.time.ZoneOffset",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata",
+      "getBasalMetabolicRate": "androidx.health.connect.client.units.Power"
+    },
+    "androidx.health.connect.client.records.BasalBodyTemperatureRecord": {
+      "getTime": "java.time.Instant",
+      "getZoneOffset": "java.time.ZoneOffset",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata",
+      "getTemperature": "androidx.health.connect.client.units.Temperature",
+      "getMeasurementLocation": "int"
+    },
+    "androidx.health.connect.client.records.BodyTemperatureRecord": {
+      "getTime": "java.time.Instant",
+      "getZoneOffset": "java.time.ZoneOffset",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata",
+      "getTemperature": "androidx.health.connect.client.units.Temperature",
+      "getMeasurementLocation": "int"
+    },
+    "androidx.health.connect.client.records.BloodGlucoseRecord": {
+      "getTime": "java.time.Instant",
+      "getZoneOffset": "java.time.ZoneOffset",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata",
+      "getLevel": "androidx.health.connect.client.units.BloodGlucose",
+      "getSpecimenSource": "int",
+      "getMealType": "int",
+      "getRelationToMeal": "int"
+    },
+    "androidx.health.connect.client.records.BloodPressureRecord": {
+      "getTime": "java.time.Instant",
+      "getZoneOffset": "java.time.ZoneOffset",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata",
+      "getSystolic": "androidx.health.connect.client.units.Pressure",
+      "getDiastolic": "androidx.health.connect.client.units.Pressure",
+      "getBodyPosition": "int",
+      "getMeasurementLocation": "int"
+    },
+    "androidx.health.connect.client.records.OxygenSaturationRecord": {
+      "getTime": "java.time.Instant",
+      "getZoneOffset": "java.time.ZoneOffset",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata",
+      "getPercentage": "androidx.health.connect.client.units.Percentage"
+    },
+    "androidx.health.connect.client.records.Vo2MaxRecord": {
+      "getTime": "java.time.Instant",
+      "getZoneOffset": "java.time.ZoneOffset",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata",
+      "getVo2MillilitersPerMinuteKilogram": "double",
+      "getMeasurementMethod": "int"
+    },
+    "androidx.health.connect.client.units.Power": {
+      "getWatts": "double",
+      "getKilocaloriesPerDay": "double"
+    },
+    "androidx.health.connect.client.units.Temperature": {
+      "getCelsius": "double",
+      "getFahrenheit": "double"
+    },
+    "androidx.health.connect.client.units.BloodGlucose": {
+      "getMillimolesPerLiter": "double",
+      "getMilligramsPerDeciliter": "double"
+    },
+    "androidx.health.connect.client.units.Pressure": {
+      "getMillimetersOfMercury": "double"
+    },
+    "androidx.health.connect.client.units.Percentage": {
+      "getValue": "double"
+    }
+  },
+  "expectedRegistry": [
+    "StepsRecord",
+    "WeightRecord",
+    "BodyFatRecord",
+    "BodyWaterMassRecord",
+    "BoneMassRecord",
+    "LeanBodyMassRecord",
+    "HeightRecord",
+    "HeartRateVariabilityRmssdRecord",
+    "RespiratoryRateRecord",
+    "RestingHeartRateRecord",
+    "BasalMetabolicRateRecord",
+    "BasalBodyTemperatureRecord",
+    "BodyTemperatureRecord",
+    "BloodGlucoseRecord",
+    "BloodPressureRecord",
+    "OxygenSaturationRecord",
+    "Vo2MaxRecord"
+  ],
+  "originalRecordJson": {
+    "StepsRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/\u03b1\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model \u0394\"}},\"startTime\":\"2001-10-28T00:30:00.123456789Z\",\"startZoneOffset\":\"+02:00\",\"endTime\":\"2001-10-28T02:30:00.987654321Z\",\"endZoneOffset\":\"+01:00\",\"count\":\"1234\"}",
+    "WeightRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/\u03b1\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model \u0394\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"weight\":{\"unit\":\"kg\",\"value\":\"75.25\",\"sdkUnitValues\":{\"g\":\"75250\",\"kg\":\"75.25\",\"mg\":\"75250000\",\"ug\":\"75250000000\",\"oz\":\"2654.365929299685\",\"lb\":\"165.89785229412038\"}}}",
+    "BodyFatRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/\u03b1\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model \u0394\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"percentage\":{\"unit\":\"percent\",\"value\":\"17.125\",\"sdkUnitValues\":{\"percent\":\"17.125\"}}}",
+    "BodyWaterMassRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/\u03b1\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model \u0394\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"mass\":{\"unit\":\"kg\",\"value\":\"40.125\",\"sdkUnitValues\":{\"g\":\"40125\",\"kg\":\"40.125\",\"mg\":\"40125000\",\"ug\":\"40125000000\",\"oz\":\"1415.3678792445164\",\"lb\":\"88.46048270168212\"}}}",
+    "BoneMassRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/\u03b1\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model \u0394\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"mass\":{\"unit\":\"kg\",\"value\":\"3.125\",\"sdkUnitValues\":{\"g\":\"3125\",\"kg\":\"3.125\",\"mg\":\"3125000\",\"ug\":\"3125000000\",\"oz\":\"110.2311432433424\",\"lb\":\"6.889445693277424\"}}}",
+    "LeanBodyMassRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/\u03b1\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model \u0394\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"mass\":{\"unit\":\"kg\",\"value\":\"60.125\",\"sdkUnitValues\":{\"g\":\"60125\",\"kg\":\"60.125\",\"mg\":\"60125000\",\"ug\":\"60125000000\",\"oz\":\"2120.847196001908\",\"lb\":\"132.55293513865763\"}}}",
+    "HeightRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/\u03b1\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model \u0394\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"height\":{\"unit\":\"m\",\"value\":\"1.75\",\"sdkUnitValues\":{\"m\":\"1.75\",\"km\":\"0.00175\",\"mi\":\"0.0010874022891371618\",\"in\":\"68.8976377952756\",\"ft\":\"5.741469816272965\"}}}",
+    "HeartRateVariabilityRmssdRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/\u03b1\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model \u0394\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"heartRateVariabilityMillis\":\"42.125\"}",
+    "RespiratoryRateRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/\u03b1\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model \u0394\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"rate\":\"12.125\"}",
+    "RestingHeartRateRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/\u03b1\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model \u0394\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"beatsPerMinute\":\"61\"}"
+  }
+}
