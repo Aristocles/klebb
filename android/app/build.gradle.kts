@@ -7,6 +7,8 @@ val releaseStore = providers.environmentVariable("KLEBB_SIGNING_STORE")
 val releasePassword = providers.environmentVariable("KLEBB_SIGNING_STORE_PASSWORD")
 val releaseAlias = providers.environmentVariable("KLEBB_SIGNING_ALIAS")
 val releaseKeyPassword = providers.environmentVariable("KLEBB_SIGNING_KEY_PASSWORD")
+val healthContractRoot = providers.gradleProperty("healthContractRoot").orNull?.let { file(it) }
+    ?: rootProject.projectDir.parentFile
 
 android {
     namespace = "app.klebb.companion"
@@ -42,6 +44,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    sourceSets.getByName("test").resources.srcDir(
+        healthContractRoot.resolve("tests/fixtures/health-connect")
+    )
+    sourceSets.getByName("test").resources.srcDir(
+        healthContractRoot.resolve("schemas/health-connect")
+    )
+    sourceSets.getByName("main").assets.srcDir(
+        healthContractRoot.resolve("schemas/health-connect")
+    )
 }
 
 dependencyLocking {
