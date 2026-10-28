@@ -108,8 +108,10 @@ class UnitInstantRecordCodecsTest {
             }.associate { it.name to it.returnType.name }
             assertEquals(name, getters, compiled)
         }
-        val registry = (fixed["expectedRegistry"] as List<*>).toSet()
-        assertEquals(17, registry.size)
+        val registry = (fixed["expectedRegistry"] as List<*>).toSet() + setOf(
+            "HeartRateRecord", "SpeedRecord", "PowerRecord",
+            "StepsCadenceRecord", "CyclingPedalingCadenceRecord")
+        assertEquals(22, registry.size)
         assertEquals(registry, RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")

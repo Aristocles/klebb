@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Android codecs for five sample-series records with ordered, complete
+  samples, precise public unit observations and unchanged existing encodings.
+  Native capture and encrypted queue gates remain open.
+
 - A rebuildable Health Connect source index with complete per-stream
   frontiers, retained-owner status/rebuild controls and durable bounded
   retries, separate from raw save receipts and canonical card updates.
