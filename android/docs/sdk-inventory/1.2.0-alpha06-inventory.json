@@ -1501,6 +1501,11 @@
               },
               {
                 "class": "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
+                "method": "hasExplicitTime",
+                "type": "boolean"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
                 "method": "getExerciseType",
                 "type": "int"
               },
@@ -2153,6 +2158,11 @@
                 "class": "androidx.health.connect.client.response.ChangesResponse",
                 "method": "getNextChangesToken",
                 "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.response.ChangesResponse",
+                "method": "hasMore",
+                "type": "boolean"
               },
               {
                 "class": "androidx.health.connect.client.response.ChangesResponse",
