@@ -30,9 +30,10 @@ current authority; caller labels cannot establish ownership.
 The raw changes, source tombstones, immutable receipt, frontier and outbox
 reference share one `BEGIN IMMEDIATE` transaction. New schema creation also
 belongs to that transaction. Duplicate retries do not replay effects or create
-another job. A delete of an unknown identity still creates a tombstone. An
-upsert clears that source tombstone and replaces the current record payload.
-An upsert followed by a delete in the same batch follows the declared order.
+another job. A delete of an unknown identity still creates a tombstone.
+New upserts cannot clear typed source tombstones or V2 suppression guards;
+the whole batch refuses. Opposite operations for one typed identity conflict
+in either order. See [typed deletion admission](deletion-admission.md).
 
 Receipts and jobs retain no full batch or record payload. A source deletion or
 correction therefore removes the old reading from logical raw history without
@@ -79,8 +80,9 @@ means nothing was saved.
 No canonical cards are projected by this slice. Queued references permit a
 later worker to rebuild a source/category from current raw records and
 tombstones without retaining deleted historical payloads. Outbox execution,
-failure state and rebuild proof remain required under CORE-02; the current
-table accepts only the implemented `queued` state.
+failure state and rebuild proof use the
+[source-index publisher](../HEALTH-CONNECT-SOURCE-INDEX.md); the immutable
+reference table accepts only its implemented `queued` state.
 
 ## Verification and remaining gates
 
@@ -107,8 +109,7 @@ cd android
 
 These are component/storage proofs, not native capture or release readiness.
 Complete multipart assembly and abandoned-part cleanup use the same transaction
-boundary; see [object storage](object-storage.md). CORE-02 remains open for
-projector failure/rebuild. Native permission, pending-copy purge, restore,
+boundary; see [object storage](object-storage.md). Native permission, pending-copy purge, restore,
 real Health Auto Export client and release/48-hour soak gates remain pending.
 Use synthetic or controlled data until merged CORE-06.R0 proves recovery of
 raw-only records, identity/policy and tombstones into a fresh instance.
