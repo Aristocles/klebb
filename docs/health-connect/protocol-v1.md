@@ -244,8 +244,109 @@ large opaque text, exact query preservation and native family shapes.
 | I01–I04 | Four-component keys and namespace separation; server-owned continuity remains authority slice |
 | P01–P12 | Complete grant/exchange content examples only; session/origin/single-use/credential/revocation/export authority remains #772/#773 and related parent slices |
 
-Child #771 supplies these content contracts and language-neutral validation
-inputs. The authority slice still must add endpoint layout, pairing credential
-result, connector list and per-type stream-status result schemas with shared
-vectors. Parent CORE-01 A1/A3/A4, Android consumption, device capture, release
-and soak acceptance are not completed by this content validator.
+Child #771 supplies the content contracts and language-neutral validation
+inputs. The authority slice adds the endpoint and result contracts below.
+Android consumption and observed browser/phone interoperability remain #773;
+device capture, durable ingestion and release gates have their own tickets.
+
+## Scoped browser authority
+
+All routes are under `/api/connectors/health-connect`. They run behind the
+existing import-freeze and refused-recovery gates. They do not accept health
+batches, persist native cursors or acknowledge saved health data.
+
+| Method and suffix | Authority and result |
+| --- | --- |
+| `GET` (base path) | A live instance session; `connector-list`, canonical destination and only that session owner's safe connector summaries |
+| `POST /pairing-grants` | A live instance session and allowed Origin; `{name,categories}` creates a `pairing-grant` with server-issued source namespace and five-minute expiry |
+| `DELETE /:connectorId` | The owning live session and allowed Origin; `{revoked:true}` fences native authority and keeps saved history |
+| `POST /v1/pairing/exchange` | One approved `pairing-exchange`; returns `paired` once, after atomic verifier persistence |
+| `GET /v1/capabilities` | A current scoped native bearer and `Klebb-Health-Protocol: 1`; returns extended `capabilities` |
+| `GET /v1/streams/:recordType/status` | A current scoped native bearer, protocol 1, exact `Klebb-Health-Generation` and `Klebb-Health-Restore-Epoch`; returns read-only `stream-status` |
+
+The destination comes from the configured canonical HTTPS instance origin,
+never Host or forwarding headers. Browser management derives the owner from
+`getSessionRecord`, rather than the broader setup, administrator or chat
+authentication shortcuts. The browser confirms the destination before creating
+a grant. The current small foreground pairing proof approves Steps only;
+complete permission/category/history/display/network setup belongs to AND-02.
+Cancelling or leaving the browser view clears its displayed grant; any unspent
+server grant expires after five minutes.
+
+The browser cannot select a source namespace, owner, tenant, instance, generation
+or restore epoch. Exchange echoes the approved namespace and instance, supplies
+an installation ID, and may narrow the approved category set. Widening refuses
+without consuming a valid grant. Single use is checked and committed without
+an asynchronous gap; simultaneous exchanges produce one winner. Replay is
+`409 conflict` while the used grant is retained; expired grants are
+`410 expired-grant`. Old grants cannot cross a restore-epoch change.
+
+`paired` carries the canonical destination, tenant/instance/connector/source/
+installation IDs, restore epoch, exact category set, per-type `streams` and a
+scoped credential. Credentials have the reserved form
+`klebb_hc1_` followed by 43 base64url characters from 32 random bytes.
+Only their SHA256 verifier is stored, over the complete original UTF-8 string
+including the prefix. Grants also store only their verifier. The reserved
+bearer family refuses every broader dispatch path, including bootstrap and
+accidental administrator/chat-token reuse.
+
+Extended capabilities always carry destination, connector/source/installation
+IDs and `streams` together. A stream entry has non-negative Int64 strings
+`generation` and `acknowledgedSequence`. Its keys exactly match the approved
+categories. The older pure content capabilities/grant fixtures remain valid
+content examples; a client must require the complete server-issued namespace
+and extended authority response before exchanging or using authority.
+
+`stream-status` repeats the full binding and record type. Its top-level
+generation equals the binding generation. Missing/malformed preconditions are
+`400 invalid-message`; stale/future generation or a different valid epoch is
+`409 binding-mismatch`; an unapproved type is `403 scope-mismatch`.
+The server derives the namespace and installation from current credential
+state, never caller labels. A restored epoch invalidates old credentials
+(`401 revoked`), including callers echoing the new epoch. Invalid/missing
+authority is `401 unauthorised`; an unsupported negotiated version is
+`400 unsupported-version`.
+
+At this authority-only stage, the reported acknowledged sequence is `"0"`.
+No upload route exists and no health batch has been saved. CORE-02 must replace
+this initial frontier with its durable stream ledger; capability negotiation
+and serializer declarations describe understood content, not tested capture
+adapters or storage capacity.
+
+## Protected state and compatibility
+
+`credentials/health-connect.json` is an additive version-1 protected state file.
+It stores instance/tenant/restore identity, expiring grant verifiers and scoped
+connector verifiers, owner, category and generation state. Issuance/revocation
+write a restrictive temporary file, flush it and atomically replace the file
+before success. POSIX hosts also flush the containing directory; the Windows
+Node filesystem API does not expose that directory-flush operation. A failure
+before replacement issues no credential and leaves the prior file unchanged.
+A directory-flush failure after replacement returns 503 without disclosing
+authority, but consumption may already be committed: inspect/revoke any
+orphaned connector and create a fresh grant. A malformed or inaccessible
+existing file fails closed with
+`503 storage-unavailable`; it is not reset to fresh identity. Errors contain
+fixed typed codes and never echo request bodies, parse errors or state paths.
+Issuance rechecks the current import-freeze/refusal gates after reading the
+request body, so an in-flight request cannot commit across that boundary.
+
+The authority file is excluded by the existing portable export allowlist,
+alongside sessions and other credentials. Portable history export/import and
+backup recovery remain their separately verified gates. Stopping category
+sharing and pending phone-copy purge remain AND-02/AND-03; connector revocation
+here keeps existing saved history.
+
+Management/exchange request bodies are bounded to 16 KiB of received UTF-8.
+Strict parsing rejects duplicate (including escaped) keys, invalid UTF-8 and
+unsafe JSON numeric precision. State is bounded by the content parser's
+1 MiB/20,000-node limits, 128 live/retained grants and 128 connectors.
+These authority limits are not the later declared health-history capacity.
+An expired grant is pruned during later grant creation; consumed grants remain
+until expiry so immediate replay reports conflict.
+
+`tests/fixtures/health-connect/authority-v1.json` adds five positive wire
+responses and sixteen fixed rejection vectors for Kotlin/Node consumers.
+Authority/API and stream-fence tests run in the normal npm test entry point.
+The runtime packaging regression loads the actual Docker source allowlist
+inside a synthetic runtime, preserving Android's exclusion from production.

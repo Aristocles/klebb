@@ -30,6 +30,15 @@
     },
     {
       "$ref": "#/$defs/error"
+    },
+    {
+      "$ref": "#/$defs/paired"
+    },
+    {
+      "$ref": "#/$defs/streamStatus"
+    },
+    {
+      "$ref": "#/$defs/connectorList"
     }
   ],
   "$defs": {
@@ -332,6 +341,22 @@
           "items": {
             "$ref": "#/$defs/serializer"
           }
+        },
+        "destination": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "connectorId": {
+          "$ref": "#/$defs/id"
+        },
+        "sourceStoreId": {
+          "$ref": "#/$defs/id"
+        },
+        "installationId": {
+          "$ref": "#/$defs/id"
+        },
+        "streams": {
+          "$ref": "#/$defs/streams"
         }
       }
     },
@@ -377,6 +402,12 @@
         },
         "limits": {
           "$ref": "#/$defs/limits"
+        },
+        "sourceStoreId": {
+          "$ref": "#/$defs/id"
+        },
+        "restoreEpoch": {
+          "$ref": "#/$defs/id"
         }
       }
     },
@@ -846,7 +877,9 @@
             "sequence-gap",
             "revoked",
             "storage-unavailable",
-            "missing-parts"
+            "missing-parts",
+            "scope-mismatch",
+            "unauthorised"
           ]
         },
         "retryable": {
@@ -920,6 +953,192 @@
         },
         "importStart": {
           "$ref": "#/$defs/instant"
+        }
+      }
+    },
+    "stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generation",
+        "acknowledgedSequence"
+      ],
+      "properties": {
+        "generation": {
+          "$ref": "#/$defs/int64"
+        },
+        "acknowledgedSequence": {
+          "$ref": "#/$defs/int64"
+        }
+      }
+    },
+    "streams": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 128,
+      "propertyNames": {
+        "$ref": "#/$defs/recordType"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/stream"
+      }
+    },
+    "credential": {
+      "type": "string",
+      "pattern": "^klebb_hc1_[A-Za-z0-9_-]{43}$"
+    },
+    "paired": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "kind",
+        "destination",
+        "tenantId",
+        "instanceId",
+        "connectorId",
+        "sourceStoreId",
+        "installationId",
+        "restoreEpoch",
+        "categories",
+        "streams",
+        "credential"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "kind": {
+          "const": "paired"
+        },
+        "destination": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "tenantId": {
+          "$ref": "#/$defs/id"
+        },
+        "instanceId": {
+          "$ref": "#/$defs/id"
+        },
+        "connectorId": {
+          "$ref": "#/$defs/id"
+        },
+        "sourceStoreId": {
+          "$ref": "#/$defs/id"
+        },
+        "installationId": {
+          "$ref": "#/$defs/id"
+        },
+        "restoreEpoch": {
+          "$ref": "#/$defs/id"
+        },
+        "categories": {
+          "$ref": "#/$defs/categories"
+        },
+        "streams": {
+          "$ref": "#/$defs/streams"
+        },
+        "credential": {
+          "$ref": "#/$defs/credential"
+        }
+      }
+    },
+    "streamStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "kind",
+        "binding",
+        "recordType",
+        "generation",
+        "acknowledgedSequence"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "kind": {
+          "const": "stream-status"
+        },
+        "binding": {
+          "$ref": "#/$defs/binding"
+        },
+        "recordType": {
+          "$ref": "#/$defs/recordType"
+        },
+        "generation": {
+          "$ref": "#/$defs/int64"
+        },
+        "acknowledgedSequence": {
+          "$ref": "#/$defs/int64"
+        }
+      }
+    },
+    "connectorSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "categories",
+        "createdAt",
+        "revokedAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "categories": {
+          "$ref": "#/$defs/categories"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/instant"
+        },
+        "revokedAt": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/instant"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "connectorList": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "kind",
+        "destination",
+        "connectors"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "kind": {
+          "const": "connector-list"
+        },
+        "destination": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "connectors": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/connectorSummary"
+          }
         }
       }
     }
