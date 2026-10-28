@@ -29,6 +29,9 @@
       "$ref": "#/$defs/objectPart"
     },
     {
+      "$ref": "#/$defs/objectPartReceipt"
+    },
+    {
       "$ref": "#/$defs/objectFinalise"
     },
     {
@@ -782,6 +785,31 @@
         "partDigest": {
           "$ref": "#/$defs/digest"
         }
+      }
+    },
+    "objectPartReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version", "kind", "binding", "recordType", "batchId", "sequence",
+        "identity", "objectId", "objectDigest", "partIndex", "partCount",
+        "totalBytes", "partDigest", "partBytes"
+      ],
+      "properties": {
+        "version": { "const": 1 },
+        "kind": { "const": "object-part-receipt" },
+        "binding": { "$ref": "#/$defs/binding" },
+        "recordType": { "$ref": "#/$defs/recordType" },
+        "batchId": { "$ref": "#/$defs/id" },
+        "sequence": { "$ref": "#/$defs/int64" },
+        "identity": { "$ref": "#/$defs/identity" },
+        "objectId": { "$ref": "#/$defs/id" },
+        "objectDigest": { "$ref": "#/$defs/digest" },
+        "partIndex": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "partCount": { "type": "integer", "minimum": 1, "maximum": 128 },
+        "totalBytes": { "type": "integer", "minimum": 1, "maximum": 67108864 },
+        "partDigest": { "$ref": "#/$defs/digest" },
+        "partBytes": { "type": "integer", "minimum": 1, "maximum": 1048576 }
       }
     },
     "objectFinalise": {

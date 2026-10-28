@@ -1,0 +1,165 @@
+{
+  "status": "Independently expected synthetic actual-API scenarios, not executed product evidence",
+  "child": "https://github.com/Aristocles/klebb/issues/782",
+  "parent": "https://github.com/Aristocles/klebb/issues/756",
+  "implementationDependency": "Reviewed and merged #779, then copy/register fixtures and bind independent physical reader before actual route baseline",
+  "routes": {
+    "part": "POST /api/connectors/health-connect/v1/object-parts",
+    "finalise": "POST /api/connectors/health-connect/v1/object-finalise"
+  },
+  "supportedDefaults": {
+    "originalFrameBytes": 1048576,
+    "reconstructedPayloadBytes": 67108864,
+    "partCount": 128,
+    "activeObjectsPerFullStream": 1,
+    "aggregateDeclaredStagingBytes": 268435456,
+    "absoluteTtlMs": 86400000,
+    "healthySweepMaximumIntervalMs": 300000,
+    "startupAndPreAdmissionSweep": true,
+    "duplicateExtendsExpiry": false,
+    "singleUpsertOnly": true
+  },
+  "partResult": {
+    "status": 200,
+    "kind": "object-part-receipt",
+    "fields": ["version", "kind", "binding", "recordType", "batchId", "sequence", "identity", "objectId", "objectDigest", "partCount", "totalBytes", "partIndex", "partDigest", "partBytes"],
+    "forbidden": ["partBase64", "credential", "acknowledgedSequence", "projectionStatus"],
+    "durableBatchAck": false
+  },
+  "cases": [
+    {
+      "id": "M01",
+      "trigger": "Store the three bank parts out of order, checking each original part receipt and cold physical bytes before finalise",
+      "beforeFinalise": {"rawRecords": 0, "tombstones": 0, "receipts": 0, "frontier": "0", "outbox": 0, "physicalParts": 3, "reservationBytes": 1049872},
+      "result": {"status": 200, "kind": "durable-receipt", "originalDigest": "sha256:45ee44258c3e7f0491bc4e9ebdc2effe4df5e97ba50beb8fcfdef90ba51460e5"},
+      "afterFinalise": {"rawRecords": 1, "tombstones": 0, "receipts": 1, "frontier": "1", "outbox": 1, "physicalParts": 0, "reservationBytes": 0, "compactCommittedDeclarations": 1},
+      "readback": "Exact complete record with 1,048,704 ASCII P characters, quantity 37.25, original producer, nanosecond times and opaque Omega fields; unchanged nonempty legacy card"
+    },
+    {
+      "id": "M02",
+      "reuses": "F07",
+      "trigger": "Store only parts 0 and 2, actually terminate/restart the isolated server, then supply the complete three-part finalise declaration",
+      "result": {"status": 409, "code": "missing-parts", "retryable": false},
+      "unchanged": {"rawRecords": 0, "tombstones": 0, "receipts": 0, "frontier": "0", "outbox": 0, "physicalParts": 2, "reservationBytes": 1049872},
+      "resume": "Uploading the missing original part permits one complete commit and original receipt"
+    },
+    {
+      "id": "M03",
+      "trigger": "Repeat an original part across restart, then send changed valid bytes/digest at the same index and changed immutable declaration metadata",
+      "duplicate": "Exactly original part receipt, one physical part and one original whole-object reservation; original createdAt/expiresAt unchanged",
+      "conflict": {"status": 409, "code": "conflict"},
+      "unchanged": "Original physical bytes/hash/declaration, no raw history/frontier/outbox"
+    },
+    {
+      "id": "M04",
+      "reuses": "F08",
+      "trigger": "After all valid part receipts, independently alter one physically stored byte without changing persisted metadata or the finalise declaration",
+      "requiredActivation": "Actual cold byte differs at the independently selected offset and its recomputed digest differs from the original",
+      "result": {"status": 503, "code": "storage-unavailable", "retryable": true},
+      "unchanged": "No complete record/tombstone/receipt/frontier/outbox; do not overwrite corruption with an empty object"
+    },
+    {
+      "id": "M05",
+      "trigger": "Stage structurally valid parts that all declare a wrong whole-object digest, then finalise their matching dense manifest",
+      "result": {"status": 400, "code": "digest-mismatch"},
+      "unchanged": "No native effects or durable receipt"
+    },
+    {
+      "id": "M06",
+      "trigger": "Initial sequence 2 and used sequence/different batch identity are offered before any new part reservation",
+      "gap": {"status": 409, "code": "sequence-gap"},
+      "usedSequence": {"status": 409, "code": "conflict"},
+      "unchanged": "No new reservation/physical part/receipt/frontier/outbox; existing committed history remains exact"
+    },
+    {
+      "id": "M07",
+      "trigger": "Wrong source/body binding, stale generation/epoch headers, widened category, revoked connector, and lifecycle transition while the actual body is held",
+      "wrongBody": {"status": 400, "code": "binding-mismatch"},
+      "staleHeader": {"status": 409, "code": "binding-mismatch"},
+      "widenedCategory": {"status": 403, "code": "scope-mismatch"},
+      "revoked": {"status": 401, "code": "revoked"},
+      "frozen": {"status": 503, "code": "IMPORT_FROZEN"},
+      "unchanged": "No part save/reservation/history/frontier/outbox after refusal; server derives authority from live credential"
+    },
+    {
+      "id": "M08",
+      "trigger": "Original frame exceeds 1 MiB, hard declaration exceeds 64 MiB/128 parts, or explicitly negotiated object bound is narrower",
+      "frame": {"status": 400, "code": "limit-exceeded"},
+      "hardSchema": {"status": 400, "code": "invalid-message"},
+      "negotiatedBound": {"status": 400, "code": "limit-exceeded"},
+      "unchanged": "No new staged allocation or native effects; ordinary batch frames remain capped at 1 MiB"
+    },
+    {
+      "id": "M09",
+      "trigger": "Reserve a first object, repeat it across restart, then independently paired stream attempts another declaration beyond a narrowed aggregate byte cap",
+      "result": {"status": 503, "code": "storage-unavailable", "retryable": true},
+      "unchanged": "One original reservation counted once, original physical part unchanged, no second reservation/part/native effects",
+      "resume": "After first reservation expires and actual cleanup releases it, the second unchanged declaration can stage"
+    },
+    {
+      "id": "M10",
+      "reuses": "F09",
+      "trigger": "Complete physically valid objects reconstruct an unsupported serializer, multiple upserts, duplicate JSON member, unsafe numeric Int64 or invalid UTF-8",
+      "result": {"status": 400, "code": "invalid-message"},
+      "unchanged": "No native record/tombstone/receipt/frontier/outbox; parser never repairs UTF-8, drops fields or parses through Number"
+    },
+    {
+      "id": "M11",
+      "trigger": "Base64 part boundary bisects the two UTF-8 bytes of Omega inside an otherwise valid complete payload",
+      "result": {"status": 200, "kind": "durable-receipt"},
+      "readback": "Exact original whole UTF-8/scalar record and digest; individual parts are raw bytes and must not be separately decoded/repaired"
+    },
+    {
+      "id": "M12",
+      "trigger": "Receive a valid finalise response with req() but deliberately ignore its receipt, independently cold-read the complete first transaction before retry, then restart after staging cleanup; actual connection loss remains M15",
+      "result": "Identical finalise returns the exact original full durable receipt with no added effects or reservation",
+      "unchanged": "Exact complete raw record/tombstones/receipt/frontier/outbox and compact original declaration"
+    },
+    {
+      "id": "M13",
+      "trigger": "After original finalise and physical staging purge, a later ordinary batch corrects/deletes the raw record; restart and retry the original finalise",
+      "result": "Exact original full receipt, verified against compact original declaration and part metadata",
+      "unchanged": "No resurrection of corrected/deleted raw payload, no frontier rollback, no new receipt/outbox/reservation/physical part"
+    },
+    {
+      "id": "M14",
+      "reuses": "F10",
+      "trigger": "Actual finalise child death immediately before native COMMIT that inserted the complete receipt",
+      "requiredActivation": "Observed exact before-COMMIT marker and bounded observed process exit",
+      "cold": {"rawRecords": 0, "tombstones": 0, "receipts": 0, "frontier": "0", "outbox": 0, "compactCommittedDeclarations": 0},
+      "retry": "Original physical parts remain recoverable until expiry; after restart, same finalise commits once"
+    },
+    {
+      "id": "M15",
+      "trigger": "Actual finalise child death after native COMMIT and before response/physical cleanup",
+      "requiredActivation": "Observed exact after-COMMIT marker and bounded observed process exit",
+      "cold": {"rawRecords": 1, "tombstones": 0, "receipts": 1, "frontier": "1", "outbox": 1, "compactCommittedDeclarations": 1},
+      "retry": "Startup cleans committed physical copies/reservation; original finalise returns exact receipt without added effects"
+    },
+    {
+      "id": "M16",
+      "trigger": "Actual SQLite full/busy or late outbox/compact-declaration statement failure during finalise",
+      "requiredActivation": "Real native SQLite code for full/busy; late failure marker proves raw writes occurred; actual own writer remains WAL/FULL before BEGIN",
+      "result": {"status": 503, "code": "storage-unavailable"},
+      "cold": {"rawRecords": 0, "tombstones": 0, "receipts": 0, "frontier": "0", "outbox": 0, "compactCommittedDeclarations": 0},
+      "tombstoneRollbackVariant": {
+        "setup": "Before attaching the finalise fault, ordinary sequence 1 deletes the same large-raw-only native identity; then stage the large upsert as eligible sequence 2",
+        "before": {"rawRecords": 0, "tombstoneIds": ["large-raw-only"], "receipts": 1, "frontier": "1", "outbox": 1, "compactCommittedDeclarations": 0},
+        "failedFinalise": "Exact before state remains; the upsert's in-transaction tombstone clearing is rolled back along with raw/receipt/frontier/outbox/compact declaration",
+        "successfulRetry": {"rawRecords": 1, "tombstoneIds": [], "receipts": 2, "frontier": "2", "outbox": 2, "compactCommittedDeclarations": 1}
+      },
+      "retry": "Original staged parts and reservation remain valid until expiry; a fresh successful retry commits once"
+    },
+    {
+      "id": "M17",
+      "reuses": "F11",
+      "trigger": "Observe first stage creation/expiry, duplicate before expiry, then advance only the synthetic test staging clock across expiry; run actual healthy sweep and restart/pre-admission cleanup paths",
+      "before": "Identical duplicate has no expiry extension or double reservation; unexpired other object stays present",
+      "after": {"expiredPhysicalParts": 0, "expiredPayloadCopies": 0, "expiredReservationBytes": 0},
+      "unchanged": "Committed raw records/tombstones/receipts/frontier/outbox and unexpired staging remain exact",
+      "limits": "Healthy process: at most 24 h plus 5 min; stopped/crashed process: overdue copies removed before fresh admission"
+    }
+  ],
+  "containment": "Use nonempty actual-issued credential/grant/session markers and verify no echo in part/finalise errors or compact logical stores/request-phase logs; instrumented output has fixed phases/counts/digests only",
+  "remainingGates": "No product execution or ACK claim; #779 merge before implementation; independent physical reader and fault/clock harness binding before meaningful baseline; required local suites, actual CI, review/merge; CORE-06.R0 before personal capture; parent projector/native/release gates remain open"
+}

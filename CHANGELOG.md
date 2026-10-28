@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Complete-record Health Connect multipart uploads with bounded physical
+  staging, atomic finalisation and compact retry metadata, plus absolute
+  abandoned-part expiry and shared Node/Kotlin payload validation.
+
 - Lossless Android Steps and Weight record codecs with explicit serializer
   versioning, complete common metadata, nanosecond timestamps and preserved
   unit precision. Other ordinary record types and encrypted queue delivery
