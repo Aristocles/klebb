@@ -119,8 +119,8 @@ foreach ($version in $artifacts.Keys) {
   $result = [ordered]@{
     version = $version
     sourceUrl = "https://dl.google.com/dl/android/maven2/androidx/health/connect/connect-client/$version/connect-client-$version.aar"
-    artifactSha256 = $expected[$version]
-    compiledClassesSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $classesJar).Hash.ToLowerInvariant()
+    artifactDigest = 'sha256:' + $expected[$version]
+    compiledClassesDigest = 'sha256:' + (Get-FileHash -Algorithm SHA256 -LiteralPath $classesJar).Hash.ToLowerInvariant()
     aarBuildMetadata = $metadata
     ordinaryRecordCount = $ordinary.Count
     publicApiClassCount = $classes.Count
