@@ -1,0 +1,86 @@
+{
+  "state": "Fixed outside-product consumer vectors before vocabulary change; no product parser imported or executed",
+  "serverStatus": 409,
+  "serverRetryable": false,
+  "expectedError": {
+    "version": 1,
+    "kind": "error",
+    "code": "deletion-suppressed",
+    "retryable": false
+  },
+  "cases": [
+    {
+      "id": "canonical",
+      "wire": "{\"version\":1,\"kind\":\"error\",\"code\":\"deletion-suppressed\",\"retryable\":false}",
+      "expectedBytes": 75,
+      "expectedFrame": {
+        "version": 1,
+        "kind": "error",
+        "code": "deletion-suppressed",
+        "retryable": false
+      }
+    },
+    {
+      "id": "reordered-and-escaped-code",
+      "wire": "{\"retryable\":false,\"code\":\"deletion\\u002dsuppressed\",\"kind\":\"error\",\"version\":1}",
+      "expectedBytes": 80,
+      "expectedFrame": {
+        "version": 1,
+        "kind": "error",
+        "code": "deletion-suppressed",
+        "retryable": false
+      }
+    }
+  ],
+  "rejectedCases": [
+    {
+      "id": "missing-retryable",
+      "wire": "{\"version\":1,\"kind\":\"error\",\"code\":\"deletion-suppressed\"}",
+      "expectedBytes": 57,
+      "expectedCode": "invalid-message"
+    },
+    {
+      "id": "retryable-string",
+      "wire": "{\"version\":1,\"kind\":\"error\",\"code\":\"deletion-suppressed\",\"retryable\":\"false\"}",
+      "expectedBytes": 77,
+      "expectedCode": "invalid-message"
+    },
+    {
+      "id": "wrong-code-case",
+      "wire": "{\"version\":1,\"kind\":\"error\",\"code\":\"Deletion-suppressed\",\"retryable\":false}",
+      "expectedBytes": 75,
+      "expectedCode": "invalid-message"
+    },
+    {
+      "id": "trailing-newline-code",
+      "wire": "{\"version\":1,\"kind\":\"error\",\"code\":\"deletion-suppressed\\n\",\"retryable\":false}",
+      "expectedBytes": 77,
+      "expectedCode": "invalid-message"
+    },
+    {
+      "id": "extra-payload-member",
+      "wire": "{\"version\":1,\"kind\":\"error\",\"code\":\"deletion-suppressed\",\"retryable\":false,\"payload\":\"invented-secret-marker\"}",
+      "expectedBytes": 110,
+      "expectedCode": "invalid-message"
+    },
+    {
+      "id": "duplicate-code",
+      "wire": "{\"version\":1,\"kind\":\"error\",\"code\":\"deletion-suppressed\",\"code\":\"deletion-suppressed\",\"retryable\":false}",
+      "expectedBytes": 104,
+      "expectedCode": "invalid-message"
+    },
+    {
+      "id": "unsupported-version",
+      "wire": "{\"version\":2,\"kind\":\"error\",\"code\":\"deletion-suppressed\",\"retryable\":false}",
+      "expectedBytes": 75,
+      "expectedCode": "unsupported-version"
+    },
+    {
+      "id": "wrong-kind-case",
+      "wire": "{\"version\":1,\"kind\":\"Error\",\"code\":\"deletion-suppressed\",\"retryable\":false}",
+      "expectedBytes": 75,
+      "expectedCode": "invalid-message"
+    }
+  ],
+  "structuralOnly": "Consumers validate shared error decoding and immutable values; no Android ACK/queue purge or automatic retry behavior is claimed"
+}

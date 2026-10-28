@@ -78,6 +78,11 @@ the original batch receipt after a restart and later raw correction/deletion,
 without resurrecting the old raw record or replaying effects. No full object
 or base64 payload is archived in compact retry metadata.
 
+New PART and FINALISE check [typed deletion admission](deletion-admission.md)
+after committed retry resolution and before allocation, cleanup or
+reconstruction. Source deletion atomically purges matching uncommitted staging
+across transport streams while retaining compact committed receipts.
+
 ## Expiry and supported operating assumptions
 
 An abandoned object expires exactly 86,400,000 milliseconds after its first
@@ -91,8 +96,8 @@ Cold-read tests enumerate actual live SQLite BLOBs and recompute their digests;
 their staging cleanup proof concerns those active copies. Cleanup leaves only
 compact retry metadata in indexed staging. A synthetic Node 24.15.0/SQLite
 3.51.3 probe with `secure_delete=0` retained retired bytes after checkpoint and
-close. SQLite freelist/WAL page erasure, managed backup expiry and deletion
-suppression remain the separately verified storage/deletion/recovery gates.
+close. SQLite freelist/WAL page erasure, managed backup expiry and broader
+deletion/recovery remain separately verified gates.
 
 Reconstruction materialises at most one bounded object buffer and reads one
 bounded part at a time, then materialises strict decoded JSON and the current
@@ -104,6 +109,6 @@ Cloud memory limit; the measured capacity matrix belongs to CLOUD-03.
 
 Invented controlled records and component fault tests do not establish native
 capture, encrypted phone queue, complete portable recovery, real Health Auto
-Export retry or release readiness. CORE-02 remains open for actual projection
-outbox execution/failure/rebuild. Merged CORE-06.R0 remains required before
+Export retry or release readiness. Projection references use the existing
+[source-index publisher](../HEALTH-CONNECT-SOURCE-INDEX.md). Merged CORE-06.R0 remains required before
 personal-history capture; the real 48-hour release soak has not started.
