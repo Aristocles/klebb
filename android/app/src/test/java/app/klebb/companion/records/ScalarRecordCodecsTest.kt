@@ -73,7 +73,9 @@ class ScalarRecordCodecsTest {
             "BodyWaterMassRecord", "BoneMassRecord", "LeanBodyMassRecord", "HeightRecord",
             "HeartRateVariabilityRmssdRecord", "RespiratoryRateRecord", "RestingHeartRateRecord",
             "BasalMetabolicRateRecord", "BasalBodyTemperatureRecord", "BodyTemperatureRecord",
-            "BloodGlucoseRecord", "BloodPressureRecord", "OxygenSaturationRecord", "Vo2MaxRecord"),
+            "BloodGlucoseRecord", "BloodPressureRecord", "OxygenSaturationRecord", "Vo2MaxRecord",
+            "HeartRateRecord", "SpeedRecord", "PowerRecord",
+            "StepsCadenceRecord", "CyclingPedalingCadenceRecord"),
             RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")
