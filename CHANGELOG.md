@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- An explicit native health storage V2 migration with a verified consistent
+  safety copy, required deletion-guard schema and unchanged V1 operation.
+  Deletion admission and user controls remain separate programme work.
+
 - Android codecs for five sample-series records with ordered, complete
   samples, precise public unit observations and unchanged existing encodings.
   Native capture and encrypted queue gates remain open.

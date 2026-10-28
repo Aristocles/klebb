@@ -1,0 +1,104 @@
+{
+  "spdx": "AGPL-3.0-only",
+  "scope": "Independent synthetic migration inputs; not a capture/suppression or authority proof.",
+  "markerV1Ddl": "CREATE TABLE health_schema_version (version INTEGER PRIMARY KEY CHECK(version = 1))",
+  "markerV2Ddl": "CREATE TABLE health_schema_version (version INTEGER PRIMARY KEY CHECK(version = 2))",
+  "guardV2Ddl": "CREATE TABLE health_deletion_guards (\n    tenant_id TEXT NOT NULL, source_store_id TEXT NOT NULL, record_type TEXT NOT NULL,\n    native_record_id TEXT NOT NULL,\n    source_deleted INTEGER NOT NULL CHECK(source_deleted IN (0, 1)),\n    user_suppressed INTEGER NOT NULL CHECK(user_suppressed IN (0, 1)),\n    source_stream_key TEXT, source_sequence TEXT, footprint_json TEXT,\n    PRIMARY KEY (tenant_id, source_store_id, record_type, native_record_id),\n    CHECK(source_deleted = 1 OR user_suppressed = 1),\n    CHECK((source_deleted = 1 AND source_stream_key IS NOT NULL AND source_sequence IS NOT NULL)\n       OR (source_deleted = 0 AND source_stream_key IS NULL AND source_sequence IS NULL)),\n    CHECK(footprint_json IS NULL OR (\n        length(CAST(footprint_json AS BLOB)) <= 2048\n        AND json_valid(footprint_json)\n        AND json_type(footprint_json) = 'object'))\n)",
+  "legacyId": "synthetic-guard-migration-legacy",
+  "legacyData": [
+    {
+      "date": "2026-10-20",
+      "kg": 35.5,
+      "note": "preserve fixed synthetic migration sentinel"
+    }
+  ],
+  "haePayload": {
+    "data": {
+      "metrics": [
+        {
+          "name": "body_mass",
+          "units": "kg",
+          "data": [
+            {
+              "date": "2026-10-20 12:00:00 +0000",
+              "qty": 75.25
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "haeReceivedAt": "2026-10-20T12:01:00.000Z",
+  "completeObject": {
+    "sequence": "2"
+  },
+  "activeObject": {
+    "sequence": "3",
+    "batchId": "synthetic-active-3",
+    "objectId": "synthetic-active-object-3",
+    "nativeRecordId": "active-raw-only"
+  },
+  "typedDdl": "CREATE TABLE migration_typed_fixture (kind TEXT NOT NULL, value)",
+  "sentinelDdl": "CREATE TABLE migration_wal_sentinel (id TEXT PRIMARY KEY, value TEXT NOT NULL)",
+  "walSentinel": {
+    "id": "migration-committed-wal-sentinel",
+    "value": "Synthetic committed WAL \u03a9: 17"
+  },
+  "typedRows": [
+    {
+      "kind": "negative",
+      "type": "integer",
+      "decimal": "-9223372036854775808"
+    },
+    {
+      "kind": "maximum",
+      "type": "integer",
+      "decimal": "9223372036854775807"
+    },
+    {
+      "kind": "wide",
+      "type": "integer",
+      "decimal": "9007199254740993"
+    },
+    {
+      "kind": "equal-numeric",
+      "type": "integer",
+      "decimal": "1"
+    },
+    {
+      "kind": "equal-numeric",
+      "type": "real",
+      "decimal": "1.0"
+    },
+    {
+      "kind": "real",
+      "type": "real",
+      "decimal": "0.1"
+    },
+    {
+      "kind": "embedded-nul",
+      "type": "text",
+      "value": "before\u0000after-\u03a9"
+    },
+    {
+      "kind": "blob",
+      "type": "blob",
+      "hex": "0001027f80feff00"
+    },
+    {
+      "kind": "null",
+      "type": "null",
+      "value": null
+    },
+    {
+      "kind": "duplicate",
+      "type": "text",
+      "value": "repeat exactly"
+    },
+    {
+      "kind": "duplicate",
+      "type": "text",
+      "value": "repeat exactly"
+    }
+  ]
+}
