@@ -40,7 +40,7 @@ $sharedProperties = @(
   @('androidx.health.connect.client.response.ChangesResponse', 'hasMore', 'boolean')
 )
 $versions = [ordered]@{ '1.1.0' = 41; '1.2.0-alpha06' = 42 }
-$getterCounts = @{ '1.1.0' = 468; '1.2.0-alpha06' = 478 }
+$getterCounts = @{ '1.1.0' = 454; '1.2.0-alpha06' = 464 }
 
 foreach ($version in $versions.Keys) {
   $inventory = Get-Content -LiteralPath (Join-Path $InventoryRoot "$version-inventory.json") -Raw | ConvertFrom-Json

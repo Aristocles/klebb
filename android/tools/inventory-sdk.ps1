@@ -108,11 +108,18 @@ foreach ($version in $artifacts.Keys) {
 
   $getters = @()
   $currentClass = $null
+  $publicClassCount = 0
   foreach ($line in $api) {
+    if ($line -match '^Compiled from ' -or $line -match '^\}$' -or
+        $line -match '^(?:(?:public|protected|private|final|abstract|static) )*(?:class|interface|enum) ') {
+      $currentClass = $null
+    }
     if ($line -match '^public (?:final |abstract )?(?:class|interface) ([^ <]+)') {
       $currentClass = $Matches[1]
+      $publicClassCount++
     }
-    if ($line -cmatch '^  public (?:final |abstract |default )?([^ ]+(?:<.+>)?) ((?:get|is|has)[A-Z][^ ($]+)\(\);$') {
+    if ($null -ne $currentClass -and
+        $line -cmatch '^  public (?:final |abstract |default )?([^ ]+(?:<.+>)?) ((?:get|is|has)[A-Z][^ ($]+)\(\);$') {
       $getters += [ordered]@{ class = $currentClass; method = $Matches[2]; type = $Matches[1] }
     }
   }
@@ -123,11 +130,11 @@ foreach ($version in $artifacts.Keys) {
     compiledClassesDigest = 'sha256:' + (Get-FileHash -Algorithm SHA256 -LiteralPath $classesJar).Hash.ToLowerInvariant()
     aarBuildMetadata = $metadata
     ordinaryRecordCount = $ordinary.Count
-    publicApiClassCount = $classes.Count
+    publicApiClassCount = $publicClassCount
     ordinaryRecords = $ordinary
     exposedGetters = $getters
     inventoryCommand = 'javap -public -constants -classpath classes.jar <selected SDK public model/API classes>'
-    scope = 'Concrete ordinary records, nested values, metadata, units, route and medical models, request/response/change/aggregate APIs, permissions, feature constants and route contracts. Kotlin internal and synthetic getters are excluded from the source-field list but retained in raw signatures. Java signatures do not express Kotlin nullability. Runtime availability and implemented serialization remain separate evidence.'
+    scope = 'Concrete ordinary records, nested values, metadata, units, route and medical models, request/response/change/aggregate APIs, permissions, feature constants and route contracts. Getters on non-public declaring classes and Kotlin internal/synthetic getters are excluded from the source-field list but retained in raw signatures. Java signatures do not express Kotlin nullability. Runtime availability and implemented serialization remain separate evidence.'
   }
   Write-Utf8 "$version-inventory.json" (ConvertTo-InventoryJson $result)
   $results += $result
