@@ -23,7 +23,7 @@ object StrictJson {
         return true
     }
 
-    fun parse(bytes: ByteArray, limits: Limits = Limits(), budget: Budget = Budget()): Any? {
+    fun parse(bytes: ByteArray, limits: Limits = Limits(), budget: Budget = Budget(), initialDepth: Int = 1): Any? {
         if (bytes.size > limits.bytes) throw ProtocolException("limit-exceeded")
         val text = try {
             Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
@@ -31,7 +31,7 @@ object StrictJson {
         } catch (_: java.nio.charset.CharacterCodingException) {
             throw ProtocolException("invalid-message")
         }
-        return parseText(text, limits, budget)
+        return parseText(text, limits, budget, initialDepth)
     }
 
     fun parseText(text: String, limits: Limits, budget: Budget, initialDepth: Int = 1): Any? {

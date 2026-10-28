@@ -27,6 +27,7 @@ envelope fields and change operations are refused rather than silently removed.
 | `coverage` | An ordinary-record bounded query and its completeness claim | Native truth or permission to delete absent records |
 | `aggregate` | A saved native aggregate observation with policy, revision and provenance | Freshness without a trusted raw frontier |
 | `object-part` | A bounded staged part with native/batch binding and exact byte digest | A complete object or acknowledged batch |
+| `object-part-receipt` | The accepted part's full declaration, index, byte count and digest | A durable history ACK or raw frontier |
 | `object-finalise` | A declared ordered manifest for one large batch payload | Existing staged bytes or a completed transaction |
 | `error` | Fixed code and retryability | Permission to echo sensitive request contents |
 
@@ -214,14 +215,24 @@ The validator proves these declarations and the received part digest only.
 The small `abc` part fixtures exercise that declaration boundary; they are not
 valid reconstructed batch payloads or evidence of physical finalisation.
 
-Before a future finalisation can acknowledge a batch, CORE-02 must prove all
-staged parts physically exist, agree with that manifest and binding, reconstruct
-the exact bytes in order, verify the whole digest and total, and validate the
-reconstructed payload and its single upsert. Its payload binding, batch ID,
-sequence, type and identity must match the declaration. Storage capacity,
-streaming/bounded reconstruction and atomic durable commit are separate gates.
-The ordinary 1 MiB `decodeMessage` API does not claim to validate a reconstructed
-64 MiB payload. Missing parts cannot become a durable receipt or raw frontier.
+The separate `decodeAssembledPayload(bytes, declaration, context)` boundary in
+Node and Kotlin validates at most the negotiated whole-object bytes, preserving
+the ordinary parser's strict UTF-8, duplicate-member, scalar, precision,
+schema/serializer, binding, depth, node and sample rules. It accepts exactly one
+ordinary upsert. The whole payload's binding, batch ID, sequence, type and
+native identity must match its declaration. The ordinary one-MiB `decodeMessage`
+API retains its outer-frame limit. Missing parts cannot become a durable
+receipt or raw frontier.
+
+`POST /v1/object-parts` returns `200 object-part-receipt` after physical staging
+with no saved-history effects. `POST /v1/object-finalise` verifies the actual
+ordered BLOBs, per-part lengths/digests and exact whole bytes before the complete
+ordinary commit. Its response is the existing immutable `durable-receipt`.
+Identical finalise retries verify compact original metadata after staging
+cleanup and even after later raw correction/deletion. See
+[object storage](object-storage.md) for reservation, expiry, transaction and
+memory limits. Cloud capacity, portable lifecycle and native checkpoints remain
+their own gates.
 
 ## Acceptance boundary and reproducible evidence
 
@@ -265,6 +276,8 @@ the content protocol. Ordinary uploads use the durable storage contract below.
 | `GET /v1/capabilities` | A current scoped native bearer and `Klebb-Health-Protocol: 1`; returns extended `capabilities` |
 | `GET /v1/streams/:recordType/status` | A current scoped native bearer, protocol 1, exact `Klebb-Health-Generation` and `Klebb-Health-Restore-Epoch`; returns read-only `stream-status` |
 | `POST /v1/batches` | The same scoped bearer and preconditions; a complete ordinary `batch` returns `200 durable-receipt` after the atomic save |
+| `POST /v1/object-parts` | The same scoped bearer and preconditions; returns `200 object-part-receipt` with no raw frontier advance |
+| `POST /v1/object-finalise` | The same scoped bearer and preconditions; returns the original `200 durable-receipt` after complete commit or verified retry |
 
 The destination comes from the configured canonical HTTPS instance origin,
 never Host or forwarding headers. Browser management derives the owner from
@@ -358,8 +371,8 @@ phone batch to its complete receipt.
 Ordinary records, source tombstones, receipt, contiguous frontier and one queued
 projection reference commit together. Save failures refuse an ACK; a lost
 response or uncertain outcome must retry the same immutable batch. The outbox
-is independent of the receipt. Its execution, failure/rebuild, large complete
-record assembly and native checkpoint integration remain separate deliveries.
+is independent of the receipt. Its execution, failure/rebuild and native
+checkpoint integration remain separate deliveries.
 See [ordinary storage](ordinary-storage.md) for schema and durability limits.
 
 ## Protected state and compatibility
