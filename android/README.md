@@ -1,15 +1,57 @@
-# Android Health Connect feasibility
+# Android foreground proofs
 
-This module is the AND-01 platform proof. It reads selected, invented steps
-and weight written by Google's Health Connect Toolbox in an explicit UTC
-interval of at most two hours. It filters requests to the Toolbox producer.
-It has no network or Health Connect write permission. It does not pair with
-Cloud, save readings, import personal history or schedule background work.
+The launcher is the CORE-01 foreground pairing proof. The user confirms the
+same canonical HTTPS destination displayed by their authenticated browser,
+enters that instance's single-use grant, and can then check connector
+capabilities and authorised stream status. Grants and connector credentials
+remain in memory. Leaving the screen clears the connection and cancels active
+requests. This view does not call Health Connect or store readings, credentials
+or an upload queue.
 
-The reusable companion remains gated on a release-signed native install,
-controlled read and same-key update on the actual phone. A build, unit test or
-compiled feature flag cannot pass that gate. Other categories, queues,
-serializers, routes and medical ingestion belong to the following tickets.
+The retained AND-01 platform harness reads selected, invented steps and weight
+written by Google's Health Connect Toolbox in an explicit UTC interval of at
+most two hours, filtered to the Toolbox producer. It is no longer an exported
+launcher activity. Its native install, controlled read and same-key update
+evidence belongs to AND-01; the pairing proof needs its own actual-phone and
+browser exchange, capability, status and revocation evidence. Unit tests or a
+compiled feature flag cannot establish those native gates. Other categories,
+queues, serializers, routes and medical ingestion belong to later tickets.
+
+## Shared wire and HTTPS checks
+
+The Kotlin consumer validates the same schema and language-neutral wire
+fixtures as the Node consumer. Gradle reads the schema into app assets and the
+schema and fixture directories into JVM test resources directly from the
+repository. It does not copy or modify shared expected values. While working
+against an unmerged authority-contract dependency, use an isolated checkout
+containing those shared files:
+
+```powershell
+./gradlew.bat --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug '-PhealthContractRoot=<contract-checkout>'
+```
+
+The default is this checkout's repository root, as used by CI after the
+dependency merges. The bounded UTF-8 parser refuses malformed encoding,
+duplicate decoded keys, lone surrogates and unsupported numeric tokens before
+schema validation. Exact payload and query JSON text retains its original
+digest domain. Schema, identity, limits, precision, coverage and aggregate
+expectations come from the shared fixtures.
+
+Production requests use normal platform TLS and hostname verification.
+Destination approval requires a bare canonical HTTPS origin; fixed request
+paths cannot change that origin. Every redirect is refused before a second
+request. Local JVM tests use real HTTPS listeners with an ephemeral test CA
+to prove permitted delivery, zero credential delivery to a redirect target,
+and the production TLS refusal of an untrusted certificate and wrong hostname.
+The test CA is not installed or used by the app. No additional JSON or network
+framework dependency is required.
+
+Pairing exchange is `POST /api/connectors/health-connect/v1/pairing/exchange`.
+The two controlled checks use `GET /api/connectors/health-connect/v1/capabilities`
+and `GET /api/connectors/health-connect/v1/streams/:recordType/status`.
+Their authority and namespace are server issued. This proof implements no
+health ingestion endpoint and cannot establish durability, reconciliation or
+release readiness.
 
 ## Pinned build
 
@@ -88,6 +130,9 @@ checksums identify the exact native-test artifacts. Verify a second clean
 build before recording repeatability; do not infer phone installation.
 
 ## Controlled phone check
+
+The following AND-01 procedure applies to release proof versions 1 and 2.
+The foreground pairing launcher does not expose that harness.
 
 Use the release-signed proof and update APKs, not the debug build. Keep this
 ticket open until native results are recorded. These steps need the actual

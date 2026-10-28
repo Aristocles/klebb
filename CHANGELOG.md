@@ -16,6 +16,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - Versioned Health Connect wire contracts and shared fixtures, with exact
   UTF-8 batch digests, separate native identities, lossless value encodings
   and bounded validation.
+- A Kotlin consumer of the shared Health Connect contracts and a foreground
+  pairing proof, with normal HTTPS verification, redirect refusal and
+  connection clearing. Durable credentials, capture and scheduling remain
+  separate Android delivery gates.
 - Session-owned Health Connect pairing grants, scoped connector verification,
   listing and revocation, with generation/restore-epoch refusal and a compact
   browser destination confirmation. The current Steps pairing proof does not
