@@ -140,8 +140,12 @@ class SampleSeriesRecordCodecsTest {
                 assertEquals("java.util.List", methods.single { it.name == "getSamples" }.returnType.name)
             }
         }
-        val registry = (fixed["expectedRegistry"] as List<*>).toSet()
-        assertEquals(22, registry.size)
+        val registry = (fixed["expectedRegistry"] as List<*>).toSet() + setOf(
+            "ActiveCaloriesBurnedRecord", "TotalCaloriesBurnedRecord", "DistanceRecord",
+            "ElevationGainedRecord", "FloorsClimbedRecord", "HydrationRecord",
+            "WheelchairPushesRecord", "MenstruationPeriodRecord",
+            "MindfulnessSessionRecord", "ActivityIntensityRecord")
+        assertEquals(32, registry.size)
         assertEquals(registry, RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")

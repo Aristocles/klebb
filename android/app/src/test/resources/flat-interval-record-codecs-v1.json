@@ -1,0 +1,698 @@
+{
+  "cases": {
+    "I01": {
+      "recordType": "ActiveCaloriesBurnedRecord",
+      "nativeRecordId": "synthetic-provider-id",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 2,
+          "id": "synthetic-provider-id",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+          "clientRecordId": "synthetic-client-id/α\n\"quoted\"",
+          "clientRecordVersion": "9007199254740993",
+          "device": {
+            "type": 1,
+            "manufacturer": "Synthetic maker",
+            "model": "Synthetic model Δ"
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "energy": {
+          "unit": "kcal",
+          "value": "123.125",
+          "sdkUnitValues": {
+            "cal": "123125",
+            "kcal": "123.125",
+            "J": "515155.0000811884",
+            "kJ": "515.1550000811884"
+          }
+        }
+      }
+    },
+    "I02": {
+      "recordType": "TotalCaloriesBurnedRecord",
+      "nativeRecordId": "synthetic-provider-id",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 2,
+          "id": "synthetic-provider-id",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+          "clientRecordId": "synthetic-client-id/α\n\"quoted\"",
+          "clientRecordVersion": "9007199254740993",
+          "device": {
+            "type": 1,
+            "manufacturer": "Synthetic maker",
+            "model": "Synthetic model Δ"
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "energy": {
+          "unit": "kcal",
+          "value": "456.125",
+          "sdkUnitValues": {
+            "cal": "456125",
+            "kcal": "456.125",
+            "J": "1908427.000300768",
+            "kJ": "1908.427000300768"
+          }
+        }
+      }
+    },
+    "I03": {
+      "recordType": "DistanceRecord",
+      "nativeRecordId": "synthetic-provider-id",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 2,
+          "id": "synthetic-provider-id",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+          "clientRecordId": "synthetic-client-id/α\n\"quoted\"",
+          "clientRecordVersion": "9007199254740993",
+          "device": {
+            "type": 1,
+            "manufacturer": "Synthetic maker",
+            "model": "Synthetic model Δ"
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "distance": {
+          "unit": "m",
+          "value": "1234.125",
+          "sdkUnitValues": {
+            "m": "1234.125",
+            "km": "1.234125",
+            "mi": "0.7668516286179428",
+            "in": "48587.598425196855",
+            "ft": "4048.9665354330705"
+          }
+        }
+      }
+    },
+    "I04": {
+      "recordType": "ElevationGainedRecord",
+      "nativeRecordId": "synthetic-provider-id",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 2,
+          "id": "synthetic-provider-id",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+          "clientRecordId": "synthetic-client-id/α\n\"quoted\"",
+          "clientRecordVersion": "9007199254740993",
+          "device": {
+            "type": 1,
+            "manufacturer": "Synthetic maker",
+            "model": "Synthetic model Δ"
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "elevation": {
+          "unit": "m",
+          "value": "12.125",
+          "sdkUnitValues": {
+            "m": "12.125",
+            "km": "0.012125",
+            "mi": "0.007534144431878907",
+            "in": "477.3622047244095",
+            "ft": "39.78018372703412"
+          }
+        }
+      }
+    },
+    "I05": {
+      "recordType": "FloorsClimbedRecord",
+      "nativeRecordId": "synthetic-provider-id",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 2,
+          "id": "synthetic-provider-id",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+          "clientRecordId": "synthetic-client-id/α\n\"quoted\"",
+          "clientRecordVersion": "9007199254740993",
+          "device": {
+            "type": 1,
+            "manufacturer": "Synthetic maker",
+            "model": "Synthetic model Δ"
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "floors": "3.125"
+      }
+    },
+    "I06": {
+      "recordType": "HydrationRecord",
+      "nativeRecordId": "synthetic-provider-id",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 2,
+          "id": "synthetic-provider-id",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+          "clientRecordId": "synthetic-client-id/α\n\"quoted\"",
+          "clientRecordVersion": "9007199254740993",
+          "device": {
+            "type": 1,
+            "manufacturer": "Synthetic maker",
+            "model": "Synthetic model Δ"
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "volume": {
+          "unit": "L",
+          "value": "0.625",
+          "sdkUnitValues": {
+            "L": "0.625",
+            "mL": "625",
+            "fl. oz (US)": "21.133763876006686"
+          }
+        }
+      }
+    },
+    "I07": {
+      "recordType": "WheelchairPushesRecord",
+      "nativeRecordId": "synthetic-provider-id",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 2,
+          "id": "synthetic-provider-id",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+          "clientRecordId": "synthetic-client-id/α\n\"quoted\"",
+          "clientRecordVersion": "9007199254740993",
+          "device": {
+            "type": 1,
+            "manufacturer": "Synthetic maker",
+            "model": "Synthetic model Δ"
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "count": "321"
+      }
+    },
+    "I08": {
+      "recordType": "MenstruationPeriodRecord",
+      "nativeRecordId": "synthetic-provider-id",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 2,
+          "id": "synthetic-provider-id",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+          "clientRecordId": "synthetic-client-id/α\n\"quoted\"",
+          "clientRecordVersion": "9007199254740993",
+          "device": {
+            "type": 1,
+            "manufacturer": "Synthetic maker",
+            "model": "Synthetic model Δ"
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00"
+      }
+    },
+    "I09": {
+      "recordType": "MindfulnessSessionRecord",
+      "nativeRecordId": "synthetic-provider-id",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 2,
+          "id": "synthetic-provider-id",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+          "clientRecordId": "synthetic-client-id/α\n\"quoted\"",
+          "clientRecordVersion": "9007199254740993",
+          "device": {
+            "type": 1,
+            "manufacturer": "Synthetic maker",
+            "model": "Synthetic model Δ"
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "mindfulnessSessionType": 0,
+        "title": "Synthetic pause",
+        "notes": "Synthetic note\n保留"
+      }
+    },
+    "I10": {
+      "recordType": "ActivityIntensityRecord",
+      "nativeRecordId": "synthetic-provider-id",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 2,
+          "id": "synthetic-provider-id",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+          "clientRecordId": "synthetic-client-id/α\n\"quoted\"",
+          "clientRecordVersion": "9007199254740993",
+          "device": {
+            "type": 1,
+            "manufacturer": "Synthetic maker",
+            "model": "Synthetic model Δ"
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "activityIntensityType": 0
+      }
+    },
+    "I11-null": {
+      "recordType": "MindfulnessSessionRecord",
+      "nativeRecordId": "synthetic-provider-id-nullable",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 0,
+          "id": "synthetic-provider-id-nullable",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "1970-01-01T00:00:00Z",
+          "clientRecordId": null,
+          "clientRecordVersion": "0",
+          "device": null
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "mindfulnessSessionType": 9014,
+        "title": null,
+        "notes": null
+      }
+    },
+    "I11-empty": {
+      "recordType": "MindfulnessSessionRecord",
+      "nativeRecordId": "synthetic-provider-id-device-null-fields",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 3,
+          "id": "synthetic-provider-id-device-null-fields",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.000000001Z",
+          "clientRecordId": "",
+          "clientRecordVersion": "9223372036854775807",
+          "device": {
+            "type": 0,
+            "manufacturer": null,
+            "model": null
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "mindfulnessSessionType": 9014,
+        "title": "",
+        "notes": ""
+      }
+    },
+    "I11-activity": {
+      "recordType": "ActivityIntensityRecord",
+      "nativeRecordId": "synthetic-provider-id",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 2,
+          "id": "synthetic-provider-id",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+          "clientRecordId": "synthetic-client-id/α\n\"quoted\"",
+          "clientRecordVersion": "9007199254740993",
+          "device": {
+            "type": 1,
+            "manufacturer": "Synthetic maker",
+            "model": "Synthetic model Δ"
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "activityIntensityType": 9001
+      }
+    },
+    "I12-zero": {
+      "recordType": "WheelchairPushesRecord",
+      "nativeRecordId": "synthetic-provider-id-nullable",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 0,
+          "id": "synthetic-provider-id-nullable",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "1970-01-01T00:00:00Z",
+          "clientRecordId": null,
+          "clientRecordVersion": "0",
+          "device": null
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": null,
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": "+01:00",
+        "count": "0"
+      }
+    },
+    "I12-max": {
+      "recordType": "WheelchairPushesRecord",
+      "nativeRecordId": "synthetic-provider-id-device-null-fields",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 3,
+          "id": "synthetic-provider-id-device-null-fields",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2001-10-29T03:04:05.000000001Z",
+          "clientRecordId": "",
+          "clientRecordVersion": "9223372036854775807",
+          "device": {
+            "type": 0,
+            "manufacturer": null,
+            "model": null
+          }
+        },
+        "startTime": "2001-10-28T00:30:00.123456789Z",
+        "startZoneOffset": "+02:00",
+        "endTime": "2001-10-28T02:30:00.987654321Z",
+        "endZoneOffset": null,
+        "count": "1000000"
+      }
+    },
+    "I13-period": {
+      "recordType": "MenstruationPeriodRecord",
+      "nativeRecordId": "synthetic-provider-id-nullable",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "record": {
+        "metadata": {
+          "recordingMethod": 0,
+          "id": "synthetic-provider-id-nullable",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "1970-01-01T00:00:00Z",
+          "clientRecordId": null,
+          "clientRecordVersion": "0",
+          "device": null
+        },
+        "startTime": "2001-10-28T00:30:00.000000001Z",
+        "startZoneOffset": null,
+        "endTime": "2001-10-28T00:30:00.000000002Z",
+        "endZoneOffset": null
+      }
+    }
+  },
+  "expectedPublicGetters": {
+    "androidx.health.connect.client.records.ActiveCaloriesBurnedRecord": {
+      "getStartTime": "java.time.Instant",
+      "getStartZoneOffset": "java.time.ZoneOffset",
+      "getEndTime": "java.time.Instant",
+      "getEndZoneOffset": "java.time.ZoneOffset",
+      "getEnergy": "androidx.health.connect.client.units.Energy",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata"
+    },
+    "androidx.health.connect.client.records.TotalCaloriesBurnedRecord": {
+      "getStartTime": "java.time.Instant",
+      "getStartZoneOffset": "java.time.ZoneOffset",
+      "getEndTime": "java.time.Instant",
+      "getEndZoneOffset": "java.time.ZoneOffset",
+      "getEnergy": "androidx.health.connect.client.units.Energy",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata"
+    },
+    "androidx.health.connect.client.records.DistanceRecord": {
+      "getStartTime": "java.time.Instant",
+      "getStartZoneOffset": "java.time.ZoneOffset",
+      "getEndTime": "java.time.Instant",
+      "getEndZoneOffset": "java.time.ZoneOffset",
+      "getDistance": "androidx.health.connect.client.units.Length",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata"
+    },
+    "androidx.health.connect.client.records.ElevationGainedRecord": {
+      "getStartTime": "java.time.Instant",
+      "getStartZoneOffset": "java.time.ZoneOffset",
+      "getEndTime": "java.time.Instant",
+      "getEndZoneOffset": "java.time.ZoneOffset",
+      "getElevation": "androidx.health.connect.client.units.Length",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata"
+    },
+    "androidx.health.connect.client.records.FloorsClimbedRecord": {
+      "getStartTime": "java.time.Instant",
+      "getStartZoneOffset": "java.time.ZoneOffset",
+      "getEndTime": "java.time.Instant",
+      "getEndZoneOffset": "java.time.ZoneOffset",
+      "getFloors": "double",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata"
+    },
+    "androidx.health.connect.client.records.HydrationRecord": {
+      "getStartTime": "java.time.Instant",
+      "getStartZoneOffset": "java.time.ZoneOffset",
+      "getEndTime": "java.time.Instant",
+      "getEndZoneOffset": "java.time.ZoneOffset",
+      "getVolume": "androidx.health.connect.client.units.Volume",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata"
+    },
+    "androidx.health.connect.client.records.WheelchairPushesRecord": {
+      "getStartTime": "java.time.Instant",
+      "getStartZoneOffset": "java.time.ZoneOffset",
+      "getEndTime": "java.time.Instant",
+      "getEndZoneOffset": "java.time.ZoneOffset",
+      "getCount": "long",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata"
+    },
+    "androidx.health.connect.client.records.MenstruationPeriodRecord": {
+      "getStartTime": "java.time.Instant",
+      "getStartZoneOffset": "java.time.ZoneOffset",
+      "getEndTime": "java.time.Instant",
+      "getEndZoneOffset": "java.time.ZoneOffset",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata"
+    },
+    "androidx.health.connect.client.records.MindfulnessSessionRecord": {
+      "getStartTime": "java.time.Instant",
+      "getStartZoneOffset": "java.time.ZoneOffset",
+      "getEndTime": "java.time.Instant",
+      "getEndZoneOffset": "java.time.ZoneOffset",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata",
+      "getMindfulnessSessionType": "int",
+      "getTitle": "java.lang.String",
+      "getNotes": "java.lang.String"
+    },
+    "androidx.health.connect.client.records.ActivityIntensityRecord": {
+      "getStartTime": "java.time.Instant",
+      "getStartZoneOffset": "java.time.ZoneOffset",
+      "getEndTime": "java.time.Instant",
+      "getEndZoneOffset": "java.time.ZoneOffset",
+      "getMetadata": "androidx.health.connect.client.records.metadata.Metadata",
+      "getActivityIntensityType": "int"
+    },
+    "androidx.health.connect.client.units.Energy": {
+      "getCalories": "double",
+      "getKilocalories": "double",
+      "getJoules": "double",
+      "getKilojoules": "double"
+    },
+    "androidx.health.connect.client.units.Volume": {
+      "getLiters": "double",
+      "getMilliliters": "double",
+      "getFluidOuncesUs": "double"
+    },
+    "androidx.health.connect.client.units.Length": {
+      "getMeters": "double",
+      "getKilometers": "double",
+      "getMiles": "double",
+      "getInches": "double",
+      "getFeet": "double"
+    }
+  },
+  "expectedRegistry": [
+    "StepsRecord",
+    "WeightRecord",
+    "BodyFatRecord",
+    "BodyWaterMassRecord",
+    "BoneMassRecord",
+    "LeanBodyMassRecord",
+    "HeightRecord",
+    "HeartRateVariabilityRmssdRecord",
+    "RespiratoryRateRecord",
+    "RestingHeartRateRecord",
+    "BasalMetabolicRateRecord",
+    "BasalBodyTemperatureRecord",
+    "BodyTemperatureRecord",
+    "BloodGlucoseRecord",
+    "BloodPressureRecord",
+    "OxygenSaturationRecord",
+    "Vo2MaxRecord",
+    "HeartRateRecord",
+    "SpeedRecord",
+    "PowerRecord",
+    "StepsCadenceRecord",
+    "CyclingPedalingCadenceRecord",
+    "ActiveCaloriesBurnedRecord",
+    "TotalCaloriesBurnedRecord",
+    "DistanceRecord",
+    "ElevationGainedRecord",
+    "FloorsClimbedRecord",
+    "HydrationRecord",
+    "WheelchairPushesRecord",
+    "MenstruationPeriodRecord",
+    "MindfulnessSessionRecord",
+    "ActivityIntensityRecord"
+  ],
+  "originalRecordJson": {
+    "StepsRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"startTime\":\"2001-10-28T00:30:00.123456789Z\",\"startZoneOffset\":\"+02:00\",\"endTime\":\"2001-10-28T02:30:00.987654321Z\",\"endZoneOffset\":\"+01:00\",\"count\":\"1234\"}",
+    "WeightRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"weight\":{\"unit\":\"kg\",\"value\":\"75.25\",\"sdkUnitValues\":{\"g\":\"75250\",\"kg\":\"75.25\",\"mg\":\"75250000\",\"ug\":\"75250000000\",\"oz\":\"2654.365929299685\",\"lb\":\"165.89785229412038\"}}}",
+    "BodyFatRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"percentage\":{\"unit\":\"percent\",\"value\":\"17.125\",\"sdkUnitValues\":{\"percent\":\"17.125\"}}}",
+    "BodyWaterMassRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"mass\":{\"unit\":\"kg\",\"value\":\"40.125\",\"sdkUnitValues\":{\"g\":\"40125\",\"kg\":\"40.125\",\"mg\":\"40125000\",\"ug\":\"40125000000\",\"oz\":\"1415.3678792445164\",\"lb\":\"88.46048270168212\"}}}",
+    "BoneMassRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"mass\":{\"unit\":\"kg\",\"value\":\"3.125\",\"sdkUnitValues\":{\"g\":\"3125\",\"kg\":\"3.125\",\"mg\":\"3125000\",\"ug\":\"3125000000\",\"oz\":\"110.2311432433424\",\"lb\":\"6.889445693277424\"}}}",
+    "LeanBodyMassRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"mass\":{\"unit\":\"kg\",\"value\":\"60.125\",\"sdkUnitValues\":{\"g\":\"60125\",\"kg\":\"60.125\",\"mg\":\"60125000\",\"ug\":\"60125000000\",\"oz\":\"2120.847196001908\",\"lb\":\"132.55293513865763\"}}}",
+    "HeightRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"height\":{\"unit\":\"m\",\"value\":\"1.75\",\"sdkUnitValues\":{\"m\":\"1.75\",\"km\":\"0.00175\",\"mi\":\"0.0010874022891371618\",\"in\":\"68.8976377952756\",\"ft\":\"5.741469816272965\"}}}",
+    "HeartRateVariabilityRmssdRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"heartRateVariabilityMillis\":\"42.125\"}",
+    "RespiratoryRateRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"rate\":\"12.125\"}",
+    "RestingHeartRateRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"beatsPerMinute\":\"61\"}",
+    "BasalMetabolicRateRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"basalMetabolicRate\":{\"unit\":\"W\",\"value\":\"80.125\",\"sdkUnitValues\":{\"W\":\"80.125\",\"kcal/day\":\"1654.5889110196651\"}}}",
+    "BasalBodyTemperatureRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"temperature\":{\"unit\":\"degC\",\"value\":\"36.625\",\"sdkUnitValues\":{\"degC\":\"36.625\",\"degF\":\"97.925\"}},\"measurementLocation\":0}",
+    "BodyTemperatureRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"temperature\":{\"unit\":\"degC\",\"value\":\"37.125\",\"sdkUnitValues\":{\"degC\":\"37.125\",\"degF\":\"98.825\"}},\"measurementLocation\":0}",
+    "BloodGlucoseRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"level\":{\"unit\":\"mmol/L\",\"value\":\"5.125\",\"sdkUnitValues\":{\"mmol/L\":\"5.125\",\"mg/dL\":\"92.25\"}},\"specimenSource\":2,\"mealType\":1,\"relationToMeal\":2}",
+    "BloodPressureRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"systolic\":{\"unit\":\"mmHg\",\"value\":\"120.125\",\"sdkUnitValues\":{\"mmHg\":\"120.125\"}},\"diastolic\":{\"unit\":\"mmHg\",\"value\":\"80.25\",\"sdkUnitValues\":{\"mmHg\":\"80.25\"}},\"bodyPosition\":2,\"measurementLocation\":3}",
+    "OxygenSaturationRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"percentage\":{\"unit\":\"percent\",\"value\":\"97.125\",\"sdkUnitValues\":{\"percent\":\"97.125\"}}}",
+    "Vo2MaxRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"time\":\"2001-02-03T04:05:06.123456789Z\",\"zoneOffset\":\"+05:45\",\"vo2MillilitersPerMinuteKilogram\":\"42.125\",\"measurementMethod\":1}",
+    "HeartRateRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"startTime\":\"2001-10-28T00:30:00.123456789Z\",\"startZoneOffset\":\"+02:00\",\"endTime\":\"2001-10-28T02:30:00.987654321Z\",\"endZoneOffset\":\"+01:00\",\"samples\":[{\"time\":\"2001-10-28T00:35:00.000000001Z\",\"beatsPerMinute\":\"72\"},{\"time\":\"2001-10-28T00:35:00.000000001Z\",\"beatsPerMinute\":\"75\"},{\"time\":\"2001-10-28T02:00:00.999999999Z\",\"beatsPerMinute\":\"88\"}]}",
+    "SpeedRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"startTime\":\"2001-10-28T00:30:00.123456789Z\",\"startZoneOffset\":\"+02:00\",\"endTime\":\"2001-10-28T02:30:00.987654321Z\",\"endZoneOffset\":\"+01:00\",\"samples\":[{\"time\":\"2001-10-28T00:35:00.000000001Z\",\"speed\":{\"unit\":\"m/s\",\"value\":\"1.125\",\"sdkUnitValues\":{\"m/s\":\"1.125\",\"km/h\":\"4.05\",\"mi/h\":\"2.51655131532015\"}}},{\"time\":\"2001-10-28T02:00:00.999999999Z\",\"speed\":{\"unit\":\"m/s\",\"value\":\"2.25\",\"sdkUnitValues\":{\"m/s\":\"2.25\",\"km/h\":\"8.1\",\"mi/h\":\"5.0331026306403\"}}}]}",
+    "PowerRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"startTime\":\"2001-10-28T00:30:00.123456789Z\",\"startZoneOffset\":\"+02:00\",\"endTime\":\"2001-10-28T02:30:00.987654321Z\",\"endZoneOffset\":\"+01:00\",\"samples\":[{\"time\":\"2001-10-28T00:35:00.000000001Z\",\"power\":{\"unit\":\"W\",\"value\":\"110.125\",\"sdkUnitValues\":{\"W\":\"110.125\",\"kcal/day\":\"2274.0917794201637\"}}},{\"time\":\"2001-10-28T02:00:00.999999999Z\",\"power\":{\"unit\":\"W\",\"value\":\"220.25\",\"sdkUnitValues\":{\"W\":\"220.25\",\"kcal/day\":\"4548.183558840327\"}}}]}",
+    "StepsCadenceRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"startTime\":\"2001-10-28T00:30:00.123456789Z\",\"startZoneOffset\":\"+02:00\",\"endTime\":\"2001-10-28T02:30:00.987654321Z\",\"endZoneOffset\":\"+01:00\",\"samples\":[{\"time\":\"2001-10-28T00:35:00.000000001Z\",\"rate\":\"100.125\"},{\"time\":\"2001-10-28T02:00:00.999999999Z\",\"rate\":\"120.25\"}]}",
+    "CyclingPedalingCadenceRecord": "{\"metadata\":{\"recordingMethod\":2,\"id\":\"synthetic-provider-id\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2001-10-29T03:04:05.987654321Z\",\"clientRecordId\":\"synthetic-client-id/α\\n\\\"quoted\\\"\",\"clientRecordVersion\":\"9007199254740993\",\"device\":{\"type\":1,\"manufacturer\":\"Synthetic maker\",\"model\":\"Synthetic model Δ\"}},\"startTime\":\"2001-10-28T00:30:00.123456789Z\",\"startZoneOffset\":\"+02:00\",\"endTime\":\"2001-10-28T02:30:00.987654321Z\",\"endZoneOffset\":\"+01:00\",\"samples\":[{\"time\":\"2001-10-28T00:35:00.000000001Z\",\"revolutionsPerMinute\":\"83.125\"},{\"time\":\"2001-10-28T02:00:00.999999999Z\",\"revolutionsPerMinute\":\"92.25\"}]}"
+  },
+  "literalExpectedGetterValues": {
+    "activeKcal": {
+      "getCalories": "123125",
+      "getKilocalories": "123.125",
+      "getJoules": "515155.0000811884",
+      "getKilojoules": "515.1550000811884"
+    },
+    "totalKcal": {
+      "getCalories": "456125",
+      "getKilocalories": "456.125",
+      "getJoules": "1908427.000300768",
+      "getKilojoules": "1908.427000300768"
+    },
+    "distanceMeters": {
+      "getMeters": "1234.125",
+      "getKilometers": "1.234125",
+      "getMiles": "0.7668516286179428",
+      "getInches": "48587.598425196855",
+      "getFeet": "4048.9665354330705"
+    },
+    "elevationMeters": {
+      "getMeters": "12.125",
+      "getKilometers": "0.012125",
+      "getMiles": "0.007534144431878907",
+      "getInches": "477.3622047244095",
+      "getFeet": "39.78018372703412"
+    },
+    "hydrationLiters": {
+      "getLiters": "0.625",
+      "getMilliliters": "625",
+      "getFluidOuncesUs": "21.133763876006686"
+    }
+  }
+}

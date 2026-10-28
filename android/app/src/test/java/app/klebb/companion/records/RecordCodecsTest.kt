@@ -86,7 +86,11 @@ class RecordCodecsTest {
             "BasalBodyTemperatureRecord", "BodyTemperatureRecord", "BloodGlucoseRecord",
             "BloodPressureRecord", "OxygenSaturationRecord", "Vo2MaxRecord",
             "HeartRateRecord", "SpeedRecord", "PowerRecord",
-            "StepsCadenceRecord", "CyclingPedalingCadenceRecord"),
+            "StepsCadenceRecord", "CyclingPedalingCadenceRecord",
+            "ActiveCaloriesBurnedRecord", "TotalCaloriesBurnedRecord", "DistanceRecord",
+            "ElevationGainedRecord", "FloorsClimbedRecord", "HydrationRecord",
+            "WheelchairPushesRecord", "MenstruationPeriodRecord",
+            "MindfulnessSessionRecord", "ActivityIntensityRecord"),
             RecordCodecs.supportedRecordTypes)
         for (record in listOf(steps(), weight())) {
             val result = RecordCodecs.encode(record)
