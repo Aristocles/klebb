@@ -10,13 +10,17 @@ protocol's payload digest then hashes the complete original UTF-8
 `payloadJson`, not this record alone. Existing record or payload JSON is
 never passed back through this encoder for reserialization.
 
-Twenty-two record types are implemented: `StepsRecord`, `WeightRecord`,
+Thirty-two record types are implemented: `StepsRecord`, `WeightRecord`,
 `BodyFatRecord`, `BodyWaterMassRecord`, `BoneMassRecord`, `LeanBodyMassRecord`,
 `HeightRecord`, `HeartRateVariabilityRmssdRecord`, `RespiratoryRateRecord`,
 `RestingHeartRateRecord`, `BasalMetabolicRateRecord`, `BasalBodyTemperatureRecord`,
 `BodyTemperatureRecord`, `BloodGlucoseRecord`, `BloodPressureRecord`,
 `OxygenSaturationRecord`, `Vo2MaxRecord`, `HeartRateRecord`, `SpeedRecord`,
-`PowerRecord`, `StepsCadenceRecord` and `CyclingPedalingCadenceRecord`.
+`PowerRecord`, `StepsCadenceRecord`, `CyclingPedalingCadenceRecord`,
+`ActiveCaloriesBurnedRecord`, `TotalCaloriesBurnedRecord`, `DistanceRecord`,
+`ElevationGainedRecord`, `FloorsClimbedRecord`, `HydrationRecord`,
+`WheelchairPushesRecord`, `MenstruationPeriodRecord`, `MindfulnessSessionRecord`
+and `ActivityIntensityRecord`.
 The immutable `supportedRecordTypes` registry
 has exactly those entries and has no
 card subscription input. Other classes throw `RecordCodecException` with
@@ -49,6 +53,15 @@ encoded record or checkpoint success is returned.
 | Power sample | `time`, `power` |
 | StepsCadence sample | `time`, `rate` |
 | CyclingPedalingCadence sample | `time`, `revolutionsPerMinute` |
+| ActiveCaloriesBurned, TotalCaloriesBurned | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset`, `energy` |
+| Distance | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset`, `distance` |
+| ElevationGained | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset`, `elevation` |
+| FloorsClimbed | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset`, `floors` |
+| Hydration | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset`, `volume` |
+| WheelchairPushes | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset`, `count` |
+| MenstruationPeriod | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset` |
+| MindfulnessSession | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset`, `mindfulnessSessionType`, `title`, `notes` |
+| ActivityIntensity | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset`, `activityIntensityType` |
 | Metadata | `recordingMethod`, `id`, `dataOrigin`, `lastModifiedTime`, `clientRecordId`, `clientRecordVersion`, `device` |
 | DataOrigin | `packageName` |
 | Device, when present | `type`, `manufacturer`, `model` |
@@ -60,6 +73,8 @@ encoded record or checkpoint success is returned.
 | BloodGlucose unit | `{unit:"mmol/L", value:"…", sdkUnitValues:{"mmol/L":"…", "mg/dL":"…"}}` |
 | Pressure | `{unit:"mmHg", value:"…", sdkUnitValues:{mmHg:"…"}}` |
 | Velocity | `{unit:"m/s", value:"…", sdkUnitValues:{"m/s":"…", "km/h":"…", "mi/h":"…"}}` |
+| Energy | `{unit:"kcal", value:"…", sdkUnitValues:{cal:"…", kcal:"…", J:"…", kJ:"…"}}` |
+| Volume | `{unit:"L", value:"…", sdkUnitValues:{L:"…", mL:"…", "fl. oz (US)":"…"}}` |
 
 Source `Long` values use signed base-10 strings without numeric JSON
 coercion. `count`, `clientRecordVersion` and `beatsPerMinute` retain that precision.
@@ -75,7 +90,7 @@ NaN and infinities refuse. All finite outputs fit the existing shared
 256-character decimal bound. The SDK field type, rather than decimal
 text alone, distinguishes Float32 from Float64; all Mass getters are
 Float64, as are the other exposed measurement-unit getters, `heartRateVariabilityMillis`,
-`rate`, `revolutionsPerMinute` and `vo2MillilitersPerMinuteKilogram`.
+`rate`, `revolutionsPerMinute`, `floors` and `vo2MillilitersPerMinuteKilogram`.
 
 Series retain every sample in its exposed list order, including equal
 timestamps, identical repeated entries and an empty list. No sorting,
@@ -90,6 +105,21 @@ Speed preserves every Velocity getter. For example, the pinned SDK observes
 Its mph factor is `0.447040357632`; an idealised rounded physical factor
 would change a public observation. Power samples reuse both rate
 observations rather than being converted into session energy.
+
+Flat interval records retain the same ordered metadata/time/offset prefix.
+MenstruationPeriod has no extra measurement field; its interval is still
+complete data. Mindfulness preserves null and empty title/notes separately,
+including Unicode and controls. Mindfulness and ActivityIntensity enum
+observations remain numeric Int32; zero is a value, not a missing state.
+Floors remain Float64 strings and wheelchair pushes remain Long strings.
+
+Energy retains calories, kilocalories, joules and kilojoules. For example,
+123.125 kcal exposes `515155.0000811884` J and `515.1550000811884` kJ.
+Volume retains litres, millilitres and US fluid ounces; 0.625 L exposes
+`21.133763876006686` US fluid ounces. The exact pinned public getters are
+preserved without substituting a physical conversion constant or claiming
+the original private unit factory. Canonical kcal and L labels describe
+the serializer's primary value, not an original input unit.
 
 All six Mass getter observations are retained separately. In particular,
 the SDK's conversion constants can produce rounding differences such as
@@ -178,12 +208,34 @@ seventeen output strings pass before mapping. Only registry expected sets
 expand from seventeen to twenty-two; all fixture values stay fixed through
 green, including caller-list mutation after encoding.
 
+`FlatIntervalRecordCodecsTest` adds sixteen fixed checks for ten classes:
+ten primary outputs, null/empty/opaque enums, constructor-limited Long
+counts, one-nanosecond intervals, direct SDK unit literals, 61 record
+getters, twelve unit getters, the exact thirty-two-type registry and all
+twenty-two earlier golden byte strings. The compiling baseline executes
+70 affected checks: thirteen output cases visibly refuse, five registry
+assertions fail and the other 52 pass. The direct SDK check bypasses the
+mapper and decimal helper and passes before mapping, as do all twenty-two
+earlier strings. Fixed literals and the earlier expectations remain unchanged.
+Both inventories agree on the nine stable classes and units; stable 1.1.0
+has no ActivityIntensity, whose six getters are present on alpha.
+
+The selected production SDK remains 1.2.0-alpha06 without an upgrade.
+ActivityIntensity is alpha-only; successful JVM construction and encoding
+does not prove native `FEATURE_ACTIVITY_INTENSITY`, permission or provider
+availability. Mindfulness and ActivityIntensity tests expose unknown enum
+9014 and 9001 in the SDK's older-platform constructor branch. Native branches
+may refuse other inputs. Wheelchair constructors on that branch accept
+counts from zero through 1,000,000 and reject negative/maximum-Long inputs;
+such constructor refusal is separate from the signed Long primitive
+helper's full precision or a codec's unsupported-record result.
+
 BloodPressure and Vo2Max SDK constructors include Android version guards.
 JVM tests exercise their older-platform branch and do not prove native
 Android 17 provider availability. Such availability and signed device
 checks remain separate evidence.
 
-These slices establish pure serialization for twenty-two ordinary types. The
+These slices establish pure serialization for thirty-two ordinary types. The
 remaining ordinary catalogue, complete-page/checkpoint transactions,
 encrypted Room queue, chunking, process death, migrations, purges and
 signed native update checks remain AND-03 gates. This code reads no
