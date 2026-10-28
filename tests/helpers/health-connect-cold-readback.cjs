@@ -9,7 +9,11 @@ function coldReadNative(home) {
   try {
     db.exec('BEGIN');
     const nativeNames = db.prepare("SELECT name FROM sqlite_schema WHERE type='table' "
-      + "AND name GLOB 'health_*' ORDER BY name").all().map(row => row.name);
+      + "AND name GLOB 'health_*' AND name NOT IN ('health_source_index',"
+      + "'health_source_index_frontiers','health_source_index_state') ORDER BY name").all().map(row => row.name);
+    // These three rebuildable tables have their own independent schema/full-row
+    // reader and publication/failure/death checks. Preserve every original
+    // native/object table here, including unexpected additional native tables.
     // A refused request may legitimately never initialise the additive store.
     // Absence means empty native history; a partial schema is never accepted.
     if (nativeNames.length === 0) {
