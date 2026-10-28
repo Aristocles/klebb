@@ -22,6 +22,7 @@ envelope fields and change operations are refused rather than silently removed.
 | `capabilities` | Supported wire version, categories, serializer identities and limits | An implemented endpoint or permission on the phone |
 | `pairing-grant` | Destination, tenant/instance, expiry, grant, approved categories and limits | Browser authority, random generation, expiry enforcement or single use |
 | `pairing-exchange` | Grant plus approved namespace/installation echoes and selected categories | Namespace ownership or a connector credential |
+| `durable-receipt` | Full binding, type, canonical sequence, batch ID and original digest | A matching pending phone batch, device checkpointing or projection completion |
 | `batch` | Exact immutable payload text and its digest | Persistence, acknowledgement or publication |
 | `coverage` | An ordinary-record bounded query and its completeness claim | Native truth or permission to delete absent records |
 | `aggregate` | A saved native aggregate observation with policy, revision and provenance | Freshness without a trusted raw frontier |
@@ -252,8 +253,8 @@ device capture, durable ingestion and release gates have their own tickets.
 ## Scoped browser authority
 
 All routes are under `/api/connectors/health-connect`. They run behind the
-existing import-freeze and refused-recovery gates. They do not accept health
-batches, persist native cursors or acknowledge saved health data.
+existing import-freeze and refused-recovery gates. Native cursors remain outside
+the content protocol. Ordinary uploads use the durable storage contract below.
 
 | Method and suffix | Authority and result |
 | --- | --- |
@@ -263,6 +264,7 @@ batches, persist native cursors or acknowledge saved health data.
 | `POST /v1/pairing/exchange` | One approved `pairing-exchange`; returns `paired` once, after atomic verifier persistence |
 | `GET /v1/capabilities` | A current scoped native bearer and `Klebb-Health-Protocol: 1`; returns extended `capabilities` |
 | `GET /v1/streams/:recordType/status` | A current scoped native bearer, protocol 1, exact `Klebb-Health-Generation` and `Klebb-Health-Restore-Epoch`; returns read-only `stream-status` |
+| `POST /v1/batches` | The same scoped bearer and preconditions; a complete ordinary `batch` returns `200 durable-receipt` after the atomic save |
 
 The destination comes from the configured canonical HTTPS instance origin,
 never Host or forwarding headers. Browser management derives the owner from
@@ -307,11 +309,58 @@ state, never caller labels. A restored epoch invalidates old credentials
 authority is `401 unauthorised`; an unsupported negotiated version is
 `400 unsupported-version`.
 
-At this authority-only stage, the reported acknowledged sequence is `"0"`.
-No upload route exists and no health batch has been saved. CORE-02 must replace
-this initial frontier with its durable stream ledger; capability negotiation
-and serializer declarations describe understood content, not tested capture
-adapters or storage capacity.
+Capabilities and status read the durable stream ledger. A stream with no saved
+batches reports `"0"`. A malformed, partial or inconsistent ledger refuses
+with `503 storage-unavailable`, including a frontier without its matching
+immutable receipt. Capability negotiation and serializer declarations describe
+understood content, not tested capture adapters or storage capacity.
+
+## Ordinary durable uploads
+
+`POST /v1/batches` accepts the bounded original UTF-8 batch frame. After reading
+the asynchronous request body, the server rechecks current credential, category,
+generation, restore epoch and import gates. The complete binding and every native
+identity must match the server-issued scope. Category widening is
+`403 scope-mismatch`; malformed content or a different body binding refuses
+before effects. The server never accepts a browser session as upload authority.
+
+The successful immutable response has exactly:
+
+```json
+{
+  "version": 1,
+  "kind": "durable-receipt",
+  "binding": {
+    "tenantId": "tenant-a",
+    "instanceId": "instance-a",
+    "sourceStoreId": "source-a",
+    "installationId": "installation-a",
+    "generation": "1",
+    "restoreEpoch": "epoch-a"
+  },
+  "recordType": "StepsRecord",
+  "sequence": "1",
+  "batchId": "batch-a",
+  "payloadDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+```
+
+This structural example does not prove a save or supply real authority. The
+receipt's `payloadDigest` covers the exact original `payloadJson`, including its
+whitespace. Projection status never belongs in the response. An identical
+retry returns the original receipt; a changed digest, a different batch ID at
+the used sequence, or reuse of a batch ID at another sequence is `409 conflict`.
+An initial or later gap is `409 sequence-gap`. The sequence starts at `"1"` and
+uses lossless canonical Int64 strings and BigInt arithmetic, without Number
+conversion. A status frontier is not a substitute for matching a pending
+phone batch to its complete receipt.
+
+Ordinary records, source tombstones, receipt, contiguous frontier and one queued
+projection reference commit together. Save failures refuse an ACK; a lost
+response or uncertain outcome must retry the same immutable batch. The outbox
+is independent of the receipt. Its execution, failure/rebuild, large complete
+record assembly and native checkpoint integration remain separate deliveries.
+See [ordinary storage](ordinary-storage.md) for schema and durability limits.
 
 ## Protected state and compatibility
 
