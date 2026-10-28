@@ -13,6 +13,7 @@ internal object RecordJson {
         is Map<*, *> -> value.entries.joinToString(",", "{", "}") {
             quote(it.key as String) + ":" + text(it.value)
         }
+        is List<*> -> value.joinToString(",", "[", "]") { text(it) }
         else -> throw RecordCodecException("unsupported-value")
     }
 

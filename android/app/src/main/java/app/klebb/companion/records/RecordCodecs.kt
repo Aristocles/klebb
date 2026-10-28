@@ -19,6 +19,11 @@ import androidx.health.connect.client.records.BloodGlucoseRecord
 import androidx.health.connect.client.records.BloodPressureRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.Vo2MaxRecord
+import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.SpeedRecord
+import androidx.health.connect.client.records.PowerRecord
+import androidx.health.connect.client.records.StepsCadenceRecord
+import androidx.health.connect.client.records.CyclingPedalingCadenceRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Mass
 import androidx.health.connect.client.units.Length
@@ -27,6 +32,7 @@ import androidx.health.connect.client.units.Power
 import androidx.health.connect.client.units.Temperature
 import androidx.health.connect.client.units.BloodGlucose
 import androidx.health.connect.client.units.Pressure
+import androidx.health.connect.client.units.Velocity
 import java.util.Collections
 import java.time.Instant
 import java.time.ZoneOffset
@@ -48,7 +54,9 @@ object RecordCodecs {
             "BodyWaterMassRecord", "BoneMassRecord", "LeanBodyMassRecord", "HeightRecord",
             "HeartRateVariabilityRmssdRecord", "RespiratoryRateRecord", "RestingHeartRateRecord",
             "BasalMetabolicRateRecord", "BasalBodyTemperatureRecord", "BodyTemperatureRecord",
-            "BloodGlucoseRecord", "BloodPressureRecord", "OxygenSaturationRecord", "Vo2MaxRecord"))
+            "BloodGlucoseRecord", "BloodPressureRecord", "OxygenSaturationRecord", "Vo2MaxRecord",
+            "HeartRateRecord", "SpeedRecord", "PowerRecord",
+            "StepsCadenceRecord", "CyclingPedalingCadenceRecord"))
 
     fun encode(record: Record): EncodedRecord {
         val (type, fields) = when (record) {
@@ -111,6 +119,34 @@ object RecordCodecs {
                 record.metadata, record.time, record.zoneOffset, "vo2MillilitersPerMinuteKilogram",
                 LosslessValues.float64(record.vo2MillilitersPerMinuteKilogram)
             ).apply { put("measurementMethod", record.measurementMethod) }
+            is HeartRateRecord -> "HeartRateRecord" to series(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset, record.samples.map {
+                    linkedMapOf("time" to LosslessValues.instant(it.time),
+                        "beatsPerMinute" to LosslessValues.int64(it.beatsPerMinute))
+                })
+            is SpeedRecord -> "SpeedRecord" to series(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset, record.samples.map {
+                    linkedMapOf("time" to LosslessValues.instant(it.time), "speed" to velocity(it.speed))
+                })
+            is PowerRecord -> "PowerRecord" to series(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset, record.samples.map {
+                    linkedMapOf("time" to LosslessValues.instant(it.time), "power" to power(it.power))
+                })
+            is StepsCadenceRecord -> "StepsCadenceRecord" to series(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset, record.samples.map {
+                    linkedMapOf("time" to LosslessValues.instant(it.time),
+                        "rate" to LosslessValues.float64(it.rate))
+                })
+            is CyclingPedalingCadenceRecord -> "CyclingPedalingCadenceRecord" to series(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset, record.samples.map {
+                    linkedMapOf("time" to LosslessValues.instant(it.time),
+                        "revolutionsPerMinute" to LosslessValues.float64(it.revolutionsPerMinute))
+                })
             else -> throw RecordCodecException("unsupported-record")
         }
         return EncodedRecord(type, record.metadata.id, RecordJson.text(fields))
@@ -123,6 +159,16 @@ object RecordCodecs {
             "time" to LosslessValues.instant(time),
             "zoneOffset" to LosslessValues.offset(offset),
             field to value)
+
+    private fun series(sourceMetadata: Metadata, start: Instant, startOffset: ZoneOffset?,
+                       end: Instant, endOffset: ZoneOffset?, samples: List<Map<String, Any?>>) =
+        linkedMapOf(
+            "metadata" to metadata(sourceMetadata),
+            "startTime" to LosslessValues.instant(start),
+            "startZoneOffset" to LosslessValues.offset(startOffset),
+            "endTime" to LosslessValues.instant(end),
+            "endZoneOffset" to LosslessValues.offset(endOffset),
+            "samples" to samples)
 
     private fun mass(value: Mass) = linkedMapOf(
         "unit" to "kg",
@@ -176,6 +222,14 @@ object RecordCodecs {
         "value" to LosslessValues.float64(value.inMillimetersOfMercury),
         "sdkUnitValues" to linkedMapOf(
             "mmHg" to LosslessValues.float64(value.inMillimetersOfMercury)))
+
+    private fun velocity(value: Velocity) = linkedMapOf(
+        "unit" to "m/s",
+        "value" to LosslessValues.float64(value.inMetersPerSecond),
+        "sdkUnitValues" to linkedMapOf(
+            "m/s" to LosslessValues.float64(value.inMetersPerSecond),
+            "km/h" to LosslessValues.float64(value.inKilometersPerHour),
+            "mi/h" to LosslessValues.float64(value.inMilesPerHour)))
 
     private fun metadata(value: Metadata): Map<String, Any?> {
         if (value.id.isEmpty() || value.id.codePointCount(0, value.id.length) > 256 ||
