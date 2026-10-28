@@ -927,6 +927,7 @@
             "invalid-destination",
             "expired-grant",
             "conflict",
+            "deletion-suppressed",
             "sequence-gap",
             "revoked",
             "storage-unavailable",
