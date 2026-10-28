@@ -9,6 +9,8 @@ const crypto = require('crypto');
 const { marked } = require('marked');
 const { isAuthenticated, isAgentRequest, isPublicPath, handleAuthRoutes, isSetup, listCredentialsForUser, deleteCredentialForUser, getSessionRecord } = require('./auth/webauthn');
 const { handleAdminRoutes } = require('./auth/admin-api');
+const { handleHealthConnect } = require('./lib/health-connect/authority');
+const { isHealthConnectorBearer } = require('./auth/bearer-scope');
 const invites = require('./auth/invites');
 const PATHS = require('./config/paths');
 const ENV = require('./config/env');
@@ -802,6 +804,26 @@ const server = http.createServer(async (req, res) => {
   // verify they're hitting the right build. Session-gated: branch/commit
   // metadata is mild reconnaissance value on a public subdomain, and every
   // consumer (the app shell, the Settings pane) already holds a session.
+  // Native authority remains behind both import gates and cannot reach the
+  // broader session, bootstrap or control-plane dispatch paths.
+  if (await handleHealthConnect(req, res, pathname, () => {
+    if (importFreeze.frozen() !== null) {
+      return { error: 'import in progress', code: 'IMPORT_FROZEN' };
+    }
+    if (importRecoveryRefusedReason !== null) {
+      return {
+        error: 'an interrupted import could not be recovered at boot; this instance refuses to serve',
+        code: 'IMPORT_RECOVERY_FAILED', reason: importRecoveryRefusedReason,
+      };
+    }
+    return null;
+  })) return;
+  if (isHealthConnectorBearer(req)) {
+    sendJSON(res, { error: 'Unauthorized' }, 401);
+    req.resume();
+    return;
+  }
+
   if (pathname === '/api/build') {
     if (!isAuthenticated(req) && !isAgentRequest(req)) {
       res.writeHead(401, { 'Content-Type': 'application/json' });

@@ -15,14 +15,20 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   passed on the first Samsung phone; broader capture and release gates remain.
 - Versioned Health Connect wire contracts and shared fixtures, with exact
   UTF-8 batch digests, separate native identities, lossless value encodings
-  and bounded validation. Pairing and durable ingestion retain their
-  separate implementation gates.
+  and bounded validation.
+- Session-owned Health Connect pairing grants, scoped connector verification,
+  listing and revocation, with generation/restore-epoch refusal and a compact
+  browser destination confirmation. The current Steps pairing proof does not
+  upload health records; Android interoperability and durable ingestion retain
+  their separate implementation gates.
 
 ### Fixed
 
 - Include the planned exercise explicit-time and changes pagination boolean
   properties in both pinned compiled Health Connect SDK inventories, with
   independent coverage assertions.
+- Package shared Health Connect schemas in the runtime container so its
+  connector authority can load without the Android development module.
 
 ## [3.6.0] - 2026-10-22
 
