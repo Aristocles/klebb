@@ -17,6 +17,9 @@
       "$ref": "#/$defs/batch"
     },
     {
+      "$ref": "#/$defs/durableReceipt"
+    },
+    {
       "$ref": "#/$defs/coverage"
     },
     {
@@ -248,6 +251,28 @@
         "identity": {
           "$ref": "#/$defs/identity"
         }
+      }
+    },
+    "durableReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "kind",
+        "binding",
+        "recordType",
+        "sequence",
+        "batchId",
+        "payloadDigest"
+      ],
+      "properties": {
+        "version": { "const": 1 },
+        "kind": { "const": "durable-receipt" },
+        "binding": { "$ref": "#/$defs/binding" },
+        "recordType": { "$ref": "#/$defs/recordType" },
+        "sequence": { "$ref": "#/$defs/int64" },
+        "batchId": { "$ref": "#/$defs/id" },
+        "payloadDigest": { "$ref": "#/$defs/digest" }
       }
     },
     "batchPayload": {
