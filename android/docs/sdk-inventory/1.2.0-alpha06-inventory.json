@@ -1,8 +1,8 @@
 {
   "version": "1.2.0-alpha06",
   "sourceUrl": "https://dl.google.com/dl/android/maven2/androidx/health/connect/connect-client/1.2.0-alpha06/connect-client-1.2.0-alpha06.aar",
-  "artifactSha256": "53d29a565146ae5eb801ed8d5968758539a3d05cb9f882b095cd8587c112cbf7",
-  "compiledClassesSha256": "67f8fd1e32a6b982f2d2da6484568a7ab862a95e7a6124fe14b4e6d670b32ce9",
+  "artifactDigest": "sha256:53d29a565146ae5eb801ed8d5968758539a3d05cb9f882b095cd8587c112cbf7",
+  "compiledClassesDigest": "sha256:67f8fd1e32a6b982f2d2da6484568a7ab862a95e7a6124fe14b4e6d670b32ce9",
   "aarBuildMetadata": {
               "aarFormatVersion": "1.0",
               "aarMetadataVersion": "1.0",

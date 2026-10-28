@@ -27,6 +27,9 @@ aggregate, permission, feature and route-consent APIs. Java signatures do not
 express Kotlin nullability; serializer work must preserve optional fields using
 the Kotlin API and source annotations. Unit getters expose the SDK's available
 representations, not an inaccessible producer input unit.
+The `artifactDigest` and `compiledClassesDigest` values use the standard
+`sha256:<64 hexadecimal characters>` form to identify the algorithm alongside
+the checksum. Input verification still compares the exact pinned SHA-256.
 
 ## Repeat the inventory
 
