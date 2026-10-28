@@ -7,6 +7,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- A read-only Android Health Connect feasibility module with pinned build
+  tooling, external release signing and controlled steps/weight permission
+  checks. Native installation and access remain pending device verification.
+
 ## [3.6.0] - 2026-10-22
 
 ### Added

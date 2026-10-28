@@ -1,0 +1,65 @@
+{
+  "stable": "1.1.0",
+  "alpha": "1.2.0-alpha06",
+  "addedRecords": [
+            "androidx.health.connect.client.records.ActivityIntensityRecord"
+          ],
+  "removedRecords": [
+
+            ],
+  "addedGetters": [
+            {
+              "class": "androidx.health.connect.client.records.ActivityIntensityRecord",
+              "method": "getStartTime",
+              "type": "java.time.Instant"
+            },
+            {
+              "class": "androidx.health.connect.client.records.ActivityIntensityRecord",
+              "method": "getStartZoneOffset",
+              "type": "java.time.ZoneOffset"
+            },
+            {
+              "class": "androidx.health.connect.client.records.ActivityIntensityRecord",
+              "method": "getEndTime",
+              "type": "java.time.Instant"
+            },
+            {
+              "class": "androidx.health.connect.client.records.ActivityIntensityRecord",
+              "method": "getEndZoneOffset",
+              "type": "java.time.ZoneOffset"
+            },
+            {
+              "class": "androidx.health.connect.client.records.ActivityIntensityRecord",
+              "method": "getMetadata",
+              "type": "androidx.health.connect.client.records.metadata.Metadata"
+            },
+            {
+              "class": "androidx.health.connect.client.records.ActivityIntensityRecord",
+              "method": "getActivityIntensityType",
+              "type": "int"
+            },
+            {
+              "class": "androidx.health.connect.client.records.ExerciseSegment",
+              "method": "getWeight",
+              "type": "androidx.health.connect.client.units.Mass"
+            },
+            {
+              "class": "androidx.health.connect.client.records.ExerciseSegment",
+              "method": "getSetIndex",
+              "type": "java.lang.Integer"
+            },
+            {
+              "class": "androidx.health.connect.client.records.ExerciseSegment",
+              "method": "getRateOfPerceivedExertion",
+              "type": "java.lang.Float"
+            },
+            {
+              "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+              "method": "getRateOfPerceivedExertion",
+              "type": "java.lang.Float"
+            }
+          ],
+  "removedGetters": [
+
+            ]
+}

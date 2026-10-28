@@ -1,0 +1,2445 @@
+{
+  "version": "1.2.0-alpha06",
+  "sourceUrl": "https://dl.google.com/dl/android/maven2/androidx/health/connect/connect-client/1.2.0-alpha06/connect-client-1.2.0-alpha06.aar",
+  "artifactSha256": "53d29a565146ae5eb801ed8d5968758539a3d05cb9f882b095cd8587c112cbf7",
+  "compiledClassesSha256": "67f8fd1e32a6b982f2d2da6484568a7ab862a95e7a6124fe14b4e6d670b32ce9",
+  "aarBuildMetadata": {
+              "aarFormatVersion": "1.0",
+              "aarMetadataVersion": "1.0",
+              "minCompileSdk": "37",
+              "minCompileMinorSdk": "0",
+              "minCompileSdkExtension": "0",
+              "minAndroidGradlePluginVersion": "9.1.0",
+              "coreLibraryDesugaringEnabled": "false"
+            },
+  "ordinaryRecordCount": 42,
+  "publicApiClassCount": 189,
+  "ordinaryRecords": [
+              "androidx.health.connect.client.records.ActiveCaloriesBurnedRecord",
+              "androidx.health.connect.client.records.ActivityIntensityRecord",
+              "androidx.health.connect.client.records.BasalBodyTemperatureRecord",
+              "androidx.health.connect.client.records.BasalMetabolicRateRecord",
+              "androidx.health.connect.client.records.BloodGlucoseRecord",
+              "androidx.health.connect.client.records.BloodPressureRecord",
+              "androidx.health.connect.client.records.BodyFatRecord",
+              "androidx.health.connect.client.records.BodyTemperatureRecord",
+              "androidx.health.connect.client.records.BodyWaterMassRecord",
+              "androidx.health.connect.client.records.BoneMassRecord",
+              "androidx.health.connect.client.records.CervicalMucusRecord",
+              "androidx.health.connect.client.records.CyclingPedalingCadenceRecord",
+              "androidx.health.connect.client.records.DistanceRecord",
+              "androidx.health.connect.client.records.ElevationGainedRecord",
+              "androidx.health.connect.client.records.ExerciseSessionRecord",
+              "androidx.health.connect.client.records.FloorsClimbedRecord",
+              "androidx.health.connect.client.records.HeartRateRecord",
+              "androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord",
+              "androidx.health.connect.client.records.HeightRecord",
+              "androidx.health.connect.client.records.HydrationRecord",
+              "androidx.health.connect.client.records.IntermenstrualBleedingRecord",
+              "androidx.health.connect.client.records.LeanBodyMassRecord",
+              "androidx.health.connect.client.records.MenstruationFlowRecord",
+              "androidx.health.connect.client.records.MenstruationPeriodRecord",
+              "androidx.health.connect.client.records.MindfulnessSessionRecord",
+              "androidx.health.connect.client.records.NutritionRecord",
+              "androidx.health.connect.client.records.OvulationTestRecord",
+              "androidx.health.connect.client.records.OxygenSaturationRecord",
+              "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
+              "androidx.health.connect.client.records.PowerRecord",
+              "androidx.health.connect.client.records.RespiratoryRateRecord",
+              "androidx.health.connect.client.records.RestingHeartRateRecord",
+              "androidx.health.connect.client.records.SexualActivityRecord",
+              "androidx.health.connect.client.records.SkinTemperatureRecord",
+              "androidx.health.connect.client.records.SleepSessionRecord",
+              "androidx.health.connect.client.records.SpeedRecord",
+              "androidx.health.connect.client.records.StepsCadenceRecord",
+              "androidx.health.connect.client.records.StepsRecord",
+              "androidx.health.connect.client.records.TotalCaloriesBurnedRecord",
+              "androidx.health.connect.client.records.Vo2MaxRecord",
+              "androidx.health.connect.client.records.WeightRecord",
+              "androidx.health.connect.client.records.WheelchairPushesRecord"
+            ],
+  "exposedGetters": [
+              {
+                "class": "androidx.health.connect.client.HealthConnectClient",
+                "method": "getPermissionController",
+                "type": "androidx.health.connect.client.PermissionController"
+              },
+              {
+                "class": "androidx.health.connect.client.HealthConnectClient",
+                "method": "getFeatures",
+                "type": "androidx.health.connect.client.HealthConnectFeatures"
+              },
+              {
+                "class": "androidx.health.connect.client.aggregate.AggregateMetric",
+                "method": "getMetricKey",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.aggregate.AggregateMetric$AggregationType",
+                "method": "getAggregationTypeString",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.aggregate.AggregationResult",
+                "method": "getLongValues",
+                "type": "java.util.Map<java.lang.String, java.lang.Long>"
+              },
+              {
+                "class": "androidx.health.connect.client.aggregate.AggregationResult",
+                "method": "getDoubleValues",
+                "type": "java.util.Map<java.lang.String, java.lang.Double>"
+              },
+              {
+                "class": "androidx.health.connect.client.aggregate.AggregationResult",
+                "method": "getDataOrigins",
+                "type": "java.util.Set<androidx.health.connect.client.records.metadata.DataOrigin>"
+              },
+              {
+                "class": "androidx.health.connect.client.aggregate.AggregationResultGroupedByDuration",
+                "method": "getResult",
+                "type": "androidx.health.connect.client.aggregate.AggregationResult"
+              },
+              {
+                "class": "androidx.health.connect.client.aggregate.AggregationResultGroupedByDuration",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.aggregate.AggregationResultGroupedByDuration",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.aggregate.AggregationResultGroupedByDuration",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.aggregate.AggregationResultGroupedByPeriod",
+                "method": "getResult",
+                "type": "androidx.health.connect.client.aggregate.AggregationResult"
+              },
+              {
+                "class": "androidx.health.connect.client.aggregate.AggregationResultGroupedByPeriod",
+                "method": "getStartTime",
+                "type": "java.time.LocalDateTime"
+              },
+              {
+                "class": "androidx.health.connect.client.aggregate.AggregationResultGroupedByPeriod",
+                "method": "getEndTime",
+                "type": "java.time.LocalDateTime"
+              },
+              {
+                "class": "androidx.health.connect.client.changes.ChangesEvent",
+                "method": "getNextChangesToken",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.changes.ChangesEvent",
+                "method": "getChanges",
+                "type": "java.util.List<androidx.health.connect.client.changes.Change>"
+              },
+              {
+                "class": "androidx.health.connect.client.changes.DeletionChange",
+                "method": "getRecordId",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.changes.UpsertionChange",
+                "method": "getRecord",
+                "type": "androidx.health.connect.client.records.Record"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ActiveCaloriesBurnedRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ActiveCaloriesBurnedRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ActiveCaloriesBurnedRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ActiveCaloriesBurnedRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ActiveCaloriesBurnedRecord",
+                "method": "getEnergy",
+                "type": "androidx.health.connect.client.units.Energy"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ActiveCaloriesBurnedRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ActivityIntensityRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ActivityIntensityRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ActivityIntensityRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ActivityIntensityRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ActivityIntensityRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ActivityIntensityRecord",
+                "method": "getActivityIntensityType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BasalBodyTemperatureRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BasalBodyTemperatureRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BasalBodyTemperatureRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BasalBodyTemperatureRecord",
+                "method": "getTemperature",
+                "type": "androidx.health.connect.client.units.Temperature"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BasalBodyTemperatureRecord",
+                "method": "getMeasurementLocation",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BasalMetabolicRateRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BasalMetabolicRateRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BasalMetabolicRateRecord",
+                "method": "getBasalMetabolicRate",
+                "type": "androidx.health.connect.client.units.Power"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BasalMetabolicRateRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodGlucoseRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodGlucoseRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodGlucoseRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodGlucoseRecord",
+                "method": "getLevel",
+                "type": "androidx.health.connect.client.units.BloodGlucose"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodGlucoseRecord",
+                "method": "getSpecimenSource",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodGlucoseRecord",
+                "method": "getMealType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodGlucoseRecord",
+                "method": "getRelationToMeal",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodPressureRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodPressureRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodPressureRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodPressureRecord",
+                "method": "getSystolic",
+                "type": "androidx.health.connect.client.units.Pressure"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodPressureRecord",
+                "method": "getDiastolic",
+                "type": "androidx.health.connect.client.units.Pressure"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodPressureRecord",
+                "method": "getBodyPosition",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BloodPressureRecord",
+                "method": "getMeasurementLocation",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyFatRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyFatRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyFatRecord",
+                "method": "getPercentage",
+                "type": "androidx.health.connect.client.units.Percentage"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyFatRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyTemperatureRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyTemperatureRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyTemperatureRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyTemperatureRecord",
+                "method": "getTemperature",
+                "type": "androidx.health.connect.client.units.Temperature"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyTemperatureRecord",
+                "method": "getMeasurementLocation",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyWaterMassRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyWaterMassRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyWaterMassRecord",
+                "method": "getMass",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BodyWaterMassRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BoneMassRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BoneMassRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BoneMassRecord",
+                "method": "getMass",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.BoneMassRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CervicalMucusRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CervicalMucusRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CervicalMucusRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CervicalMucusRecord",
+                "method": "getAppearance",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CervicalMucusRecord",
+                "method": "getSensation",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CyclingPedalingCadenceRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CyclingPedalingCadenceRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CyclingPedalingCadenceRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CyclingPedalingCadenceRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CyclingPedalingCadenceRecord",
+                "method": "getSamples",
+                "type": "java.util.List<androidx.health.connect.client.records.CyclingPedalingCadenceRecord$Sample>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CyclingPedalingCadenceRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CyclingPedalingCadenceRecord$Sample",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.CyclingPedalingCadenceRecord$Sample",
+                "method": "getRevolutionsPerMinute",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.records.DistanceRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.DistanceRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.DistanceRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.DistanceRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.DistanceRecord",
+                "method": "getDistance",
+                "type": "androidx.health.connect.client.units.Length"
+              },
+              {
+                "class": "androidx.health.connect.client.records.DistanceRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ElevationGainedRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ElevationGainedRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ElevationGainedRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ElevationGainedRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ElevationGainedRecord",
+                "method": "getElevation",
+                "type": "androidx.health.connect.client.units.Length"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ElevationGainedRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseCompletionGoal$ActiveCaloriesBurnedGoal",
+                "method": "getActiveCalories",
+                "type": "androidx.health.connect.client.units.Energy"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseCompletionGoal$DistanceAndDurationGoal",
+                "method": "getDistance",
+                "type": "androidx.health.connect.client.units.Length"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseCompletionGoal$DistanceAndDurationGoal",
+                "method": "getDuration",
+                "type": "java.time.Duration"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseCompletionGoal$DistanceGoal",
+                "method": "getDistance",
+                "type": "androidx.health.connect.client.units.Length"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseCompletionGoal$DurationGoal",
+                "method": "getDuration",
+                "type": "java.time.Duration"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseCompletionGoal$RepetitionsGoal",
+                "method": "getRepetitions",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseCompletionGoal$StepsGoal",
+                "method": "getSteps",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseCompletionGoal$TotalCaloriesBurnedGoal",
+                "method": "getTotalCalories",
+                "type": "androidx.health.connect.client.units.Energy"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseLap",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseLap",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseLap",
+                "method": "getLength",
+                "type": "androidx.health.connect.client.units.Length"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExercisePerformanceTarget$CadenceTarget",
+                "method": "getMinCadence",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExercisePerformanceTarget$CadenceTarget",
+                "method": "getMaxCadence",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExercisePerformanceTarget$HeartRateTarget",
+                "method": "getMinHeartRate",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExercisePerformanceTarget$HeartRateTarget",
+                "method": "getMaxHeartRate",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExercisePerformanceTarget$PowerTarget",
+                "method": "getMinPower",
+                "type": "androidx.health.connect.client.units.Power"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExercisePerformanceTarget$PowerTarget",
+                "method": "getMaxPower",
+                "type": "androidx.health.connect.client.units.Power"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExercisePerformanceTarget$RateOfPerceivedExertionTarget",
+                "method": "getRpe",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExercisePerformanceTarget$SpeedTarget",
+                "method": "getMinSpeed",
+                "type": "androidx.health.connect.client.units.Velocity"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExercisePerformanceTarget$SpeedTarget",
+                "method": "getMaxSpeed",
+                "type": "androidx.health.connect.client.units.Velocity"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExercisePerformanceTarget$WeightTarget",
+                "method": "getMass",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseRoute",
+                "method": "getRoute",
+                "type": "java.util.List<androidx.health.connect.client.records.ExerciseRoute$Location>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseRoute$Location",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseRoute$Location",
+                "method": "getLatitude",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseRoute$Location",
+                "method": "getLongitude",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseRoute$Location",
+                "method": "getHorizontalAccuracy",
+                "type": "androidx.health.connect.client.units.Length"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseRoute$Location",
+                "method": "getVerticalAccuracy",
+                "type": "androidx.health.connect.client.units.Length"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseRoute$Location",
+                "method": "getAltitude",
+                "type": "androidx.health.connect.client.units.Length"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseRouteResult$Data",
+                "method": "getExerciseRoute",
+                "type": "androidx.health.connect.client.records.ExerciseRoute"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSegment",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSegment",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSegment",
+                "method": "getSegmentType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSegment",
+                "method": "getRepetitions",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSegment",
+                "method": "getWeight",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSegment",
+                "method": "getSetIndex",
+                "type": "java.lang.Integer"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSegment",
+                "method": "getRateOfPerceivedExertion",
+                "type": "java.lang.Float"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getExerciseType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getTitle",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getNotes",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getSegments",
+                "type": "java.util.List<androidx.health.connect.client.records.ExerciseSegment>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getLaps",
+                "type": "java.util.List<androidx.health.connect.client.records.ExerciseLap>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getExerciseRouteResult",
+                "type": "androidx.health.connect.client.records.ExerciseRouteResult"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getPlannedExerciseSessionId",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.ExerciseSessionRecord",
+                "method": "getRateOfPerceivedExertion",
+                "type": "java.lang.Float"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FhirResource",
+                "method": "getType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FhirResource",
+                "method": "getId",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FhirResource",
+                "method": "getData",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FhirVersion",
+                "method": "getMajor",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FhirVersion",
+                "method": "getMinor",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FhirVersion",
+                "method": "getPatch",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FhirVersion",
+                "method": "isSupportedFhirVersion",
+                "type": "boolean"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FloorsClimbedRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FloorsClimbedRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FloorsClimbedRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FloorsClimbedRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FloorsClimbedRecord",
+                "method": "getFloors",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.records.FloorsClimbedRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeartRateRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeartRateRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeartRateRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeartRateRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeartRateRecord",
+                "method": "getSamples",
+                "type": "java.util.List<androidx.health.connect.client.records.HeartRateRecord$Sample>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeartRateRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeartRateRecord$Sample",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeartRateRecord$Sample",
+                "method": "getBeatsPerMinute",
+                "type": "long"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord",
+                "method": "getHeartRateVariabilityMillis",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeightRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeightRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeightRecord",
+                "method": "getHeight",
+                "type": "androidx.health.connect.client.units.Length"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HeightRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HydrationRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HydrationRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HydrationRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HydrationRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HydrationRecord",
+                "method": "getVolume",
+                "type": "androidx.health.connect.client.units.Volume"
+              },
+              {
+                "class": "androidx.health.connect.client.records.HydrationRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.InstantaneousRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.InstantaneousRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.IntermenstrualBleedingRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.IntermenstrualBleedingRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.IntermenstrualBleedingRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.IntervalRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.IntervalRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.IntervalRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.IntervalRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.LeanBodyMassRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.LeanBodyMassRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.LeanBodyMassRecord",
+                "method": "getMass",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.LeanBodyMassRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalDataSource",
+                "method": "getId",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalDataSource",
+                "method": "getPackageName",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalDataSource",
+                "method": "getFhirBaseUri",
+                "type": "android.net.Uri"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalDataSource",
+                "method": "getDisplayName",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalDataSource",
+                "method": "getFhirVersion",
+                "type": "androidx.health.connect.client.records.FhirVersion"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalDataSource",
+                "method": "getLastDataUpdateTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalResource",
+                "method": "getType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalResource",
+                "method": "getId",
+                "type": "androidx.health.connect.client.records.MedicalResourceId"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalResource",
+                "method": "getDataSourceId",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalResource",
+                "method": "getFhirVersion",
+                "type": "androidx.health.connect.client.records.FhirVersion"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalResource",
+                "method": "getFhirResource",
+                "type": "androidx.health.connect.client.records.FhirResource"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalResourceId",
+                "method": "getDataSourceId",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalResourceId",
+                "method": "getFhirResourceType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MedicalResourceId",
+                "method": "getFhirResourceId",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MenstruationFlowRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MenstruationFlowRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MenstruationFlowRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MenstruationFlowRecord",
+                "method": "getFlow",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MenstruationPeriodRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MenstruationPeriodRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MenstruationPeriodRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MenstruationPeriodRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MenstruationPeriodRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MindfulnessSessionRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MindfulnessSessionRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MindfulnessSessionRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MindfulnessSessionRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MindfulnessSessionRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MindfulnessSessionRecord",
+                "method": "getMindfulnessSessionType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MindfulnessSessionRecord",
+                "method": "getTitle",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.MindfulnessSessionRecord",
+                "method": "getNotes",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getBiotin",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getCaffeine",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getCalcium",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getEnergy",
+                "type": "androidx.health.connect.client.units.Energy"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getEnergyFromFat",
+                "type": "androidx.health.connect.client.units.Energy"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getChloride",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getCholesterol",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getChromium",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getCopper",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getDietaryFiber",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getFolate",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getFolicAcid",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getIodine",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getIron",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getMagnesium",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getManganese",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getMolybdenum",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getMonounsaturatedFat",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getNiacin",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getPantothenicAcid",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getPhosphorus",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getPolyunsaturatedFat",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getPotassium",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getProtein",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getRiboflavin",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getSaturatedFat",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getSelenium",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getSodium",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getSugar",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getThiamin",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getTotalCarbohydrate",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getTotalFat",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getTransFat",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getUnsaturatedFat",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getVitaminA",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getVitaminB12",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getVitaminB6",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getVitaminC",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getVitaminD",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getVitaminE",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getVitaminK",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getZinc",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getName",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.NutritionRecord",
+                "method": "getMealType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.OvulationTestRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.OvulationTestRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.OvulationTestRecord",
+                "method": "getResult",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.OvulationTestRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.OxygenSaturationRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.OxygenSaturationRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.OxygenSaturationRecord",
+                "method": "getPercentage",
+                "type": "androidx.health.connect.client.units.Percentage"
+              },
+              {
+                "class": "androidx.health.connect.client.records.OxygenSaturationRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseBlock",
+                "method": "getRepetitions",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseBlock",
+                "method": "getSteps",
+                "type": "java.util.List<androidx.health.connect.client.records.PlannedExerciseStep>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseBlock",
+                "method": "getDescription",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
+                "method": "getExerciseType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
+                "method": "getCompletedExerciseSessionId",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
+                "method": "getBlocks",
+                "type": "java.util.List<androidx.health.connect.client.records.PlannedExerciseBlock>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
+                "method": "getTitle",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseSessionRecord",
+                "method": "getNotes",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseStep",
+                "method": "getExerciseType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseStep",
+                "method": "getExercisePhase",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseStep",
+                "method": "getCompletionGoal",
+                "type": "androidx.health.connect.client.records.ExerciseCompletionGoal"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseStep",
+                "method": "getPerformanceTargets",
+                "type": "java.util.List<androidx.health.connect.client.records.ExercisePerformanceTarget>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PlannedExerciseStep",
+                "method": "getDescription",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PowerRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PowerRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PowerRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PowerRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PowerRecord",
+                "method": "getSamples",
+                "type": "java.util.List<androidx.health.connect.client.records.PowerRecord$Sample>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PowerRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PowerRecord$Sample",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.PowerRecord$Sample",
+                "method": "getPower",
+                "type": "androidx.health.connect.client.units.Power"
+              },
+              {
+                "class": "androidx.health.connect.client.records.Record",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.RespiratoryRateRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.RespiratoryRateRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.RespiratoryRateRecord",
+                "method": "getRate",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.records.RespiratoryRateRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.RestingHeartRateRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.RestingHeartRateRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.RestingHeartRateRecord",
+                "method": "getBeatsPerMinute",
+                "type": "long"
+              },
+              {
+                "class": "androidx.health.connect.client.records.RestingHeartRateRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SeriesRecord",
+                "method": "getSamples",
+                "type": "java.util.List<T>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SexualActivityRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SexualActivityRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SexualActivityRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SexualActivityRecord",
+                "method": "getProtectionUsed",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SkinTemperatureRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SkinTemperatureRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SkinTemperatureRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SkinTemperatureRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SkinTemperatureRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SkinTemperatureRecord",
+                "method": "getDeltas",
+                "type": "java.util.List<androidx.health.connect.client.records.SkinTemperatureRecord$Delta>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SkinTemperatureRecord",
+                "method": "getBaseline",
+                "type": "androidx.health.connect.client.units.Temperature"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SkinTemperatureRecord",
+                "method": "getMeasurementLocation",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SkinTemperatureRecord$Delta",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SkinTemperatureRecord$Delta",
+                "method": "getDelta",
+                "type": "androidx.health.connect.client.units.TemperatureDelta"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SleepSessionRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SleepSessionRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SleepSessionRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SleepSessionRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SleepSessionRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SleepSessionRecord",
+                "method": "getTitle",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SleepSessionRecord",
+                "method": "getNotes",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SleepSessionRecord",
+                "method": "getStages",
+                "type": "java.util.List<androidx.health.connect.client.records.SleepSessionRecord$Stage>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SleepSessionRecord$Stage",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SleepSessionRecord$Stage",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SleepSessionRecord$Stage",
+                "method": "getStage",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SpeedRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SpeedRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SpeedRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SpeedRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SpeedRecord",
+                "method": "getSamples",
+                "type": "java.util.List<androidx.health.connect.client.records.SpeedRecord$Sample>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SpeedRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SpeedRecord$Sample",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.SpeedRecord$Sample",
+                "method": "getSpeed",
+                "type": "androidx.health.connect.client.units.Velocity"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsCadenceRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsCadenceRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsCadenceRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsCadenceRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsCadenceRecord",
+                "method": "getSamples",
+                "type": "java.util.List<androidx.health.connect.client.records.StepsCadenceRecord$Sample>"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsCadenceRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsCadenceRecord$Sample",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsCadenceRecord$Sample",
+                "method": "getRate",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsRecord",
+                "method": "getCount",
+                "type": "long"
+              },
+              {
+                "class": "androidx.health.connect.client.records.StepsRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.TotalCaloriesBurnedRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.TotalCaloriesBurnedRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.TotalCaloriesBurnedRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.TotalCaloriesBurnedRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.TotalCaloriesBurnedRecord",
+                "method": "getEnergy",
+                "type": "androidx.health.connect.client.units.Energy"
+              },
+              {
+                "class": "androidx.health.connect.client.records.TotalCaloriesBurnedRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.Vo2MaxRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.Vo2MaxRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.Vo2MaxRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.Vo2MaxRecord",
+                "method": "getVo2MillilitersPerMinuteKilogram",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.records.Vo2MaxRecord",
+                "method": "getMeasurementMethod",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.WeightRecord",
+                "method": "getTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.WeightRecord",
+                "method": "getZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.WeightRecord",
+                "method": "getWeight",
+                "type": "androidx.health.connect.client.units.Mass"
+              },
+              {
+                "class": "androidx.health.connect.client.records.WeightRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.WheelchairPushesRecord",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.WheelchairPushesRecord",
+                "method": "getStartZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.WheelchairPushesRecord",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.WheelchairPushesRecord",
+                "method": "getEndZoneOffset",
+                "type": "java.time.ZoneOffset"
+              },
+              {
+                "class": "androidx.health.connect.client.records.WheelchairPushesRecord",
+                "method": "getCount",
+                "type": "long"
+              },
+              {
+                "class": "androidx.health.connect.client.records.WheelchairPushesRecord",
+                "method": "getMetadata",
+                "type": "androidx.health.connect.client.records.metadata.Metadata"
+              },
+              {
+                "class": "androidx.health.connect.client.records.metadata.DataOrigin",
+                "method": "getPackageName",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.metadata.Device",
+                "method": "getType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.metadata.Device",
+                "method": "getManufacturer",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.metadata.Device",
+                "method": "getModel",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.metadata.Metadata",
+                "method": "getRecordingMethod",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.records.metadata.Metadata",
+                "method": "getId",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.metadata.Metadata",
+                "method": "getDataOrigin",
+                "type": "androidx.health.connect.client.records.metadata.DataOrigin"
+              },
+              {
+                "class": "androidx.health.connect.client.records.metadata.Metadata",
+                "method": "getLastModifiedTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.records.metadata.Metadata",
+                "method": "getClientRecordId",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.records.metadata.Metadata",
+                "method": "getClientRecordVersion",
+                "type": "long"
+              },
+              {
+                "class": "androidx.health.connect.client.records.metadata.Metadata",
+                "method": "getDevice",
+                "type": "androidx.health.connect.client.records.metadata.Device"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ChangesTokenRequest",
+                "method": "getRecordTypes",
+                "type": "java.util.Set<kotlin.reflect.KClass<? extends androidx.health.connect.client.records.Record>>"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ChangesTokenRequest",
+                "method": "getDataOriginFilters",
+                "type": "java.util.Set<androidx.health.connect.client.records.metadata.DataOrigin>"
+              },
+              {
+                "class": "androidx.health.connect.client.request.CreateMedicalDataSourceRequest",
+                "method": "getFhirBaseUri",
+                "type": "android.net.Uri"
+              },
+              {
+                "class": "androidx.health.connect.client.request.CreateMedicalDataSourceRequest",
+                "method": "getDisplayName",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.request.CreateMedicalDataSourceRequest",
+                "method": "getFhirVersion",
+                "type": "androidx.health.connect.client.records.FhirVersion"
+              },
+              {
+                "class": "androidx.health.connect.client.request.DeleteMedicalResourcesRequest",
+                "method": "getDataSourceIds",
+                "type": "java.util.Set<java.lang.String>"
+              },
+              {
+                "class": "androidx.health.connect.client.request.DeleteMedicalResourcesRequest",
+                "method": "getMedicalResourceTypes",
+                "type": "java.util.Set<java.lang.Integer>"
+              },
+              {
+                "class": "androidx.health.connect.client.request.GetMedicalDataSourcesRequest",
+                "method": "getPackageNames",
+                "type": "java.util.List<java.lang.String>"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ReadMedicalResourcesInitialRequest",
+                "method": "getMedicalResourceType",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ReadMedicalResourcesInitialRequest",
+                "method": "getMedicalDataSourceIds",
+                "type": "java.util.Set<java.lang.String>"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ReadMedicalResourcesPageRequest",
+                "method": "getPageToken",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ReadMedicalResourcesRequest",
+                "method": "getPageSize",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ReadRecordsRequest",
+                "method": "getRecordType",
+                "type": "kotlin.reflect.KClass<T>"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ReadRecordsRequest",
+                "method": "getTimeRangeFilter",
+                "type": "androidx.health.connect.client.time.TimeRangeFilter"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ReadRecordsRequest",
+                "method": "getDataOriginFilter",
+                "type": "java.util.Set<androidx.health.connect.client.records.metadata.DataOrigin>"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ReadRecordsRequest",
+                "method": "getAscendingOrder",
+                "type": "boolean"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ReadRecordsRequest",
+                "method": "getPageSize",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ReadRecordsRequest",
+                "method": "getPageToken",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.request.ReadRecordsRequest",
+                "method": "getDeduplicateStrategy",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.request.UpsertMedicalResourceRequest",
+                "method": "getDataSourceId",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.request.UpsertMedicalResourceRequest",
+                "method": "getFhirVersion",
+                "type": "androidx.health.connect.client.records.FhirVersion"
+              },
+              {
+                "class": "androidx.health.connect.client.request.UpsertMedicalResourceRequest",
+                "method": "getData",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.response.ChangesResponse",
+                "method": "getChanges",
+                "type": "java.util.List<androidx.health.connect.client.changes.Change>"
+              },
+              {
+                "class": "androidx.health.connect.client.response.ChangesResponse",
+                "method": "getNextChangesToken",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.response.ChangesResponse",
+                "method": "getChangesTokenExpired",
+                "type": "boolean"
+              },
+              {
+                "class": "androidx.health.connect.client.response.InsertRecordsResponse",
+                "method": "getRecordIdsList",
+                "type": "java.util.List<java.lang.String>"
+              },
+              {
+                "class": "androidx.health.connect.client.response.ReadMedicalResourcesResponse",
+                "method": "getMedicalResources",
+                "type": "java.util.List<androidx.health.connect.client.records.MedicalResource>"
+              },
+              {
+                "class": "androidx.health.connect.client.response.ReadMedicalResourcesResponse",
+                "method": "getNextPageToken",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.response.ReadMedicalResourcesResponse",
+                "method": "getRemainingCount",
+                "type": "int"
+              },
+              {
+                "class": "androidx.health.connect.client.response.ReadRecordResponse",
+                "method": "getRecord",
+                "type": "T"
+              },
+              {
+                "class": "androidx.health.connect.client.response.ReadRecordsResponse",
+                "method": "getRecords",
+                "type": "java.util.List<T>"
+              },
+              {
+                "class": "androidx.health.connect.client.response.ReadRecordsResponse",
+                "method": "getPageToken",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.time.TimeRangeFilter",
+                "method": "getStartTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.time.TimeRangeFilter",
+                "method": "getEndTime",
+                "type": "java.time.Instant"
+              },
+              {
+                "class": "androidx.health.connect.client.time.TimeRangeFilter",
+                "method": "getLocalStartTime",
+                "type": "java.time.LocalDateTime"
+              },
+              {
+                "class": "androidx.health.connect.client.time.TimeRangeFilter",
+                "method": "getLocalEndTime",
+                "type": "java.time.LocalDateTime"
+              },
+              {
+                "class": "androidx.health.connect.client.units.BloodGlucose",
+                "method": "getMillimolesPerLiter",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.BloodGlucose",
+                "method": "getMilligramsPerDeciliter",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.BloodGlucose",
+                "method": "getMillimolesPerLiterPerUnit",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.BloodGlucose",
+                "method": "getTitle",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Energy",
+                "method": "getCalories",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Energy",
+                "method": "getKilocalories",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Energy",
+                "method": "getJoules",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Energy",
+                "method": "getKilojoules",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Energy",
+                "method": "getCaloriesPerUnit",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Energy",
+                "method": "getTitle",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Length",
+                "method": "getMeters",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Length",
+                "method": "getKilometers",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Length",
+                "method": "getMiles",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Length",
+                "method": "getInches",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Length",
+                "method": "getFeet",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Length",
+                "method": "getMetersPerUnit",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Mass",
+                "method": "getGrams",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Mass",
+                "method": "getKilograms",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Mass",
+                "method": "getMilligrams",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Mass",
+                "method": "getMicrograms",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Mass",
+                "method": "getOunces",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Mass",
+                "method": "getPounds",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Mass",
+                "method": "getGramsPerUnit",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Percentage",
+                "method": "getValue",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Power",
+                "method": "getWatts",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Power",
+                "method": "getKilocaloriesPerDay",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Power",
+                "method": "getWattsPerUnit",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Power",
+                "method": "getTitle",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Pressure",
+                "method": "getMillimetersOfMercury",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Temperature",
+                "method": "getCelsius",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Temperature",
+                "method": "getFahrenheit",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Temperature",
+                "method": "getTitle",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.units.TemperatureDelta",
+                "method": "getCelsius",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.TemperatureDelta",
+                "method": "getFahrenheit",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.TemperatureDelta",
+                "method": "getTitle",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Velocity",
+                "method": "getMetersPerSecond",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Velocity",
+                "method": "getKilometersPerHour",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Velocity",
+                "method": "getMilesPerHour",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Velocity",
+                "method": "getMetersPerSecondPerUnit",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Velocity",
+                "method": "getTitle",
+                "type": "java.lang.String"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Volume",
+                "method": "getLiters",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Volume",
+                "method": "getMilliliters",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Volume",
+                "method": "getFluidOuncesUs",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Volume",
+                "method": "getLitersPerUnit",
+                "type": "double"
+              },
+              {
+                "class": "androidx.health.connect.client.units.Volume",
+                "method": "getTitle",
+                "type": "java.lang.String"
+              }
+            ],
+  "inventoryCommand": "javap -public -constants -classpath classes.jar <selected SDK public model/API classes>",
+  "scope": "Concrete ordinary records, nested values, metadata, units, route and medical models, request/response/change/aggregate APIs, permissions, feature constants and route contracts. Kotlin internal and synthetic getters are excluded from the source-field list but retained in raw signatures. Java signatures do not express Kotlin nullability. Runtime availability and implemented serialization remain separate evidence."
+}
