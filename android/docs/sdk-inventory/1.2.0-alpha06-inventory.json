@@ -13,7 +13,7 @@
               "coreLibraryDesugaringEnabled": "false"
             },
   "ordinaryRecordCount": 42,
-  "publicApiClassCount": 189,
+  "publicApiClassCount": 180,
   "ordinaryRecords": [
               "androidx.health.connect.client.records.ActiveCaloriesBurnedRecord",
               "androidx.health.connect.client.records.ActivityIntensityRecord",
@@ -2235,16 +2235,6 @@
                 "type": "double"
               },
               {
-                "class": "androidx.health.connect.client.units.BloodGlucose",
-                "method": "getMillimolesPerLiterPerUnit",
-                "type": "double"
-              },
-              {
-                "class": "androidx.health.connect.client.units.BloodGlucose",
-                "method": "getTitle",
-                "type": "java.lang.String"
-              },
-              {
                 "class": "androidx.health.connect.client.units.Energy",
                 "method": "getCalories",
                 "type": "double"
@@ -2263,16 +2253,6 @@
                 "class": "androidx.health.connect.client.units.Energy",
                 "method": "getKilojoules",
                 "type": "double"
-              },
-              {
-                "class": "androidx.health.connect.client.units.Energy",
-                "method": "getCaloriesPerUnit",
-                "type": "double"
-              },
-              {
-                "class": "androidx.health.connect.client.units.Energy",
-                "method": "getTitle",
-                "type": "java.lang.String"
               },
               {
                 "class": "androidx.health.connect.client.units.Length",
@@ -2297,11 +2277,6 @@
               {
                 "class": "androidx.health.connect.client.units.Length",
                 "method": "getFeet",
-                "type": "double"
-              },
-              {
-                "class": "androidx.health.connect.client.units.Length",
-                "method": "getMetersPerUnit",
                 "type": "double"
               },
               {
@@ -2335,11 +2310,6 @@
                 "type": "double"
               },
               {
-                "class": "androidx.health.connect.client.units.Mass",
-                "method": "getGramsPerUnit",
-                "type": "double"
-              },
-              {
                 "class": "androidx.health.connect.client.units.Percentage",
                 "method": "getValue",
                 "type": "double"
@@ -2353,16 +2323,6 @@
                 "class": "androidx.health.connect.client.units.Power",
                 "method": "getKilocaloriesPerDay",
                 "type": "double"
-              },
-              {
-                "class": "androidx.health.connect.client.units.Power",
-                "method": "getWattsPerUnit",
-                "type": "double"
-              },
-              {
-                "class": "androidx.health.connect.client.units.Power",
-                "method": "getTitle",
-                "type": "java.lang.String"
               },
               {
                 "class": "androidx.health.connect.client.units.Pressure",
@@ -2380,11 +2340,6 @@
                 "type": "double"
               },
               {
-                "class": "androidx.health.connect.client.units.Temperature",
-                "method": "getTitle",
-                "type": "java.lang.String"
-              },
-              {
                 "class": "androidx.health.connect.client.units.TemperatureDelta",
                 "method": "getCelsius",
                 "type": "double"
@@ -2393,11 +2348,6 @@
                 "class": "androidx.health.connect.client.units.TemperatureDelta",
                 "method": "getFahrenheit",
                 "type": "double"
-              },
-              {
-                "class": "androidx.health.connect.client.units.TemperatureDelta",
-                "method": "getTitle",
-                "type": "java.lang.String"
               },
               {
                 "class": "androidx.health.connect.client.units.Velocity",
@@ -2415,16 +2365,6 @@
                 "type": "double"
               },
               {
-                "class": "androidx.health.connect.client.units.Velocity",
-                "method": "getMetersPerSecondPerUnit",
-                "type": "double"
-              },
-              {
-                "class": "androidx.health.connect.client.units.Velocity",
-                "method": "getTitle",
-                "type": "java.lang.String"
-              },
-              {
                 "class": "androidx.health.connect.client.units.Volume",
                 "method": "getLiters",
                 "type": "double"
@@ -2438,18 +2378,8 @@
                 "class": "androidx.health.connect.client.units.Volume",
                 "method": "getFluidOuncesUs",
                 "type": "double"
-              },
-              {
-                "class": "androidx.health.connect.client.units.Volume",
-                "method": "getLitersPerUnit",
-                "type": "double"
-              },
-              {
-                "class": "androidx.health.connect.client.units.Volume",
-                "method": "getTitle",
-                "type": "java.lang.String"
               }
             ],
   "inventoryCommand": "javap -public -constants -classpath classes.jar <selected SDK public model/API classes>",
-  "scope": "Concrete ordinary records, nested values, metadata, units, route and medical models, request/response/change/aggregate APIs, permissions, feature constants and route contracts. Kotlin internal and synthetic getters are excluded from the source-field list but retained in raw signatures. Java signatures do not express Kotlin nullability. Runtime availability and implemented serialization remain separate evidence."
+  "scope": "Concrete ordinary records, nested values, metadata, units, route and medical models, request/response/change/aggregate APIs, permissions, feature constants and route contracts. Getters on non-public declaring classes and Kotlin internal/synthetic getters are excluded from the source-field list but retained in raw signatures. Java signatures do not express Kotlin nullability. Runtime availability and implemented serialization remain separate evidence."
 }

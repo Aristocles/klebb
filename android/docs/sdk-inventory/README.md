@@ -16,7 +16,7 @@ source-visible getter was removed in this comparison.
 Both pins expose `PlannedExerciseSessionRecord.hasExplicitTime()` and
 `ChangesResponse.hasMore()` as boolean Kotlin property getters with explicit
 Java names. The structured inventory includes `get`, `is` and `has` accessors:
-468 in stable and 478 in alpha. Omitting `has` loses the planned session's
+454 in stable and 464 in alpha. Omitting `has` loses the planned session's
 explicit-time field and the changes response's pagination field.
 
 The alpha dependency preserves the possibility of capturing activity intensity
@@ -26,10 +26,19 @@ AGP 9.1.0; stable requires compile SDK 36 and minimum AGP 8.9.1. The application
 uses a separately pinned build toolchain compatible with SDK 37.
 
 Each `*-inventory.json` records artifact and compiled-class SHA-256, concrete
-record names and public source-field getters. Each `*-public-api.txt` preserves
+record names and public source-field getters under their actual public
+declaring class. Stable has 178 public selected classes and alpha has 180.
+The raw selected class lists contain 187 and 189 classes respectively,
+including nine non-public nested unit classes retained for inspection.
+Their public instance methods are not public fields on the enclosing unit.
+For example, `Mass$Type.getGramsPerUnit()` is not a getter on public `Mass`.
+Each `*-public-api.txt` preserves
 public constructors, getters and constants for record models, nested samples,
 metadata, units, routes and medical resources, plus request, response, change,
-aggregate, permission, feature and route-consent APIs. Java signatures do not
+aggregate, permission, feature and route-consent APIs. These raw signatures
+also retain public members of the selected non-public classes; declaring
+class visibility determines inclusion in the structured source-field list.
+Java signatures do not
 express Kotlin nullability; serializer work must preserve optional fields using
 the Kotlin API and source annotations. Unit getters expose the SDK's available
 representations, not an inaccessible producer input unit.
@@ -63,6 +72,8 @@ Run the independent coverage assertions against regenerated outputs:
 
 ```powershell
 ./android/tools/check-inventory.ps1 -InventoryRoot ./android/build/sdk-inventory
+./android/tools/test-inventory-ownership.ps1
+./android/tools/check-inventory-ownership.ps1 -InventoryRoot ./android/build/sdk-inventory
 ```
 
 The assertions use fixed SDK contract expectations for ordinary record counts,
@@ -74,6 +85,15 @@ are registered in Android CI and fail on an inventory that omits uppercase
 nested models or those nonstandard property getters. Getter matching is
 case-sensitive so `hashCode()` is not mistaken for a `has` property; exact
 accessor counts also guard against including unrelated methods.
+
+The separate ownership check reads complete public declaration blocks from
+the raw compiled signatures and compares every structured accessor's owner,
+method and return type. It also verifies the actual public class count.
+Fixed positive and negative fixtures cover a non-public class between two
+public classes, a getter attributed to the wrong public owner, missing or
+duplicate fields, static methods and a selected-class count used as the
+public count. Negative cases exercise each pinned version independently.
+Both these fixtures and the ownership check run in Android CI.
 
 The text inventories have exact comparisons in CI. JSON inventories have
 semantic comparisons because PowerShell versions can format equivalent JSON
