@@ -201,6 +201,7 @@ function clearSessionCookie(res) {
 
 // Auth middleware: returns true if request is authenticated (or route is public)
 function isAuthenticated(req) {
+  if (require('./bearer-scope').isHealthConnectorBearer(req)) return false;
   if (isAgentRequest(req)) return true;
   // In demo mode, only a real session counts. The bootstrap "no creds yet"
   // shortcut would otherwise let unauthenticated visitors past the gate.
@@ -224,6 +225,7 @@ function bearerMatches(presented, expected) {
 // relax webapp-only gates (e.g. past/future-date restrictions on writes)
 // for legitimate server-to-server writers.
 function isAgentRequest(req) {
+  if (require('./bearer-scope').isHealthConnectorBearer(req)) return false;
   const agentToken = process.env.AGENT_API_TOKEN;
   if (!agentToken) return false;
   const auth = req.headers['authorization'];

@@ -1,0 +1,137 @@
+{
+  "fixtureVersion": 1,
+  "binding": {
+    "tenantId": "tenant-a",
+    "instanceId": "instance-a",
+    "sourceStoreId": "store-a",
+    "installationId": "install-a",
+    "generation": "7",
+    "restoreEpoch": "epoch-a"
+  },
+  "categories": [
+    "StepsRecord"
+  ],
+  "limits": {
+    "maxBytes": 1048576,
+    "maxChanges": 500,
+    "maxDepth": 16,
+    "maxNodes": 20000,
+    "maxSamples": 10000,
+    "maxParts": 128,
+    "maxObjectBytes": 67108864
+  },
+  "cases": [
+    {
+      "id": "approved-grant",
+      "wire": "{\"version\":1,\"kind\":\"pairing-grant\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"destination\":\"https://health.example.test\",\"grant\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"expiresAt\":\"2026-10-28T04:00:00.000000001Z\",\"categories\":[\"StepsRecord\"],\"limits\":{\"maxBytes\":1048576,\"maxChanges\":500,\"maxDepth\":16,\"maxNodes\":20000,\"maxSamples\":10000,\"maxParts\":128,\"maxObjectBytes\":67108864},\"sourceStoreId\":\"store-a\",\"restoreEpoch\":\"epoch-a\"}",
+      "expectedBytes": 445,
+      "expectedKind": "pairing-grant"
+    },
+    {
+      "id": "paired",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"StepsRecord\"],\"streams\":{\"StepsRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"0\"}},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}",
+      "expectedBytes": 399,
+      "expectedKind": "paired"
+    },
+    {
+      "id": "connector-capabilities",
+      "wire": "{\"version\":1,\"kind\":\"capabilities\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"restoreEpoch\":\"epoch-a\",\"supportedVersions\":[1],\"limits\":{\"maxBytes\":1048576,\"maxChanges\":500,\"maxDepth\":16,\"maxNodes\":20000,\"maxSamples\":10000,\"maxParts\":128,\"maxObjectBytes\":67108864},\"categories\":[\"StepsRecord\"],\"serializers\":[{\"id\":\"health-connect-record\",\"version\":1,\"dataFamily\":\"ordinary\"}],\"destination\":\"https://health.example.test\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"streams\":{\"StepsRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"0\"}}}",
+      "expectedBytes": 581,
+      "expectedKind": "capabilities"
+    },
+    {
+      "id": "stream-status",
+      "wire": "{\"version\":1,\"kind\":\"stream-status\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"generation\":\"7\",\"acknowledgedSequence\":\"0\"}",
+      "expectedBytes": 264,
+      "expectedKind": "stream-status"
+    },
+    {
+      "id": "connector-list",
+      "wire": "{\"version\":1,\"kind\":\"connector-list\",\"destination\":\"https://health.example.test\",\"connectors\":[{\"id\":\"connector-a\",\"name\":\"Test phone\",\"categories\":[\"StepsRecord\"],\"createdAt\":\"2026-10-28T00:00:00Z\",\"revokedAt\":null}]}",
+      "expectedBytes": 218,
+      "expectedKind": "connector-list"
+    }
+  ],
+  "rejectedCases": [
+    {
+      "id": "missing-stream",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"StepsRecord\"],\"streams\":{},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}",
+      "expectedCode": "invalid-message"
+    },
+    {
+      "id": "wider-stream",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"StepsRecord\"],\"streams\":{\"StepsRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"0\"},\"WeightRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"0\"}},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}",
+      "expectedCode": "scope-denied"
+    },
+    {
+      "id": "numeric-generation",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"StepsRecord\"],\"streams\":{\"StepsRecord\":{\"generation\":7,\"acknowledgedSequence\":\"0\"}},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}",
+      "expectedCode": "invalid-message"
+    },
+    {
+      "id": "unsafe-frontier",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"StepsRecord\"],\"streams\":{\"StepsRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"9223372036854775808\"}},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}",
+      "expectedCode": "invalid-message"
+    },
+    {
+      "id": "broader-credential",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"StepsRecord\"],\"streams\":{\"StepsRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"0\"}},\"credential\":\"broader-admin-secret\"}",
+      "expectedCode": "invalid-message"
+    },
+    {
+      "id": "unexpected-authority",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"StepsRecord\"],\"streams\":{\"StepsRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"0\"}},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"adminToken\":\"synthetic-unexpected\"}",
+      "expectedCode": "invalid-message"
+    },
+    {
+      "id": "http-destination",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"http://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"StepsRecord\"],\"streams\":{\"StepsRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"0\"}},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}",
+      "expectedCode": "invalid-destination"
+    },
+    {
+      "id": "userinfo-destination",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://user@health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"StepsRecord\"],\"streams\":{\"StepsRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"0\"}},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}",
+      "expectedCode": "invalid-destination"
+    },
+    {
+      "id": "changed-namespace",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-b\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"StepsRecord\"],\"streams\":{\"StepsRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"0\"}},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}",
+      "expectedCode": "binding-mismatch"
+    },
+    {
+      "id": "changed-installation",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-b\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"StepsRecord\"],\"streams\":{\"StepsRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"0\"}},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}",
+      "expectedCode": "binding-mismatch"
+    },
+    {
+      "id": "changed-epoch",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-b\",\"categories\":[\"StepsRecord\"],\"streams\":{\"StepsRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"0\"}},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}",
+      "expectedCode": "binding-mismatch"
+    },
+    {
+      "id": "wider-category",
+      "wire": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"StepsRecord\",\"WeightRecord\"],\"streams\":{\"StepsRecord\":{\"generation\":\"7\",\"acknowledgedSequence\":\"0\"}},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}",
+      "expectedCode": "scope-denied"
+    },
+    {
+      "id": "capabilities-missing-streams",
+      "wire": "{\"version\":1,\"kind\":\"capabilities\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"restoreEpoch\":\"epoch-a\",\"supportedVersions\":[1],\"limits\":{\"maxBytes\":1048576,\"maxChanges\":500,\"maxDepth\":16,\"maxNodes\":20000,\"maxSamples\":10000,\"maxParts\":128,\"maxObjectBytes\":67108864},\"categories\":[\"StepsRecord\"],\"serializers\":[{\"id\":\"health-connect-record\",\"version\":1,\"dataFamily\":\"ordinary\"}],\"destination\":\"https://health.example.test\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\"}",
+      "expectedCode": "invalid-message"
+    },
+    {
+      "id": "status-generation-disagreement",
+      "wire": "{\"version\":1,\"kind\":\"stream-status\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"generation\":\"8\",\"acknowledgedSequence\":\"0\"}",
+      "expectedCode": "binding-mismatch"
+    },
+    {
+      "id": "status-binding-generation",
+      "wire": "{\"version\":1,\"kind\":\"stream-status\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"8\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"generation\":\"8\",\"acknowledgedSequence\":\"0\"}",
+      "expectedCode": "binding-mismatch"
+    },
+    {
+      "id": "list-leaks-verifier",
+      "wire": "{\"version\":1,\"kind\":\"connector-list\",\"destination\":\"https://health.example.test\",\"connectors\":[{\"id\":\"connector-a\",\"name\":\"Test phone\",\"categories\":[\"StepsRecord\"],\"createdAt\":\"2026-10-28T00:00:00Z\",\"revokedAt\":null,\"credentialVerifier\":\"synthetic-unexpected\"}]}",
+      "expectedCode": "invalid-message"
+    }
+  ]
+}
