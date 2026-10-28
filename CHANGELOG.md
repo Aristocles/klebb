@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Android codecs for ten flat interval records, preserving every public
+  energy/volume/length observation, metadata, nullable strings and opaque
+  numeric enums. Native capture and encrypted queue gates remain open.
+
 - An explicit native health storage V2 migration with a verified consistent
   safety copy, required deletion-guard schema and unchanged V1 operation.
   Deletion admission and user controls remain separate programme work.

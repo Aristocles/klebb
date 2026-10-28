@@ -110,8 +110,12 @@ class UnitInstantRecordCodecsTest {
         }
         val registry = (fixed["expectedRegistry"] as List<*>).toSet() + setOf(
             "HeartRateRecord", "SpeedRecord", "PowerRecord",
-            "StepsCadenceRecord", "CyclingPedalingCadenceRecord")
-        assertEquals(22, registry.size)
+            "StepsCadenceRecord", "CyclingPedalingCadenceRecord",
+            "ActiveCaloriesBurnedRecord", "TotalCaloriesBurnedRecord", "DistanceRecord",
+            "ElevationGainedRecord", "FloorsClimbedRecord", "HydrationRecord",
+            "WheelchairPushesRecord", "MenstruationPeriodRecord",
+            "MindfulnessSessionRecord", "ActivityIntensityRecord")
+        assertEquals(32, registry.size)
         assertEquals(registry, RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")
