@@ -330,6 +330,8 @@ test('sequence arithmetic persists consecutive canonical Int64 strings beyond Nu
         ['9007199254740992', '9007199254740993', 'synthetic-wide-sequence'],
         ['9223372036854775806', '9223372036854775807', 'synthetic-maximum-sequence'],
       ]) {
+        // Seed stopped storage, independently of post-ACK index work.
+        await data.server.kill(); data.server = null;
         // A saved frontier must also have its own matching immutable receipt.
         // Seed both components of this deliberately large synthetic history.
         const priorBatchId = `synthetic-predecessor-${prior}`;
@@ -346,6 +348,7 @@ test('sequence arithmetic persists consecutive canonical Int64 strings beyond Nu
           .run(key, prior, priorBatchId, priorDigest, JSON.stringify(priorReceipt));
         writer.prepare('UPDATE health_streams SET acknowledged_sequence = ?').run(prior);
         writer.exec('COMMIT');
+        await restart(data);
         const vector = bindVector('initial-raw-only', data.binding);
         vector.payload.sequence = next;
         vector.payload.batchId = batchId;
