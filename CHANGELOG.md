@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Android codecs for eight additional body and physiology records, with
+  complete public unit observations and stable Steps/Weight encodings.
+  Native capture and encrypted queue checks remain separate delivery gates.
+
 - Complete-record Health Connect multipart uploads with bounded physical
   staging, atomic finalisation and compact retry metadata, plus absolute
   abandoned-part expiry and shared Node/Kotlin payload validation.

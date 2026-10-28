@@ -80,7 +80,9 @@ class RecordCodecsTest {
         assertEquals("unsupported-record", error.message)
     }
     @Test fun s10RegistryAndEnvelopeAdvertiseOnlyImplementedAdapters() {
-        assertEquals(setOf("StepsRecord", "WeightRecord"), RecordCodecs.supportedRecordTypes)
+        assertEquals(setOf("StepsRecord", "WeightRecord", "BodyFatRecord", "BodyWaterMassRecord",
+            "BoneMassRecord", "LeanBodyMassRecord", "HeightRecord", "HeartRateVariabilityRmssdRecord",
+            "RespiratoryRateRecord", "RestingHeartRateRecord"), RecordCodecs.supportedRecordTypes)
         for (record in listOf(steps(), weight())) {
             val result = RecordCodecs.encode(record)
             assertEquals("health-connect-record", result.serializerId)
