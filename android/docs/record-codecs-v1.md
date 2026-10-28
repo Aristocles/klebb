@@ -10,12 +10,14 @@ protocol's payload digest then hashes the complete original UTF-8
 `payloadJson`, not this record alone. Existing record or payload JSON is
 never passed back through this encoder for reserialization.
 
-Seventeen record types are implemented: `StepsRecord`, `WeightRecord`,
+Twenty-two record types are implemented: `StepsRecord`, `WeightRecord`,
 `BodyFatRecord`, `BodyWaterMassRecord`, `BoneMassRecord`, `LeanBodyMassRecord`,
 `HeightRecord`, `HeartRateVariabilityRmssdRecord`, `RespiratoryRateRecord`,
 `RestingHeartRateRecord`, `BasalMetabolicRateRecord`, `BasalBodyTemperatureRecord`,
 `BodyTemperatureRecord`, `BloodGlucoseRecord`, `BloodPressureRecord`,
-`OxygenSaturationRecord` and `Vo2MaxRecord`. The immutable `supportedRecordTypes` registry
+`OxygenSaturationRecord`, `Vo2MaxRecord`, `HeartRateRecord`, `SpeedRecord`,
+`PowerRecord`, `StepsCadenceRecord` and `CyclingPedalingCadenceRecord`.
+The immutable `supportedRecordTypes` registry
 has exactly those entries and has no
 card subscription input. Other classes throw `RecordCodecException` with
 the fixed code `unsupported-record`, before inspecting their metadata.
@@ -41,6 +43,12 @@ encoded record or checkpoint success is returned.
 | BloodPressure | `metadata`, `time`, `zoneOffset`, `systolic`, `diastolic`, `bodyPosition`, `measurementLocation` |
 | OxygenSaturation | `metadata`, `time`, `zoneOffset`, `percentage` |
 | Vo2Max | `metadata`, `time`, `zoneOffset`, `vo2MillilitersPerMinuteKilogram`, `measurementMethod` |
+| HeartRate, Speed, Power, StepsCadence, CyclingPedalingCadence | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset`, `samples` |
+| HeartRate sample | `time`, `beatsPerMinute` |
+| Speed sample | `time`, `speed` |
+| Power sample | `time`, `power` |
+| StepsCadence sample | `time`, `rate` |
+| CyclingPedalingCadence sample | `time`, `revolutionsPerMinute` |
 | Metadata | `recordingMethod`, `id`, `dataOrigin`, `lastModifiedTime`, `clientRecordId`, `clientRecordVersion`, `device` |
 | DataOrigin | `packageName` |
 | Device, when present | `type`, `manufacturer`, `model` |
@@ -51,6 +59,7 @@ encoded record or checkpoint success is returned.
 | Temperature | `{unit:"degC", value:"…", sdkUnitValues:{degC:"…", degF:"…"}}` |
 | BloodGlucose unit | `{unit:"mmol/L", value:"…", sdkUnitValues:{"mmol/L":"…", "mg/dL":"…"}}` |
 | Pressure | `{unit:"mmHg", value:"…", sdkUnitValues:{mmHg:"…"}}` |
+| Velocity | `{unit:"m/s", value:"…", sdkUnitValues:{"m/s":"…", "km/h":"…", "mi/h":"…"}}` |
 
 Source `Long` values use signed base-10 strings without numeric JSON
 coercion. `count`, `clientRecordVersion` and `beatsPerMinute` retain that precision.
@@ -66,7 +75,21 @@ NaN and infinities refuse. All finite outputs fit the existing shared
 256-character decimal bound. The SDK field type, rather than decimal
 text alone, distinguishes Float32 from Float64; all Mass getters are
 Float64, as are the other exposed measurement-unit getters, `heartRateVariabilityMillis`,
-`rate` and `vo2MillilitersPerMinuteKilogram`.
+`rate`, `revolutionsPerMinute` and `vo2MillilitersPerMinuteKilogram`.
+
+Series retain every sample in its exposed list order, including equal
+timestamps, identical repeated entries and an empty list. No sorting,
+deduplication, averaging or gap filling occurs. The returned JSON String
+holds no live reference to the caller's list. Sample time uses the same
+nanosecond instant contract; start and end offsets remain independent.
+Heart-rate sample values remain Long strings and both cadence fields
+retain their distinct SDK names and Float64 observations.
+
+Speed preserves every Velocity getter. For example, the pinned SDK observes
+`1.25` m/s, `4.5` km/h and `2.7961681281335005` mi/h from a 4.5 km/h input.
+Its mph factor is `0.447040357632`; an idealised rounded physical factor
+would change a public observation. Power samples reuse both rate
+observations rather than being converted into session energy.
 
 All six Mass getter observations are retained separately. In particular,
 the SDK's conversion constants can produce rounding differences such as
@@ -143,13 +166,26 @@ registry-only expected sets deliberately expand from ten to seventeen
 before mapping; all earlier output and refusal expectations stay fixed.
 The expected values are reused independent literals, not encoder output.
 
+`SampleSeriesRecordCodecsTest` adds twelve fixed checks for the five
+series classes: ten complete records, 30 record getters, ten nested sample
+getters, five unit getters, the exact twenty-two-type registry and all
+seventeen earlier golden JSON byte strings. Both pinned inventories and
+actual compiled generic `getSamples` return types are checked; erased List
+identity alone cannot verify the nested Sample class. Its compiling
+baseline executes 54 affected tests: ten new record cases visibly refuse,
+four registry assertions fail, and the other 40 checks pass. The original
+seventeen output strings pass before mapping. Only registry expected sets
+expand from seventeen to twenty-two; all fixture values stay fixed through
+green, including caller-list mutation after encoding.
+
 BloodPressure and Vo2Max SDK constructors include Android version guards.
 JVM tests exercise their older-platform branch and do not prove native
 Android 17 provider availability. Such availability and signed device
 checks remain separate evidence.
 
-These slices establish pure serialization for seventeen ordinary types. The
+These slices establish pure serialization for twenty-two ordinary types. The
 remaining ordinary catalogue, complete-page/checkpoint transactions,
 encrypted Room queue, chunking, process death, migrations, purges and
 signed native update checks remain AND-03 gates. This code reads no
-Health Connect history, stages no batch and sends no data.
+Health Connect history, stages no batch and sends no data. Series encoding
+does not truncate lists to satisfy a wire limit or implement record chunking.
