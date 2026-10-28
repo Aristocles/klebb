@@ -35,7 +35,12 @@ $alphaFields = @(
   @('ExerciseSegment', 'getRateOfPerceivedExertion', 'java.lang.Float'),
   @('ExerciseSessionRecord', 'getRateOfPerceivedExertion', 'java.lang.Float')
 )
+$sharedProperties = @(
+  @(($prefix + 'PlannedExerciseSessionRecord'), 'hasExplicitTime', 'boolean'),
+  @('androidx.health.connect.client.response.ChangesResponse', 'hasMore', 'boolean')
+)
 $versions = [ordered]@{ '1.1.0' = 41; '1.2.0-alpha06' = 42 }
+$getterCounts = @{ '1.1.0' = 468; '1.2.0-alpha06' = 478 }
 
 foreach ($version in $versions.Keys) {
   $inventory = Get-Content -LiteralPath (Join-Path $InventoryRoot "$version-inventory.json") -Raw | ConvertFrom-Json
@@ -49,6 +54,15 @@ foreach ($version in $versions.Keys) {
     if (($prefix + $name) -cnotin $inventory.ordinaryRecords) {
       throw "Missing required ordinary model $name in SDK $version."
     }
+  }
+  foreach ($field in $sharedProperties) {
+    $actual = @($inventory.exposedGetters | Where-Object { $_.class -ceq $field[0] -and $_.method -ceq $field[1] })
+    if ($actual.Count -ne 1 -or $actual[0].type -cne $field[2]) {
+      throw "Missing or incorrect shared property $($field[0]).$($field[1]) in SDK $version."
+    }
+  }
+  if (@($inventory.exposedGetters).Count -ne $getterCounts[$version]) {
+    throw "Incorrect public property getter count in SDK $version."
   }
   foreach ($name in $nested.Keys) {
     $className = $prefix + $name
@@ -83,4 +97,4 @@ foreach ($version in $versions.Keys) {
     }
   }
 }
-Write-Output 'Independent ordinary, nested route/sample/stage and alpha exercise inventory checks passed.'
+Write-Output 'Independent ordinary, shared properties, nested route/sample/stage and alpha exercise inventory checks passed.'

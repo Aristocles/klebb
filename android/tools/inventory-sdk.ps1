@@ -112,7 +112,7 @@ foreach ($version in $artifacts.Keys) {
     if ($line -match '^public (?:final |abstract )?(?:class|interface) ([^ <]+)') {
       $currentClass = $Matches[1]
     }
-    if ($line -match '^  public (?:final |abstract |default )?([^ ]+(?:<.+>)?) ((?:get|is)[A-Z][^ ($]+)\(\);$') {
+    if ($line -cmatch '^  public (?:final |abstract |default )?([^ ]+(?:<.+>)?) ((?:get|is|has)[A-Z][^ ($]+)\(\);$') {
       $getters += [ordered]@{ class = $currentClass; method = $Matches[2]; type = $Matches[1] }
     }
   }
