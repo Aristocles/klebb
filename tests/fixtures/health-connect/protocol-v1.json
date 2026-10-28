@@ -1,0 +1,167 @@
+{
+  "fixtureVersion": 1,
+  "limits": {
+    "maxBytes": 1048576,
+    "maxChanges": 500,
+    "maxDepth": 16,
+    "maxNodes": 20000,
+    "maxSamples": 10000,
+    "maxParts": 128,
+    "maxObjectBytes": 67108864
+  },
+  "binding": {
+    "tenantId": "tenant-a",
+    "instanceId": "instance-a",
+    "sourceStoreId": "store-a",
+    "installationId": "install-a",
+    "generation": "7",
+    "restoreEpoch": "epoch-a"
+  },
+  "categories": [
+    "StepsRecord",
+    "BodyWaterMassRecord"
+  ],
+  "rawFrontiers": {
+    "StepsRecord": "12",
+    "BodyWaterMassRecord": "10"
+  },
+  "cases": [
+    {
+      "id": "capabilities",
+      "wire": "{\"version\":1,\"kind\":\"capabilities\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"restoreEpoch\":\"epoch-a\",\"supportedVersions\":[1],\"limits\":{\"maxBytes\":1048576,\"maxChanges\":500,\"maxDepth\":16,\"maxNodes\":20000,\"maxSamples\":10000,\"maxParts\":128,\"maxObjectBytes\":67108864},\"categories\":[\"StepsRecord\",\"BodyWaterMassRecord\"],\"serializers\":[{\"id\":\"health-connect-record\",\"version\":1,\"dataFamily\":\"ordinary\"}]}",
+      "expectedBytes": 404,
+      "expectedKind": "capabilities"
+    },
+    {
+      "id": "grant",
+      "wire": "{\"version\":1,\"kind\":\"pairing-grant\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"destination\":\"https://health.example.test\",\"grant\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"expiresAt\":\"2026-10-28T04:00:00.000000001Z\",\"categories\":[\"StepsRecord\"],\"limits\":{\"maxBytes\":1048576,\"maxChanges\":500,\"maxDepth\":16,\"maxNodes\":20000,\"maxSamples\":10000,\"maxParts\":128,\"maxObjectBytes\":67108864}}",
+      "expectedBytes": 394,
+      "expectedKind": "pairing-grant"
+    },
+    {
+      "id": "exchange",
+      "wire": "{\"version\":1,\"kind\":\"pairing-exchange\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"grant\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"installationId\":\"install-a\",\"sourceStoreId\":\"store-a\",\"categories\":[\"StepsRecord\"]}",
+      "expectedBytes": 225,
+      "expectedKind": "pairing-exchange"
+    },
+    {
+      "id": "batch",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:d00b9348b17aa026697367017da1f2cbca4a10b22c32f9450a39bd3ca734cbd4\"}",
+      "expectedBytes": 1302,
+      "expectedKind": "batch"
+    },
+    {
+      "id": "coverage",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":true,\"permissionsStable\":true,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":true,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedBytes": 1030,
+      "expectedKind": "coverage"
+    },
+    {
+      "id": "aggregate",
+      "wire": "{\"version\":1,\"kind\":\"aggregate\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"requiredRawFrontier\":\"12\",\"status\":\"current\",\"metric\":\"COUNT_TOTAL\",\"observation\":{\"state\":\"value\",\"quantity\":\"9007199254740993.000000001\",\"unit\":\"count\"},\"revision\":\"1\",\"policyVersion\":\"native-platform-v1\",\"provenance\":{\"provider\":\"health-connect-native\",\"originPackages\":[\"org.example.synthetic\"]},\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedBytes": 968,
+      "expectedKind": "aggregate"
+    },
+    {
+      "id": "part",
+      "wire": "{\"version\":1,\"kind\":\"object-part\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"batchId\":\"batch-b\",\"sequence\":\"10\",\"identity\":{\"tenantId\":\"tenant-a\",\"sourceStoreId\":\"store-a\",\"recordType\":\"StepsRecord\",\"nativeRecordId\":\"native-a\"},\"objectId\":\"object-a\",\"objectDigest\":\"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"partCount\":1,\"totalBytes\":3,\"partIndex\":0,\"partBase64\":\"YWJj\",\"partDigest\":\"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\"}",
+      "expectedBytes": 631,
+      "expectedKind": "object-part"
+    },
+    {
+      "id": "finalise",
+      "wire": "{\"version\":1,\"kind\":\"object-finalise\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"batchId\":\"batch-b\",\"sequence\":\"10\",\"identity\":{\"tenantId\":\"tenant-a\",\"sourceStoreId\":\"store-a\",\"recordType\":\"StepsRecord\",\"nativeRecordId\":\"native-a\"},\"objectId\":\"object-a\",\"objectDigest\":\"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"partCount\":1,\"totalBytes\":3,\"parts\":[{\"index\":0,\"bytes\":3,\"digest\":\"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\"}]}",
+      "expectedBytes": 629,
+      "expectedKind": "object-finalise"
+    },
+    {
+      "id": "error",
+      "wire": "{\"version\":1,\"kind\":\"error\",\"code\":\"invalid-message\",\"retryable\":false}",
+      "expectedBytes": 71,
+      "expectedKind": "error"
+    },
+    {
+      "id": "rawOnly",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"BodyWaterMassRecord\\\",\\\"sequence\\\":\\\"10\\\",\\\"batchId\\\":\\\"batch-c\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"BodyWaterMassRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"raw-only\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\"},\\\"time\\\":\\\"2026-10-28T03:45:40.549000001Z\\\",\\\"mass\\\":{\\\"value\\\":\\\"75.250000000000001\\\",\\\"unit\\\":\\\"kilograms\\\"},\\\"unknownEnum\\\":2147483647},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1}]}\",\"payloadDigest\":\"sha256:24f7106c3455addcc000f6c244a1af6deb3e1c8a5bcd3cb4d7cdde97451ea8ad\"}",
+      "expectedBytes": 894,
+      "expectedKind": "batch"
+    },
+    {
+      "id": "aggregateZero",
+      "wire": "{\"version\":1,\"kind\":\"aggregate\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"requiredRawFrontier\":\"12\",\"status\":\"current\",\"metric\":\"COUNT_TOTAL\",\"observation\":{\"state\":\"value\",\"quantity\":\"0\",\"unit\":\"count\"},\"revision\":\"1\",\"policyVersion\":\"native-platform-v1\",\"provenance\":{\"provider\":\"health-connect-native\",\"originPackages\":[\"org.example.synthetic\"]},\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedBytes": 943,
+      "expectedKind": "aggregate"
+    },
+    {
+      "id": "aggregateEmpty",
+      "wire": "{\"version\":1,\"kind\":\"aggregate\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"requiredRawFrontier\":\"12\",\"status\":\"current\",\"metric\":\"COUNT_TOTAL\",\"observation\":{\"state\":\"empty\",\"quantity\":null,\"unit\":\"count\"},\"revision\":\"1\",\"policyVersion\":\"native-platform-v1\",\"provenance\":{\"provider\":\"health-connect-native\",\"originPackages\":[\"org.example.synthetic\"]},\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedBytes": 944,
+      "expectedKind": "aggregate"
+    },
+    {
+      "id": "coverageUnlimitedHistory",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:52495088d9bd1c194e476059000058270d70feab5a17101a6befec197c721165\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":true,\"permissionsStable\":true,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":true,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":null,\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false},\\\"importStart\\\":\\\"2026-10-28T03:45:19.999999999Z\\\"}\"}",
+      "expectedBytes": 1061,
+      "expectedKind": "coverage"
+    }
+  ],
+  "digestVectors": [
+    {
+      "text": "",
+      "bytes": 0,
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "text": "{}",
+      "bytes": 2,
+      "digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "text": "{\"note\":\"Ω\"}",
+      "bytes": 13,
+      "digest": "sha256:a2c033ed6003bacce03e588a8a257ea78ae4545eadfb0753d7e629d91df35fb8"
+    },
+    {
+      "text": "{\"long\":\"9007199254740993\",\"quantity\":\"75.250000000000001\"}",
+      "bytes": 59,
+      "digest": "sha256:e845cd02b2080d28a141ef83d2f5aefff9e63a33e60aef5e835c8a0f6714838b"
+    },
+    {
+      "text": "{\"a\":1,\"b\":2}",
+      "bytes": 13,
+      "digest": "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
+    },
+    {
+      "text": "{\"b\":2,\"a\":1}",
+      "bytes": 13,
+      "digest": "sha256:3fb75453225c732a76b7899ea2096dda1455189c89817239732182f73fe5a09f"
+    },
+    {
+      "text": "{ \"a\":1,\"b\":2}",
+      "bytes": 14,
+      "digest": "sha256:b29eceaf002fe08f316f40f51c667164574cc64c161ff95fa345090898709d8b"
+    },
+    {
+      "text": "[1,2]",
+      "bytes": 5,
+      "digest": "sha256:49a64717d5d4cb19952e6eac2946415cf6879adacf9908e7d872332d32c6e684"
+    },
+    {
+      "text": "[2,1]",
+      "bytes": 5,
+      "digest": "sha256:af1a1fc110b6094c48582b0ef83553cb7908d7a4365424eef28e76ef6c88d630"
+    },
+    {
+      "text": "{\"x\":null}",
+      "bytes": 10,
+      "digest": "sha256:c6b8df5aba33a39cbdee46ffaf77fae93ea2aa7d99d66408162b05a42105bd71"
+    }
+  ],
+  "serializers": [
+    {
+      "id": "health-connect-record",
+      "version": 1,
+      "dataFamily": "ordinary"
+    }
+  ]
+}
