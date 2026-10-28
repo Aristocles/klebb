@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- A rebuildable Health Connect source index with complete per-stream
+  frontiers, retained-owner status/rebuild controls and durable bounded
+  retries, separate from raw save receipts and canonical card updates.
+
 - Android codecs for seven additional unit and vital records, preserving
   every public unit observation, opaque numeric enums and the ten existing
   record encodings. Native capture and encrypted queue gates remain open.
