@@ -11,6 +11,7 @@ import { unsafeSVG } from 'https://esm.sh/lit@3/directives/unsafe-svg.js';
 import { errorFromResponse } from '../lib/save-error.js';
 import { registerCredential } from '../lib/webauthn-ceremony.js';
 import { qrSvg } from '../lib/qr.js';
+import './eh-settings-health-connect.js';
 
 export class EhSettingsSecurity extends LitElement {
   static properties = {
@@ -708,6 +709,7 @@ export class EhSettingsSecurity extends LitElement {
     return html`
       ${this._renderPasskeys()}
       ${this._renderHaePanel()}
+      <eh-settings-health-connect></eh-settings-health-connect>
       ${this._hiddenDiscoveries.length > 0 ? html`
         <details class="metrics-details">
           <summary>Hidden Apple Health metrics (${this._hiddenDiscoveries.length})</summary>

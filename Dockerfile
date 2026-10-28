@@ -64,6 +64,7 @@ COPY --chown=klebb:klebb server.js ./
 COPY --chown=klebb:klebb auth ./auth
 COPY --chown=klebb:klebb chat ./chat
 COPY --chown=klebb:klebb config ./config
+COPY --chown=klebb:klebb schemas ./schemas
 COPY --chown=klebb:klebb ingest ./ingest
 COPY --chown=klebb:klebb lib ./lib
 COPY --chown=klebb:klebb manifests ./manifests
