@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Android codecs for seven additional unit and vital records, preserving
+  every public unit observation, opaque numeric enums and the ten existing
+  record encodings. Native capture and encrypted queue gates remain open.
+
 - Android codecs for eight additional body and physiology records, with
   complete public unit observations and stable Steps/Weight encodings.
   Native capture and encrypted queue checks remain separate delivery gates.
