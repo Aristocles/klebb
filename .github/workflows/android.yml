@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+name: Android feasibility
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android build, policy tests and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Build and check development APK
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Reproduce the compiled SDK inventory
+        run: |
+          mkdir -p build/sdk-artifacts
+          for version in 1.1.0 1.2.0-alpha06; do
+            curl --fail --silent --show-error --location \
+              "https://dl.google.com/dl/android/maven2/androidx/health/connect/connect-client/$version/connect-client-$version.aar" \
+              --output "build/sdk-artifacts/connect-client-$version.aar"
+          done
+          pwsh -File tools/inventory-sdk.ps1 \
+            -StableAar build/sdk-artifacts/connect-client-1.1.0.aar \
+            -AlphaAar build/sdk-artifacts/connect-client-1.2.0-alpha06.aar \
+            -OutputRoot build/sdk-inventory-ci
+          pwsh -File tools/check-inventory.ps1 -InventoryRoot build/sdk-inventory-ci
+          for inventory in build/sdk-inventory-ci/*.txt; do
+            diff -u "docs/sdk-inventory/$(basename "$inventory")" "$inventory"
+          done
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          for generated in Path("build/sdk-inventory-ci").glob("*.json"):
+              committed = Path("docs/sdk-inventory") / generated.name
+              if json.loads(generated.read_text()) != json.loads(committed.read_text()):
+                  raise SystemExit(f"Compiled SDK inventory differs: {generated.name}")
+          PY
+      - name: Retain check reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-check-reports
+          path: |
+            android/app/build/reports
+            android/app/build/test-results
+          if-no-files-found: ignore

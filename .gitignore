@@ -35,6 +35,14 @@ docker-compose.override.yml
 dist/
 coverage/
 *.tgz
+/android/.gradle/
+/android/.kotlin/
+/android/**/build/
+/android/local.properties
+*.jks
+*.keystore
+*.p12
+*.apk
 
 # macOS Finder
 .AppleDouble
