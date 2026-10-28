@@ -9,6 +9,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Lossless Android Steps and Weight record codecs with explicit serializer
+  versioning, complete common metadata, nanosecond timestamps and preserved
+  unit precision. Other ordinary record types and encrypted queue delivery
+  remain separate gates.
+
 - Atomic ordinary Health Connect uploads with immutable durable receipts,
   scoped contiguous frontiers, raw-only history and queued projection
   references, plus cold-readback and SQLite failure/retry checks.
