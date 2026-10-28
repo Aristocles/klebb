@@ -65,6 +65,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- Publish synthetic held-object test latches only after complete JSON is written,
+  so the parent reads a complete first-chunk observation.
+
 - Exclude getters on non-public unit classes from the compiled Health Connect
   source-field inventories, verify each public declaring owner independently
   and report actual public class totals.
