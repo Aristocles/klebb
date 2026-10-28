@@ -79,7 +79,9 @@ class ScalarRecordCodecsTest {
             "ActiveCaloriesBurnedRecord", "TotalCaloriesBurnedRecord", "DistanceRecord",
             "ElevationGainedRecord", "FloorsClimbedRecord", "HydrationRecord",
             "WheelchairPushesRecord", "MenstruationPeriodRecord",
-            "MindfulnessSessionRecord", "ActivityIntensityRecord"),
+            "MindfulnessSessionRecord", "ActivityIntensityRecord",
+            "CervicalMucusRecord", "IntermenstrualBleedingRecord", "MenstruationFlowRecord",
+            "OvulationTestRecord", "SexualActivityRecord"),
             RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")
