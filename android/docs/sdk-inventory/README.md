@@ -13,6 +13,12 @@ and cycling pedalling cadence. Alpha adds `ActivityIntensityRecord`,
 `ExerciseSessionRecord.rateOfPerceivedExertion`. No ordinary record or
 source-visible getter was removed in this comparison.
 
+Both pins expose `PlannedExerciseSessionRecord.hasExplicitTime()` and
+`ChangesResponse.hasMore()` as boolean Kotlin property getters with explicit
+Java names. The structured inventory includes `get`, `is` and `has` accessors:
+468 in stable and 478 in alpha. Omitting `has` loses the planned session's
+explicit-time field and the changes response's pagination field.
+
 The alpha dependency preserves the possibility of capturing activity intensity
 and richer exercise fields when the provider exposes them. Stable-only capture
 could not preserve those fields. Its AAR requires compile SDK 37 and minimum
@@ -63,8 +69,11 @@ The assertions use fixed SDK contract expectations for ordinary record counts,
 body water, cycling cadence, VO2 max, all six route-location fields,
 the route data wrapper, heart-rate samples, sleep stages and alpha-only
 activity intensity and exercise fields. They check each nested field's exact
-name and exposed Java type. They are registered in Android CI and fail on an
-inventory that accidentally omits uppercase nested models.
+name and exposed Java type, plus both shared boolean `has` properties. They
+are registered in Android CI and fail on an inventory that omits uppercase
+nested models or those nonstandard property getters. Getter matching is
+case-sensitive so `hashCode()` is not mistaken for a `has` property; exact
+accessor counts also guard against including unrelated methods.
 
 The text inventories have exact comparisons in CI. JSON inventories have
 semantic comparisons because PowerShell versions can format equivalent JSON

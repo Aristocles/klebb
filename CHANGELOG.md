@@ -13,6 +13,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   tooling, external release signing and controlled steps/weight permission
   checks. Native installation and access remain pending device verification.
 
+### Fixed
+
+- Include the planned exercise explicit-time and changes pagination boolean
+  properties in both pinned compiled Health Connect SDK inventories, with
+  independent coverage assertions.
+
 ## [3.6.0] - 2026-10-22
 
 ### Added
