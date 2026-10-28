@@ -24,6 +24,16 @@ import androidx.health.connect.client.records.SpeedRecord
 import androidx.health.connect.client.records.PowerRecord
 import androidx.health.connect.client.records.StepsCadenceRecord
 import androidx.health.connect.client.records.CyclingPedalingCadenceRecord
+import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.ElevationGainedRecord
+import androidx.health.connect.client.records.FloorsClimbedRecord
+import androidx.health.connect.client.records.HydrationRecord
+import androidx.health.connect.client.records.WheelchairPushesRecord
+import androidx.health.connect.client.records.MenstruationPeriodRecord
+import androidx.health.connect.client.records.MindfulnessSessionRecord
+import androidx.health.connect.client.records.ActivityIntensityRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Mass
 import androidx.health.connect.client.units.Length
@@ -33,6 +43,8 @@ import androidx.health.connect.client.units.Temperature
 import androidx.health.connect.client.units.BloodGlucose
 import androidx.health.connect.client.units.Pressure
 import androidx.health.connect.client.units.Velocity
+import androidx.health.connect.client.units.Energy
+import androidx.health.connect.client.units.Volume
 import java.util.Collections
 import java.time.Instant
 import java.time.ZoneOffset
@@ -56,7 +68,11 @@ object RecordCodecs {
             "BasalMetabolicRateRecord", "BasalBodyTemperatureRecord", "BodyTemperatureRecord",
             "BloodGlucoseRecord", "BloodPressureRecord", "OxygenSaturationRecord", "Vo2MaxRecord",
             "HeartRateRecord", "SpeedRecord", "PowerRecord",
-            "StepsCadenceRecord", "CyclingPedalingCadenceRecord"))
+            "StepsCadenceRecord", "CyclingPedalingCadenceRecord",
+            "ActiveCaloriesBurnedRecord", "TotalCaloriesBurnedRecord", "DistanceRecord",
+            "ElevationGainedRecord", "FloorsClimbedRecord", "HydrationRecord",
+            "WheelchairPushesRecord", "MenstruationPeriodRecord",
+            "MindfulnessSessionRecord", "ActivityIntensityRecord"))
 
     fun encode(record: Record): EncodedRecord {
         val (type, fields) = when (record) {
@@ -147,6 +163,43 @@ object RecordCodecs {
                     linkedMapOf("time" to LosslessValues.instant(it.time),
                         "revolutionsPerMinute" to LosslessValues.float64(it.revolutionsPerMinute))
                 })
+            is ActiveCaloriesBurnedRecord -> "ActiveCaloriesBurnedRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset).apply { put("energy", energy(record.energy)) }
+            is TotalCaloriesBurnedRecord -> "TotalCaloriesBurnedRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset).apply { put("energy", energy(record.energy)) }
+            is DistanceRecord -> "DistanceRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset).apply { put("distance", length(record.distance)) }
+            is ElevationGainedRecord -> "ElevationGainedRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset).apply { put("elevation", length(record.elevation)) }
+            is FloorsClimbedRecord -> "FloorsClimbedRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset
+            ).apply { put("floors", LosslessValues.float64(record.floors)) }
+            is HydrationRecord -> "HydrationRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset).apply { put("volume", volume(record.volume)) }
+            is WheelchairPushesRecord -> "WheelchairPushesRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset
+            ).apply { put("count", LosslessValues.int64(record.count)) }
+            is MenstruationPeriodRecord -> "MenstruationPeriodRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset)
+            is MindfulnessSessionRecord -> "MindfulnessSessionRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset).apply {
+                    put("mindfulnessSessionType", record.mindfulnessSessionType)
+                    put("title", record.title)
+                    put("notes", record.notes)
+                }
+            is ActivityIntensityRecord -> "ActivityIntensityRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset
+            ).apply { put("activityIntensityType", record.activityIntensityType) }
             else -> throw RecordCodecException("unsupported-record")
         }
         return EncodedRecord(type, record.metadata.id, RecordJson.text(fields))
@@ -159,6 +212,15 @@ object RecordCodecs {
             "time" to LosslessValues.instant(time),
             "zoneOffset" to LosslessValues.offset(offset),
             field to value)
+
+    private fun interval(sourceMetadata: Metadata, start: Instant, startOffset: ZoneOffset?,
+                         end: Instant, endOffset: ZoneOffset?) =
+        linkedMapOf(
+            "metadata" to metadata(sourceMetadata),
+            "startTime" to LosslessValues.instant(start),
+            "startZoneOffset" to LosslessValues.offset(startOffset),
+            "endTime" to LosslessValues.instant(end),
+            "endZoneOffset" to LosslessValues.offset(endOffset))
 
     private fun series(sourceMetadata: Metadata, start: Instant, startOffset: ZoneOffset?,
                        end: Instant, endOffset: ZoneOffset?, samples: List<Map<String, Any?>>) =
@@ -230,6 +292,23 @@ object RecordCodecs {
             "m/s" to LosslessValues.float64(value.inMetersPerSecond),
             "km/h" to LosslessValues.float64(value.inKilometersPerHour),
             "mi/h" to LosslessValues.float64(value.inMilesPerHour)))
+
+    private fun energy(value: Energy) = linkedMapOf(
+        "unit" to "kcal",
+        "value" to LosslessValues.float64(value.inKilocalories),
+        "sdkUnitValues" to linkedMapOf(
+            "cal" to LosslessValues.float64(value.inCalories),
+            "kcal" to LosslessValues.float64(value.inKilocalories),
+            "J" to LosslessValues.float64(value.inJoules),
+            "kJ" to LosslessValues.float64(value.inKilojoules)))
+
+    private fun volume(value: Volume) = linkedMapOf(
+        "unit" to "L",
+        "value" to LosslessValues.float64(value.inLiters),
+        "sdkUnitValues" to linkedMapOf(
+            "L" to LosslessValues.float64(value.inLiters),
+            "mL" to LosslessValues.float64(value.inMilliliters),
+            "fl. oz (US)" to LosslessValues.float64(value.inFluidOuncesUs)))
 
     private fun metadata(value: Metadata): Map<String, Any?> {
         if (value.id.isEmpty() || value.id.codePointCount(0, value.id.length) > 256 ||
