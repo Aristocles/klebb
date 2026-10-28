@@ -1,0 +1,64 @@
+{
+  "status": "Owner-bound expected decisions, fixed publicly before affected code; preserves historical preparation snapshots",
+  "issue": "https://github.com/Aristocles/klebb/issues/782",
+  "publishedDecision": "https://github.com/Aristocles/klebb/issues/782#issuecomment-6471234781",
+  "supersedesOnly": [
+    "Provisional unbound Q01 assumption that a whole object larger than an empty narrowed aggregate budget is transient capacity",
+    "Provisional M15 post-COMMIT cleanup timing before choosing SQLite-only atomic purge"
+  ],
+  "underlyingHistoryExpectationsUnchanged": true,
+  "originalConstructionUnchanged": {
+    "payloadBytes": 1049872,
+    "partBytes": [524288, 524288, 1296],
+    "objectDigest": "sha256:45ee44258c3e7f0491bc4e9ebdc2effe4df5e97ba50beb8fcfdef90ba51460e5"
+  },
+  "Q01Bound": {
+    "configuredAggregateCap": 1049871,
+    "effectiveIntrinsicMaxObjectBytes": 1049871,
+    "effectiveRule": "min(67108864,configuredAggregateCap)",
+    "requestObjectBytes": 1049872,
+    "status": 400,
+    "code": "limit-exceeded",
+    "retryable": false,
+    "stagedObjects": 0,
+    "physicalParts": 0,
+    "reservationBytes": 0,
+    "reason": "Object cannot fit even an otherwise empty configured budget; advertised intrinsic bound agrees"
+  },
+  "Q03Bound": {
+    "configuredAggregateCap": 2099743,
+    "existingReservationBytes": 1049872,
+    "secondDistinctStreamObjectBytes": 1049872,
+    "status": 503,
+    "code": "storage-unavailable",
+    "retryable": true,
+    "reason": "Each object fits intrinsically, but temporary combined occupancy exceeds the cap by one byte"
+  },
+  "inclusiveCaps": [1049872, 2099744],
+  "M14Bound": {
+    "phase": "Observed actual death immediately before native COMMIT",
+    "physicalParts": 3,
+    "physicalPayloadBytes": 1049872,
+    "reservationBytes": 1049872,
+    "rawRecords": 0,
+    "tombstones": 0,
+    "ordinaryReceipts": 0,
+    "frontier": "0",
+    "outbox": 0,
+    "compactCommittedDeclarations": 0
+  },
+  "M15Bound": {
+    "phase": "Observed actual death after native COMMIT and before response; independent cold read before startup/retry",
+    "physicalParts": 0,
+    "physicalPayloadBytes": 0,
+    "reservationBytes": 0,
+    "rawRecords": 1,
+    "tombstones": 0,
+    "ordinaryReceipts": 1,
+    "frontier": "1",
+    "outbox": 1,
+    "compactCommittedDeclarations": 1
+  },
+  "atomicity": "Raw/tombstone/ordinary receipt/frontier/outbox, compact declaration/manifest and staging BLOB cascade deletion share the same actual own-handle WAL/FULL transaction",
+  "evidenceBoundary": "Expected decisions and synthetic fixture construction only; actual API/fault/cleanup results must be recorded separately. Logical live BLOB removal is not WAL/freelist/backup erasure or release readiness."
+}

@@ -10,6 +10,7 @@ const { marked } = require('marked');
 const { isAuthenticated, isAgentRequest, isPublicPath, handleAuthRoutes, isSetup, listCredentialsForUser, deleteCredentialForUser, getSessionRecord } = require('./auth/webauthn');
 const { handleAdminRoutes } = require('./auth/admin-api');
 const { handleHealthConnect } = require('./lib/health-connect/authority');
+const { startObjectCleanup, stopObjectCleanup } = require('./lib/health-connect/objects');
 const { isHealthConnectorBearer } = require('./auth/bearer-scope');
 const invites = require('./auth/invites');
 const PATHS = require('./config/paths');
@@ -3054,6 +3055,7 @@ server.listen(PORT, HOST, async () => {
     // operator door (`docker cp` + restart). Uploads enqueue directly.
     // Failures inside the pipeline land in inbox/_failed/, so a bad file
     // should never wedge boot.
+    startObjectCleanup(() => importFreeze.frozen() !== null || importRecoveryRefusedReason !== null);
     try {
       const { queued } = inbox.start();
       console.log(`[ingest] inbox drained; ${queued} file(s) queued`);
@@ -3105,6 +3107,7 @@ server.listen(PORT, HOST, async () => {
 // Guarded and synchronous: an exit that hangs on shutdown is worse than one that
 // skips a checkpoint, so anything that throws is logged and we still exit.
 function _shutdown() {
+  try { stopObjectCleanup(); } catch {}
   try { notificationsScheduler.stop(); } catch {}
   try { activity.flush(); } catch { /* coarse signal; losing a minute is fine */ }
   try { registry.closeStore(); } catch (e) {
