@@ -1,0 +1,1589 @@
+{
+  "fixtureVersion": 1,
+  "notes": [
+    "Positive source fixtures supply chosen field spelling only; rejection expectations are independent conditions.",
+    "Digests for mutations use Node built-in SHA-256, not the product payloadDigest.",
+    "Current complete coverage proves bounded query conditions, not deletion or physical native scan evidence.",
+    "Finalise manifest consistency does not prove staged parts exist; physical staging remains CORE-02."
+  ],
+  "cases": [
+    {
+      "id": "W01",
+      "purpose": "A complete multibyte batch exactly at received UTF-8 cap",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:d00b9348b17aa026697367017da1f2cbca4a10b22c32f9450a39bd3ca734cbd4\"}",
+      "expectedUtf8Bytes": 1302,
+      "context": {
+        "limits": {
+          "maxBytes": 1302,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "W02",
+      "purpose": "Same batch one byte over negotiated cap",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:d00b9348b17aa026697367017da1f2cbca4a10b22c32f9450a39bd3ca734cbd4\"}",
+      "expectedUtf8Bytes": 1302,
+      "context": {
+        "limits": {
+          "maxBytes": 1301,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "limit-exceeded"
+      }
+    },
+    {
+      "id": "W03",
+      "purpose": "Outer whitespace counts as received bytes",
+      "wire": " {\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:d00b9348b17aa026697367017da1f2cbca4a10b22c32f9450a39bd3ca734cbd4\"}",
+      "expectedUtf8Bytes": 1303,
+      "context": {
+        "limits": {
+          "maxBytes": 1302,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "limit-exceeded"
+      }
+    },
+    {
+      "id": "W04",
+      "purpose": "Complete batch retains integer-like native ID and exact raw decimal string",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"9007199254740993\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"9007199254740993\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\",\\\"independentQuantity\\\":{\\\"unit\\\":\\\"kg\\\",\\\"value\\\":\\\"75.25000000000000001\\\"}},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:50a78b91e588d1fcee6e2fc4e9fd42e466fdedfd7ed24ff7a9495135b29b1ef2\"}",
+      "expectedUtf8Bytes": 1395,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "W05",
+      "purpose": "Unsafe numeric sequence token is refused without rounding",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":9007199254740993,\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:bb09e579a8dded009800ea06be709428385bbefd7dfa98b26cc31fca24b3448c\"}",
+      "expectedUtf8Bytes": 1298,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "W06",
+      "purpose": "Int64 string over maximum is refused",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9223372036854775808\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:6ea319f1ff749a8eed37fc7e5d07ecb55387c88e69786e0c2715956f1c541dfb\"}",
+      "expectedUtf8Bytes": 1305,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "W07",
+      "purpose": "Numeric decimal raw token is refused by typed precision contract",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\",\\\"independentQuantity\\\":75.25},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:e8e93713755be78b7c338f84f50b7c811b5ceaaabb7e682d4da00d79a08048b2\"}",
+      "expectedUtf8Bytes": 1332,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "W08",
+      "purpose": "Duplicate outer key is refused even when values agree",
+      "wire": "{\"version\":1,\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:d00b9348b17aa026697367017da1f2cbca4a10b22c32f9450a39bd3ca734cbd4\"}",
+      "expectedUtf8Bytes": 1314,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "W09",
+      "purpose": "Decoded duplicate authority key is refused",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"\\\\u0074enantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:0355f8f60c9dcb9d64bf812340ed5c44329ac2556008fb387cc75a3da27056d4\"}",
+      "expectedUtf8Bytes": 1334,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "W10",
+      "purpose": "Unpaired surrogate in a raw source field cannot be encoded losslessly",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"\\\\ud800\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:37e97de0a2bc3b2b29eacea2b0c27b94724dee2f324cd6401fd84ab5f116115d\"}",
+      "expectedUtf8Bytes": 1307,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "W11",
+      "purpose": "Changed exact quantity with old immutable digest is refused",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"BodyWaterMassRecord\\\",\\\"sequence\\\":\\\"10\\\",\\\"batchId\\\":\\\"batch-c\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"BodyWaterMassRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"raw-only\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\"},\\\"time\\\":\\\"2026-10-28T03:45:40.549000001Z\\\",\\\"mass\\\":{\\\"value\\\":\\\"75.250000000000002\\\",\\\"unit\\\":\\\"kilograms\\\"},\\\"unknownEnum\\\":2147483647},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1}]}\",\"payloadDigest\":\"sha256:24f7106c3455addcc000f6c244a1af6deb3e1c8a5bcd3cb4d7cdde97451ea8ad\"}",
+      "expectedUtf8Bytes": 894,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "digest-mismatch"
+      }
+    },
+    {
+      "id": "W12",
+      "purpose": "Known permitted raw-only category needs no card recipe",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"BodyWaterMassRecord\\\",\\\"sequence\\\":\\\"10\\\",\\\"batchId\\\":\\\"batch-c\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"BodyWaterMassRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"raw-only\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\"},\\\"time\\\":\\\"2026-10-28T03:45:40.549000001Z\\\",\\\"mass\\\":{\\\"value\\\":\\\"75.250000000000001\\\",\\\"unit\\\":\\\"kilograms\\\"},\\\"unknownEnum\\\":2147483647},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1}]}\",\"payloadDigest\":\"sha256:24f7106c3455addcc000f6c244a1af6deb3e1c8a5bcd3cb4d7cdde97451ea8ad\"}",
+      "expectedUtf8Bytes": 894,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "W13",
+      "purpose": "Raw-only label cannot bypass trusted category selection",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"BodyWaterMassRecord\\\",\\\"sequence\\\":\\\"10\\\",\\\"batchId\\\":\\\"batch-c\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"BodyWaterMassRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"raw-only\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\"},\\\"time\\\":\\\"2026-10-28T03:45:40.549000001Z\\\",\\\"mass\\\":{\\\"value\\\":\\\"75.250000000000001\\\",\\\"unit\\\":\\\"kilograms\\\"},\\\"unknownEnum\\\":2147483647},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1}]}\",\"payloadDigest\":\"sha256:24f7106c3455addcc000f6c244a1af6deb3e1c8a5bcd3cb4d7cdde97451ea8ad\"}",
+      "expectedUtf8Bytes": 894,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "scope-denied"
+      }
+    },
+    {
+      "id": "W14",
+      "purpose": "Immutable payload cannot select trusted tenantId",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-b\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:00e7d04535f91ecca8d1b96ba927cbb03c37ec9e3ef2786fb3b542b17eb624fd\"}",
+      "expectedUtf8Bytes": 1302,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "binding-mismatch"
+      }
+    },
+    {
+      "id": "W15",
+      "purpose": "Immutable payload cannot select trusted instanceId",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-b\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:611e6021b3448bfcde2e1e9f0f4422ac4b89b26802cc5ff9946c7f4783a74c73\"}",
+      "expectedUtf8Bytes": 1302,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "binding-mismatch"
+      }
+    },
+    {
+      "id": "W16",
+      "purpose": "Immutable payload cannot select trusted sourceStoreId",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-b\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:cb274255c216d1ec81cb58d77cb53838f041c4e6575c2ce04a75c8a5e309906f\"}",
+      "expectedUtf8Bytes": 1302,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "binding-mismatch"
+      }
+    },
+    {
+      "id": "W17",
+      "purpose": "Immutable payload cannot select trusted installationId",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-b\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:7972a258f369d641681f54f8344cf98a55b56a0c20d00f53d3f37fd550ed4d8f\"}",
+      "expectedUtf8Bytes": 1302,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "binding-mismatch"
+      }
+    },
+    {
+      "id": "W18",
+      "purpose": "Immutable payload cannot select trusted generation",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"8\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:33cd9598c975fa2d62985033ce61877317c6b508b1761712f900ddef16309832\"}",
+      "expectedUtf8Bytes": 1302,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "binding-mismatch"
+      }
+    },
+    {
+      "id": "W19",
+      "purpose": "Immutable payload cannot select trusted restoreEpoch",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-old\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:b7c3882be5e6cf5b32c57787b9f330b413032e0788171ef0592271d36b9b9986\"}",
+      "expectedUtf8Bytes": 1304,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "binding-mismatch"
+      }
+    },
+    {
+      "id": "W20",
+      "purpose": "Operation identity cannot escape immutable stream namespace",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-b\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:832ac57527a13d2528c3730a87425431df114b76caa8768aed884d53dbba7e7a\"}",
+      "expectedUtf8Bytes": 1302,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "binding-mismatch"
+      }
+    },
+    {
+      "id": "W21",
+      "purpose": "Every operation counts against negotiated change cap",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"third-id\\\"}}]}\",\"payloadDigest\":\"sha256:69a323dc9a84e3c159fdb5cc90667267030ba46b2b1a6eb60e128d354ffa50d9\"}",
+      "expectedUtf8Bytes": 1463,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 2,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "limit-exceeded"
+      }
+    },
+    {
+      "id": "W22",
+      "purpose": "Complete query requires pagesFinished independently",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":false,\"permissionsStable\":true,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":true,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 1031,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "incomplete-coverage"
+      }
+    },
+    {
+      "id": "W23",
+      "purpose": "Complete query requires permissionsStable independently",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":true,\"permissionsStable\":false,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":true,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 1031,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "incomplete-coverage"
+      }
+    },
+    {
+      "id": "W24",
+      "purpose": "Complete query requires tokenValid independently",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":true,\"permissionsStable\":true,\"tokenValid\":false,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":true,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 1031,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "incomplete-coverage"
+      }
+    },
+    {
+      "id": "W25",
+      "purpose": "Complete query requires historyIncludesScope independently",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":true,\"permissionsStable\":true,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":false,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 1031,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "incomplete-coverage"
+      }
+    },
+    {
+      "id": "W26",
+      "purpose": "Complete query requires changesBarrierDrained independently",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":true,\"permissionsStable\":true,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":true,\"changesBarrierDrained\":false,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 1031,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "incomplete-coverage"
+      }
+    },
+    {
+      "id": "W27",
+      "purpose": "Changed permission fingerprint cannot claim complete query",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":true,\"permissionsStable\":true,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:56e3db64ac7858d6d7beb94c88ed1615a7ce4ad52b9a12fc85ebe13852838a9b\",\"historyIncludesScope\":true,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 1030,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "incomplete-coverage"
+      }
+    },
+    {
+      "id": "W28",
+      "purpose": "Nanosecond interval order cannot be truncated to milliseconds",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.955000002Z\",\"end\":\"2026-10-28T03:45:19.955000001Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":true,\"permissionsStable\":true,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":true,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 1040,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "W29",
+      "purpose": "Impossible calendar date is refused",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-02-29T03:45:00Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":true,\"permissionsStable\":true,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":true,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 1020,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "W30",
+      "purpose": "One nanosecond positive query remains representable",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":true,\"permissionsStable\":true,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":true,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 1030,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "W31",
+      "purpose": "Aggregate cannot claim current above trusted raw frontier",
+      "wire": "{\"version\":1,\"kind\":\"aggregate\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"requiredRawFrontier\":\"12\",\"status\":\"current\",\"metric\":\"COUNT_TOTAL\",\"observation\":{\"state\":\"value\",\"quantity\":\"9007199254740993.000000001\",\"unit\":\"count\"},\"revision\":\"1\",\"policyVersion\":\"native-platform-v1\",\"provenance\":{\"provider\":\"health-connect-native\",\"originPackages\":[\"org.example.synthetic\"]},\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 968,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "11",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "frontier-lag"
+      }
+    },
+    {
+      "id": "W32",
+      "purpose": "Aggregate dependency equality is sufficient structurally",
+      "wire": "{\"version\":1,\"kind\":\"aggregate\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:1154caae4d2a4246d418618d35592491ed1bea797496725e1383d2e92908e658\",\"requiredRawFrontier\":\"12\",\"status\":\"current\",\"metric\":\"COUNT_TOTAL\",\"observation\":{\"state\":\"value\",\"quantity\":\"9007199254740993.000000001\",\"unit\":\"count\"},\"revision\":\"1\",\"policyVersion\":\"native-platform-v1\",\"provenance\":{\"provider\":\"health-connect-native\",\"originPackages\":[\"org.example.synthetic\"]},\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-01T00:00:00Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 968,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "W33",
+      "purpose": "Part index cannot equal count",
+      "wire": "{\"version\":1,\"kind\":\"object-part\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"batchId\":\"batch-b\",\"sequence\":\"10\",\"identity\":{\"tenantId\":\"tenant-a\",\"sourceStoreId\":\"store-a\",\"recordType\":\"StepsRecord\",\"nativeRecordId\":\"native-a\"},\"objectId\":\"object-a\",\"objectDigest\":\"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"partCount\":1,\"totalBytes\":3,\"partIndex\":1,\"partBase64\":\"YWJj\",\"partDigest\":\"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\"}",
+      "expectedUtf8Bytes": 631,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "W34",
+      "purpose": "Part content cannot retain a different SHA-256",
+      "wire": "{\"version\":1,\"kind\":\"object-part\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"batchId\":\"batch-b\",\"sequence\":\"10\",\"identity\":{\"tenantId\":\"tenant-a\",\"sourceStoreId\":\"store-a\",\"recordType\":\"StepsRecord\",\"nativeRecordId\":\"native-a\"},\"objectId\":\"object-a\",\"objectDigest\":\"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"partCount\":1,\"totalBytes\":3,\"partIndex\":0,\"partBase64\":\"YWJj\",\"partDigest\":\"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"}",
+      "expectedUtf8Bytes": 631,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "digest-mismatch"
+      }
+    },
+    {
+      "id": "W35",
+      "purpose": "Finalisation manifest index must be dense from zero",
+      "wire": "{\"version\":1,\"kind\":\"object-finalise\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"batchId\":\"batch-b\",\"sequence\":\"10\",\"identity\":{\"tenantId\":\"tenant-a\",\"sourceStoreId\":\"store-a\",\"recordType\":\"StepsRecord\",\"nativeRecordId\":\"native-a\"},\"objectId\":\"object-a\",\"objectDigest\":\"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"partCount\":1,\"totalBytes\":3,\"parts\":[{\"index\":1,\"bytes\":3,\"digest\":\"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\"}]}",
+      "expectedUtf8Bytes": 629,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "W36",
+      "purpose": "Finalisation declared byte sum must equal declared total",
+      "wire": "{\"version\":1,\"kind\":\"object-finalise\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"batchId\":\"batch-b\",\"sequence\":\"10\",\"identity\":{\"tenantId\":\"tenant-a\",\"sourceStoreId\":\"store-a\",\"recordType\":\"StepsRecord\",\"nativeRecordId\":\"native-a\"},\"objectId\":\"object-a\",\"objectDigest\":\"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"partCount\":1,\"totalBytes\":4,\"parts\":[{\"index\":0,\"bytes\":3,\"digest\":\"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\"}]}",
+      "expectedUtf8Bytes": 629,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "W37",
+      "purpose": "Nested valid message over independently tiny depth bound",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:d00b9348b17aa026697367017da1f2cbca4a10b22c32f9450a39bd3ca734cbd4\"}",
+      "expectedUtf8Bytes": 1302,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 1,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "limit-exceeded"
+      }
+    },
+    {
+      "id": "W38",
+      "purpose": "Many valid message nodes over independently tiny node bound",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\"},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:d00b9348b17aa026697367017da1f2cbca4a10b22c32f9450a39bd3ca734cbd4\"}",
+      "expectedUtf8Bytes": 1302,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 1,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "limit-exceeded"
+      }
+    },
+    {
+      "id": "W39",
+      "purpose": "Two nested samples exceed independent one-sample bound",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"7\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"StepsRecord\\\",\\\"sequence\\\":\\\"9007199254740993\\\",\\\"batchId\\\":\\\"batch-a\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"native-a\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"projected\\\",\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-a\\\",\\\"clientRecordVersion\\\":\\\"9007199254740993\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic\\\"},\\\"recordingMethod\\\":2147483647},\\\"startTime\\\":\\\"2026-10-28T03:40:31.344000001Z\\\",\\\"endTime\\\":\\\"2026-10-28T03:50:31.344000001Z\\\",\\\"startZoneOffsetSeconds\\\":39600,\\\"endZoneOffsetSeconds\\\":39600,\\\"count\\\":\\\"1234\\\",\\\"note\\\":\\\"Ω\\\",\\\"samples\\\":[{\\\"time\\\":\\\"2026-10-28T03:45:00Z\\\",\\\"value\\\":\\\"1.000000001\\\"},{\\\"time\\\":\\\"2026-10-28T03:45:01Z\\\",\\\"value\\\":\\\"1.000000002\\\"}]},\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1},{\\\"operation\\\":\\\"delete\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"StepsRecord\\\",\\\"nativeRecordId\\\":\\\"unseen-a\\\"}}]}\",\"payloadDigest\":\"sha256:edd0b9d8c8584440e65ad7657f5337ebc4ff68498e51a81ce49536eaeba69f3c\"}",
+      "expectedUtf8Bytes": 1440,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 1,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "limit-exceeded"
+      }
+    },
+    {
+      "id": "W40",
+      "purpose": "Malformed UTF-8 cannot become replacement text",
+      "wireHex": "7b2276657273696f6e223a312c226b696e64223a226261746368222c227061796c6f61644a736f6e223a227b5c2262696e64696e675c223a7b5c2274656e616e7449645c223a5c2274656e616e742d615c222c5c22696e7374616e636549645c223a5c22696e7374616e63652d615c222c5c22736f7572636553746f726549645c223a5c2273746f72652d615c222c5c22696e7374616c6c6174696f6e49645c223a5c22696e7374616c6c2d615c222c5c2267656e65726174696f6e5c223a5c22375c222c5c22726573746f726545706f63685c223a5c2265706f63682d615c227d2c5c227265636f7264547970655c223a5c2253746570735265636f72645c222c5c2273657175656e63655c223a5c22393030373139393235343734303939335c222c5c22626174636849645c223a5c2262617463682d615c222c5c226368616e6765735c223a5b7b5c226f7065726174696f6e5c223a5c227570736572745c222c5c226964656e746974795c223a7b5c2274656e616e7449645c223a5c2274656e616e742d615c222c5c22736f7572636553746f726549645c223a5c2273746f72652d615c222c5c227265636f7264547970655c223a5c2253746570735265636f72645c222c5c226e61746976655265636f726449645c223a5c226e61746976652d615c227d2c5c226461746146616d696c795c223a5c226f7264696e6172795c222c5c2270726f6a656374696f6e5c223a5c2270726f6a65637465645c222c5c227265636f72645c223a7b5c226d657461646174615c223a7b5c2269645c223a5c226e61746976652d615c222c5c22636c69656e745265636f726456657273696f6e5c223a5c22393030373139393235343734303939335c222c5c226c6173744d6f64696669656454696d655c223a5c22323032362d31302d32385430333a34303a33312e3334343030303030315a5c222c5c22646174614f726967696e5c223a7b5c227061636b6167654e616d655c223a5c226f72672e6578616d706c652e73796e7468657469635c227d2c5c227265636f7264696e674d6574686f645c223a323134373438333634377d2c5c22737461727454696d655c223a5c22323032362d31302d32385430333a34303a33312e3334343030303030315a5c222c5c22656e6454696d655c223a5c22323032362d31302d32385430333a35303a33312e3334343030303030315a5c222c5c2273746172745a6f6e654f66667365745365636f6e64735c223a33393630302c5c22656e645a6f6e654f66667365745365636f6e64735c223a33393630302c5c22636f756e745c223a5c22313233345c222c5c226e6f74655c223a5c22c3285c227d2c5c2273657269616c697a657249645c223a5c226865616c74682d636f6e6e6563742d7265636f72645c222c5c2273657269616c697a657256657273696f6e5c223a317d2c7b5c226f7065726174696f6e5c223a5c2264656c6574655c222c5c226964656e746974795c223a7b5c2274656e616e7449645c223a5c2274656e616e742d615c222c5c22736f7572636553746f726549645c223a5c2273746f72652d615c222c5c227265636f7264547970655c223a5c2253746570735265636f72645c222c5c226e61746976655265636f726449645c223a5c22756e7365656e2d615c227d7d5d7d222c227061796c6f6164446967657374223a227368613235363a64303062393334386231376161303236363937333637303137646131663263626361346131306232326333326639343530613339626433636137333463626434227d",
+      "expectedUtf8Bytes": 1302,
+      "context": {
+        "limits": {
+          "maxBytes": 1048576,
+          "maxChanges": 500,
+          "maxDepth": 16,
+          "maxNodes": 20000,
+          "maxSamples": 10000,
+          "maxParts": 128,
+          "maxObjectBytes": 67108864
+        },
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "L01",
+      "purpose": "Declared readable history begins after complete window start",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:829da911856254576ccb14b4260b389259c6c33c9af7393dd0c202dc3015243c\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":true,\"permissionsStable\":true,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":true,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-28T03:45:20Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 1030,
+      "context": {
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "serializers": [
+          {
+            "id": "health-connect-record",
+            "version": 1,
+            "dataFamily": "ordinary"
+          }
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "incomplete-coverage"
+      }
+    },
+    {
+      "id": "L02",
+      "purpose": "Partial coverage preserves the declared history limitation",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:829da911856254576ccb14b4260b389259c6c33c9af7393dd0c202dc3015243c\",\"rawFrontier\":\"12\",\"status\":\"partial\",\"pagesFinished\":true,\"permissionsStable\":true,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":true,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":\\\"2026-10-28T03:45:20Z\\\",\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false}}\"}",
+      "expectedUtf8Bytes": 1029,
+      "context": {
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "serializers": [
+          {
+            "id": "health-connect-record",
+            "version": 1,
+            "dataFamily": "ordinary"
+          }
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "L03",
+      "purpose": "Import policy uses an independently valid calendar instant",
+      "wire": "{\"version\":1,\"kind\":\"coverage\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"7\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"StepsRecord\",\"window\":{\"start\":\"2026-10-28T03:45:19.999999999Z\",\"end\":\"2026-10-28T03:45:20Z\"},\"filterDigest\":\"sha256:421e938f05da660e8434de0209670f40acb04596f6ea5b6108e64c63729cc1ec\",\"rawFrontier\":\"12\",\"status\":\"complete\",\"pagesFinished\":true,\"permissionsStable\":true,\"tokenValid\":true,\"permissionFingerprintStart\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"permissionFingerprintEnd\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"historyIncludesScope\":true,\"changesBarrierDrained\":true,\"queryJson\":\"{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"window\\\":{\\\"start\\\":\\\"2026-10-28T03:45:19.999999999Z\\\",\\\"end\\\":\\\"2026-10-28T03:45:20Z\\\"},\\\"dataOrigins\\\":[\\\"org.example.synthetic\\\"],\\\"historyStart\\\":null,\\\"features\\\":{\\\"history\\\":true,\\\"backgroundRead\\\":false},\\\"importStart\\\":\\\"2026-02-29T00:00:00Z\\\"}\"}",
+      "expectedUtf8Bytes": 1051,
+      "context": {
+        "binding": {
+          "tenantId": "tenant-a",
+          "instanceId": "instance-a",
+          "sourceStoreId": "store-a",
+          "installationId": "install-a",
+          "generation": "7",
+          "restoreEpoch": "epoch-a"
+        },
+        "categories": [
+          "StepsRecord",
+          "BodyWaterMassRecord"
+        ],
+        "serializers": [
+          {
+            "id": "health-connect-record",
+            "version": 1,
+            "dataFamily": "ordinary"
+          }
+        ],
+        "rawFrontiers": {
+          "StepsRecord": "12",
+          "BodyWaterMassRecord": "10"
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    }
+  ]
+}
