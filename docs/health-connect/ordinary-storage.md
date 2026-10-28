@@ -106,8 +106,9 @@ cd android
 ```
 
 These are component/storage proofs, not native capture or release readiness.
-CORE-02 remains open for physical multipart assembly, abandoned-part cleanup
-and projector failure/rebuild. Native permission, pending-copy purge, restore,
+Complete multipart assembly and abandoned-part cleanup use the same transaction
+boundary; see [object storage](object-storage.md). CORE-02 remains open for
+projector failure/rebuild. Native permission, pending-copy purge, restore,
 real Health Auto Export client and release/48-hour soak gates remain pending.
 Use synthetic or controlled data until merged CORE-06.R0 proves recovery of
 raw-only records, identity/policy and tombstones into a fresh instance.

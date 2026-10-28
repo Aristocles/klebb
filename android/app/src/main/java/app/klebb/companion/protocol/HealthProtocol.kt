@@ -31,12 +31,17 @@ class HealthProtocol(schemaBytes: ByteArray) {
         "generation", "restoreEpoch")
     private val defaultSerializers = listOf(Serializer("health-connect-record", 1, "ordinary"))
 
-    fun decode(bytes: ByteArray, context: ValidationContext = ValidationContext()): HealthFrame {
+    private fun limits(context: ValidationContext): Map<String, Long> {
         val negotiated = hard.toMutableMap()
         for ((key, value) in context.limits) {
             if (hard[key] == null || value < 1 || value > hard.getValue(key)) fail("limit-exceeded")
             negotiated[key] = value
         }
+        return negotiated
+    }
+
+    fun decode(bytes: ByteArray, context: ValidationContext = ValidationContext()): HealthFrame {
+        val negotiated = limits(context)
         val limits = StrictJson.Limits(
             negotiated.getValue("maxBytes").toInt(), negotiated.getValue("maxDepth").toInt(),
             negotiated.getValue("maxNodes").toInt()
@@ -67,30 +72,7 @@ class HealthProtocol(schemaBytes: ByteArray) {
             val text = frame["payloadJson"] as String
             if (payloadDigest(text) != frame["payloadDigest"]) fail("digest-mismatch")
             val payload = StrictJson.parseText(text, limits, budget, 2).objectValue()
-            if (!rules.definition("batchPayload", payload)) fail()
-            val binding = payload["binding"].objectValue()
-            val recordType = payload["recordType"] as String
-            bind(binding, context)
-            scope(recordType, context)
-            val changes = payload["changes"] as List<*>
-            if (changes.size > negotiated.getValue("maxChanges")) fail("limit-exceeded")
-            for (entry in changes) {
-                val change = entry.objectValue()
-                identity(change["identity"].objectValue(), binding, recordType)
-                if (change["operation"] == "upsert") {
-                    val family = change["dataFamily"] as String
-                    if (!(context.serializers ?: defaultSerializers).any {
-                        it.id == change["serializerId"] && it.version == change["serializerVersion"] &&
-                            it.dataFamily == family
-                    }) fail()
-                    val record = change["record"].objectValue()
-                    if (family == "ordinary" &&
-                        (record["metadata"] as? Map<*, *>)?.get("id") !=
-                        change["identity"].objectValue()["nativeRecordId"]) fail("binding-mismatch")
-                    raw(record, family)
-                    arrays(record)
-                }
-            }
+            validatePayload(payload, negotiated, context, ::arrays)
         }
         (frame["window"] as? Map<*, *>)?.let { SchemaRules.positiveWindow(it.objectValue()) }
         val query = (frame["queryJson"] as? String)?.let { text ->
@@ -133,7 +115,7 @@ class HealthProtocol(schemaBytes: ByteArray) {
         }
         if (kind == "stream-status" &&
             frame["generation"] != frame["binding"].objectValue()["generation"]) fail("binding-mismatch")
-        if (kind == "object-part" || kind == "object-finalise") {
+        if (kind in listOf("object-part", "object-finalise", "object-part-receipt")) {
             identity(frame["identity"].objectValue(), frame["binding"].objectValue(),
                 frame["recordType"] as String)
             if ((frame["partCount"] as Long) > negotiated.getValue("maxParts") ||
@@ -147,6 +129,9 @@ class HealthProtocol(schemaBytes: ByteArray) {
                     part.size > frame["totalBytes"] as Long ||
                     Base64.getEncoder().encodeToString(part) != text) fail()
                 if (digest(part) != frame["partDigest"]) fail("digest-mismatch")
+            } else if (kind == "object-part-receipt") {
+                if ((frame["partIndex"] as Long) >= frame["partCount"] as Long ||
+                    (frame["partBytes"] as Long) > frame["totalBytes"] as Long) fail()
             } else {
                 val parts = frame["parts"] as List<*>
                 if (parts.size.toLong() != frame["partCount"] ||
@@ -156,6 +141,70 @@ class HealthProtocol(schemaBytes: ByteArray) {
             }
         }
         return HealthFrame(freeze(frame).objectValue())
+    }
+
+    fun decodeAssembledPayload(bytes: ByteArray, declaration: JsonObject,
+        context: ValidationContext = ValidationContext()): JsonObject {
+        val negotiated = limits(context)
+        if (!rules.objectDeclaration(declaration)) fail()
+        if ((declaration["totalBytes"] as Long) > negotiated.getValue("maxObjectBytes") ||
+            (declaration["partCount"] as Long) > negotiated.getValue("maxParts") ||
+            bytes.size > negotiated.getValue("maxObjectBytes")) fail("limit-exceeded")
+        bind(declaration["binding"].objectValue(), context)
+        scope(declaration["recordType"] as String, context)
+        identity(declaration["identity"].objectValue(), declaration["binding"].objectValue(),
+            declaration["recordType"] as String)
+        if (bytes.size.toLong() != declaration["totalBytes"]) fail()
+        if (digest(bytes) != declaration["objectDigest"]) fail("digest-mismatch")
+        val payload = StrictJson.parse(bytes, StrictJson.Limits(
+            negotiated.getValue("maxObjectBytes").toInt(), negotiated.getValue("maxDepth").toInt(),
+            negotiated.getValue("maxNodes").toInt()), StrictJson.Budget(), 2).objectValue()
+        var samples = 0L
+        fun arrays(value: Any?) {
+            if (value is List<*>) {
+                samples += value.size
+                if (samples > negotiated.getValue("maxSamples")) fail("limit-exceeded")
+                value.forEach { arrays(it) }
+            } else if (value is Map<*, *>) value.values.forEach { arrays(it) }
+        }
+        validatePayload(payload, negotiated, context, ::arrays)
+        val changes = payload["changes"] as List<*>
+        if (changes.size != 1) fail()
+        val change = changes[0].objectValue()
+        if (change["operation"] != "upsert" || change["dataFamily"] != "ordinary") fail()
+        if (payload["binding"] != declaration["binding"] ||
+            payload["recordType"] != declaration["recordType"] ||
+            payload["batchId"] != declaration["batchId"] ||
+            payload["sequence"] != declaration["sequence"] ||
+            change["identity"] != declaration["identity"]) fail("binding-mismatch")
+        return freeze(payload).objectValue()
+    }
+
+    private fun validatePayload(payload: JsonObject, negotiated: Map<String, Long>,
+        context: ValidationContext, arrays: (Any?) -> Unit) {
+        if (!rules.definition("batchPayload", payload)) fail()
+        val binding = payload["binding"].objectValue()
+        val recordType = payload["recordType"] as String
+        bind(binding, context)
+        scope(recordType, context)
+        val changes = payload["changes"] as List<*>
+        if (changes.size > negotiated.getValue("maxChanges")) fail("limit-exceeded")
+        for (entry in changes) {
+            val change = entry.objectValue()
+            identity(change["identity"].objectValue(), binding, recordType)
+            if (change["operation"] == "upsert") {
+                val family = change["dataFamily"] as String
+                if (!(context.serializers ?: defaultSerializers).any {
+                    it.id == change["serializerId"] && it.version == change["serializerVersion"] &&
+                        it.dataFamily == family
+                }) fail()
+                val record = change["record"].objectValue()
+                if (family == "ordinary" && (record["metadata"] as? Map<*, *>)?.get("id") !=
+                    change["identity"].objectValue()["nativeRecordId"]) fail("binding-mismatch")
+                raw(record, family)
+                arrays(record)
+            }
+        }
     }
 
     fun payloadDigest(text: String): String {

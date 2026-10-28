@@ -290,6 +290,17 @@ const IMPORT_MAX_FILES = intEnv('KLEBB_IMPORT_MAX_FILES', 10000);
 const IMPORT_MAX_ROWS_PER_CARD = intEnv('KLEBB_IMPORT_MAX_ROWS_PER_CARD', 200000);
 const IMPORT_MAX_PUSHES = intEnv('KLEBB_IMPORT_MAX_PUSHES', 10000);
 
+// A configured staging bound must never silently expand on a typo.
+const HEALTH_CONNECT_STAGING_MAX_BYTES = (() => {
+  const raw = process.env.HEALTH_CONNECT_STAGING_MAX_BYTES;
+  if (raw === undefined || raw === '') return 268435456;
+  if (!/^[1-9][0-9]*$/.test(raw) || !Number.isSafeInteger(Number(raw)) ||
+      Number(raw) > 268435456) {
+    throw new Error('HEALTH_CONNECT_STAGING_MAX_BYTES must be an integer from 1 to 268435456');
+  }
+  return Number(raw);
+})();
+
 // --- Health system prompt (used by chat proxy) ---
 //
 // Default prompt is generic and references whatever cards the registry
@@ -773,5 +784,6 @@ module.exports = {
   IMPORT_MAX_FILES,
   IMPORT_MAX_ROWS_PER_CARD,
   IMPORT_MAX_PUSHES,
+  HEALTH_CONNECT_STAGING_MAX_BYTES,
   HEALTH_SYSTEM_PROMPT,
 };

@@ -1,0 +1,1122 @@
+{
+  "version": 1,
+  "description": "Invented independently fixed object receipt and reconstructed-payload outcomes.",
+  "cases": [
+    {
+      "id": "part receipt complete",
+      "mode": "receipt",
+      "wire": "{\"version\":1,\"kind\":\"object-part-receipt\",\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"batchId\":\"synthetic-large-1\",\"sequence\":\"1\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"objectId\":\"synthetic-complete-object-1\",\"objectDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partCount\":1,\"totalBytes\":1184,\"partIndex\":0,\"partDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partBytes\":1184}",
+      "expectedUtf8Bytes": 879,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "part receipt cannot include payload",
+      "mode": "receipt",
+      "wire": "{\"version\":1,\"kind\":\"object-part-receipt\",\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"batchId\":\"synthetic-large-1\",\"sequence\":\"1\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"objectId\":\"synthetic-complete-object-1\",\"objectDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partCount\":1,\"totalBytes\":1184,\"partIndex\":0,\"partDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partBytes\":1184,\"partBase64\":\"UA==\"}",
+      "expectedUtf8Bytes": 899,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "part receipt requires bytes",
+      "mode": "receipt",
+      "wire": "{\"version\":1,\"kind\":\"object-part-receipt\",\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"batchId\":\"synthetic-large-1\",\"sequence\":\"1\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"objectId\":\"synthetic-complete-object-1\",\"objectDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partCount\":1,\"totalBytes\":1184,\"partIndex\":0,\"partDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\"}",
+      "expectedUtf8Bytes": 862,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "part receipt index is within count",
+      "mode": "receipt",
+      "wire": "{\"version\":1,\"kind\":\"object-part-receipt\",\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"batchId\":\"synthetic-large-1\",\"sequence\":\"1\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"objectId\":\"synthetic-complete-object-1\",\"objectDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partCount\":1,\"totalBytes\":1184,\"partIndex\":1,\"partDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partBytes\":1184}",
+      "expectedUtf8Bytes": 879,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "part receipt bytes are within object",
+      "mode": "receipt",
+      "wire": "{\"version\":1,\"kind\":\"object-part-receipt\",\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"batchId\":\"synthetic-large-1\",\"sequence\":\"1\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"objectId\":\"synthetic-complete-object-1\",\"objectDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partCount\":1,\"totalBytes\":1184,\"partIndex\":0,\"partDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partBytes\":1185}",
+      "expectedUtf8Bytes": 879,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "part receipt native source is bound",
+      "mode": "receipt",
+      "wire": "{\"version\":1,\"kind\":\"object-part-receipt\",\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"batchId\":\"synthetic-large-1\",\"sequence\":\"1\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"other\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"objectId\":\"synthetic-complete-object-1\",\"objectDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partCount\":1,\"totalBytes\":1184,\"partIndex\":0,\"partDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partBytes\":1184}",
+      "expectedUtf8Bytes": 848,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "binding-mismatch"
+      }
+    },
+    {
+      "id": "part receipt category stays scoped",
+      "mode": "receipt",
+      "wire": "{\"version\":1,\"kind\":\"object-part-receipt\",\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"batchId\":\"synthetic-large-1\",\"sequence\":\"1\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"objectId\":\"synthetic-complete-object-1\",\"objectDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partCount\":1,\"totalBytes\":1184,\"partIndex\":0,\"partDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partBytes\":1184}",
+      "expectedUtf8Bytes": 879,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "StepsRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "scope-denied"
+      }
+    },
+    {
+      "id": "part receipt negotiated object limit",
+      "mode": "receipt",
+      "wire": "{\"version\":1,\"kind\":\"object-part-receipt\",\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"batchId\":\"synthetic-large-1\",\"sequence\":\"1\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"objectId\":\"synthetic-complete-object-1\",\"objectDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partCount\":1,\"totalBytes\":1184,\"partIndex\":0,\"partDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partBytes\":1184}",
+      "expectedUtf8Bytes": 879,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ],
+        "limits": {
+          "maxObjectBytes": 1183
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "limit-exceeded"
+      }
+    },
+    {
+      "id": "part receipt unknown authority field",
+      "mode": "receipt",
+      "wire": "{\"version\":1,\"kind\":\"object-part-receipt\",\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\",\"token\":\"synthetic-unknown\"},\"recordType\":\"BodyWaterMassRecord\",\"batchId\":\"synthetic-large-1\",\"sequence\":\"1\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"objectId\":\"synthetic-complete-object-1\",\"objectDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partCount\":1,\"totalBytes\":1184,\"partIndex\":0,\"partDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partBytes\":1184}",
+      "expectedUtf8Bytes": 907,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "part receipt unsafe sequence is refused",
+      "mode": "receipt",
+      "wire": "{\"version\":1,\"kind\":\"object-part-receipt\",\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"batchId\":\"synthetic-large-1\",\"sequence\":9007199254740992,\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"objectId\":\"synthetic-complete-object-1\",\"objectDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partCount\":1,\"totalBytes\":1184,\"partIndex\":0,\"partDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partBytes\":1184}",
+      "expectedUtf8Bytes": 892,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "part receipt zero bytes refused",
+      "mode": "receipt",
+      "wire": "{\"version\":1,\"kind\":\"object-part-receipt\",\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"batchId\":\"synthetic-large-1\",\"sequence\":\"1\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"objectId\":\"synthetic-complete-object-1\",\"objectDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partCount\":1,\"totalBytes\":1184,\"partIndex\":0,\"partDigest\":\"sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2\",\"partBytes\":0}",
+      "expectedUtf8Bytes": 876,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "assembled valid ordinary raw-only",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2",
+        "partCount": 1,
+        "totalBytes": 1184
+      },
+      "expectedUtf8Bytes": 1184,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "assembled duplicate key",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:c42b7c68af8d957cea1b61d3e994a160b1405bc104a3fe98bf7528e56cd4c7a0",
+        "partCount": 1,
+        "totalBytes": 1199
+      },
+      "expectedUtf8Bytes": 1199,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "assembled numeric Int64 refused",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":9223372036854775807,\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:9ff51d93eb0f0fac110ff4b1d2eb6d54177a78945e89230550d91166035424c8",
+        "partCount": 1,
+        "totalBytes": 1182
+      },
+      "expectedUtf8Bytes": 1182,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "assembled unsupported serializer",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":99,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:6385ef2e3a3dfa4191e8f611310987605167329e1c4b6757ee68df86ddfb8c98",
+        "partCount": 1,
+        "totalBytes": 1185
+      },
+      "expectedUtf8Bytes": 1185,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "assembled multiple changes refused",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}},{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:407075f74ce5bd54568ac18517e0623a849927a1fc454745b2002c1b4616e238",
+        "partCount": 1,
+        "totalBytes": 1985
+      },
+      "expectedUtf8Bytes": 1985,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "assembled deletion refused",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"delete\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:9ac00931155799eff38cf251bf39cbd02a950b49dbff081b3b4be69dd477b074",
+        "partCount": 1,
+        "totalBytes": 593
+      },
+      "expectedUtf8Bytes": 593,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "assembled nonordinary family refused",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"medical\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:4aca9fab2af33d53b66305282c7439ca743ca7a10ac0cbea7e40b84c8c2f4112",
+        "partCount": 1,
+        "totalBytes": 1183
+      },
+      "expectedUtf8Bytes": 1183,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ],
+        "serializers": [
+          {
+            "id": "health-connect-record",
+            "version": 1,
+            "dataFamily": "medical"
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      }
+    },
+    {
+      "id": "assembled declaration native identity bound",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "other-record"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2",
+        "partCount": 1,
+        "totalBytes": 1184
+      },
+      "expectedUtf8Bytes": 1184,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "binding-mismatch"
+      }
+    },
+    {
+      "id": "assembled declaration sequence bound",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "2",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2",
+        "partCount": 1,
+        "totalBytes": 1184
+      },
+      "expectedUtf8Bytes": 1184,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "binding-mismatch"
+      }
+    },
+    {
+      "id": "assembled declaration batch bound",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "other-batch",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2",
+        "partCount": 1,
+        "totalBytes": 1184
+      },
+      "expectedUtf8Bytes": 1184,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "binding-mismatch"
+      }
+    },
+    {
+      "id": "assembled strict malformed UTF8",
+      "mode": "assembled",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:c9691caa056a698d3c483321e86a3800fdfd78ddfdd53ca879ea9cc62bccc000",
+        "partCount": 1,
+        "totalBytes": 1184
+      },
+      "expectedUtf8Bytes": 1184,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "invalid-message"
+      },
+      "wireHex": "7b2262696e64696e67223a7b2274656e616e744964223a2231313131313131312d313131312d343131312d383131312d313131313131313131313131222c22696e7374616e63654964223a2232323232323232322d323232322d343232322d383232322d323232323232323232323232222c22736f7572636553746f72654964223a2233333333333333332d333333332d343333332d383333332d333333333333333333333333222c22696e7374616c6c6174696f6e4964223a2273796e7468657469632d64757261626c652d696e7374616c6c6174696f6e222c2267656e65726174696f6e223a2231222c22726573746f726545706f6368223a2234343434343434342d343434342d343434342d383434342d343434343434343434343434227d2c227265636f726454797065223a22426f647957617465724d6173735265636f7264222c2273657175656e6365223a2231222c2262617463684964223a2273796e7468657469632d6c617267652d31222c226368616e676573223a5b7b226f7065726174696f6e223a22757073657274222c226964656e74697479223a7b2274656e616e744964223a2231313131313131312d313131312d343131312d383131312d313131313131313131313131222c22736f7572636553746f72654964223a2233333333333333332d333333332d343333332d383333332d333333333333333333333333222c227265636f726454797065223a22426f647957617465724d6173735265636f7264222c226e61746976655265636f72644964223a226c617267652d7261772d6f6e6c79227d2c226461746146616d696c79223a226f7264696e617279222c2270726f6a656374696f6e223a227261772d6f6e6c79222c2273657269616c697a65724964223a226865616c74682d636f6e6e6563742d7265636f7264222c2273657269616c697a657256657273696f6e223a312c227265636f7264223a7b226d65746164617461223a7b226964223a226c617267652d7261772d6f6e6c79222c22646174614f726967696e223a7b227061636b6167654e616d65223a226578616d706c652e73796e7468657469632e70726f64756365722e6f6e65227d2c22636c69656e745265636f726456657273696f6e223a2239323233333732303336383534373735383037222c226c6173744d6f64696669656454696d65223a22323032362d31302d32385430333a35303a30302e3030303030303030315a222c227265636f7264696e674d6574686f64223a317d2c2274696d65223a22323032362d31302d32385430333a34353a30302e3132333435363738395a222c227a6f6e654f6666736574223a222b31313a3030222c226d617373223a7b2276616c7565223a2233372e3235222c22756e6974223a226b67227d2c22657874656e73696f6e223a7b22646973706c6179536368656d61223a2273796e7468657469632d6675747572652d636172642d763137222c226f7061717565223a5b22707265736572766520cea92065786163746c79222c7b226e6573746564223a22756e7265636f676e697365642d7363616c61722d6669656c64227d5d2c2270616464696e67223a22c0505050505050505050505050505050227d7d7d5d7d"
+    },
+    {
+      "id": "assembled depth budget retained",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2",
+        "partCount": 1,
+        "totalBytes": 1184
+      },
+      "expectedUtf8Bytes": 1184,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ],
+        "limits": {
+          "maxDepth": 2
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "limit-exceeded"
+      }
+    },
+    {
+      "id": "assembled node budget retained",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2",
+        "partCount": 1,
+        "totalBytes": 1184
+      },
+      "expectedUtf8Bytes": 1184,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ],
+        "limits": {
+          "maxNodes": 10
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "limit-exceeded"
+      }
+    },
+    {
+      "id": "assembled sample budget retained",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\",\"samples\":[1,2]}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:89bc65db1f02d9ada0ba094ada40ebd2106e3851441b3b07b2968ffc1fe9e3f0",
+        "partCount": 1,
+        "totalBytes": 1200
+      },
+      "expectedUtf8Bytes": 1200,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ],
+        "limits": {
+          "maxSamples": 1
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "limit-exceeded"
+      }
+    },
+    {
+      "id": "assembled unknown category refused",
+      "mode": "assembled",
+      "wire": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"PPPPPPPPPPPPPPPP\"}}}]}",
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:8c8856849cc3087a7a1dc06e90d6b5fe9e8de6f9b5fb21ddbe7e52a3fbe220f2",
+        "partCount": 1,
+        "totalBytes": 1184
+      },
+      "expectedUtf8Bytes": 1184,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "StepsRecord"
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "code": "scope-denied"
+      }
+    },
+    {
+      "id": "assembled original large record inclusive",
+      "mode": "assembled",
+      "construction": {
+        "prefix": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"",
+        "paddingCount": 1048704,
+        "suffix": "\"}}}]}"
+      },
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:45ee44258c3e7f0491bc4e9ebdc2effe4df5e97ba50beb8fcfdef90ba51460e5",
+        "partCount": 3,
+        "totalBytes": 1049872
+      },
+      "expectedUtf8Bytes": 1049872,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ],
+        "limits": {
+          "maxObjectBytes": 1049872
+        }
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "assembled original narrowed refusal",
+      "mode": "assembled",
+      "construction": {
+        "prefix": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"",
+        "paddingCount": 1048704,
+        "suffix": "\"}}}]}"
+      },
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:45ee44258c3e7f0491bc4e9ebdc2effe4df5e97ba50beb8fcfdef90ba51460e5",
+        "partCount": 3,
+        "totalBytes": 1049872
+      },
+      "expectedUtf8Bytes": 1049872,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ],
+        "limits": {
+          "maxObjectBytes": 1049871
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "code": "limit-exceeded"
+      }
+    },
+    {
+      "id": "ordinary frame remains one MiB",
+      "mode": "ordinary",
+      "construction": {
+        "prefix": "{\"binding\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"instanceId\":\"22222222-2222-4222-8222-222222222222\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"installationId\":\"synthetic-durable-installation\",\"generation\":\"1\",\"restoreEpoch\":\"44444444-4444-4444-8444-444444444444\"},\"recordType\":\"BodyWaterMassRecord\",\"sequence\":\"1\",\"batchId\":\"synthetic-large-1\",\"changes\":[{\"operation\":\"upsert\",\"identity\":{\"tenantId\":\"11111111-1111-4111-8111-111111111111\",\"sourceStoreId\":\"33333333-3333-4333-8333-333333333333\",\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"large-raw-only\"},\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"record\":{\"metadata\":{\"id\":\"large-raw-only\",\"dataOrigin\":{\"packageName\":\"example.synthetic.producer.one\"},\"clientRecordVersion\":\"9223372036854775807\",\"lastModifiedTime\":\"2026-10-28T03:50:00.000000001Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"37.25\",\"unit\":\"kg\"},\"extension\":{\"displaySchema\":\"synthetic-future-card-v17\",\"opaque\":[\"preserve Ω exactly\",{\"nested\":\"unrecognised-scalar-field\"}],\"padding\":\"",
+        "paddingCount": 1048704,
+        "suffix": "\"}}}]}"
+      },
+      "declaration": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "recordType": "BodyWaterMassRecord",
+        "batchId": "synthetic-large-1",
+        "sequence": "1",
+        "identity": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "recordType": "BodyWaterMassRecord",
+          "nativeRecordId": "large-raw-only"
+        },
+        "objectId": "synthetic-complete-object-1",
+        "objectDigest": "sha256:45ee44258c3e7f0491bc4e9ebdc2effe4df5e97ba50beb8fcfdef90ba51460e5",
+        "partCount": 3,
+        "totalBytes": 1049872
+      },
+      "expectedUtf8Bytes": 1049872,
+      "context": {
+        "binding": {
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "instanceId": "22222222-2222-4222-8222-222222222222",
+          "sourceStoreId": "33333333-3333-4333-8333-333333333333",
+          "installationId": "synthetic-durable-installation",
+          "generation": "1",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "categories": [
+          "BodyWaterMassRecord"
+        ],
+        "limits": {}
+      },
+      "expected": {
+        "accepted": false,
+        "code": "limit-exceeded"
+      }
+    }
+  ]
+}

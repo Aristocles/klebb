@@ -13,6 +13,13 @@ internal class SchemaRules(schema: JsonObject) {
 
     fun definition(name: String, value: Any?): Boolean = matches(definitions[name].objectValue(), value)
 
+    fun objectDeclaration(value: JsonObject): Boolean {
+        val rule = definitions["objectFinalise"].objectValue()
+        val keys = (rule["required"] as List<*>).filter { it !in listOf("version", "kind", "parts") }
+        val properties = rule["properties"].objectValue().filterKeys { it in keys }
+        return matches(rule + mapOf("required" to keys, "properties" to properties), value)
+    }
+
     fun matches(rule: JsonObject, value: Any?): Boolean {
         (rule["\$ref"] as? String)?.let { return definition(it.substringAfterLast('/'), value) }
         (rule["oneOf"] as? List<*>)?.let {
