@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Atomic ordinary Health Connect uploads with immutable durable receipts,
+  scoped contiguous frontiers, raw-only history and queued projection
+  references, plus cold-readback and SQLite failure/retry checks.
+
 - A read-only Android Health Connect feasibility module with pinned build
   tooling, external release signing and controlled steps/weight permission
   checks. Signed installation, controlled reading and an in-place update
