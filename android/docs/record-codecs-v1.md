@@ -10,10 +10,12 @@ protocol's payload digest then hashes the complete original UTF-8
 `payloadJson`, not this record alone. Existing record or payload JSON is
 never passed back through this encoder for reserialization.
 
-Ten record types are implemented: `StepsRecord`, `WeightRecord`,
+Seventeen record types are implemented: `StepsRecord`, `WeightRecord`,
 `BodyFatRecord`, `BodyWaterMassRecord`, `BoneMassRecord`, `LeanBodyMassRecord`,
-`HeightRecord`, `HeartRateVariabilityRmssdRecord`, `RespiratoryRateRecord`
-and `RestingHeartRateRecord`. The immutable `supportedRecordTypes` registry
+`HeightRecord`, `HeartRateVariabilityRmssdRecord`, `RespiratoryRateRecord`,
+`RestingHeartRateRecord`, `BasalMetabolicRateRecord`, `BasalBodyTemperatureRecord`,
+`BodyTemperatureRecord`, `BloodGlucoseRecord`, `BloodPressureRecord`,
+`OxygenSaturationRecord` and `Vo2MaxRecord`. The immutable `supportedRecordTypes` registry
 has exactly those entries and has no
 card subscription input. Other classes throw `RecordCodecException` with
 the fixed code `unsupported-record`, before inspecting their metadata.
@@ -33,12 +35,22 @@ encoded record or checkpoint success is returned.
 | HeartRateVariabilityRmssd | `metadata`, `time`, `zoneOffset`, `heartRateVariabilityMillis` |
 | RespiratoryRate | `metadata`, `time`, `zoneOffset`, `rate` |
 | RestingHeartRate | `metadata`, `time`, `zoneOffset`, `beatsPerMinute` |
+| BasalMetabolicRate | `metadata`, `time`, `zoneOffset`, `basalMetabolicRate` |
+| BasalBodyTemperature, BodyTemperature | `metadata`, `time`, `zoneOffset`, `temperature`, `measurementLocation` |
+| BloodGlucose | `metadata`, `time`, `zoneOffset`, `level`, `specimenSource`, `mealType`, `relationToMeal` |
+| BloodPressure | `metadata`, `time`, `zoneOffset`, `systolic`, `diastolic`, `bodyPosition`, `measurementLocation` |
+| OxygenSaturation | `metadata`, `time`, `zoneOffset`, `percentage` |
+| Vo2Max | `metadata`, `time`, `zoneOffset`, `vo2MillilitersPerMinuteKilogram`, `measurementMethod` |
 | Metadata | `recordingMethod`, `id`, `dataOrigin`, `lastModifiedTime`, `clientRecordId`, `clientRecordVersion`, `device` |
 | DataOrigin | `packageName` |
 | Device, when present | `type`, `manufacturer`, `model` |
 | Mass | `{unit:"kg", value:"…", sdkUnitValues:{g:"…", kg:"…", mg:"…", ug:"…", oz:"…", lb:"…"}}` |
 | Length | `{unit:"m", value:"…", sdkUnitValues:{m:"…", km:"…", mi:"…", in:"…", ft:"…"}}` |
 | Percentage | `{unit:"percent", value:"…", sdkUnitValues:{percent:"…"}}` |
+| Power | `{unit:"W", value:"…", sdkUnitValues:{W:"…", "kcal/day":"…"}}` |
+| Temperature | `{unit:"degC", value:"…", sdkUnitValues:{degC:"…", degF:"…"}}` |
+| BloodGlucose unit | `{unit:"mmol/L", value:"…", sdkUnitValues:{"mmol/L":"…", "mg/dL":"…"}}` |
+| Pressure | `{unit:"mmHg", value:"…", sdkUnitValues:{mmHg:"…"}}` |
 
 Source `Long` values use signed base-10 strings without numeric JSON
 coercion. `count`, `clientRecordVersion` and `beatsPerMinute` retain that precision.
@@ -53,7 +65,8 @@ the native exponent spelling. Both signed zeros retain `0.0` or `-0.0`.
 NaN and infinities refuse. All finite outputs fit the existing shared
 256-character decimal bound. The SDK field type, rather than decimal
 text alone, distinguishes Float32 from Float64; all Mass getters are
-Float64, as are Length, Percentage, `heartRateVariabilityMillis` and `rate`.
+Float64, as are the other exposed measurement-unit getters, `heartRateVariabilityMillis`,
+`rate` and `vo2MillilitersPerMinuteKilogram`.
 
 All six Mass getter observations are retained separately. In particular,
 the SDK's conversion constants can produce rounding differences such as
@@ -66,9 +79,19 @@ Length likewise retains every public unit observation, including the
 inches/feet factory residuals. For example, `Length.inches(69.0)` observes
 `1.7526` metres and `5.749999999999999` feet. Percentage retains its public
 value in percent; no integer rounding or division by 100 is applied.
-The three unit encodings preserve observations rather than guessing a
+The unit encodings preserve observations rather than guessing a
 private original factory. Other measurement field names follow the SDK,
 so HRV remains milliseconds and resting heart rate remains beats per minute.
+
+Power, Temperature and BloodGlucose retain both public observations even
+when the alternative source factory leaves a conversion residual.
+For example, 2000.25 kcal/day observes `96.86395828147499` watts,
+98.6 Fahrenheit observes `36.99999999999999` Celsius, and 101.5 mg/dL
+observes `5.638888888888888` mmol/L. These are the pinned SDK's public
+values, without substitution of an ideal physical conversion factor.
+Each pressure retains its exposed mmHg value. Specific measurement-location,
+specimen, meal, body-position and method enums remain numeric Int32,
+including unfamiliar values.
 
 Instants use the exact UTC `Instant.toString()` observation, preserving
 nanoseconds. Offsets use `ZoneOffset.id`, including seconds where present;
@@ -110,7 +133,22 @@ dispatcher: ten new record cases refuse and two registry assertions fail,
 while the other seventeen prior checks and the exact original Steps/Weight
 JSON byte comparison pass. No mapper generates these expected values.
 
-These slices establish pure serialization for ten ordinary types. The
+`UnitInstantRecordCodecsTest` adds twelve fixed checks for the next seven
+classes, three alternative-unit/null/enum cases, supplemental specific
+enums, 37 record getters and eight unit getters, the immutable seventeen-type
+registry, and all ten earlier golden JSON byte strings. Its compiling
+baseline runs 42 affected tests: ten new record cases visibly refuse,
+three registry assertions fail, and the other 29 checks pass. Only the
+registry-only expected sets deliberately expand from ten to seventeen
+before mapping; all earlier output and refusal expectations stay fixed.
+The expected values are reused independent literals, not encoder output.
+
+BloodPressure and Vo2Max SDK constructors include Android version guards.
+JVM tests exercise their older-platform branch and do not prove native
+Android 17 provider availability. Such availability and signed device
+checks remain separate evidence.
+
+These slices establish pure serialization for seventeen ordinary types. The
 remaining ordinary catalogue, complete-page/checkpoint transactions,
 encrypted Room queue, chunking, process death, migrations, purges and
 signed native update checks remain AND-03 gates. This code reads no

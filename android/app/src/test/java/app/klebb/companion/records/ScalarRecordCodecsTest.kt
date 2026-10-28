@@ -71,7 +71,9 @@ class ScalarRecordCodecsTest {
     @Test fun f11RegistryAndPinnedPublicGetterCoverageStayExact() {
         assertEquals(setOf("StepsRecord", "WeightRecord", "BodyFatRecord",
             "BodyWaterMassRecord", "BoneMassRecord", "LeanBodyMassRecord", "HeightRecord",
-            "HeartRateVariabilityRmssdRecord", "RespiratoryRateRecord", "RestingHeartRateRecord"),
+            "HeartRateVariabilityRmssdRecord", "RespiratoryRateRecord", "RestingHeartRateRecord",
+            "BasalMetabolicRateRecord", "BasalBodyTemperatureRecord", "BodyTemperatureRecord",
+            "BloodGlucoseRecord", "BloodPressureRecord", "OxygenSaturationRecord", "Vo2MaxRecord"),
             RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")
