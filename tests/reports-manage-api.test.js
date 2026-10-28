@@ -111,12 +111,10 @@ describe('GET /api/reports envelope', () => {
     fs.writeFileSync(path.join(sandbox, 'inbox', '_failed', 'broken.pdf.error'),
       '2026-08-09T00:00:00Z\nextraction failed: pdftotext exit 1\n');
     server = await spawnServer(sandbox, { KLEBB_REPORTS_MAX: '9' });
-    // The "server running" line the harness waits for is printed BEFORE the
-    // boot drain runs, so a file written the instant spawnServer resolves gets
-    // swept up by the drain. Wait the drain out, then seed the in-flight file,
-    // so the assertion is about the envelope reporting an inbox file rather
-    // than about a race with the queue.
-    await new Promise(res => setTimeout(res, 600));
+    // The listening log precedes the asynchronous boot drain. An authenticated
+    // data-plane response waits for that drain before the in-flight file is seeded.
+    const ready = await request(server.baseUrl, '/api/reports', { cookie: auth.cookie });
+    assert.equal(ready.status, 200, ready.body);
     fs.writeFileSync(path.join(sandbox, 'inbox', 'pending.pdf'), 'x');
   });
 

@@ -144,8 +144,10 @@ class SampleSeriesRecordCodecsTest {
             "ActiveCaloriesBurnedRecord", "TotalCaloriesBurnedRecord", "DistanceRecord",
             "ElevationGainedRecord", "FloorsClimbedRecord", "HydrationRecord",
             "WheelchairPushesRecord", "MenstruationPeriodRecord",
-            "MindfulnessSessionRecord", "ActivityIntensityRecord")
-        assertEquals(32, registry.size)
+            "MindfulnessSessionRecord", "ActivityIntensityRecord",
+            "CervicalMucusRecord", "IntermenstrualBleedingRecord", "MenstruationFlowRecord",
+            "OvulationTestRecord", "SexualActivityRecord")
+        assertEquals(37, registry.size)
         assertEquals(registry, RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")
