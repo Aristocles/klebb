@@ -1,11 +1,11 @@
 {
-  "status": "PRIVATE INDEPENDENT STORAGE FIXTURE BYTES; NO ACCEPTED FRAME OR PROVIDER PAGE CLAIM",
+  "status": "SYNTHETIC STORAGE FIXTURE BYTES; NO ACCEPTED FRAME OR PROVIDER PAGE CLAIM",
   "ordinaryFixtureSource": {
-    "path": "C:\\Users\\edwar\\Documents\\code\\klebb-stack\\.worktrees\\klebb\\feat-811-health-queue-storage\\android\\app\\src\\test\\resources\\record-codecs-v1.json",
+    "path": "android/app/src/test/resources/record-codecs-v1.json",
     "sha256": "sha256:8ddd17fe9c46045c0a7bf9430f2f3586ba0d93aa1ed2858a5608fb8075e91ae3"
   },
   "queueBaseSource": {
-    "path": "C:\\Users\\edwar\\Documents\\code\\klebb-stack\\wargames\\health-connect-plan\\implementation\\and-03-preparation\\delivery-preparation\\queue-cases.json",
+    "issue": "https://github.com/Aristocles/klebb/issues/811",
     "sha256": "sha256:a09f1beeab60ee3e88ff0771a7dc5e59168172ced1e272a31a795652a19288b8"
   },
   "derivation": "Compact UTF-8 JSON of unchanged original Steps/Weight resource objects in source insertion order; no mapper. Cursor is original token. Operational fixture copies original binding/IDs/type/times and actual Steps-byte SHA256 solely inside encrypted plaintext.",

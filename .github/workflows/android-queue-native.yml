@@ -17,11 +17,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      ANDROID_SDK_ROOT: ${{ runner.temp }}/queue-android-sdk
-      ANDROID_USER_HOME: ${{ runner.temp }}/queue-android-user
-      ANDROID_AVD_HOME: ${{ runner.temp }}/queue-avd
       QUEUE_PHASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feat/811-health-queue-storage' && 'baseline-f21' || 'final-seven' }}
     steps:
+      - name: Set isolated Android paths from the runner environment
+        shell: bash
+        run: |
+          printf '%s\n' \
+            "ANDROID_SDK_ROOT=$RUNNER_TEMP/queue-android-sdk" \
+            "ANDROID_USER_HOME=$RUNNER_TEMP/queue-android-user" \
+            "ANDROID_AVD_HOME=$RUNNER_TEMP/queue-avd" >> "$GITHUB_ENV"
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
