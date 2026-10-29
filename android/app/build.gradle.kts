@@ -19,6 +19,9 @@ android {
         applicationId = "app.klebb.companion"
         minSdk = 28
         targetSdk = 37
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        javaCompileOptions.annotationProcessorOptions.arguments["room.schemaLocation"] =
+            file("schemas").absolutePath
         versionCode = providers.gradleProperty("proofVersionCode").orElse("1").get().toInt()
         versionName = providers.gradleProperty("proofVersionName").orElse("0.1.0-proof").get()
         buildConfigField("String", "HEALTH_CONNECT_SDK", "\"1.2.0-alpha06\"")
@@ -75,5 +78,9 @@ dependencies {
     implementation("androidx.health.connect:connect-client:1.2.0-alpha06")
     implementation("androidx.activity:activity:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("androidx.room:room-runtime:2.8.4")
+    annotationProcessor("androidx.room:room-compiler:2.8.4")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
     testImplementation("junit:junit:4.13.2")
 }

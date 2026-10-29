@@ -14,8 +14,13 @@ const assert = require('node:assert');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const REPO_ROOT = path.join(__dirname, '..');
+
+// One reviewed synthetic native-test byte asset; all other files use the normal rules.
+const QUEUE_INPUT_FIXTURE = 'android/app/src/androidTest/assets/queue-storage-inputs-v1.json';
+const QUEUE_INPUT_FIXTURE_SHA256 = '5c8e25ad6c14e06162ad5576b5198696927f605fc6bb6d8563e977f05ada1816';
 
 // Top-level directory prefixes to skip. The scanner is driven off
 // git ls-files so node_modules / .git are already excluded; this list
@@ -79,6 +84,13 @@ function scanRepo() {
       content = fs.readFileSync(full, 'utf8');
     } catch {
       // File listed by git but not on disk (e.g. case-only rename mid-checkout).
+      continue;
+    }
+    if (rel === QUEUE_INPUT_FIXTURE) {
+      const digest = crypto.createHash('sha256')
+        .update(content.replace(/\r\n/g, '\n'), 'utf8').digest('hex');
+      assert.strictEqual(digest, QUEUE_INPUT_FIXTURE_SHA256,
+        'Synthetic queue input fixture differs from its reviewed bytes');
       continue;
     }
     const lines = content.split('\n');
