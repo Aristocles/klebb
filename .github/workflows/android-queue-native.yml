@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+name: Queue native storage (API35 AOSP emulator)
+
+on:
+  push:
+    branches: [main, feat/811-health-queue-storage]
+    paths: ['android/**', '.github/workflows/android-queue-native.yml']
+  pull_request:
+    paths: ['android/**', '.github/workflows/android-queue-native.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  queue-native:
+    name: Queue native storage on API35 AOSP emulator
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      ANDROID_SDK_ROOT: ${{ runner.temp }}/queue-android-sdk
+      ANDROID_USER_HOME: ${{ runner.temp }}/queue-android-user
+      ANDROID_AVD_HOME: ${{ runner.temp }}/queue-avd
+      QUEUE_PHASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feat/811-health-queue-storage' && 'baseline-f21' || 'final-seven' }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          cmdline-tools-version: '16111833'
+          packages: ''
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+        with:
+          cache-disabled: true
+      - name: Install pinned official packages into the isolated SDK
+        run: |
+          cli="$ANDROID_HOME/cmdline-tools/16111833/bin/android"
+          "$cli" --sdk="$ANDROID_HOME" sdk --ignore-outdated-xmls install platform-tools@37.0.1
+          "$cli" --sdk="$ANDROID_HOME" sdk --ignore-outdated-xmls install platforms/android-37.0@2.0.0
+          "$cli" --sdk="$ANDROID_HOME" sdk --ignore-outdated-xmls install build-tools/36.0.0@36.0.0
+          "$cli" --sdk="$ANDROID_HOME" sdk --ignore-outdated-xmls install emulator@37.2.12
+          "$cli" --sdk="$ANDROID_HOME" sdk --ignore-outdated-xmls install system-images/android-35/default/x86_64@2.0.0
+      - name: Require Linux KVM and create one fresh credential-free AOSP target
+        run: |
+          test -c /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+          mkdir -p "$ANDROID_USER_HOME" "$ANDROID_AVD_HOME"
+          test ! -e "$ANDROID_AVD_HOME/KlebbQueueAosp35.avd"
+          printf 'no\n' | "$ANDROID_HOME/cmdline-tools/16111833/bin/avdmanager" create avd \
+            --name KlebbQueueAosp35 --package 'system-images;android-35;default;x86_64' \
+            --tag default --abi x86_64 --path "$ANDROID_AVD_HOME/KlebbQueueAosp35.avd"
+      - name: Run the frozen software and selected native checks once
+        run: python3 android/tools/run-queue-native.py "$QUEUE_PHASE"
+      - name: Retain original native exits, status bundles and populated encrypted artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: queue-native-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            android/build/queue-native-evidence
+            android/app/build/test-results/testDebugUnitTest
+            android/app/schemas
+          if-no-files-found: warn
