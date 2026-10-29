@@ -566,7 +566,7 @@ describe('#772 session management and native authority over actual routes', () =
 describe('#772 persisted authority, export and cold-start fences', () => {
   test('credential verifier is persisted without the live bearer; expanded export excludes it', async () => {
     const fixture = fixtureHome();
-    let server, logs;
+    let server, logs, legacyFixture, legacyServer;
     try {
       server = await spawnServer(fixture.home, ENV);
       logs = observeLogs(server);
@@ -578,22 +578,25 @@ describe('#772 persisted authority, export and cold-start fences', () => {
       assertFailure(rejectedCursor, 400, 'invalid-message');
       assertNoSecrets(rejectedCursor.body, [CURSOR]);
       const list = await listing(server, fixture.owner);
-      const downloaded = await binaryGet(server, '/api/export', fixture.owner.cookie);
-      assert.equal(downloaded.status, 200);
-      const archive = path.join(fixture.home, 'authority-test-export.zip');
-      fs.writeFileSync(archive, downloaded.body);
-      const target = path.join(fixture.home, 'authority-test-expanded');
-      const zip = await openZip(archive, {
-        maxEntries: 100, maxEntryBytes: 1024 * 1024, maxTotalBytes: 4 * 1024 * 1024,
+      const authorityBefore = fs.readFileSync(authorityPath(fixture.home));
+      const refused = await binaryGet(server, '/api/export', fixture.owner.cookie);
+      assert.equal(refused.status, 500);
+      assert.deepEqual(JSON.parse(refused.body.toString('utf8')), {
+        error: 'export failed: native-history-export-unsupported',
       });
-      try {
-        assert.ok(zip.entries().some(entry => entry.name === 'data/authority-sentinel.json'));
-        assert.equal(zip.entries().some(entry => entry.name.startsWith('credentials/')), false);
-        assert.equal(zip.entries().some(entry => entry.name.startsWith('sessions/')), false);
-        await zip.extractTo(target);
-      } finally {
-        await zip.close();
-      }
+      assert.equal(fs.readFileSync(authorityPath(fixture.home)).equals(authorityBefore), true,
+        'refused export changed retained native authority');
+      assert.equal(fs.readdirSync(fixture.home).some(name =>
+        name.startsWith('export-staging.') || name.endsWith('.zip')
+          || name === 'klebb-export.json'), false, 'refused export left success output');
+      assert.equal((await req(server.baseUrl, CAPABILITIES, {
+        headers: nativeHeaders(paired.credential),
+      })).status, 200, 'export refusal revoked native authority');
+      const saved = await req(server.baseUrl, '/api/manifests/authority-sentinel/data', {
+        cookie: fixture.owner.cookie,
+      });
+      assert.equal(saved.status, 200);
+      assert.deepEqual(saved.json.data, ROWS);
       await server.kill();
       server = null;
       const persisted = fs.readFileSync(authorityPath(fixture.home), 'utf8');
@@ -625,12 +628,68 @@ describe('#772 persisted authority, export and cold-start fences', () => {
       assert.equal(consumed.name, 'Test phone');
       assert.ok(Number.isFinite(Date.parse(consumed.consumedAt)));
       assertNoSecrets(persisted, [paired.credential, grant.grant]);
+      legacyFixture = fixtureHome();
+      assert.notEqual(legacyFixture.home, fixture.home);
+      const markers = [paired.credential, grant.grant, cursorGrant.grant, verifier,
+        grantVerifier, ADMIN, CHAT, CURSOR];
+      const markerFile = path.join(legacyFixture.home, 'credentials',
+        'export-exclusion-sentinel.json');
+      fs.writeFileSync(markerFile, JSON.stringify({ markers }));
+      const markerInput = fs.readFileSync(markerFile, 'utf8');
+      for (const marker of markers) {
+        assert.ok(typeof marker === 'string' && marker.length > 10);
+        assert.equal(markerInput.includes(marker), true, 'excluded source marker was absent');
+      }
+      legacyServer = await spawnServer(legacyFixture.home, ENV);
+      const legacyLogs = observeLogs(legacyServer);
+      const legacyDb = path.join(legacyFixture.home, 'db', 'klebb.db');
+      if (fs.existsSync(legacyDb)) {
+        const { DatabaseSync } = require('node:sqlite');
+        const db = new DatabaseSync(legacyDb, { readOnly: true });
+        try {
+          db.exec('BEGIN');
+          assert.equal(db.prepare("SELECT count(*) AS count FROM sqlite_schema "
+            + "WHERE type IN ('table','view') AND lower(name) GLOB 'health_*'").get().count, 0);
+        } finally {
+          try { db.exec('ROLLBACK'); } finally { db.close(); }
+        }
+      }
+      if (fs.existsSync(authorityPath(legacyFixture.home))) {
+        const unused = JSON.parse(fs.readFileSync(authorityPath(legacyFixture.home), 'utf8'));
+        assert.deepEqual(Object.keys(unused).sort(),
+          ['version', 'tenantId', 'instanceId', 'restoreEpoch', 'grants', 'connectors'].sort());
+        assert.equal(unused.version, 1);
+        assert.ok([unused.tenantId, unused.instanceId, unused.restoreEpoch]
+          .every(value => typeof value === 'string' && UUID.test(value)));
+        assert.deepEqual(unused.grants, []);
+        assert.deepEqual(unused.connectors, []);
+      }
+      const downloaded = await binaryGet(legacyServer, '/api/export', legacyFixture.owner.cookie);
+      assert.equal(downloaded.status, 200);
+      const archive = path.join(legacyFixture.home, 'authority-test-export.zip');
+      fs.writeFileSync(archive, downloaded.body);
+      const target = path.join(legacyFixture.home, 'authority-test-expanded');
+      const zip = await openZip(archive, {
+        maxEntries: 100, maxEntryBytes: 1024 * 1024, maxTotalBytes: 4 * 1024 * 1024,
+      });
+      try {
+        assert.ok(zip.entries().some(entry => entry.name === 'data/authority-sentinel.json'));
+        assert.equal(zip.entries().some(entry => entry.name.startsWith('credentials/')), false);
+        assert.equal(zip.entries().some(entry => entry.name.startsWith('sessions/')), false);
+        await zip.extractTo(target);
+      } finally {
+        await zip.close();
+      }
       const exported = filesUnder(target).map(file =>
         path.relative(target, file) + '\n' + fs.readFileSync(file, 'utf8')).join('\n');
       assertNoSecrets(exported + JSON.stringify(list) + logs(), [
         paired.credential, grant.grant, cursorGrant.grant, verifier, grantVerifier,
         ADMIN, CHAT, CURSOR,
       ]);
+      assertNoSecrets(refused.body.toString('utf8') + legacyLogs(), markers);
+      const provenance = JSON.parse(fs.readFileSync(path.join(target, 'klebb-export.json'), 'utf8'));
+      assert.equal(provenance.format, 'klebb.export.v1');
+      assert.equal(provenance.formatVersion, 1);
       // This actual rejected-input marker proves containment at #772's boundary.
       // Native persisted cursor/export lifecycle remains its later owning slice.
       assertNoSecrets(persisted, [CURSOR]);
@@ -639,7 +698,9 @@ describe('#772 persisted authority, export and cold-start fences', () => {
       assert.deepEqual(card.data, ROWS, 'nonempty authorised history was actually exported');
     } finally {
       if (server) await server.kill();
+      if (legacyServer) await legacyServer.kill();
       cleanupSandbox(fixture.home);
+      if (legacyFixture) cleanupSandbox(legacyFixture.home);
     }
   });
 

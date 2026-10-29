@@ -1,7 +1,7 @@
 # The portable export format
 
 `scripts/export-embed.js` (`npm run export -- <target-dir>`) writes a portable
-copy of an instance: every card file with its data re-embedded from the
+copy of a supported legacy instance: every card file with its data re-embedded from the
 datastore, the non-card data files, the reports, and the instance config.
 Drop the tree into a fresh `$HEALTH_HOME`, start the server, and the boot
 import brings every card back with its history.
@@ -10,6 +10,28 @@ This page is the contract for that tree: the layout, what is deliberately
 left out, and the provenance manifest (`klebb-export.json`) every export
 carries. Anything that reads an exported tree (a restore, a migration tool,
 an importer) should follow the reader rules at the end.
+
+## Native source refusal
+
+Format1 does not carry native Health Connect history, deletions or sync state.
+The CLI and `exportTo` refuse any reserved native table or view, including an
+initialized empty schema, or retained native grants/connectors. A valid unused
+native authority with empty arrays and no native schema permits legacy export.
+
+The check uses the resolved database and credentials paths, including
+`HEALTH_DB_FILE`, `HEALTH_DB_DIR` and `HEALTH_CREDENTIALS_DIR` overrides.
+Before legacy storage opens or output is created, the database is inspected in
+a closed read-only snapshot and the authority is read with strict byte bounds.
+Unsupported native state throws `native-history-export-unsupported`; a present
+unreadable/corrupt source or malformed authority throws
+`native-history-source-unavailable`. The CLI reports the token and exits2;
+only genuine file absence is treated as absence. The existing strict import
+safety snapshot propagates refusal before wipe or incoming copy.
+
+This preflight covers the state observed at that boundary. Live writers can
+initialize absent native components later; this does not provide a coherent
+live export or native restore. Complete native recovery remains required
+before personal capture. Refs #823.
 
 ---
 
@@ -40,7 +62,7 @@ distinction on re-import, so `hasData` parity survives the round trip.
 |---|---|
 | `credentials/`, `sessions/` | Passkey material and live session tokens. A fresh instance mints its own auth state; an archive must not hold keys to the source instance. |
 | `keys/`, `push-subscriptions.json`, `notifications.state.json` | The Web Push keypair and per-device endpoints are capabilities against the source instance, and the notification state ring leaks subscription ids. |
-| `db/` | The exported card files and `samples.json` carry all the data, and a raw copy of a live WAL database can be torn. |
+| `db/` | For supported legacy sources, card files and `samples.json` carry portable history. Native sources are refused; a raw copy of a live WAL database can be torn. |
 | `user.json` | Local preferences the fresh instance re-creates on first use. |
 | `chat/` | The chat transcript is private conversation history, not instance data. |
 | `inbox/` | Transient upload staging; anything that mattered has already become a report. |
