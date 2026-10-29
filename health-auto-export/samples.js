@@ -155,13 +155,13 @@ function _open(dbFile) {
   const target = dbFile || PATHS.DB_FILE;
   fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(target);
-  db.exec('PRAGMA journal_mode=WAL;');
-  db.exec('PRAGMA synchronous=NORMAL;');
   // A second handle on the same file: the card datastore holds the other one.
   // Both are synchronous and in one thread, so they cannot actually interleave;
   // the timeout is for an out-of-process writer (the migration or export
   // script running against a live instance).
   db.exec('PRAGMA busy_timeout=5000;');
+  db.exec('PRAGMA journal_mode=WAL;');
+  db.exec('PRAGMA synchronous=FULL;');
   db.exec(`
     CREATE TABLE IF NOT EXISTS hae_pushes (
       push_seq    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -270,7 +270,11 @@ function recordPush(payload, opts = {}) {
   //
   // Intra-push repeats now collapse in the upsert (see the statement), which is
   // what the Map was for.
-  db.exec('BEGIN');
+  if (db.prepare('PRAGMA journal_mode').get().journal_mode !== 'wal'
+      || db.prepare('PRAGMA synchronous').get().synchronous !== 2) {
+    throw new Error('history durability unavailable');
+  }
+  db.exec('BEGIN IMMEDIATE');
   let pushSeq;
   let inserted = 0;
   let seen = 0;
