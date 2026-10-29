@@ -40,12 +40,14 @@ import androidx.health.connect.client.records.MenstruationFlowRecord
 import androidx.health.connect.client.records.OvulationTestRecord
 import androidx.health.connect.client.records.SexualActivityRecord
 import androidx.health.connect.client.records.NutritionRecord
+import androidx.health.connect.client.records.SkinTemperatureRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Mass
 import androidx.health.connect.client.units.Length
 import androidx.health.connect.client.units.Percentage
 import androidx.health.connect.client.units.Power
 import androidx.health.connect.client.units.Temperature
+import androidx.health.connect.client.units.TemperatureDelta
 import androidx.health.connect.client.units.BloodGlucose
 import androidx.health.connect.client.units.Pressure
 import androidx.health.connect.client.units.Velocity
@@ -80,7 +82,8 @@ object RecordCodecs {
             "WheelchairPushesRecord", "MenstruationPeriodRecord",
             "MindfulnessSessionRecord", "ActivityIntensityRecord",
             "CervicalMucusRecord", "IntermenstrualBleedingRecord",
-            "MenstruationFlowRecord", "OvulationTestRecord", "SexualActivityRecord", "NutritionRecord"))
+            "MenstruationFlowRecord", "OvulationTestRecord", "SexualActivityRecord",
+            "NutritionRecord", "SkinTemperatureRecord"))
 
     fun encode(record: Record): EncodedRecord {
         val (type, fields) = when (record) {
@@ -269,6 +272,19 @@ object RecordCodecs {
                     put("name", record.name)
                     put("mealType", record.mealType)
                 }
+            is SkinTemperatureRecord -> "SkinTemperatureRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset
+            ).apply {
+                put("deltas", record.deltas.map { delta ->
+                    linkedMapOf(
+                        "time" to LosslessValues.instant(delta.time),
+                        "delta" to temperatureDelta(delta.delta)
+                    )
+                })
+                put("baseline", record.baseline?.let { temperature(it) })
+                put("measurementLocation", record.measurementLocation)
+            }
             else -> throw RecordCodecException("unsupported-record")
         }
         return EncodedRecord(type, record.metadata.id, RecordJson.text(fields))
@@ -340,6 +356,14 @@ object RecordCodecs {
         "sdkUnitValues" to linkedMapOf(
             "degC" to LosslessValues.float64(value.inCelsius),
             "degF" to LosslessValues.float64(value.inFahrenheit)))
+
+    private fun temperatureDelta(value: TemperatureDelta) =
+        linkedMapOf(
+            "unit" to "degC-difference",
+            "value" to LosslessValues.float64(value.inCelsius),
+            "sdkUnitValues" to linkedMapOf(
+                "degC-difference" to LosslessValues.float64(value.inCelsius),
+                "degF-difference" to LosslessValues.float64(value.inFahrenheit)))
 
     private fun bloodGlucose(value: BloodGlucose) = linkedMapOf(
         "unit" to "mmol/L",

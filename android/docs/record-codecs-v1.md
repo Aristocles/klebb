@@ -10,7 +10,7 @@ protocol's payload digest then hashes the complete original UTF-8
 `payloadJson`, not this record alone. Existing record or payload JSON is
 never passed back through this encoder for reserialization.
 
-Thirty-eight record types are implemented: `StepsRecord`, `WeightRecord`,
+Thirty-nine record types are implemented: `StepsRecord`, `WeightRecord`,
 `BodyFatRecord`, `BodyWaterMassRecord`, `BoneMassRecord`, `LeanBodyMassRecord`,
 `HeightRecord`, `HeartRateVariabilityRmssdRecord`, `RespiratoryRateRecord`,
 `RestingHeartRateRecord`, `BasalMetabolicRateRecord`, `BasalBodyTemperatureRecord`,
@@ -21,8 +21,8 @@ Thirty-eight record types are implemented: `StepsRecord`, `WeightRecord`,
 `ElevationGainedRecord`, `FloorsClimbedRecord`, `HydrationRecord`,
 `WheelchairPushesRecord`, `MenstruationPeriodRecord`, `MindfulnessSessionRecord`,
 `ActivityIntensityRecord`, `CervicalMucusRecord`, `IntermenstrualBleedingRecord`,
-`MenstruationFlowRecord`, `OvulationTestRecord`, `SexualActivityRecord` and
-`NutritionRecord`.
+`MenstruationFlowRecord`, `OvulationTestRecord`, `SexualActivityRecord`,
+`NutritionRecord` and `SkinTemperatureRecord`.
 The immutable `supportedRecordTypes` registry
 has exactly those entries and has no
 card subscription input. Other classes throw `RecordCodecException` with
@@ -67,6 +67,8 @@ encoded record or checkpoint success is returned.
 | CervicalMucus | `metadata`, `time`, `zoneOffset`, `appearance`, `sensation` |
 | IntermenstrualBleeding | `metadata`, `time`, `zoneOffset` |
 | MenstruationFlow, OvulationTest, SexualActivity | `metadata`, `time`, `zoneOffset`, respectively `flow`, `result`, `protectionUsed` |
+| SkinTemperature | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset`, `deltas`, `baseline`, `measurementLocation` |
+| SkinTemperature Delta | `time`, `delta` |
 | Metadata | `recordingMethod`, `id`, `dataOrigin`, `lastModifiedTime`, `clientRecordId`, `clientRecordVersion`, `device` |
 | DataOrigin | `packageName` |
 | Device, when present | `type`, `manufacturer`, `model` |
@@ -75,6 +77,7 @@ encoded record or checkpoint success is returned.
 | Percentage | `{unit:"percent", value:"…", sdkUnitValues:{percent:"…"}}` |
 | Power | `{unit:"W", value:"…", sdkUnitValues:{W:"…", "kcal/day":"…"}}` |
 | Temperature | `{unit:"degC", value:"…", sdkUnitValues:{degC:"…", degF:"…"}}` |
+| TemperatureDelta | `{unit:"degC-difference", value:"...", sdkUnitValues:{"degC-difference":"...", "degF-difference":"..."}}` |
 | BloodGlucose unit | `{unit:"mmol/L", value:"…", sdkUnitValues:{"mmol/L":"…", "mg/dL":"…"}}` |
 | Pressure | `{unit:"mmHg", value:"…", sdkUnitValues:{mmHg:"…"}}` |
 | Velocity | `{unit:"m/s", value:"…", sdkUnitValues:{"m/s":"…", "km/h":"…", "mi/h":"…"}}` |
@@ -280,6 +283,36 @@ JVM constructor branch. These results establish JVM construction and getter
 preservation, without proving native validation, permission, Health Connect
 availability or capture. The selected production SDK remains 1.2.0-alpha06.
 
+### Skin temperature intervals and verification
+
+SkinTemperature preserves all eight exposed record getters and both getters
+of each timestamped Delta. The interval and metadata use the unchanged common
+helpers. Nullable absolute `baseline` retains both `degC` and `degF` observations;
+null remains distinct from a present zero. Delta values use `degC-difference`
+and `degF-difference` labels and retain both Float64 getter observations. No
+absolute Fahrenheit offset or baseline-plus-delta reading is manufactured.
+
+Deltas retain supplied order, repeated timestamps and an empty list. Each
+encode snapshots then-exposed values; a later caller-list mutation cannot
+change an earlier encoded string. Measurement location remains numeric Int32,
+including an exposed opaque value such as 9018, without assigning a known label.
+
+`SkinTemperatureRecordCodecsTest` adds twelve independently fixed checks for
+those fields, direct constructor bounds, both pinned inventories and the
+selected compiled 14 getter signatures, the exact thirty-nine-type registry
+and all thirty-eight prior golden UTF-8 strings. Its selected compiling
+baseline ran twelve checks: nine `unsupported-record` failures after SDK
+preconditions, one registry mismatch and two passes for ABI and all prior
+strings. A separate SDK-only observer matched 14 signatures, 28 unit-factory
+getter readings and constructor controls on both cached SDK pins at `SDK_INT == 0`.
+These JVM observations do not prove native provider validation or availability.
+
+Native reading still requires provider support for `FEATURE_SKIN_TEMPERATURE`
+(feature identifier 2), applicable permission/consent and native validation.
+Compiled presence and opaque-value acceptance on the JVM do not establish those
+conditions. CORE-06.R0 remains required before personal capture, and signed
+native device/update and release checks remain separate parent gates.
+
 The selected production SDK remains 1.2.0-alpha06 without an upgrade.
 ActivityIntensity is alpha-only; successful JVM construction and encoding
 does not prove native `FEATURE_ACTIVITY_INTENSITY`, permission or provider
@@ -295,8 +328,8 @@ JVM tests exercise their older-platform branch and do not prove native
 Android 17 provider availability. Such availability and signed device
 checks remain separate evidence.
 
-These slices establish pure serialization for thirty-eight ordinary types.
-SleepSessionRecord, SkinTemperatureRecord, ExerciseSessionRecord and
+These slices establish pure serialization for thirty-nine ordinary types.
+SleepSessionRecord, ExerciseSessionRecord and
 PlannedExerciseSessionRecord remain required ordinary adapters. Complete-page
 and checkpoint transactions, the encrypted Room queue, chunking, process
 death, migrations, purges and signed native update checks remain AND-03
