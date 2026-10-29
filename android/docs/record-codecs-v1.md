@@ -10,7 +10,7 @@ protocol's payload digest then hashes the complete original UTF-8
 `payloadJson`, not this record alone. Existing record or payload JSON is
 never passed back through this encoder for reserialization.
 
-Thirty-nine record types are implemented: `StepsRecord`, `WeightRecord`,
+Forty record types are implemented: `StepsRecord`, `WeightRecord`,
 `BodyFatRecord`, `BodyWaterMassRecord`, `BoneMassRecord`, `LeanBodyMassRecord`,
 `HeightRecord`, `HeartRateVariabilityRmssdRecord`, `RespiratoryRateRecord`,
 `RestingHeartRateRecord`, `BasalMetabolicRateRecord`, `BasalBodyTemperatureRecord`,
@@ -22,7 +22,7 @@ Thirty-nine record types are implemented: `StepsRecord`, `WeightRecord`,
 `WheelchairPushesRecord`, `MenstruationPeriodRecord`, `MindfulnessSessionRecord`,
 `ActivityIntensityRecord`, `CervicalMucusRecord`, `IntermenstrualBleedingRecord`,
 `MenstruationFlowRecord`, `OvulationTestRecord`, `SexualActivityRecord`,
-`NutritionRecord` and `SkinTemperatureRecord`.
+`NutritionRecord`, `SkinTemperatureRecord` and `SleepSessionRecord`.
 The immutable `supportedRecordTypes` registry
 has exactly those entries and has no
 card subscription input. Other classes throw `RecordCodecException` with
@@ -313,6 +313,33 @@ Compiled presence and opaque-value acceptance on the JVM do not establish those
 conditions. CORE-06.R0 remains required before personal capture, and signed
 native device/update and release checks remain separate parent gates.
 
+### Sleep session fields and verification
+
+SleepSession preserves all eight exposed record getters and all three getters
+of each Stage. The unchanged interval and metadata helpers retain exact
+nanosecond bounds, independently nullable offsets and complete metadata.
+Title and notes retain null, empty and quoted/Unicode strings distinctly.
+Stages retain exposed order, start/end instants and numeric Int32 stage values,
+including an exposed opaque value. Gaps remain unclassified: no stage, sleep
+duration, label or measurement is manufactured. Each encoding copies current
+stage values; a later caller-list change cannot alter a previous encoded string.
+
+`SleepSessionRecordCodecsTest` adds ten independently fixed groups: seven
+complete/mutation outputs, eight actual constructor-refusal controls, both
+pinned 11 typed getter signatures with the immutable forty-type registry,
+and all thirty-nine earlier golden UTF-8 strings. Its compiling baseline
+ran ten groups: seven `unsupported-record` failures after direct SDK fields,
+one registry mismatch after typed ABI checks, and passing constructor-refusal
+and all-prior-string controls. Later mutation assertions were not reached
+on that baseline. Fixed expected strings remain independent of mapper output.
+
+A separate SDK-only observer checked both cached pins at `SDK_INT == 0`:
+seven positive records, eight `IllegalArgumentException` constructor refusals,
+16 nested controls and 164 exact getter observations. Both pins retained the
+caller stage list, including clear and reversed-replacement observations.
+These JVM results do not prove native constructor validation, provider support,
+permission/consent or capture. Those gates and CORE-06.R0 remain separate.
+
 The selected production SDK remains 1.2.0-alpha06 without an upgrade.
 ActivityIntensity is alpha-only; successful JVM construction and encoding
 does not prove native `FEATURE_ACTIVITY_INTENSITY`, permission or provider
@@ -328,9 +355,8 @@ JVM tests exercise their older-platform branch and do not prove native
 Android 17 provider availability. Such availability and signed device
 checks remain separate evidence.
 
-These slices establish pure serialization for thirty-nine ordinary types.
-SleepSessionRecord, ExerciseSessionRecord and
-PlannedExerciseSessionRecord remain required ordinary adapters. Complete-page
+These slices establish pure serialization for forty ordinary types.
+ExerciseSessionRecord and PlannedExerciseSessionRecord remain required ordinary adapters. Complete-page
 and checkpoint transactions, the encrypted Room queue, chunking, process
 death, migrations, purges and signed native update checks remain AND-03
 gates; parent #755 stays open. This code reads no Health Connect history,
