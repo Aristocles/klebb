@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Android SleepSession codec preserving nullable title/notes, ordered
+  nanosecond stages and opaque stage values without filling gaps or changing
+  earlier encodings. Native/provider and capture gates remain open. Refs #821.
+
 - Immutable encrypted Room blobs using Android Keystore AES-256-GCM, exact byte
   round trips and row/stream authentication, with fail-closed key recovery.
   Native emulator checks remain distinct from capture and lifecycle gates. Refs #811.

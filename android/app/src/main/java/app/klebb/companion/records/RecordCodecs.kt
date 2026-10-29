@@ -41,6 +41,7 @@ import androidx.health.connect.client.records.OvulationTestRecord
 import androidx.health.connect.client.records.SexualActivityRecord
 import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.SkinTemperatureRecord
+import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Mass
 import androidx.health.connect.client.units.Length
@@ -83,7 +84,7 @@ object RecordCodecs {
             "MindfulnessSessionRecord", "ActivityIntensityRecord",
             "CervicalMucusRecord", "IntermenstrualBleedingRecord",
             "MenstruationFlowRecord", "OvulationTestRecord", "SexualActivityRecord",
-            "NutritionRecord", "SkinTemperatureRecord"))
+            "NutritionRecord", "SkinTemperatureRecord", "SleepSessionRecord"))
 
     fun encode(record: Record): EncodedRecord {
         val (type, fields) = when (record) {
@@ -284,6 +285,20 @@ object RecordCodecs {
                 })
                 put("baseline", record.baseline?.let { temperature(it) })
                 put("measurementLocation", record.measurementLocation)
+            }
+            is SleepSessionRecord -> "SleepSessionRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset
+            ).apply {
+                put("title", record.title)
+                put("notes", record.notes)
+                put("stages", record.stages.map { stage ->
+                    linkedMapOf(
+                        "startTime" to LosslessValues.instant(stage.startTime),
+                        "endTime" to LosslessValues.instant(stage.endTime),
+                        "stage" to stage.stage
+                    )
+                })
             }
             else -> throw RecordCodecException("unsupported-record")
         }
