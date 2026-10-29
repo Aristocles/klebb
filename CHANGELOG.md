@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Android Nutrition codec preserving all nullable nutrients, public Mass and
+  Energy observations, interval metadata and opaque meal values, with stable
+  earlier encodings. Native capture and encrypted queue gates remain open. Refs #807.
+
 - Browser-owner exact-ID Health Connect deletion with read-only preview,
   content-revision checks and atomic persistent suppression plus active-part
   purge. Wider deletion UI and recovery gates remain open. Refs #804.
