@@ -224,9 +224,9 @@ class SkinTemperatureRecordCodecsTest {
         assertNotNull(SkinTemperatureRecord.Delta::class.java.getConstructor(Instant::class.java,
             TemperatureDelta::class.java))
     }
-    @Test fun s11Exact39ClassOrdinaryRegistryIsImmutable() {
-        val registry = (fixed["expectedRegistry"] as List<*>).toSet()
-        assertEquals(39, registry.size)
+    @Test fun s11Exact40ClassOrdinaryRegistryIsImmutable() {
+        val registry = (fixed["expectedRegistry"] as List<*>).toSet() + setOf("SleepSessionRecord")
+        assertEquals(40, registry.size)
         assertEquals(registry, RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")
