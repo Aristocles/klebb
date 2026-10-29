@@ -13,6 +13,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   round trips and row/stream authentication, with fail-closed key recovery.
   Native emulator checks remain distinct from capture and lifecycle gates. Refs #811.
 
+- Android Nutrition codec preserving all nullable nutrients, public Mass and
+  Energy observations, interval metadata and opaque meal values, with stable
+  earlier encodings. Native capture and encrypted queue gates remain open. Refs #807.
+
+- Browser-owner exact-ID Health Connect deletion with read-only preview,
+  content-revision checks and atomic persistent suppression plus active-part
+  purge. Wider deletion UI and recovery gates remain open. Refs #804.
+
 - Android codecs for five reproductive instant records, preserving complete
   metadata, nullable offsets and opaque numeric enums without invented
   measurements. Native capture and encrypted queue gates remain open. Refs #801.
@@ -80,6 +88,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - Preserve the synthetic encrypted-queue fixture bytes in repository checks
   with a complete content pin and public provenance. Native queue checks
   and capture readiness remain separate. Refs #814.
+
+- Refuse CLI imports into targets retaining native Health Connect data,
+  deletion/sync state or connection authority, and report unsupported or
+  unreadable target storage before applying an import. Refs #816.
+
+- Preserve the exhausted owner-deletion fixture cycle for an incomplete
+  above-cap source vector, with stopped-state assertions at both boundaries.
+  Refs #810.
 
 - Wait for the reports test's authenticated boot response before seeding its
   synthetic inbox file, preserving processing and quota fixture expectations. Refs #805.
