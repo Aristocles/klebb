@@ -230,7 +230,7 @@ class NutritionRecordCodecsTest {
         // observer before mapping; inventory equality alone is not runtime proof.
     }
 
-    @Test fun n09BothPinned59GetterSignaturesAndImmutable38TypeRegistryStayExact() {
+    @Test fun n09BothPinned59GetterSignaturesAndImmutable39TypeRegistryStayExact() {
         val expected = fixed["expectedPublicGetters"] as Map<*, *>
         assertEquals(3, expected.size)
         assertEquals(59, expected.values.sumOf { (it as Map<*, *>).size })
@@ -256,7 +256,7 @@ class NutritionRecordCodecsTest {
             assertEquals(name, signatures, compiled)
         }
         val registry = (fixed["expectedRegistry"] as List<*>).toSet()
-        assertEquals(38, registry.size)
+        assertEquals(39, registry.size)
         assertEquals(registry, RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")

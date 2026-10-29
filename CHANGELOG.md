@@ -13,6 +13,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   round trips and row/stream authentication, with fail-closed key recovery.
   Native emulator checks remain distinct from capture and lifecycle gates. Refs #811.
 
+- Android SkinTemperature codec preserving nullable absolute baselines,
+  ordered timestamped temperature differences and opaque measurement locations,
+  with exact public unit observations and stable earlier encodings. Refs #813.
+
 - Android Nutrition codec preserving all nullable nutrients, public Mass and
   Energy observations, interval metadata and opaque meal values, with stable
   earlier encodings. Native capture and encrypted queue gates remain open. Refs #807.
