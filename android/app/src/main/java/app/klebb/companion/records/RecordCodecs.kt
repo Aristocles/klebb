@@ -34,6 +34,11 @@ import androidx.health.connect.client.records.WheelchairPushesRecord
 import androidx.health.connect.client.records.MenstruationPeriodRecord
 import androidx.health.connect.client.records.MindfulnessSessionRecord
 import androidx.health.connect.client.records.ActivityIntensityRecord
+import androidx.health.connect.client.records.CervicalMucusRecord
+import androidx.health.connect.client.records.IntermenstrualBleedingRecord
+import androidx.health.connect.client.records.MenstruationFlowRecord
+import androidx.health.connect.client.records.OvulationTestRecord
+import androidx.health.connect.client.records.SexualActivityRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Mass
 import androidx.health.connect.client.units.Length
@@ -72,7 +77,9 @@ object RecordCodecs {
             "ActiveCaloriesBurnedRecord", "TotalCaloriesBurnedRecord", "DistanceRecord",
             "ElevationGainedRecord", "FloorsClimbedRecord", "HydrationRecord",
             "WheelchairPushesRecord", "MenstruationPeriodRecord",
-            "MindfulnessSessionRecord", "ActivityIntensityRecord"))
+            "MindfulnessSessionRecord", "ActivityIntensityRecord",
+            "CervicalMucusRecord", "IntermenstrualBleedingRecord",
+            "MenstruationFlowRecord", "OvulationTestRecord", "SexualActivityRecord"))
 
     fun encode(record: Record): EncodedRecord {
         val (type, fields) = when (record) {
@@ -200,6 +207,19 @@ object RecordCodecs {
                 record.metadata, record.startTime, record.startZoneOffset,
                 record.endTime, record.endZoneOffset
             ).apply { put("activityIntensityType", record.activityIntensityType) }
+            is CervicalMucusRecord -> "CervicalMucusRecord" to instantaneous(
+                record.metadata, record.time, record.zoneOffset, "appearance", record.appearance
+            ).apply { put("sensation", record.sensation) }
+            is IntermenstrualBleedingRecord -> "IntermenstrualBleedingRecord" to linkedMapOf(
+                "metadata" to metadata(record.metadata),
+                "time" to LosslessValues.instant(record.time),
+                "zoneOffset" to LosslessValues.offset(record.zoneOffset))
+            is MenstruationFlowRecord -> "MenstruationFlowRecord" to instantaneous(
+                record.metadata, record.time, record.zoneOffset, "flow", record.flow)
+            is OvulationTestRecord -> "OvulationTestRecord" to instantaneous(
+                record.metadata, record.time, record.zoneOffset, "result", record.result)
+            is SexualActivityRecord -> "SexualActivityRecord" to instantaneous(
+                record.metadata, record.time, record.zoneOffset, "protectionUsed", record.protectionUsed)
             else -> throw RecordCodecException("unsupported-record")
         }
         return EncodedRecord(type, record.metadata.id, RecordJson.text(fields))

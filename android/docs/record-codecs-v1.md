@@ -10,7 +10,7 @@ protocol's payload digest then hashes the complete original UTF-8
 `payloadJson`, not this record alone. Existing record or payload JSON is
 never passed back through this encoder for reserialization.
 
-Thirty-two record types are implemented: `StepsRecord`, `WeightRecord`,
+Thirty-seven record types are implemented: `StepsRecord`, `WeightRecord`,
 `BodyFatRecord`, `BodyWaterMassRecord`, `BoneMassRecord`, `LeanBodyMassRecord`,
 `HeightRecord`, `HeartRateVariabilityRmssdRecord`, `RespiratoryRateRecord`,
 `RestingHeartRateRecord`, `BasalMetabolicRateRecord`, `BasalBodyTemperatureRecord`,
@@ -19,8 +19,9 @@ Thirty-two record types are implemented: `StepsRecord`, `WeightRecord`,
 `PowerRecord`, `StepsCadenceRecord`, `CyclingPedalingCadenceRecord`,
 `ActiveCaloriesBurnedRecord`, `TotalCaloriesBurnedRecord`, `DistanceRecord`,
 `ElevationGainedRecord`, `FloorsClimbedRecord`, `HydrationRecord`,
-`WheelchairPushesRecord`, `MenstruationPeriodRecord`, `MindfulnessSessionRecord`
-and `ActivityIntensityRecord`.
+`WheelchairPushesRecord`, `MenstruationPeriodRecord`, `MindfulnessSessionRecord`,
+`ActivityIntensityRecord`, `CervicalMucusRecord`, `IntermenstrualBleedingRecord`,
+`MenstruationFlowRecord`, `OvulationTestRecord` and `SexualActivityRecord`.
 The immutable `supportedRecordTypes` registry
 has exactly those entries and has no
 card subscription input. Other classes throw `RecordCodecException` with
@@ -62,6 +63,9 @@ encoded record or checkpoint success is returned.
 | MenstruationPeriod | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset` |
 | MindfulnessSession | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset`, `mindfulnessSessionType`, `title`, `notes` |
 | ActivityIntensity | `metadata`, `startTime`, `startZoneOffset`, `endTime`, `endZoneOffset`, `activityIntensityType` |
+| CervicalMucus | `metadata`, `time`, `zoneOffset`, `appearance`, `sensation` |
+| IntermenstrualBleeding | `metadata`, `time`, `zoneOffset` |
+| MenstruationFlow, OvulationTest, SexualActivity | `metadata`, `time`, `zoneOffset`, respectively `flow`, `result`, `protectionUsed` |
 | Metadata | `recordingMethod`, `id`, `dataOrigin`, `lastModifiedTime`, `clientRecordId`, `clientRecordVersion`, `device` |
 | DataOrigin | `packageName` |
 | Device, when present | `type`, `manufacturer`, `model` |
@@ -112,6 +116,13 @@ complete data. Mindfulness preserves null and empty title/notes separately,
 including Unicode and controls. Mindfulness and ActivityIntensity enum
 observations remain numeric Int32; zero is a value, not a missing state.
 Floors remain Float64 strings and wheelchair pushes remain Long strings.
+
+Reproductive instant records retain the ordered metadata/time/nullable-offset
+prefix. CervicalMucus preserves `appearance` then `sensation`; MenstruationFlow,
+OvulationTest and SexualActivity preserve `flow`, `result` and `protectionUsed`
+respectively as numeric Int32 observations, including unfamiliar values.
+IntermenstrualBleeding has no additional measurement field: its metadata and
+instant are complete data, without an invented zero, unit or quantity.
 
 Energy retains calories, kilocalories, joules and kilojoules. For example,
 123.125 kcal exposes `515155.0000811884` J and `515.1550000811884` kJ.
@@ -220,6 +231,20 @@ earlier strings. Fixed literals and the earlier expectations remain unchanged.
 Both inventories agree on the nine stable classes and units; stable 1.1.0
 has no ActivityIntensity, whose six getters are present on alpha.
 
+`ReproductiveInstantRecordCodecsTest` adds twelve independently fixed checks:
+five primary records, five supplemental null/empty/opaque-enum cases,
+twenty public record getters on both pins, the exact thirty-seven-type
+registry and all thirty-two earlier golden JSON byte strings. The compiling
+baseline executes 82 checks: ten typed `unsupported-record` refusals, six
+registry failures and 66 passing checks. Each new case completes its real
+SDK constructor and direct getters before the codec refusal; all earlier
+strings pass. The fixed output literals remain unchanged through mapping.
+After the five adapters were added, the unchanged six-class run passed 82/82
+checks with zero failures, errors or skips. All thirty-two earlier strings
+passed unchanged. These observations establish JVM construction and encoding,
+without proving
+native provider validation, availability or permission behaviour.
+
 The selected production SDK remains 1.2.0-alpha06 without an upgrade.
 ActivityIntensity is alpha-only; successful JVM construction and encoding
 does not prove native `FEATURE_ACTIVITY_INTENSITY`, permission or provider
@@ -235,7 +260,7 @@ JVM tests exercise their older-platform branch and do not prove native
 Android 17 provider availability. Such availability and signed device
 checks remain separate evidence.
 
-These slices establish pure serialization for thirty-two ordinary types. The
+These slices establish pure serialization for thirty-seven ordinary types. The
 remaining ordinary catalogue, complete-page/checkpoint transactions,
 encrypted Room queue, chunking, process death, migrations, purges and
 signed native update checks remain AND-03 gates. This code reads no
