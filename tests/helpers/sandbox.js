@@ -217,7 +217,7 @@ async function _spawnServerOnce(sandboxRoot, extraEnv = {}) {
 }
 
 // Simple JSON request helper. Returns { status, headers, body, json }.
-function req(baseUrl, pathname, { method = 'GET', body = null, headers = {}, cookie = null } = {}) {
+function req(baseUrl, pathname, { method = 'GET', body = null, headers = {}, cookie = null, agent } = {}) {
   return new Promise((resolve, reject) => {
     const url = new URL(pathname, baseUrl);
     const opts = {
@@ -228,6 +228,7 @@ function req(baseUrl, pathname, { method = 'GET', body = null, headers = {}, coo
         ...headers,
       },
     };
+    if (agent !== undefined) opts.agent = agent;
     const r = http.request(url, opts, res => {
       let buf = '';
       res.on('data', c => buf += c);

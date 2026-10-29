@@ -49,6 +49,14 @@ because HAE re-sends a rolling window rather than a delta: the same
 sample arrives in push after push. Storing each unique sample once
 keeps months of history in a few megabytes instead of hundreds.
 
+For valid JSON, the history writer commits with SQLite WAL and FULL
+durability before dispatching to cards. If storage fails, the endpoint
+returns `503` with `{error:"history storage unavailable",retryable:true}`
+and leaves cards, the last-push snapshot and discoveries unchanged.
+Once history commits, a card failure leaves that source available for
+replay. A network retransmission is a new push; identical sample content
+remains deduplicated.
+
 Two consequences worth knowing:
 
 - The datastore is part of every backup and export path, so the
@@ -315,9 +323,10 @@ becomes a fresh discovery.
 
 ## Diagnostics: last-push snapshot
 
-Every push (success, parse failure, or overflow) overwrites
+Successful history writes, parse failures and overflows overwrite
 `$HEALTH_HOME/data/auto-export/last-push.json` with a snapshot of
-what happened. Shape:
+what happened. A history-storage refusal leaves the prior snapshot
+unchanged. Shape:
 
 ```json
 {
@@ -425,14 +434,17 @@ Content-Type: application/json
 
 | Response | Meaning |
 |---|---|
-| `200 {ok:true, ingested:{...}, availableUnsubscribed:[...]}` | Parsed and dispatched |
-| `200 {ok:true, warning:"..."}` | Parse or dispatch failed; the payload is recoverable (samples stored, or bytes quarantined) and HAE will retry |
+| `200 {ok:true, ingested:{...}, availableUnsubscribed:[...]}` | History committed, then dispatched |
+| `200 {ok:true, warning:"..."}` | Parse failure attempts quarantine; dispatch failure leaves committed history available for replay |
 | `401` | Token missing or wrong |
+| `413` | Payload exceeds the existing 100 MB body limit |
 | `501 {error:"ingest disabled"}` | No token configured (visit Settings → Health Auto Export) |
+| `503 {error:"history storage unavailable",retryable:true}` | History could not commit; dispatch and diagnostic updates did not run |
 
-Errors after auth passes are swallowed into `200 + warning` on
-purpose: the iPhone app retries aggressively on non-2xx, and we'd
-rather have the payload recoverable than a retry spiral.
+`retryable:true` identifies a storage refusal that can be retried after
+recovery. It does not guarantee Health Auto Export's retry schedule or
+backfill window. Check the app's actual outcome and use a controlled
+manual export of the same window when recovery requires it.
 
 ---
 

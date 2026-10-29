@@ -73,6 +73,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- Use fresh connections in source-index test fixtures while preserving the
+  request helper's omitted-agent defaults and existing deadlines. Refs #808.
+
+- Health Auto Export history failures now return a retryable storage refusal
+  before card or diagnostic changes. Valid sample history commits with WAL/FULL
+  durability before dispatch, with native failure and COMMIT-boundary checks.
+
 - Wait for the reports test's authenticated boot response before seeding its
   synthetic inbox file, preserving processing and quota fixture expectations. Refs #805.
 
