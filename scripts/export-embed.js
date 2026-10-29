@@ -217,6 +217,10 @@ function exportTo(targetDir, opts = {}) {
     throw new Error(`no data dir at ${PATHS.DATA_DIR}`);
   }
 
+  // Portable v1 cannot represent native state; check before legacy storage opens.
+  require('../lib/export/native-source').assertLegacyExportableSource(
+    PATHS.DB_FILE, path.join(PATHS.CREDENTIALS_DIR, 'health-connect.json'));
+
   // Read-only view of the datastore. A missing DB is a valid state (fresh or
   // pre-migration instance): every card then exports with whatever its file
   // already carries. Never let the export create db/ as a side effect.
