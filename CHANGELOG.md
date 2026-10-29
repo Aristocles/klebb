@@ -81,6 +81,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- Refuse CLI imports into targets retaining native Health Connect data,
+  deletion/sync state or connection authority, and report unsupported or
+  unreadable target storage before applying an import. Refs #816.
+
 - Preserve the exhausted owner-deletion fixture cycle for an incomplete
   above-cap source vector, with stopped-state assertions at both boundaries.
   Refs #810.

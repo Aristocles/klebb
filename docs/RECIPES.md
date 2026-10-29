@@ -1103,12 +1103,14 @@ Start the server on the new home and every card comes back with its
 history, HAE pushes included. Passkeys don't travel (an export never
 contains credentials), so register a fresh one on the new instance.
 
-One rule: **imports only ever write into a fresh instance.** A target
-with any card beyond the seeded welcome one, or any HAE history, is
-refused with the reasons listed. That is deliberate: there is no merge,
-and a restore that could half-overwrite live data would be worse than
-one that asks you for an empty home. Full tree contract in
-[`EXPORT-FORMAT.md`](EXPORT-FORMAT.md).
+**CLI imports write only into a fresh target.** Validation refuses
+non-welcome cards, HAE history, retained Health Connect records or connection,
+deletion and sync state with `VAL_TARGET_NOT_FRESH`. Invalid, unreadable or
+unsupported native database or authority storage returns `VAL_TARGET_STORAGE`.
+A genuinely absent native store, or a healthy initialized empty V1/V2 store
+and healthy empty authority catalogue, remains eligible. Validation reads the
+selected target without creating, migrating or repairing its storage. Full
+tree contract in [`EXPORT-FORMAT.md`](EXPORT-FORMAT.md).
 
 ### Restoring only part of the archive
 
