@@ -41,6 +41,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
         with:
           cache-disabled: true
+      - name: Install the emulator PulseAudio runtime library
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes libpulse0
+          dpkg-query --show --showformat='${Package}=${Version}\n' libpulse0
       - name: Install pinned official packages into the isolated SDK
         run: |
           cli="$ANDROID_HOME/cmdline-tools/16111833/bin/android"
