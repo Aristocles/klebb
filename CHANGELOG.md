@@ -77,6 +77,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- Preserve the synthetic encrypted-queue fixture bytes in repository checks
+  with a complete content pin and public provenance. Native queue checks
+  and capture readiness remain separate. Refs #814.
+
 - Wait for the reports test's authenticated boot response before seeding its
   synthetic inbox file, preserving processing and quota fixture expectations. Refs #805.
 
