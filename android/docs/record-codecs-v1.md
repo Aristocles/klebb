@@ -10,7 +10,7 @@ protocol's payload digest then hashes the complete original UTF-8
 `payloadJson`, not this record alone. Existing record or payload JSON is
 never passed back through this encoder for reserialization.
 
-Thirty-seven record types are implemented: `StepsRecord`, `WeightRecord`,
+Thirty-eight record types are implemented: `StepsRecord`, `WeightRecord`,
 `BodyFatRecord`, `BodyWaterMassRecord`, `BoneMassRecord`, `LeanBodyMassRecord`,
 `HeightRecord`, `HeartRateVariabilityRmssdRecord`, `RespiratoryRateRecord`,
 `RestingHeartRateRecord`, `BasalMetabolicRateRecord`, `BasalBodyTemperatureRecord`,
@@ -21,7 +21,8 @@ Thirty-seven record types are implemented: `StepsRecord`, `WeightRecord`,
 `ElevationGainedRecord`, `FloorsClimbedRecord`, `HydrationRecord`,
 `WheelchairPushesRecord`, `MenstruationPeriodRecord`, `MindfulnessSessionRecord`,
 `ActivityIntensityRecord`, `CervicalMucusRecord`, `IntermenstrualBleedingRecord`,
-`MenstruationFlowRecord`, `OvulationTestRecord` and `SexualActivityRecord`.
+`MenstruationFlowRecord`, `OvulationTestRecord`, `SexualActivityRecord` and
+`NutritionRecord`.
 The immutable `supportedRecordTypes` registry
 has exactly those entries and has no
 card subscription input. Other classes throw `RecordCodecException` with
@@ -245,6 +246,40 @@ passed unchanged. These observations establish JVM construction and encoding,
 without proving
 native provider validation, availability or permission behaviour.
 
+### Nutrition interval fields and verification
+
+Nutrition preserves all 49 exposed record getters: the five common
+interval/metadata fields, 40 nullable Mass nutrients, nullable `energy` and
+`energyFromFat`, nullable `name` and numeric Int32 `mealType`. Nutrient keys
+retain their fixed field order and explicit nulls. A present zero keeps its
+complete unit object; null, zero and an empty name remain distinct. Each Mass
+retains all six kg/g/mg/ug/oz/lb observations and each Energy all four
+cal/kcal/J/kJ observations, using the existing Float64 decimal policy.
+Metadata, nanosecond interval bounds, independently nullable offsets and
+quoted/control/Unicode source strings use the unchanged common helpers.
+Opaque meal values remain numbers rather than being relabelled.
+
+`NutritionRecordCodecsTest` adds ten independently fixed checks: a complete
+meal, every optional field null, all nutrients explicitly zero, empty name
+and exposed meal value 9015, seven sparse nutrient records, direct SDK unit
+observations, 59 getter signatures and the exact thirty-eight-type registry,
+and all thirty-seven earlier golden UTF-8 JSON strings. The compiling
+seven-class baseline executed 92 checks: seven output cases refused with
+`unsupported-record` after direct SDK preconditions, seven registry checks
+failed and the other 78 passed. N08's 248 primary plus 42 sparse getter
+observations and N10's 37 earlier strings passed before mapping. After the
+explicit adapter, the unchanged 92 checks passed with zero failures, errors
+or skips; those direct observations and earlier strings remained exact.
+
+Before mapping, a separate SDK-only observer checked the 59 public getter
+signatures and constructed all eleven fixed records on cached SDK 1.1.0 and
+1.2.0-alpha06. Each pin matched 538 fixed raw-bit and decimal readings:
+248 primary, 42 sparse and 248 present-zero observations. Android stubs
+reported `SDK_INT == 0`; the accepted opaque meal value 9015 exercises that
+JVM constructor branch. These results establish JVM construction and getter
+preservation, without proving native validation, permission, Health Connect
+availability or capture. The selected production SDK remains 1.2.0-alpha06.
+
 The selected production SDK remains 1.2.0-alpha06 without an upgrade.
 ActivityIntensity is alpha-only; successful JVM construction and encoding
 does not prove native `FEATURE_ACTIVITY_INTENSITY`, permission or provider
@@ -260,9 +295,11 @@ JVM tests exercise their older-platform branch and do not prove native
 Android 17 provider availability. Such availability and signed device
 checks remain separate evidence.
 
-These slices establish pure serialization for thirty-seven ordinary types. The
-remaining ordinary catalogue, complete-page/checkpoint transactions,
-encrypted Room queue, chunking, process death, migrations, purges and
-signed native update checks remain AND-03 gates. This code reads no
-Health Connect history, stages no batch and sends no data. Series encoding
-does not truncate lists to satisfy a wire limit or implement record chunking.
+These slices establish pure serialization for thirty-eight ordinary types.
+SleepSessionRecord, SkinTemperatureRecord, ExerciseSessionRecord and
+PlannedExerciseSessionRecord remain required ordinary adapters. Complete-page
+and checkpoint transactions, the encrypted Room queue, chunking, process
+death, migrations, purges and signed native update checks remain AND-03
+gates; parent #755 stays open. This code reads no Health Connect history,
+stages no batch and sends no data. Series encoding does not truncate lists
+to satisfy a wire limit or implement record chunking.

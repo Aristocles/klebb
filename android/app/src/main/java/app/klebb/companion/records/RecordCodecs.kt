@@ -39,6 +39,7 @@ import androidx.health.connect.client.records.IntermenstrualBleedingRecord
 import androidx.health.connect.client.records.MenstruationFlowRecord
 import androidx.health.connect.client.records.OvulationTestRecord
 import androidx.health.connect.client.records.SexualActivityRecord
+import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Mass
 import androidx.health.connect.client.units.Length
@@ -79,7 +80,7 @@ object RecordCodecs {
             "WheelchairPushesRecord", "MenstruationPeriodRecord",
             "MindfulnessSessionRecord", "ActivityIntensityRecord",
             "CervicalMucusRecord", "IntermenstrualBleedingRecord",
-            "MenstruationFlowRecord", "OvulationTestRecord", "SexualActivityRecord"))
+            "MenstruationFlowRecord", "OvulationTestRecord", "SexualActivityRecord", "NutritionRecord"))
 
     fun encode(record: Record): EncodedRecord {
         val (type, fields) = when (record) {
@@ -220,6 +221,54 @@ object RecordCodecs {
                 record.metadata, record.time, record.zoneOffset, "result", record.result)
             is SexualActivityRecord -> "SexualActivityRecord" to instantaneous(
                 record.metadata, record.time, record.zoneOffset, "protectionUsed", record.protectionUsed)
+            is NutritionRecord -> "NutritionRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset).apply {
+                    put("biotin", record.biotin?.let { mass(it) })
+                    put("caffeine", record.caffeine?.let { mass(it) })
+                    put("calcium", record.calcium?.let { mass(it) })
+                    put("energy", record.energy?.let { energy(it) })
+                    put("energyFromFat", record.energyFromFat?.let { energy(it) })
+                    put("chloride", record.chloride?.let { mass(it) })
+                    put("cholesterol", record.cholesterol?.let { mass(it) })
+                    put("chromium", record.chromium?.let { mass(it) })
+                    put("copper", record.copper?.let { mass(it) })
+                    put("dietaryFiber", record.dietaryFiber?.let { mass(it) })
+                    put("folate", record.folate?.let { mass(it) })
+                    put("folicAcid", record.folicAcid?.let { mass(it) })
+                    put("iodine", record.iodine?.let { mass(it) })
+                    put("iron", record.iron?.let { mass(it) })
+                    put("magnesium", record.magnesium?.let { mass(it) })
+                    put("manganese", record.manganese?.let { mass(it) })
+                    put("molybdenum", record.molybdenum?.let { mass(it) })
+                    put("monounsaturatedFat", record.monounsaturatedFat?.let { mass(it) })
+                    put("niacin", record.niacin?.let { mass(it) })
+                    put("pantothenicAcid", record.pantothenicAcid?.let { mass(it) })
+                    put("phosphorus", record.phosphorus?.let { mass(it) })
+                    put("polyunsaturatedFat", record.polyunsaturatedFat?.let { mass(it) })
+                    put("potassium", record.potassium?.let { mass(it) })
+                    put("protein", record.protein?.let { mass(it) })
+                    put("riboflavin", record.riboflavin?.let { mass(it) })
+                    put("saturatedFat", record.saturatedFat?.let { mass(it) })
+                    put("selenium", record.selenium?.let { mass(it) })
+                    put("sodium", record.sodium?.let { mass(it) })
+                    put("sugar", record.sugar?.let { mass(it) })
+                    put("thiamin", record.thiamin?.let { mass(it) })
+                    put("totalCarbohydrate", record.totalCarbohydrate?.let { mass(it) })
+                    put("totalFat", record.totalFat?.let { mass(it) })
+                    put("transFat", record.transFat?.let { mass(it) })
+                    put("unsaturatedFat", record.unsaturatedFat?.let { mass(it) })
+                    put("vitaminA", record.vitaminA?.let { mass(it) })
+                    put("vitaminB12", record.vitaminB12?.let { mass(it) })
+                    put("vitaminB6", record.vitaminB6?.let { mass(it) })
+                    put("vitaminC", record.vitaminC?.let { mass(it) })
+                    put("vitaminD", record.vitaminD?.let { mass(it) })
+                    put("vitaminE", record.vitaminE?.let { mass(it) })
+                    put("vitaminK", record.vitaminK?.let { mass(it) })
+                    put("zinc", record.zinc?.let { mass(it) })
+                    put("name", record.name)
+                    put("mealType", record.mealType)
+                }
             else -> throw RecordCodecException("unsupported-record")
         }
         return EncodedRecord(type, record.metadata.id, RecordJson.text(fields))
