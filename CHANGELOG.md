@@ -93,6 +93,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- Refuse portable-v1 export from sources retaining native Health Connect
+  schema or authority, and report unreadable source storage before output
+  creation or a strict import safety snapshot. Refs #823.
+
 - Preserve the synthetic encrypted-queue fixture bytes in repository checks
   with a complete content pin and public provenance. Native queue checks
   and capture readiness remain separate. Refs #814.
