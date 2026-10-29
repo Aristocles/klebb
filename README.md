@@ -286,9 +286,10 @@ To restore from the CLI, point
 `npm run import -- /path/to/dir --target <new-home>` at the extracted
 tree. Dry-run is the default: it validates the tree against the target
 and prints every finding and the plan without writing anything; add
-`--apply` to import and verify. The CLI only ever writes into a fresh
-instance (nothing beyond the seeded welcome card); the typed-REPLACE
-path onto a populated instance exists only in the app's wizard. The full
+`--apply` to import and verify. A fresh CLI target holds only the seeded
+welcome card, with no HAE history or retained Health Connect data, controls
+or connection authority. The typed-REPLACE path onto a populated instance
+exists only in the app's wizard. The full
 tree contract lives in [`docs/EXPORT-FORMAT.md`](docs/EXPORT-FORMAT.md).
 
 An import can also restore part of an archive: `--cards weight,sleep`,
