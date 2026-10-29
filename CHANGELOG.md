@@ -13,6 +13,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   Energy observations, interval metadata and opaque meal values, with stable
   earlier encodings. Native capture and encrypted queue gates remain open. Refs #807.
 
+- Browser-owner exact-ID Health Connect deletion with read-only preview,
+  content-revision checks and atomic persistent suppression plus active-part
+  purge. Wider deletion UI and recovery gates remain open. Refs #804.
+
 - Android codecs for five reproductive instant records, preserving complete
   metadata, nullable offsets and opaque numeric enums without invented
   measurements. Native capture and encrypted queue gates remain open. Refs #801.
@@ -76,6 +80,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   their separate implementation gates.
 
 ### Fixed
+
+- Preserve the exhausted owner-deletion fixture cycle for an incomplete
+  above-cap source vector, with stopped-state assertions at both boundaries.
+  Refs #810.
 
 - Wait for the reports test's authenticated boot response before seeding its
   synthetic inbox file, preserving processing and quota fixture expectations. Refs #805.
