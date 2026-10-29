@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Android Nutrition codec preserving all nullable nutrients, public Mass and
+  Energy observations, interval metadata and opaque meal values, with stable
+  earlier encodings. Native capture and encrypted queue gates remain open. Refs #807.
+
 - Android codecs for five reproductive instant records, preserving complete
   metadata, nullable offsets and opaque numeric enums without invented
   measurements. Native capture and encrypted queue gates remain open. Refs #801.
