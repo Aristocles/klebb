@@ -90,7 +90,9 @@ class RecordCodecsTest {
             "ActiveCaloriesBurnedRecord", "TotalCaloriesBurnedRecord", "DistanceRecord",
             "ElevationGainedRecord", "FloorsClimbedRecord", "HydrationRecord",
             "WheelchairPushesRecord", "MenstruationPeriodRecord",
-            "MindfulnessSessionRecord", "ActivityIntensityRecord"),
+            "MindfulnessSessionRecord", "ActivityIntensityRecord",
+            "CervicalMucusRecord", "IntermenstrualBleedingRecord", "MenstruationFlowRecord",
+            "OvulationTestRecord", "SexualActivityRecord"),
             RecordCodecs.supportedRecordTypes)
         for (record in listOf(steps(), weight())) {
             val result = RecordCodecs.encode(record)

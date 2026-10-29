@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Android codecs for five reproductive instant records, preserving complete
+  metadata, nullable offsets and opaque numeric enums without invented
+  measurements. Native capture and encrypted queue gates remain open. Refs #801.
+
 - Sticky typed native-deletion admission for new ordinary batches and multipart
   uploads, with exact committed retries, atomic active-part purge and compact
   V2 source footprints. User deletion controls and recovery remain separate gates.
@@ -68,6 +72,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   their separate implementation gates.
 
 ### Fixed
+
+- Wait for the reports test's authenticated boot response before seeding its
+  synthetic inbox file, preserving processing and quota fixture expectations. Refs #805.
 
 - Publish synthetic held-object test latches only after complete JSON is written,
   so the parent reads a complete first-chunk observation.

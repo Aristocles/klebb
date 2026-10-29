@@ -175,8 +175,10 @@ class FlatIntervalRecordCodecsTest {
             }.associate { it.name to it.returnType.name }
             assertEquals(name, getters, compiled)
         }
-        val registry = (fixed["expectedRegistry"] as List<*>).toSet()
-        assertEquals(32, registry.size)
+        val registry = (fixed["expectedRegistry"] as List<*>).toSet() + setOf(
+            "CervicalMucusRecord", "IntermenstrualBleedingRecord", "MenstruationFlowRecord",
+            "OvulationTestRecord", "SexualActivityRecord")
+        assertEquals(37, registry.size)
         assertEquals(registry, RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")
