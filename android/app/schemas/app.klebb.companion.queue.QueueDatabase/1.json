@@ -1,0 +1,78 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "9ad7f7cba655efaa74ac90de8d30160d",
+    "entities": [
+      {
+        "tableName": "queue_blobs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`row_id` TEXT NOT NULL, `local_stream_id` TEXT NOT NULL, `kind` TEXT NOT NULL, `version` INTEGER NOT NULL, `nonce` BLOB NOT NULL, `ciphertext_and_tag` BLOB NOT NULL, `encrypted_bytes` INTEGER NOT NULL, PRIMARY KEY(`row_id`))",
+        "fields": [
+          {
+            "fieldPath": "rowId",
+            "columnName": "row_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localStreamId",
+            "columnName": "local_stream_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nonce",
+            "columnName": "nonce",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ciphertextAndTag",
+            "columnName": "ciphertext_and_tag",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "encryptedBytes",
+            "columnName": "encrypted_bytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "row_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_queue_blobs_local_stream_id",
+            "unique": false,
+            "columnNames": [
+              "local_stream_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_queue_blobs_local_stream_id` ON `${TABLE_NAME}` (`local_stream_id`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9ad7f7cba655efaa74ac90de8d30160d')"
+    ]
+  }
+}

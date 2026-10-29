@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Immutable encrypted Room blobs using Android Keystore AES-256-GCM, exact byte
+  round trips and row/stream authentication, with fail-closed key recovery.
+  Native emulator checks remain distinct from capture and lifecycle gates. Refs #811.
+
 - Android SkinTemperature codec preserving nullable absolute baselines,
   ordered timestamped temperature differences and opaque measurement locations,
   with exact public unit observations and stable earlier encodings. Refs #813.
@@ -84,6 +88,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   their separate implementation gates.
 
 ### Fixed
+
+- Preserve the synthetic encrypted-queue fixture bytes in repository checks
+  with a complete content pin and public provenance. Native queue checks
+  and capture readiness remain separate. Refs #814.
 
 - Refuse CLI imports into targets retaining native Health Connect data,
   deletion/sync state or connection authority, and report unsupported or
