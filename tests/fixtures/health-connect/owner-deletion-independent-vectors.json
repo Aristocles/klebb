@@ -1,0 +1,1135 @@
+{
+  "revisionVectors": [
+    {
+      "id": "RV01",
+      "revisionArray": [
+        "health-connect-user-delete",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "44444444-4444-4444-8444-444444444444",
+        2,
+        [
+          [
+            "BodyWaterMassRecord",
+            "r0-shared-id"
+          ]
+        ],
+        [
+          [
+            "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"synthetic-durable-installation-beta\",\"BodyWaterMassRecord\",\"3\",\"44444444-4444-4444-8444-444444444444\"]",
+            "BodyWaterMassRecord",
+            "1"
+          ]
+        ],
+        [
+          [
+            "BodyWaterMassRecord",
+            "r0-shared-id",
+            [
+              "health-connect-record",
+              1,
+              "ordinary",
+              "raw-only",
+              357,
+              "sha256:c75f9ec48ec178af6f10bfa22907417e79b0e45bb4cd4ac00e50b16a248d41e1",
+              [
+                "instant",
+                "2026-01-02T03:04:05.123456789Z",
+                null
+              ]
+            ],
+            null,
+            null,
+            []
+          ]
+        ]
+      ],
+      "revisionJsonUtf8": "[\"health-connect-user-delete\",1,\"11111111-1111-4111-8111-111111111111\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"44444444-4444-4444-8444-444444444444\",2,[[\"BodyWaterMassRecord\",\"r0-shared-id\"]],[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\\\",\\\"synthetic-durable-installation-beta\\\",\\\"BodyWaterMassRecord\\\",\\\"3\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",\"BodyWaterMassRecord\",\"1\"]],[[\"BodyWaterMassRecord\",\"r0-shared-id\",[\"health-connect-record\",1,\"ordinary\",\"raw-only\",357,\"sha256:c75f9ec48ec178af6f10bfa22907417e79b0e45bb4cd4ac00e50b16a248d41e1\",[\"instant\",\"2026-01-02T03:04:05.123456789Z\",null]],null,null,[]]]]",
+      "utf8Bytes": 692,
+      "expectedRevision": "sha256:4526d2047fa6ee3dd6344eff835313a6319674701ddc7f1f5d1586551d770530",
+      "effects": {
+        "newlyUserSuppressed": 1,
+        "removedRecords": 1,
+        "removedStagedObjects": 0,
+        "removedParts": 0,
+        "removedPartBytes": 0
+      },
+      "projectionQueuedOnActualApply": true
+    },
+    {
+      "id": "RV02",
+      "revisionArray": [
+        "health-connect-user-delete",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "44444444-4444-4444-8444-444444444444",
+        2,
+        [
+          [
+            "BodyWaterMassRecord",
+            "r0-shared-id"
+          ]
+        ],
+        [
+          [
+            "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"synthetic-durable-installation-beta\",\"BodyWaterMassRecord\",\"3\",\"44444444-4444-4444-8444-444444444444\"]",
+            "BodyWaterMassRecord",
+            "1"
+          ]
+        ],
+        [
+          [
+            "BodyWaterMassRecord",
+            "r0-shared-id",
+            null,
+            null,
+            [
+              0,
+              1,
+              null,
+              null,
+              [
+                "instant",
+                "2026-01-02T03:04:05.123456789Z",
+                null
+              ]
+            ],
+            []
+          ]
+        ]
+      ],
+      "revisionJsonUtf8": "[\"health-connect-user-delete\",1,\"11111111-1111-4111-8111-111111111111\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"44444444-4444-4444-8444-444444444444\",2,[[\"BodyWaterMassRecord\",\"r0-shared-id\"]],[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\\\",\\\"synthetic-durable-installation-beta\\\",\\\"BodyWaterMassRecord\\\",\\\"3\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",\"BodyWaterMassRecord\",\"1\"]],[[\"BodyWaterMassRecord\",\"r0-shared-id\",null,null,[0,1,null,null,[\"instant\",\"2026-01-02T03:04:05.123456789Z\",null]],[]]]]",
+      "utf8Bytes": 580,
+      "expectedRevision": "sha256:e02b0dc6a91361c8752c64bc3936e1238238f206a507f6ca45ec3fc3fa9c36a5",
+      "effects": {
+        "newlyUserSuppressed": 0,
+        "removedRecords": 0,
+        "removedStagedObjects": 0,
+        "removedParts": 0,
+        "removedPartBytes": 0
+      },
+      "projectionQueuedOnActualApply": false
+    },
+    {
+      "id": "RV03",
+      "revisionArray": [
+        "health-connect-user-delete",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "44444444-4444-4444-8444-444444444444",
+        2,
+        [
+          [
+            "WeightRecord",
+            "core03-user-before-first-upsert"
+          ]
+        ],
+        [
+          [
+            "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"synthetic-durable-installation-beta\",\"BodyWaterMassRecord\",\"3\",\"44444444-4444-4444-8444-444444444444\"]",
+            "BodyWaterMassRecord",
+            "1"
+          ]
+        ],
+        [
+          [
+            "WeightRecord",
+            "core03-user-before-first-upsert",
+            null,
+            null,
+            null,
+            []
+          ]
+        ]
+      ],
+      "revisionJsonUtf8": "[\"health-connect-user-delete\",1,\"11111111-1111-4111-8111-111111111111\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"44444444-4444-4444-8444-444444444444\",2,[[\"WeightRecord\",\"core03-user-before-first-upsert\"]],[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\\\",\\\"synthetic-durable-installation-beta\\\",\\\"BodyWaterMassRecord\\\",\\\"3\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",\"BodyWaterMassRecord\",\"1\"]],[[\"WeightRecord\",\"core03-user-before-first-upsert\",null,null,null,[]]]]",
+      "utf8Bytes": 543,
+      "expectedRevision": "sha256:e366b1219ede1fb307875f6d1852b5adff2b9abc336d9ac1d10bac1923437391",
+      "effects": {
+        "newlyUserSuppressed": 1,
+        "removedRecords": 0,
+        "removedStagedObjects": 0,
+        "removedParts": 0,
+        "removedPartBytes": 0
+      },
+      "projectionQueuedOnActualApply": true
+    },
+    {
+      "id": "RV04",
+      "revisionArray": [
+        "health-connect-user-delete",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "44444444-4444-4444-8444-444444444444",
+        2,
+        [
+          [
+            "BodyWaterMassRecord",
+            "r0-shared-id"
+          ],
+          [
+            "WeightRecord",
+            "core03-user-before-first-upsert"
+          ]
+        ],
+        [
+          [
+            "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"synthetic-durable-installation-beta\",\"BodyWaterMassRecord\",\"3\",\"44444444-4444-4444-8444-444444444444\"]",
+            "BodyWaterMassRecord",
+            "1"
+          ]
+        ],
+        [
+          [
+            "BodyWaterMassRecord",
+            "r0-shared-id",
+            [
+              "health-connect-record",
+              1,
+              "ordinary",
+              "raw-only",
+              357,
+              "sha256:c75f9ec48ec178af6f10bfa22907417e79b0e45bb4cd4ac00e50b16a248d41e1",
+              [
+                "instant",
+                "2026-01-02T03:04:05.123456789Z",
+                null
+              ]
+            ],
+            null,
+            null,
+            []
+          ],
+          [
+            "WeightRecord",
+            "core03-user-before-first-upsert",
+            null,
+            null,
+            null,
+            []
+          ]
+        ]
+      ],
+      "revisionJsonUtf8": "[\"health-connect-user-delete\",1,\"11111111-1111-4111-8111-111111111111\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"44444444-4444-4444-8444-444444444444\",2,[[\"BodyWaterMassRecord\",\"r0-shared-id\"],[\"WeightRecord\",\"core03-user-before-first-upsert\"]],[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\\\",\\\"synthetic-durable-installation-beta\\\",\\\"BodyWaterMassRecord\\\",\\\"3\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",\"BodyWaterMassRecord\",\"1\"]],[[\"BodyWaterMassRecord\",\"r0-shared-id\",[\"health-connect-record\",1,\"ordinary\",\"raw-only\",357,\"sha256:c75f9ec48ec178af6f10bfa22907417e79b0e45bb4cd4ac00e50b16a248d41e1\",[\"instant\",\"2026-01-02T03:04:05.123456789Z\",null]],null,null,[]],[\"WeightRecord\",\"core03-user-before-first-upsert\",null,null,null,[]]]]",
+      "utf8Bytes": 812,
+      "expectedRevision": "sha256:60d9a75036df881d3a44588b103b8c5d05bf4aec10e0216eccf3f682b8fdd1c8",
+      "effects": {
+        "newlyUserSuppressed": 2,
+        "removedRecords": 1,
+        "removedStagedObjects": 0,
+        "removedParts": 0,
+        "removedPartBytes": 0
+      },
+      "projectionQueuedOnActualApply": true
+    },
+    {
+      "id": "RV05",
+      "revisionArray": [
+        "health-connect-user-delete",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "44444444-4444-4444-8444-444444444444",
+        2,
+        [
+          [
+            "WeightRecord",
+            ""
+          ],
+          [
+            "WeightRecord",
+            "𐀀"
+          ]
+        ],
+        [
+          [
+            "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"synthetic-durable-installation-beta\",\"BodyWaterMassRecord\",\"3\",\"44444444-4444-4444-8444-444444444444\"]",
+            "BodyWaterMassRecord",
+            "1"
+          ]
+        ],
+        [
+          [
+            "WeightRecord",
+            "",
+            null,
+            null,
+            null,
+            []
+          ],
+          [
+            "WeightRecord",
+            "𐀀",
+            null,
+            null,
+            null,
+            []
+          ]
+        ]
+      ],
+      "revisionJsonUtf8": "[\"health-connect-user-delete\",1,\"11111111-1111-4111-8111-111111111111\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"44444444-4444-4444-8444-444444444444\",2,[[\"WeightRecord\",\"\"],[\"WeightRecord\",\"𐀀\"]],[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\\\",\\\"synthetic-durable-installation-beta\\\",\\\"BodyWaterMassRecord\\\",\\\"3\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",\"BodyWaterMassRecord\",\"1\"]],[[\"WeightRecord\",\"\",null,null,null,[]],[\"WeightRecord\",\"𐀀\",null,null,null,[]]]]",
+      "utf8Bytes": 553,
+      "expectedRevision": "sha256:fc803cbc4035fe871148815f94a7554106f010494e9c0c312d2d6927ee11da78",
+      "effects": {
+        "newlyUserSuppressed": 2,
+        "removedRecords": 0,
+        "removedStagedObjects": 0,
+        "removedParts": 0,
+        "removedPartBytes": 0
+      },
+      "projectionQueuedOnActualApply": true
+    },
+    {
+      "id": "RV06",
+      "revisionArray": [
+        "health-connect-user-delete",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "44444444-4444-4444-8444-444444444444",
+        2,
+        [
+          [
+            "BodyWaterMassRecord",
+            "r0-shared-id"
+          ]
+        ],
+        [
+          [
+            "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"synthetic-durable-installation-beta\",\"BodyWaterMassRecord\",\"3\",\"44444444-4444-4444-8444-444444444444\"]",
+            "BodyWaterMassRecord",
+            "2"
+          ]
+        ],
+        [
+          [
+            "BodyWaterMassRecord",
+            "r0-shared-id",
+            null,
+            [
+              "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"synthetic-durable-installation-beta\",\"BodyWaterMassRecord\",\"3\",\"44444444-4444-4444-8444-444444444444\"]",
+              "2"
+            ],
+            [
+              1,
+              0,
+              "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"synthetic-durable-installation-beta\",\"BodyWaterMassRecord\",\"3\",\"44444444-4444-4444-8444-444444444444\"]",
+              "2",
+              [
+                "instant",
+                "2026-01-02T03:04:05.123456789Z",
+                null
+              ]
+            ],
+            []
+          ]
+        ]
+      ],
+      "revisionJsonUtf8": "[\"health-connect-user-delete\",1,\"11111111-1111-4111-8111-111111111111\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"44444444-4444-4444-8444-444444444444\",2,[[\"BodyWaterMassRecord\",\"r0-shared-id\"]],[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\\\",\\\"synthetic-durable-installation-beta\\\",\\\"BodyWaterMassRecord\\\",\\\"3\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",\"BodyWaterMassRecord\",\"2\"]],[[\"BodyWaterMassRecord\",\"r0-shared-id\",null,[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\\\",\\\"synthetic-durable-installation-beta\\\",\\\"BodyWaterMassRecord\\\",\\\"3\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",\"2\"],[1,0,\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\\\",\\\"synthetic-durable-installation-beta\\\",\\\"BodyWaterMassRecord\\\",\\\"3\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",\"2\",[\"instant\",\"2026-01-02T03:04:05.123456789Z\",null]],[]]]]",
+      "utf8Bytes": 1051,
+      "expectedRevision": "sha256:a816d27713bc71b4e392b9913258647fa2a9f64ec4d4846458c95a030e64d7b5",
+      "effects": {
+        "newlyUserSuppressed": 1,
+        "removedRecords": 0,
+        "removedStagedObjects": 0,
+        "removedParts": 0,
+        "removedPartBytes": 0
+      },
+      "projectionQueuedOnActualApply": true
+    },
+    {
+      "id": "RV07",
+      "revisionArray": [
+        "health-connect-user-delete",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "44444444-4444-4444-8444-444444444444",
+        2,
+        [
+          [
+            "WeightRecord",
+            "core03-user-before-first-upsert"
+          ]
+        ],
+        [],
+        [
+          [
+            "WeightRecord",
+            "core03-user-before-first-upsert",
+            null,
+            null,
+            null,
+            []
+          ]
+        ]
+      ],
+      "revisionJsonUtf8": "[\"health-connect-user-delete\",1,\"11111111-1111-4111-8111-111111111111\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"44444444-4444-4444-8444-444444444444\",2,[[\"WeightRecord\",\"core03-user-before-first-upsert\"]],[],[[\"WeightRecord\",\"core03-user-before-first-upsert\",null,null,null,[]]]]",
+      "utf8Bytes": 278,
+      "expectedRevision": "sha256:03d1ac623922e9a940415bab39f21165d8f92d1bcd2324e45c0a725fdbc6c477",
+      "effects": {
+        "newlyUserSuppressed": 1,
+        "removedRecords": 0,
+        "removedStagedObjects": 0,
+        "removedParts": 0,
+        "removedPartBytes": 0
+      },
+      "projectionQueuedOnActualApply": false
+    },
+    {
+      "id": "RV08",
+      "revisionArray": [
+        "health-connect-user-delete",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "33333333-3333-4333-8333-333333333333",
+        "44444444-4444-4444-8444-444444444444",
+        2,
+        [
+          [
+            "BodyWaterMassRecord",
+            "large-raw-only"
+          ]
+        ],
+        [],
+        [
+          [
+            "BodyWaterMassRecord",
+            "large-raw-only",
+            null,
+            null,
+            null,
+            [
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"33333333-3333-4333-8333-333333333333\",\"synthetic-durable-installation\",\"BodyWaterMassRecord\",\"1\",\"44444444-4444-4444-8444-444444444444\"]",
+                [
+                  [
+                    "11111111-1111-4111-8111-111111111111",
+                    "22222222-2222-4222-8222-222222222222",
+                    "33333333-3333-4333-8333-333333333333",
+                    "synthetic-durable-installation",
+                    "1",
+                    "44444444-4444-4444-8444-444444444444"
+                  ],
+                  "BodyWaterMassRecord",
+                  "synthetic-large-1",
+                  "1",
+                  [
+                    "11111111-1111-4111-8111-111111111111",
+                    "33333333-3333-4333-8333-333333333333",
+                    "BodyWaterMassRecord",
+                    "large-raw-only"
+                  ],
+                  "synthetic-complete-object-1",
+                  "sha256:45ee44258c3e7f0491bc4e9ebdc2effe4df5e97ba50beb8fcfdef90ba51460e5",
+                  3,
+                  1049872
+                ],
+                1767322800000,
+                1767409200000,
+                1049872,
+                [
+                  [
+                    0,
+                    524288,
+                    "sha256:383522fa7578e3dc7ed188a95a1189abd4f9df432ce8a5c77a4ac575919d8131"
+                  ],
+                  [
+                    2,
+                    1296,
+                    "sha256:0f8b17aa801af6bdafed5aeb38e686948a6ebbfd8d478ed156e8341ebceb6840"
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ],
+      "revisionJsonUtf8": "[\"health-connect-user-delete\",1,\"11111111-1111-4111-8111-111111111111\",\"33333333-3333-4333-8333-333333333333\",\"44444444-4444-4444-8444-444444444444\",2,[[\"BodyWaterMassRecord\",\"large-raw-only\"]],[],[[\"BodyWaterMassRecord\",\"large-raw-only\",null,null,null,[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"33333333-3333-4333-8333-333333333333\\\",\\\"synthetic-durable-installation\\\",\\\"BodyWaterMassRecord\\\",\\\"1\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",[[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"33333333-3333-4333-8333-333333333333\",\"synthetic-durable-installation\",\"1\",\"44444444-4444-4444-8444-444444444444\"],\"BodyWaterMassRecord\",\"synthetic-large-1\",\"1\",[\"11111111-1111-4111-8111-111111111111\",\"33333333-3333-4333-8333-333333333333\",\"BodyWaterMassRecord\",\"large-raw-only\"],\"synthetic-complete-object-1\",\"sha256:45ee44258c3e7f0491bc4e9ebdc2effe4df5e97ba50beb8fcfdef90ba51460e5\",3,1049872],1767322800000,1767409200000,1049872,[[0,524288,\"sha256:383522fa7578e3dc7ed188a95a1189abd4f9df432ce8a5c77a4ac575919d8131\"],[2,1296,\"sha256:0f8b17aa801af6bdafed5aeb38e686948a6ebbfd8d478ed156e8341ebceb6840\"]]]]]]]",
+      "utf8Bytes": 1174,
+      "expectedRevision": "sha256:8c99b02d845a994fd4f225a9f90f49e7b37adc416a42a56af591d5f2c26860b4",
+      "effects": {
+        "newlyUserSuppressed": 1,
+        "removedRecords": 0,
+        "removedStagedObjects": 1,
+        "removedParts": 2,
+        "removedPartBytes": 525584
+      },
+      "projectionQueuedOnActualApply": false
+    },
+    {
+      "id": "RV09",
+      "revisionArray": [
+        "health-connect-user-delete",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "33333333-3333-4333-8333-333333333333",
+        "44444444-4444-4444-8444-444444444444",
+        2,
+        [
+          [
+            "BodyWaterMassRecord",
+            "large-raw-only"
+          ]
+        ],
+        [],
+        [
+          [
+            "BodyWaterMassRecord",
+            "large-raw-only",
+            null,
+            null,
+            null,
+            [
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"33333333-3333-4333-8333-333333333333\",\"synthetic-durable-installation\",\"BodyWaterMassRecord\",\"1\",\"44444444-4444-4444-8444-444444444444\"]",
+                [
+                  [
+                    "11111111-1111-4111-8111-111111111111",
+                    "22222222-2222-4222-8222-222222222222",
+                    "33333333-3333-4333-8333-333333333333",
+                    "synthetic-durable-installation",
+                    "1",
+                    "44444444-4444-4444-8444-444444444444"
+                  ],
+                  "BodyWaterMassRecord",
+                  "synthetic-large-1",
+                  "1",
+                  [
+                    "11111111-1111-4111-8111-111111111111",
+                    "33333333-3333-4333-8333-333333333333",
+                    "BodyWaterMassRecord",
+                    "large-raw-only"
+                  ],
+                  "synthetic-complete-object-1",
+                  "sha256:45ee44258c3e7f0491bc4e9ebdc2effe4df5e97ba50beb8fcfdef90ba51460e5",
+                  3,
+                  1049872
+                ],
+                1767322800000,
+                1767409200000,
+                1049872,
+                [
+                  [
+                    0,
+                    524288,
+                    "sha256:383522fa7578e3dc7ed188a95a1189abd4f9df432ce8a5c77a4ac575919d8131"
+                  ],
+                  [
+                    1,
+                    524288,
+                    "sha256:def7e95362758e28519425841fed896629bd07e36ef22198b0f33211caeb6be5"
+                  ],
+                  [
+                    2,
+                    1296,
+                    "sha256:0f8b17aa801af6bdafed5aeb38e686948a6ebbfd8d478ed156e8341ebceb6840"
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ],
+      "revisionJsonUtf8": "[\"health-connect-user-delete\",1,\"11111111-1111-4111-8111-111111111111\",\"33333333-3333-4333-8333-333333333333\",\"44444444-4444-4444-8444-444444444444\",2,[[\"BodyWaterMassRecord\",\"large-raw-only\"]],[],[[\"BodyWaterMassRecord\",\"large-raw-only\",null,null,null,[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"33333333-3333-4333-8333-333333333333\\\",\\\"synthetic-durable-installation\\\",\\\"BodyWaterMassRecord\\\",\\\"1\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",[[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"33333333-3333-4333-8333-333333333333\",\"synthetic-durable-installation\",\"1\",\"44444444-4444-4444-8444-444444444444\"],\"BodyWaterMassRecord\",\"synthetic-large-1\",\"1\",[\"11111111-1111-4111-8111-111111111111\",\"33333333-3333-4333-8333-333333333333\",\"BodyWaterMassRecord\",\"large-raw-only\"],\"synthetic-complete-object-1\",\"sha256:45ee44258c3e7f0491bc4e9ebdc2effe4df5e97ba50beb8fcfdef90ba51460e5\",3,1049872],1767322800000,1767409200000,1049872,[[0,524288,\"sha256:383522fa7578e3dc7ed188a95a1189abd4f9df432ce8a5c77a4ac575919d8131\"],[1,524288,\"sha256:def7e95362758e28519425841fed896629bd07e36ef22198b0f33211caeb6be5\"],[2,1296,\"sha256:0f8b17aa801af6bdafed5aeb38e686948a6ebbfd8d478ed156e8341ebceb6840\"]]]]]]]",
+      "utf8Bytes": 1259,
+      "expectedRevision": "sha256:a6e9eff247588c2c67baa3629d617855be72c13789132d5bc0c8aaac2b9baf88",
+      "effects": {
+        "newlyUserSuppressed": 1,
+        "removedRecords": 0,
+        "removedStagedObjects": 1,
+        "removedParts": 3,
+        "removedPartBytes": 1049872
+      },
+      "projectionQueuedOnActualApply": false
+    },
+    {
+      "id": "RV10",
+      "revisionArray": [
+        "health-connect-user-delete",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "44444444-4444-4444-8444-444444444444",
+        1,
+        [
+          [
+            "BodyWaterMassRecord",
+            "r0-shared-id"
+          ]
+        ],
+        [
+          [
+            "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"synthetic-durable-installation-beta\",\"BodyWaterMassRecord\",\"3\",\"44444444-4444-4444-8444-444444444444\"]",
+            "BodyWaterMassRecord",
+            "1"
+          ]
+        ],
+        [
+          [
+            "BodyWaterMassRecord",
+            "r0-shared-id",
+            [
+              "health-connect-record",
+              1,
+              "ordinary",
+              "raw-only",
+              357,
+              "sha256:c75f9ec48ec178af6f10bfa22907417e79b0e45bb4cd4ac00e50b16a248d41e1",
+              [
+                "instant",
+                "2026-01-02T03:04:05.123456789Z",
+                null
+              ]
+            ],
+            null,
+            null,
+            []
+          ]
+        ]
+      ],
+      "revisionJsonUtf8": "[\"health-connect-user-delete\",1,\"11111111-1111-4111-8111-111111111111\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"44444444-4444-4444-8444-444444444444\",1,[[\"BodyWaterMassRecord\",\"r0-shared-id\"]],[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\\\",\\\"synthetic-durable-installation-beta\\\",\\\"BodyWaterMassRecord\\\",\\\"3\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",\"BodyWaterMassRecord\",\"1\"]],[[\"BodyWaterMassRecord\",\"r0-shared-id\",[\"health-connect-record\",1,\"ordinary\",\"raw-only\",357,\"sha256:c75f9ec48ec178af6f10bfa22907417e79b0e45bb4cd4ac00e50b16a248d41e1\",[\"instant\",\"2026-01-02T03:04:05.123456789Z\",null]],null,null,[]]]]",
+      "utf8Bytes": 692,
+      "expectedRevision": "sha256:6d92462c9f205ace78302b53ffa2b01f3bb1cabceba8b776786c9718b5da66d8",
+      "effects": {
+        "newlyUserSuppressed": 1,
+        "removedRecords": 1,
+        "removedStagedObjects": 0,
+        "removedParts": 0,
+        "removedPartBytes": 0
+      },
+      "projectionQueuedOnActualApply": null
+    }
+  ],
+  "responseExamples": [
+    {
+      "id": "RV01",
+      "preview": {
+        "version": 1,
+        "kind": "deletion-preview",
+        "sourceStoreId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "revision": "sha256:4526d2047fa6ee3dd6344eff835313a6319674701ddc7f1f5d1586551d770530",
+        "identities": [
+          {
+            "recordType": "BodyWaterMassRecord",
+            "nativeRecordId": "r0-shared-id",
+            "sourceDeleted": false,
+            "userSuppressed": false,
+            "currentRecord": true,
+            "footprint": {
+              "kind": "instant",
+              "time": "2026-01-02T03:04:05.123456789Z",
+              "zoneOffset": null
+            }
+          }
+        ],
+        "effects": {
+          "newlyUserSuppressed": 1,
+          "removedRecords": 1,
+          "removedStagedObjects": 0,
+          "removedParts": 0,
+          "removedPartBytes": 0
+        }
+      },
+      "apply": {
+        "version": 1,
+        "kind": "deletion-result",
+        "sourceStoreId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "revision": "sha256:4526d2047fa6ee3dd6344eff835313a6319674701ddc7f1f5d1586551d770530",
+        "effects": {
+          "newlyUserSuppressed": 1,
+          "removedRecords": 1,
+          "removedStagedObjects": 0,
+          "removedParts": 0,
+          "removedPartBytes": 0
+        },
+        "projectionQueued": true
+      },
+      "literalCompactResponseUtf8": {
+        "preview": "{\"version\":1,\"kind\":\"deletion-preview\",\"sourceStoreId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"revision\":\"sha256:4526d2047fa6ee3dd6344eff835313a6319674701ddc7f1f5d1586551d770530\",\"identities\":[{\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"r0-shared-id\",\"sourceDeleted\":false,\"userSuppressed\":false,\"currentRecord\":true,\"footprint\":{\"kind\":\"instant\",\"time\":\"2026-01-02T03:04:05.123456789Z\",\"zoneOffset\":null}}],\"effects\":{\"newlyUserSuppressed\":1,\"removedRecords\":1,\"removedStagedObjects\":0,\"removedParts\":0,\"removedPartBytes\":0}}",
+        "apply": "{\"version\":1,\"kind\":\"deletion-result\",\"sourceStoreId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"revision\":\"sha256:4526d2047fa6ee3dd6344eff835313a6319674701ddc7f1f5d1586551d770530\",\"effects\":{\"newlyUserSuppressed\":1,\"removedRecords\":1,\"removedStagedObjects\":0,\"removedParts\":0,\"removedPartBytes\":0},\"projectionQueued\":true}"
+      },
+      "literalByteDigests": {
+        "preview": "sha256:54ccf6c2cbc7e1deb8b70f621b22e2f3a49a28e6c1f3221150505b58e460ee31",
+        "apply": "sha256:8b1b37fe0ab17bec0322e43be3b05e58ab3b09122859f79cde59f06df4ac3a41"
+      },
+      "status": 200
+    },
+    {
+      "id": "RV02",
+      "preview": {
+        "version": 1,
+        "kind": "deletion-preview",
+        "sourceStoreId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "revision": "sha256:e02b0dc6a91361c8752c64bc3936e1238238f206a507f6ca45ec3fc3fa9c36a5",
+        "identities": [
+          {
+            "recordType": "BodyWaterMassRecord",
+            "nativeRecordId": "r0-shared-id",
+            "sourceDeleted": false,
+            "userSuppressed": true,
+            "currentRecord": false,
+            "footprint": {
+              "kind": "instant",
+              "time": "2026-01-02T03:04:05.123456789Z",
+              "zoneOffset": null
+            }
+          }
+        ],
+        "effects": {
+          "newlyUserSuppressed": 0,
+          "removedRecords": 0,
+          "removedStagedObjects": 0,
+          "removedParts": 0,
+          "removedPartBytes": 0
+        }
+      },
+      "apply": {
+        "version": 1,
+        "kind": "deletion-result",
+        "sourceStoreId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "revision": "sha256:e02b0dc6a91361c8752c64bc3936e1238238f206a507f6ca45ec3fc3fa9c36a5",
+        "effects": {
+          "newlyUserSuppressed": 0,
+          "removedRecords": 0,
+          "removedStagedObjects": 0,
+          "removedParts": 0,
+          "removedPartBytes": 0
+        },
+        "projectionQueued": false
+      },
+      "literalCompactResponseUtf8": {
+        "preview": "{\"version\":1,\"kind\":\"deletion-preview\",\"sourceStoreId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"revision\":\"sha256:e02b0dc6a91361c8752c64bc3936e1238238f206a507f6ca45ec3fc3fa9c36a5\",\"identities\":[{\"recordType\":\"BodyWaterMassRecord\",\"nativeRecordId\":\"r0-shared-id\",\"sourceDeleted\":false,\"userSuppressed\":true,\"currentRecord\":false,\"footprint\":{\"kind\":\"instant\",\"time\":\"2026-01-02T03:04:05.123456789Z\",\"zoneOffset\":null}}],\"effects\":{\"newlyUserSuppressed\":0,\"removedRecords\":0,\"removedStagedObjects\":0,\"removedParts\":0,\"removedPartBytes\":0}}",
+        "apply": "{\"version\":1,\"kind\":\"deletion-result\",\"sourceStoreId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"revision\":\"sha256:e02b0dc6a91361c8752c64bc3936e1238238f206a507f6ca45ec3fc3fa9c36a5\",\"effects\":{\"newlyUserSuppressed\":0,\"removedRecords\":0,\"removedStagedObjects\":0,\"removedParts\":0,\"removedPartBytes\":0},\"projectionQueued\":false}"
+      },
+      "literalByteDigests": {
+        "preview": "sha256:3f6228ffe38341f77f844807de6569d5accbf897fe3471abee711d4233dd917c",
+        "apply": "sha256:65dfefb2bfee9841feb9d3b250fbd4fc1806769d4d75c7f4e14778d4c72fb96d"
+      },
+      "status": 200
+    },
+    {
+      "id": "RV03",
+      "preview": {
+        "version": 1,
+        "kind": "deletion-preview",
+        "sourceStoreId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "revision": "sha256:e366b1219ede1fb307875f6d1852b5adff2b9abc336d9ac1d10bac1923437391",
+        "identities": [
+          {
+            "recordType": "WeightRecord",
+            "nativeRecordId": "core03-user-before-first-upsert",
+            "sourceDeleted": false,
+            "userSuppressed": false,
+            "currentRecord": false,
+            "footprint": null
+          }
+        ],
+        "effects": {
+          "newlyUserSuppressed": 1,
+          "removedRecords": 0,
+          "removedStagedObjects": 0,
+          "removedParts": 0,
+          "removedPartBytes": 0
+        }
+      },
+      "apply": {
+        "version": 1,
+        "kind": "deletion-result",
+        "sourceStoreId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "revision": "sha256:e366b1219ede1fb307875f6d1852b5adff2b9abc336d9ac1d10bac1923437391",
+        "effects": {
+          "newlyUserSuppressed": 1,
+          "removedRecords": 0,
+          "removedStagedObjects": 0,
+          "removedParts": 0,
+          "removedPartBytes": 0
+        },
+        "projectionQueued": true
+      },
+      "literalCompactResponseUtf8": {
+        "preview": "{\"version\":1,\"kind\":\"deletion-preview\",\"sourceStoreId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"revision\":\"sha256:e366b1219ede1fb307875f6d1852b5adff2b9abc336d9ac1d10bac1923437391\",\"identities\":[{\"recordType\":\"WeightRecord\",\"nativeRecordId\":\"core03-user-before-first-upsert\",\"sourceDeleted\":false,\"userSuppressed\":false,\"currentRecord\":false,\"footprint\":null}],\"effects\":{\"newlyUserSuppressed\":1,\"removedRecords\":0,\"removedStagedObjects\":0,\"removedParts\":0,\"removedPartBytes\":0}}",
+        "apply": "{\"version\":1,\"kind\":\"deletion-result\",\"sourceStoreId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"revision\":\"sha256:e366b1219ede1fb307875f6d1852b5adff2b9abc336d9ac1d10bac1923437391\",\"effects\":{\"newlyUserSuppressed\":1,\"removedRecords\":0,\"removedStagedObjects\":0,\"removedParts\":0,\"removedPartBytes\":0},\"projectionQueued\":true}"
+      },
+      "literalByteDigests": {
+        "preview": "sha256:cf5241270db9bc2019189c02df23f98111a164ea2a6cc6b1b891adeff8077c20",
+        "apply": "sha256:8d7254482ae673989ba54a3b6e6fa23960fac904658c82cf49ff5f79bb9cf000"
+      },
+      "status": 200
+    },
+    {
+      "id": "RV07",
+      "preview": {
+        "version": 1,
+        "kind": "deletion-preview",
+        "sourceStoreId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "revision": "sha256:03d1ac623922e9a940415bab39f21165d8f92d1bcd2324e45c0a725fdbc6c477",
+        "identities": [
+          {
+            "recordType": "WeightRecord",
+            "nativeRecordId": "core03-user-before-first-upsert",
+            "sourceDeleted": false,
+            "userSuppressed": false,
+            "currentRecord": false,
+            "footprint": null
+          }
+        ],
+        "effects": {
+          "newlyUserSuppressed": 1,
+          "removedRecords": 0,
+          "removedStagedObjects": 0,
+          "removedParts": 0,
+          "removedPartBytes": 0
+        }
+      },
+      "apply": {
+        "version": 1,
+        "kind": "deletion-result",
+        "sourceStoreId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "revision": "sha256:03d1ac623922e9a940415bab39f21165d8f92d1bcd2324e45c0a725fdbc6c477",
+        "effects": {
+          "newlyUserSuppressed": 1,
+          "removedRecords": 0,
+          "removedStagedObjects": 0,
+          "removedParts": 0,
+          "removedPartBytes": 0
+        },
+        "projectionQueued": false
+      },
+      "literalCompactResponseUtf8": {
+        "preview": "{\"version\":1,\"kind\":\"deletion-preview\",\"sourceStoreId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"revision\":\"sha256:03d1ac623922e9a940415bab39f21165d8f92d1bcd2324e45c0a725fdbc6c477\",\"identities\":[{\"recordType\":\"WeightRecord\",\"nativeRecordId\":\"core03-user-before-first-upsert\",\"sourceDeleted\":false,\"userSuppressed\":false,\"currentRecord\":false,\"footprint\":null}],\"effects\":{\"newlyUserSuppressed\":1,\"removedRecords\":0,\"removedStagedObjects\":0,\"removedParts\":0,\"removedPartBytes\":0}}",
+        "apply": "{\"version\":1,\"kind\":\"deletion-result\",\"sourceStoreId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"revision\":\"sha256:03d1ac623922e9a940415bab39f21165d8f92d1bcd2324e45c0a725fdbc6c477\",\"effects\":{\"newlyUserSuppressed\":1,\"removedRecords\":0,\"removedStagedObjects\":0,\"removedParts\":0,\"removedPartBytes\":0},\"projectionQueued\":false}"
+      },
+      "literalByteDigests": {
+        "preview": "sha256:5d10ed90d25512c6fc7f0633e594d8f9979fdac172a271f62f4d75fa76701c05",
+        "apply": "sha256:e2c87a9fb203caac608eeb4cb72699228496675ac2163ca3aa63be5cf6967658"
+      },
+      "status": 200
+    }
+  ],
+  "errorEnvelopes": {
+    "bodyOrStorageOverflow": {
+      "status": 413,
+      "body": {
+        "version": 1,
+        "kind": "error",
+        "code": "limit-exceeded",
+        "retryable": false
+      }
+    },
+    "legacyV1Apply": {
+      "status": 503,
+      "body": {
+        "version": 1,
+        "kind": "error",
+        "code": "storage-unavailable",
+        "retryable": true
+      }
+    },
+    "staleRevision": {
+      "status": 409,
+      "body": {
+        "version": 1,
+        "kind": "error",
+        "code": "conflict",
+        "retryable": false
+      }
+    },
+    "invalidSelectionShape": {
+      "status": 400,
+      "body": {
+        "version": 1,
+        "kind": "error",
+        "code": "invalid-message",
+        "retryable": false
+      }
+    }
+  },
+  "originalDeletionVectors": [
+    {
+      "id": "D07",
+      "before": "base-three-current-records",
+      "trigger": {
+        "operation": "real-owner-preview/apply-exact-user-delete",
+        "identity": [
+          "11111111-1111-4111-8111-111111111111",
+          "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "BodyWaterMassRecord",
+          "r0-shared-id"
+        ]
+      },
+      "expected": {
+        "previewCurrentCount": 1,
+        "previewUnknownPeriodCount": 0,
+        "previewDoesNotWrite": true,
+        "currentNativeKeys": [
+          [
+            "11111111-1111-4111-8111-111111111111",
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "BodyWaterMassRecord",
+            "r0-shared-id"
+          ],
+          [
+            "11111111-1111-4111-8111-111111111111",
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "CyclingPedalingCadenceRecord",
+            "r0-shared-id"
+          ]
+        ],
+        "newUserGuards": [
+          [
+            "11111111-1111-4111-8111-111111111111",
+            "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "BodyWaterMassRecord",
+            "r0-shared-id"
+          ]
+        ],
+        "newSourceGuards": [],
+        "nativeReceiptFrontierOutboxRows": "exact-unchanged",
+        "sourceIndex": "queued/noncurrent-until-actual-publisher",
+        "afterActualPublisherKeys": [
+          [
+            "11111111-1111-4111-8111-111111111111",
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "BodyWaterMassRecord",
+            "r0-shared-id"
+          ],
+          [
+            "11111111-1111-4111-8111-111111111111",
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "CyclingPedalingCadenceRecord",
+            "r0-shared-id"
+          ]
+        ],
+        "readingValuesAndAuthorityInPreviewOrErrors": false
+      },
+      "scope": "candidate-first-child"
+    },
+    {
+      "id": "D08",
+      "before": "base-three-current-records",
+      "trigger": {
+        "operation": "real-owner-user-delete-before-first-upsert",
+        "identity": [
+          "11111111-1111-4111-8111-111111111111",
+          "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "WeightRecord",
+          "core03-user-before-first-upsert"
+        ]
+      },
+      "expected": {
+        "previewCurrentCount": 0,
+        "previewUnknownPeriodCount": 1,
+        "currentNativeKeys": [
+          [
+            "11111111-1111-4111-8111-111111111111",
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "BodyWaterMassRecord",
+            "r0-shared-id"
+          ],
+          [
+            "11111111-1111-4111-8111-111111111111",
+            "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "BodyWaterMassRecord",
+            "r0-shared-id"
+          ],
+          [
+            "11111111-1111-4111-8111-111111111111",
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "CyclingPedalingCadenceRecord",
+            "r0-shared-id"
+          ]
+        ],
+        "newUserGuards": [
+          [
+            "11111111-1111-4111-8111-111111111111",
+            "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "WeightRecord",
+            "core03-user-before-first-upsert"
+          ]
+        ],
+        "newLaterUpsertStatus": 409,
+        "newLaterUpsertCode": "deletion-suppressed",
+        "nativeReceiptFrontierOutboxRows": "exact-unchanged"
+      },
+      "scope": "candidate-first-child"
+    },
+    {
+      "id": "D09",
+      "before": "D07-committed-user-suppression",
+      "trigger": {
+        "operation": "new-batch-suppressed-plus-independent-upsert",
+        "suppressed": [
+          "11111111-1111-4111-8111-111111111111",
+          "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "BodyWaterMassRecord",
+          "r0-shared-id"
+        ],
+        "independent": [
+          "11111111-1111-4111-8111-111111111111",
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "CyclingPedalingCadenceRecord",
+          "r0-shared-id"
+        ]
+      },
+      "expected": {
+        "status": 409,
+        "code": "deletion-suppressed",
+        "newReceiptCount": 0,
+        "newOutboxCount": 0,
+        "completeBeforeAfterState": "identical",
+        "independentPayloadMustNotPartiallyChange": true,
+        "separateValidIndependentBatchAtUncommittedNextSequenceMayCommit": true
+      },
+      "scope": "candidate-first-child"
+    },
+    {
+      "id": "D10",
+      "before": "base-three-current-records",
+      "trigger": {
+        "operation": "management-authority-adversaries",
+        "arms": [
+          "native-bearer",
+          "admin-bearer",
+          "chat-bearer",
+          "other-real-owner",
+          "wrong-origin",
+          "caller-supplied-tenant/owner",
+          "stale-preview",
+          "session-revoked-during-held-body",
+          "import-frozen-during-held-body",
+          "stale-restore-epoch"
+        ]
+      },
+      "expected": {
+        "completeBeforeAfterHistoryCataloguePolicyAuthority": "identical-after-each-refusal",
+        "noUnknownOwnershipAssignment": true,
+        "noFreshIdentityMint": true,
+        "existingFreezeAndAuthorityCodesPreserved": true,
+        "candidateStalePreviewStatus": 409,
+        "candidateStalePreviewCode": "conflict"
+      },
+      "scope": "candidate-first-child"
+    },
+    {
+      "id": "D11",
+      "before": "current-or-exhausted-index-for-original-native-vector",
+      "trigger": {
+        "operation": "real-user-purge-with-native-frontier-unchanged",
+        "identity": [
+          "11111111-1111-4111-8111-111111111111",
+          "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "BodyWaterMassRecord",
+          "r0-shared-id"
+        ]
+      },
+      "expected": {
+        "nativeReceiptFrontierOutboxRows": "exact-unchanged",
+        "userGuardRawPurgeAndIndexQueueReset": "one-own-WAL-FULL-commit",
+        "priorSameVectorAttemptBudgetCannotBlockNewPublication": true,
+        "afterActualPublisherKeys": [
+          [
+            "11111111-1111-4111-8111-111111111111",
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "BodyWaterMassRecord",
+            "r0-shared-id"
+          ],
+          [
+            "11111111-1111-4111-8111-111111111111",
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "CyclingPedalingCadenceRecord",
+            "r0-shared-id"
+          ]
+        ],
+        "indexVector": "exact-original-complete-native-vector",
+        "indexCurrentBeforeMatchingIdentityPublication": false
+      },
+      "scope": "candidate-first-child"
+    },
+    {
+      "id": "D12",
+      "before": "base-three-current-records",
+      "trigger": {
+        "operation": "real-user-deletion-writer-fault",
+        "arms": [
+          "actual-native-SQLITE_FULL-13",
+          "actual-native-SQLITE_BUSY-5",
+          "late-refusal-after-successful-earlier-write",
+          "actual-death-before-COMMIT",
+          "actual-death-after-COMMIT"
+        ]
+      },
+      "expected": {
+        "beforeCommit": "exact-full-prior-state/no-partial-control-purge-queue",
+        "afterCommitColdBeforeRestart": {
+          "currentNativeKeys": [
+            [
+              "11111111-1111-4111-8111-111111111111",
+              "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "BodyWaterMassRecord",
+              "r0-shared-id"
+            ],
+            [
+              "11111111-1111-4111-8111-111111111111",
+              "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "CyclingPedalingCadenceRecord",
+              "r0-shared-id"
+            ]
+          ],
+          "userGuards": [
+            [
+              "11111111-1111-4111-8111-111111111111",
+              "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+              "BodyWaterMassRecord",
+              "r0-shared-id"
+            ]
+          ],
+          "nativeReceiptFrontierOutboxRows": "exact-unchanged",
+          "sourceIndexCycle": "durably-queued/noncurrent",
+          "priorPublishedPointer": "retained-until-real-rebuild"
+        },
+        "actualOwnHandleWALBeforeBegin": "wal",
+        "actualOwnHandleSynchronousBeforeBegin": 2,
+        "lateFaultWitnessesEarlierWriteOnSameTransaction": true,
+        "childExitAndColdRead": "bounded/actual-before-restart/no-synthetic-death-claim"
+      },
+      "scope": "candidate-first-child"
+    }
+  ],
+  "unseenWeightRecord": {
+    "metadata": {
+      "recordingMethod": 2,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {
+        "packageName": "org.example.synthetic.producer"
+      },
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/α\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {
+        "type": 1,
+        "manufacturer": "Synthetic maker",
+        "model": "Synthetic model Δ"
+      }
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "weight": {
+      "unit": "kg",
+      "value": "75.25",
+      "sdkUnitValues": {
+        "g": "75250",
+        "kg": "75.25",
+        "mg": "75250000",
+        "ug": "75250000000",
+        "oz": "2654.365929299685",
+        "lb": "165.89785229412038"
+      }
+    }
+  },
+  "unseenWeightId": "core03-user-before-first-upsert"
+}
