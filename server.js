@@ -1406,14 +1406,13 @@ const server = http.createServer(async (req, res) => {
         // rolling window, so 85% of what the file archive held was
         // byte-identical re-sends (404 MB on a real instance).
         //
-        // Recorded BEFORE dispatch, so a dispatch failure still leaves the
-        // samples durable and replayable. A failure here is logged, not
-        // fatal: a push that reaches subscribers is worth more than one that
-        // 500s because the history write failed.
+        // Commit history before dispatch. A history failure must stop the
+        // push before cards or diagnostics can acknowledge unsaved samples.
         try {
           haeSamples.recordPush(payload, { receivedAt });
-        } catch (e) {
-          console.error('[hae] failed to record samples:', e.message);
+        } catch {
+          console.error('[hae] history storage unavailable');
+          return sendJSON(res, { error: 'history storage unavailable', retryable: true }, 503);
         }
 
         try {

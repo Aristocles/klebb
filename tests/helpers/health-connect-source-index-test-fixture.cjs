@@ -55,19 +55,19 @@ async function fixture(extraEnv = {}) {
 }
 function postBatch(data, vector, headers = data.headers) {
   return req(data.server.baseUrl, BATCHES, {
-    method: 'POST', headers, body: vector.wire ?? vector,
+    method: 'POST', headers, body: vector.wire ?? vector, agent: false,
   });
 }
 function ownerStatus(data, options = {}) {
   return req(data.server.baseUrl, STATUS, {
     cookie: data.owner.cookie, ...options,
-    headers: { Origin: ORIGIN, ...options.headers },
+    headers: { Origin: ORIGIN, ...options.headers }, agent: false,
   });
 }
 function ownerRebuild(data, body = {}, options = {}) {
   return req(data.server.baseUrl, REBUILD, {
     method: 'POST', cookie: data.owner.cookie, body, ...options,
-    headers: { Origin: ORIGIN, ...options.headers },
+    headers: { Origin: ORIGIN, ...options.headers }, agent: false,
   });
 }
 async function waitForStatus(data, predicate, { timeoutMs = 10000 } = {}) {
