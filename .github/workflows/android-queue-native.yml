@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      QUEUE_PHASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feat/811-health-queue-storage' && 'baseline-f21' || 'final-seven' }}
+      QUEUE_PHASE: final-seven
     steps:
       - name: Set isolated Android paths from the runner environment
         shell: bash

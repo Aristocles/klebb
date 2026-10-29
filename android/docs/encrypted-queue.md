@@ -2,9 +2,9 @@
 
 This disconnected foundation belongs to #811 / AND-03. It does not read Health
 Connect, advance a provider checkpoint, upload a batch or enable capture. The
-initial compiling storage API returns `Blocked("queue-unavailable",
-"feature-unavailable")`; native F21 must demonstrate that behavior against its
-fixed success expectation before storage is implemented.
+storage API seals exact bytes before a Room insert transaction and uses ABORT
+rather than overwriting an existing row. Reads authenticate the stored binding
+and return copied plaintext only after successful decryption.
 
 The initial Room schema has one immutable `queue_blobs` table. Its clear fields
 are opaque local row/stream IDs, generic payload/cursor/state kind, envelope
@@ -12,6 +12,14 @@ version, nonce, encrypted bytes and envelope size. Health record content,
 provider IDs, category, times, digests and sensitive operational state belong
 inside the encrypted bytes. Callers must create opaque local routing IDs.
 The DAO uses insertion with ABORT; no pending row is implicitly replaced.
+
+A missing row returns `Ok(null)` without a key lookup. Unknown versions and
+malformed kind/nonce/tag/size fields block without modifying stored ciphertext.
+Authentication failures share `corrupt-queue` / `authentication-failed`; key
+unavailability uses `key-unavailable` / `key-unavailable`. Encryption refusal
+occurs before any transaction, while a native insert or duplicate refusal uses
+`queue-unavailable` / `storage-failed`. Blocked results contain no payload or
+exception diagnostics. This storage API does not advance a cursor/checkpoint.
 
 The version-1 authenticated data is compact UTF-8 JSON:
 
@@ -36,12 +44,12 @@ plugin/task is configured. Room's compiler transitively includes the KSP symbol
 API on annotation-processor classpaths; this does not enable a KSP pipeline.
 JUnit 4.13.2 stays configured, with Android runner 1.7.0 and extension 1.3.0.
 
-The dedicated CI workflow builds the three software checks, then targets only
-a fresh API35 AOSP x86_64 emulator at `emulator-5580`. The initial feature branch
-push selects F21 and retains its real failing result; every PR/main run requires
-all seven checks. Before delivery, the branch workflow must also select all
-seven. The test target package is the ordinary debug package, so it must never
-be installed over the user's release app to obtain these checks.
+The dedicated CI workflow builds the three software checks and requires all
+seven native checks on branch pushes, PRs and main, targeting only a fresh API35
+AOSP x86_64 emulator at `emulator-5580`. The runner retains the restricted
+fail-closed baseline mode and its original failing evidence. The test target
+package is the ordinary debug package and must never be installed over the
+user's release app to obtain these checks.
 
 Native checks retain original process exits, instrumentation status bundles,
 APK hashes and populated encrypted DB/WAL artifacts. A build or tooling failure

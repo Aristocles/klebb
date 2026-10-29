@@ -9,9 +9,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
-- Fixed software and native emulator checks for encrypted immutable Room blobs.
-  The storage API remains fail-closed until its native behavior baseline is
-  observed; provider capture and queue lifecycle gates remain open. Refs #811.
+- Immutable encrypted Room blobs using Android Keystore AES-256-GCM, exact byte
+  round trips and row/stream authentication, with fail-closed key recovery.
+  Native emulator checks remain distinct from capture and lifecycle gates. Refs #811.
 
 - Android codecs for five reproductive instant records, preserving complete
   metadata, nullable offsets and opaque numeric enums without invented
