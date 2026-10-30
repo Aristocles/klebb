@@ -98,6 +98,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- Make the legacy export API fixture confirm server exit before its read-only
+  source snapshot, then restart the same home while retaining both log streams
+  and every secret-exclusion assertion. Refs #828.
+
 - Refuse portable-v1 export from sources retaining native Health Connect
   schema or authority, and report unreadable source storage before output
   creation or a strict import safety snapshot. Refs #823.
