@@ -133,11 +133,79 @@ IDs to 1-256 Unicode codepoints, the complete native vector to 1,000 streams,
 and selected raw text to 64 MiB. Matched staging keeps the object/part/actual-byte
 limits above. Capacity refusal or corrupt storage causes no deletion effects.
 
+## Browser-owner saved-history selection preview
+
+POST JSON to
+`/api/connectors/health-connect/deletions/selection-preview` with the same
+browser-owner session, origin and retained-ownership checks as exact-ID
+preview. Native connector bearers cannot use it. It reads initialized valid V1
+or V2 and retained owner authority, including sources whose native connector
+was revoked. It creates no native store, catalogue, migration or deletion
+policy and performs no deletion or source-index scheduling.
+
+The request has exactly four fields. `sourceStoreIds` is a unique set of 1-128
+owned source UUIDs, or `null` for all retained owned sources. `recordTypes` is a
+unique set of 1-100 record type names, or `null` for all saved types. Explicit
+sets are normalized by UTF-8 byte order; duplicates and extra fields refuse.
+`period` is `null` for no date filter, or exactly `startTime` and `endTime`.
+`cutoff` is `null` to choose the server's current UTC instant once, or a canonical
+UTC cutoff that is not later than server time. Reuse the echoed cutoff for
+repeat previews. This example selects saved
+Steps identities in every owned source:
+
+```json
+{"sourceStoreIds":null,"recordTypes":["StepsRecord"],"period":{"startTime":"2026-10-28T00:00:00Z","endTime":"2026-10-29T00:00:00Z"},"cutoff":null}
+```
+
+Selector dates and cutoff use canonical UTC `Z` text with at most nine fractional
+digits and no trailing fractional zeroes. Windows are half-open `[start,end)`:
+an instant at start matches and one at end does not; an interval matches when
+its whole stored interval overlaps the window. Records are not clipped.
+Original common times, nullable offsets and raw bytes are preserved; IDs,
+samples and transport sequences do not supply missing dates.
+
+Candidates come from authoritative saved raw records, deletion guards,
+tombstones and uncommitted staging, rather than cards or a possibly stale
+publication. A candidate without a known common period makes a dated preview
+refuse completely with `409 scope-incomplete`; it is not silently omitted.
+Malformed present periods, declarations, references or required storage return
+`503 storage-unavailable`. Staged payloads do not invent an observed period.
+
+A successful `200` returns `kind:"deletion-selection-preview"`, the complete
+normalized `selector` with its fixed cutoff, `resolvedSourceStoreIds`, an opaque
+`sha256:` revision, per-source `selection` of exact typed identities and flags/
+footprints, and `effects`. The five potential known-ID effect counters are
+`newlyUserSuppressed`, `removedRecords`, `removedStagedObjects`, `removedParts`
+and `removedPartBytes`. They describe a plan, not committed removal. Zero
+matches is a complete no-deletion/no-policy result. Repeat with the returned
+cutoff unchanged: clock advance alone does not change that preview revision;
+changed saved content requires another preview.
+
+The complete selection and revision are computed in one read snapshot. The
+revision binds the owner, retained tenant/epoch, schema, normalized selector,
+complete source vectors and selected content. It is distinct from the exact-ID
+revision and cannot be supplied to exact-ID apply. There is no selection apply
+endpoint. Responses retain `Cache-Control: no-store`; existing authentication,
+restore-fence and import/recovery refusal rules remain in force.
+
+Bound the UTF-8 request to 65,536 bytes, candidate identities to 1,000 and
+selected identities to 100. Across selected sources, raw text is limited to
+64 MiB, staging to 1,000 objects and 128,000 parts, and actual part bytes to the
+configured staging limit. Existing full-vector/materializer limits also apply.
+Overflow returns `413 limit-exceeded`, without truncation or deletion effects.
+Invalid selector syntax returns `400 invalid-message`; the existing `401
+unauthorised` and `403 scope-mismatch` fences are unchanged.
+
+This endpoint previews already saved known identities only. Broader deletion
+apply/UI, durable period policy, unseen-record fencing, multipart/native
+admission, explicit re-import and managed restore remain separate gates. This
+partial #818 slice does not complete CORE-03 A5, CORE-06.R0 or #757.
+
 ## Remaining deletion and recovery gates
 
 Logical removal does not erase retired SQLite pages or backups. The exact-ID
 API is a foundation for the browser deletion UI. Wider category/source/date/
-all-history selectors, readable-scope reconciliation, sensitive owned records,
+all-history selection apply, readable-scope reconciliation, sensitive owned records,
 canonical cards, phone stop/re-enable, portable ownership, CORE-06.R0 and
 managed latest-ledger recovery remain separate required work. Complete loss of
 all native tables cannot yet be distinguished from legitimate first use without
