@@ -9,6 +9,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Android ExerciseSession codec preserving complete metadata, ordered segments,
+  laps and explicitly authorized routes, with whole-record refusal before route
+  payload access and unchanged prior encodings. Native consent, provider and
+  capture gates remain open. Refs #827.
+
 - Android SleepSession codec preserving nullable title/notes, ordered
   nanosecond stages and opaque stage values without filling gaps or changing
   earlier encodings. Native/provider and capture gates remain open. Refs #821.

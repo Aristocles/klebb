@@ -180,8 +180,8 @@ class SleepSessionRecordCodecsTest {
             String::class.java, List::class.java))
         assertNotNull(SleepSessionRecord.Stage::class.java.getConstructor(Instant::class.java,
             Instant::class.java, Int::class.javaPrimitiveType!!))
-        val registry = (fixed["expectedRegistry"] as List<*>).toSet()
-        assertEquals(40, registry.size)
+        val registry = (fixed["expectedRegistry"] as List<*>).toSet() + setOf("ExerciseSessionRecord")
+        assertEquals(41, registry.size)
         assertEquals(registry, RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")
