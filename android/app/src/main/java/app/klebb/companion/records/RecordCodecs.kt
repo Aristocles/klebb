@@ -42,6 +42,8 @@ import androidx.health.connect.client.records.SexualActivityRecord
 import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.SkinTemperatureRecord
 import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Mass
 import androidx.health.connect.client.units.Length
@@ -84,9 +86,12 @@ object RecordCodecs {
             "MindfulnessSessionRecord", "ActivityIntensityRecord",
             "CervicalMucusRecord", "IntermenstrualBleedingRecord",
             "MenstruationFlowRecord", "OvulationTestRecord", "SexualActivityRecord",
-            "NutritionRecord", "SkinTemperatureRecord", "SleepSessionRecord"))
+            "NutritionRecord", "SkinTemperatureRecord", "SleepSessionRecord", "ExerciseSessionRecord"))
 
-    fun encode(record: Record): EncodedRecord {
+    fun encode(record: Record): EncodedRecord =
+        encode(record, ExerciseRoutePayloadAuthority.DENY)
+
+    fun encode(record: Record, routeAuthority: ExerciseRoutePayloadAuthority?): EncodedRecord {
         val (type, fields) = when (record) {
             is StepsRecord -> "StepsRecord" to linkedMapOf(
                 "metadata" to metadata(record.metadata),
@@ -299,6 +304,69 @@ object RecordCodecs {
                         "stage" to stage.stage
                     )
                 })
+            }
+            is ExerciseSessionRecord -> {
+                val route = when (val routeResult = record.exerciseRouteResult) {
+                    is ExerciseRouteResult.NoData -> linkedMapOf("variant" to "NoData")
+                    is ExerciseRouteResult.ConsentRequired -> linkedMapOf("variant" to "ConsentRequired")
+                    is ExerciseRouteResult.Data -> {
+                        if (routeAuthority == null || routeAuthority === ExerciseRoutePayloadAuthority.DENY) {
+                            throw ExerciseRouteRefused(ExerciseRouteRefusalReason.AUTHORITY_REQUIRED)
+                        }
+                        val binding = routeAuthority as ExerciseRoutePayloadAuthority.ForRecord
+                        if (binding.nativeRecordId != record.metadata.id ||
+                            binding.dataOriginPackageName != record.metadata.dataOrigin.packageName) {
+                            throw ExerciseRouteRefused(ExerciseRouteRefusalReason.AUTHORITY_MISMATCH)
+                        }
+                        linkedMapOf(
+                            "variant" to "Data",
+                            "route" to routeResult.exerciseRoute.route.map { location ->
+                                linkedMapOf(
+                                    "time" to LosslessValues.instant(location.time),
+                                    "latitude" to LosslessValues.float64(location.latitude),
+                                    "longitude" to LosslessValues.float64(location.longitude),
+                                    "horizontalAccuracy" to location.horizontalAccuracy?.let { length(it) },
+                                    "verticalAccuracy" to location.verticalAccuracy?.let { length(it) },
+                                    "altitude" to location.altitude?.let { length(it) }
+                                )
+                            }
+                        )
+                    }
+                    else -> throw ExerciseRouteRefused(ExerciseRouteRefusalReason.UNKNOWN_RESULT)
+                }
+                "ExerciseSessionRecord" to interval(
+                    record.metadata, record.startTime, record.startZoneOffset,
+                    record.endTime, record.endZoneOffset
+                ).apply {
+                    put("exerciseType", record.exerciseType)
+                    put("title", record.title)
+                    put("notes", record.notes)
+                    put("segments", record.segments.map { segment ->
+                        linkedMapOf(
+                            "startTime" to LosslessValues.instant(segment.startTime),
+                            "endTime" to LosslessValues.instant(segment.endTime),
+                            "segmentType" to segment.segmentType,
+                            "repetitions" to segment.repetitions,
+                            "weight" to segment.weight?.let { mass(it) },
+                            "setIndex" to segment.setIndex,
+                            "rateOfPerceivedExertion" to segment.rateOfPerceivedExertion?.let {
+                                LosslessValues.float32(it)
+                            }
+                        )
+                    })
+                    put("laps", record.laps.map { lap ->
+                        linkedMapOf(
+                            "startTime" to LosslessValues.instant(lap.startTime),
+                            "endTime" to LosslessValues.instant(lap.endTime),
+                            "length" to lap.length?.let { length(it) }
+                        )
+                    })
+                    put("exerciseRouteResult", route)
+                    put("plannedExerciseSessionId", record.plannedExerciseSessionId)
+                    put("rateOfPerceivedExertion", record.rateOfPerceivedExertion?.let {
+                        LosslessValues.float32(it)
+                    })
+                }
             }
             else -> throw RecordCodecException("unsupported-record")
         }

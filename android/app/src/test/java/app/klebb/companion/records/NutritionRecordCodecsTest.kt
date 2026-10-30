@@ -255,8 +255,8 @@ class NutritionRecordCodecsTest {
             }.associate { it.name to it.returnType.name }
             assertEquals(name, signatures, compiled)
         }
-        val registry = (fixed["expectedRegistry"] as List<*>).toSet() + setOf("SleepSessionRecord")
-        assertEquals(40, registry.size)
+        val registry = (fixed["expectedRegistry"] as List<*>).toSet() + setOf("SleepSessionRecord", "ExerciseSessionRecord")
+        assertEquals(41, registry.size)
         assertEquals(registry, RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")
