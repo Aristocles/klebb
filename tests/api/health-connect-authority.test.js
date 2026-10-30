@@ -9,7 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const {
-  createSandbox, cleanupSandbox, spawnServer, req, fakeAuthState,
+  createSandbox, cleanupSandbox, spawnServer: spawnActualServer, req, fakeAuthState,
 } = require('../helpers/sandbox');
 const { openZip } = require('../../lib/zip/read');
 
@@ -55,10 +55,27 @@ const nativeHeaders = value => ({
   ...bearer(value), 'Klebb-Health-Protocol': '1',
 });
 const authorityPath = home => path.join(home, 'credentials', 'health-connect.json');
+const fixedClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json');
+const fixedClockPreload = path.resolve(__dirname, '../helpers/health-connect-fixed-child-clock-preload.cjs');
 
-function fixtureHome() {
-  const owner = fakeAuthState('owner-a');
-  const other = fakeAuthState('owner-b');
+function fixedAuthState(label, input = fixedClock.base) {
+  const issued = fakeAuthState(label);
+  issued.sessions[issued.token].created = input.milliseconds;
+  issued.sessions[issued.token].lastSeen = input.milliseconds;
+  return issued;
+}
+async function spawnServer(home, extraEnv = {}, input = fixedClock.base) {
+  assert.ok(input === fixedClock.base || input === fixedClock.advanced);
+  const server = await spawnActualServer(home, { ...extraEnv,
+    INDEPENDENT_FIXED_CHILD_CLOCK: String(input.milliseconds),
+    NODE_OPTIONS: [`--require=${JSON.stringify(fixedClockPreload)}`, extraEnv.NODE_OPTIONS || ''].filter(Boolean).join(' ') });
+  server.fixedClockInput = input; // Independent fixture input; never read from a produced response.
+  return server;
+}
+
+function fixtureHome(input = fixedClock.base) {
+  const owner = fixedAuthState('owner-a', input);
+  const other = fixedAuthState('owner-b', input);
   const home = createSandbox({
     credentials: {
       users: { ...owner.credentials.users, ...other.credentials.users },
@@ -122,14 +139,14 @@ function exchangeFrame(grant, changes = {}) {
 }
 
 async function makeGrant(server, owner, changes = {}) {
-  const beforeRequest = Date.now();
+  const beforeRequest = server.fixedClockInput.milliseconds;
   const response = await req(server.baseUrl, GRANTS, {
     method: 'POST',
     cookie: owner.cookie,
     headers: { Origin: ORIGIN },
     body: { categories: STEPS, name: 'Test phone', ...changes },
   });
-  const afterRequest = Date.now();
+  const afterRequest = server.fixedClockInput.milliseconds;
   assert.equal(response.status, 201, response.body);
   const grant = response.json;
   assert.equal(grant.version, 1);
@@ -232,6 +249,22 @@ describe('#772 session management and native authority over actual routes', () =
     if (fixture) cleanupSandbox(fixture.home);
   });
 
+  test('independent child clock advance preserves the exact five-minute grant deadline', async () => {
+    for (const input of [fixedClock.base, fixedClock.advanced]) {
+      const fresh = fixtureHome(input);
+      let child;
+      try {
+        child = await spawnServer(fresh.home, ENV, input);
+        const grant = await makeGrant(child, fresh.owner);
+        assert.equal(grant.expiresAt, input.grantExpiresAt,
+          'independently fixed expiry string follows the supplied child clock');
+      } finally {
+        if (child) await child.kill();
+        cleanupSandbox(fresh.home);
+      }
+    }
+  });
+
   test('management requires a live session rather than broad bearer auth', async () => {
     for (const headers of [{}, bearer(CHAT), bearer(ADMIN),
       bearer('klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')]) {
@@ -249,8 +282,8 @@ describe('#772 session management and native authority over actual routes', () =
   });
 
   test('expired session cannot mint a grant', async () => {
-    const expired = fakeAuthState('expired-owner');
-    expired.sessions[expired.token].created = Date.now() - 31 * 86400000;
+    const expired = fixedAuthState('expired-owner');
+    expired.sessions[expired.token].created = fixedClock.base.milliseconds - 31 * 86400000;
     const home = createSandbox({
       credentials: expired.credentials, sessions: expired.sessions,
     });

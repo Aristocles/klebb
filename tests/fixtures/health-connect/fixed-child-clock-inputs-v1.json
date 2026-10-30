@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "base": {
+    "milliseconds": 1792540800123,
+    "instant": "2026-10-21T00:00:00.123Z",
+    "grantExpiresAt": "2026-10-21T00:05:00.123Z"
+  },
+  "advanced": {
+    "milliseconds": 1792540860456,
+    "instant": "2026-10-21T00:01:00.456Z",
+    "grantExpiresAt": "2026-10-21T00:06:00.456Z"
+  },
+  "advanceMilliseconds": 60333,
+  "grantTtlMilliseconds": 300000
+}
