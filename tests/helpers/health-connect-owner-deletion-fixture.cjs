@@ -208,14 +208,118 @@ function assertBase(data, snapshot) {
     assert.equal(state.next_attempt_at, null);
     assert.equal(state.error_code, null);
     assert.equal(state.published_restore_epoch, data.alpha.binding.restoreEpoch);
-    assert.ok(Number(state.published_at) >= data.startedAt && Number(state.published_at) <= Date.now());
+    if (data.expectedPublishedAt === undefined) {
+      assert.ok(Number(state.published_at) >= data.startedAt && Number(state.published_at) <= Date.now());
+    } else {
+      assert.ok(Number.isSafeInteger(data.expectedPublishedAt));
+      assert.equal(Number(state.published_at), data.expectedPublishedAt,
+        'actual publication uses the independently supplied child clock');
+    }
   }
   assert.ok(F.rows(snapshot, 'cards').some(row => row.card_id === LEGACY.meta.id));
   assert.ok(F.rows(snapshot, 'rows').some(row => row.card_id === LEGACY.meta.id &&
     row.doc === JSON.stringify(LEGACY.data[0])));
   F.noAuthority(JSON.stringify(snapshot), data);
 }
-async function fixture({ v2 = true, extraEnv = {} } = {}) {
+async function defaultFixture({ v2, extraEnv }) {
+  const inputs = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json');
+  assert.equal(inputs.base.milliseconds, 1792540800123);
+  assert.equal(inputs.base.instant, '2026-10-21T00:00:00.123Z');
+  assert.ok(Number.isSafeInteger(inputs.base.milliseconds));
+  assert.equal(Date.parse(inputs.base.instant), inputs.base.milliseconds);
+  const originalExtraEnv = { ...extraEnv };
+  const callerOptions = Object.hasOwn(originalExtraEnv, 'NODE_OPTIONS') ?
+    originalExtraEnv.NODE_OPTIONS : process.env.NODE_OPTIONS;
+  assert.ok(callerOptions === undefined || typeof callerOptions === 'string');
+  const temporaryRoot = fs.realpathSync(os.tmpdir());
+  let clockDirectory = null;
+  function ownedClockDirectory() {
+    assert.equal(path.dirname(clockDirectory), temporaryRoot);
+    assert.ok(path.basename(clockDirectory).startsWith('eh-selection-observer-'));
+    const info = fs.lstatSync(clockDirectory);
+    assert.equal(info.isSymbolicLink(), false);
+    assert.equal(info.isDirectory(), true);
+    assert.equal(fs.realpathSync(clockDirectory), clockDirectory);
+  }
+  function removeClockDirectory() {
+    if (clockDirectory === null) return;
+    ownedClockDirectory();
+    fs.rmSync(clockDirectory, { recursive: true, force: false });
+    assert.throws(() => fs.lstatSync(clockDirectory), { code: 'ENOENT' });
+    clockDirectory = null;
+  }
+  const owner = fakeAuthState('owner-deletion-fixture-owner'), startedAt = Date.now();
+  const home = secureEmptyHome();
+  const data = { home, owner, server: null, markers: [owner.token], logs: '',
+    extraEnv: { ...originalExtraEnv }, original: [], startedAt,
+    expectedPublishedAt: inputs.base.milliseconds };
+  try {
+    fs.writeFileSync(path.join(home, 'credentials', 'webauthn.json'), JSON.stringify(owner.credentials),
+      { mode: 0o600 });
+    fs.writeFileSync(path.join(home, 'sessions', 'webauthn.json'), JSON.stringify(owner.sessions),
+      { mode: 0o600 });
+    fs.writeFileSync(path.join(home, 'data', 'synthetic-sticky-legacy.json'), JSON.stringify(LEGACY),
+      { mode: 0o600 });
+    registerMarkers(home, data.markers);
+    clockDirectory = fs.mkdtempSync(path.join(temporaryRoot, 'eh-selection-observer-'));
+    ownedClockDirectory();
+    const clock = path.join(clockDirectory, 'clock');
+    fs.writeFileSync(clock, inputs.base.instant, { flag: 'wx', mode: 0o600 });
+    const preload = path.join(__dirname, 'health-connect-removable-owner-clock-preload.cjs');
+    data.extraEnv = { ...originalExtraEnv,
+      NODE_OPTIONS: `${callerOptions === undefined ? '' : callerOptions} --require=${JSON.stringify(preload)}`,
+      OWNER_INITIAL_PUBLICATION_CLOCK_DIRECTORY: clockDirectory };
+    await F.restart(data);
+    data.alpha = await pair(data, 'alpha', F.TYPES);
+    // D08 must reach suppression under actual Weight authority, not fail scope403.
+    data.beta = await pair(data, 'beta', [...F.TYPES, 'WeightRecord']);
+    assert.ok(data.beta.paired.streams.WeightRecord);
+    for (const [index, source] of [[0, data.alpha], [1, data.beta], [2, data.alpha]]) {
+      const item = F.bank.recordInventory[index];
+      const vector = F.batch(source, '1', [F.upsert(source, item)],
+        { type: item.identity[2], id: `owner-original-${index}` });
+      await F.ack(data, source, vector); data.original.push(vector);
+    }
+    await F.capabilities(data);
+    if (v2) await F.migrate(data);
+    await waitCurrent(data);
+    data.initial = F.coldRead(home);
+    if (v2) assertBase(data, data.initial);
+    else {
+      const states = derivedRows(data.initial, 'health_source_index_state');
+      assert.equal(states.length, 2);
+      for (const state of states)
+        assert.equal(Number(state.published_at), inputs.base.milliseconds,
+          'actual publication uses the independently supplied child clock');
+    }
+    const catalogue = JSON.parse(fs.readFileSync(path.join(home, 'credentials', 'health-connect.json'), 'utf8'));
+    for (const source of [data.alpha, data.beta]) {
+      const grants = catalogue.grants.filter(row => row.sourceStoreId === source.binding.sourceStoreId);
+      assert.equal(grants.length, 1);
+      assert.ok(Number.isFinite(Date.parse(grants[0].consumedAt)));
+    }
+    data.initialCatalogueDigest = catalogueDigest(data);
+    ownedClockDirectory();
+    const clockInfo = fs.lstatSync(clock);
+    assert.equal(clockInfo.isSymbolicLink(), false);
+    assert.equal(clockInfo.isFile(), true);
+    fs.unlinkSync(clock);
+    assert.throws(() => fs.lstatSync(clock), { code: 'ENOENT' });
+    data.extraEnv = { ...originalExtraEnv };
+    removeClockDirectory();
+    return data;
+  } catch (error) {
+    const failures = [error];
+    try { await F.close(data); } catch (cleanupError) { failures.push(cleanupError); }
+    try { removeClockDirectory(); } catch (cleanupError) { failures.push(cleanupError); }
+    if (failures.length > 1)
+      throw new AggregateError(failures, 'default owner fixture and cleanup failed', { cause: error });
+    throw error;
+  }
+}
+
+async function fixture({ v2 = true, extraEnv = {}, expectedPublishedAt = null } = {}) {
+  if (expectedPublishedAt === null) return defaultFixture({ v2, extraEnv });
   const home = secureEmptyHome(), owner = fakeAuthState('owner-deletion-fixture-owner');
   fs.writeFileSync(path.join(home, 'credentials', 'webauthn.json'), JSON.stringify(owner.credentials),
     { mode: 0o600 });
@@ -225,6 +329,10 @@ async function fixture({ v2 = true, extraEnv = {} } = {}) {
     { mode: 0o600 });
   const data = { home, owner, server: null, markers: [owner.token], logs: '', extraEnv,
     original: [], startedAt: Date.now() };
+  if (expectedPublishedAt !== null) {
+    assert.ok(Number.isSafeInteger(expectedPublishedAt));
+    data.expectedPublishedAt = expectedPublishedAt;
+  }
   registerMarkers(home, data.markers);
   try {
     await F.restart(data);

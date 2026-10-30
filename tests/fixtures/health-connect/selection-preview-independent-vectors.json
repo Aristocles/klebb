@@ -1,0 +1,727 @@
+{
+  "status": "PROPOSED_INDEPENDENT_EXPECTATIONS_UNRUN",
+  "originalRecordsVerbatim": [
+    {
+      "identity": [
+        "11111111-1111-4111-8111-111111111111",
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "BodyWaterMassRecord",
+        "r0-shared-id"
+      ],
+      "recordJson": "{\"time\":\"2026-01-02T03:04:05.123456789Z\",\"zoneOffset\":\"+11:00\",\"mass\":{\"value\":\"43.125\",\"unit\":\"kg\"},\"metadata\":{\"id\":\"r0-shared-id\",\"dataOrigin\":{\"packageName\":\"example.synthetic.alpha\"},\"device\":{\"manufacturer\":\"Synthetic\",\"model\":\"Fixture Alpha\",\"type\":0},\"lastModifiedTime\":\"2026-01-02T03:05:00.000000001Z\",\"clientRecordId\":null,\"clientRecordVersion\":\"2\",\"recordingMethod\":3}}",
+      "expectedUtf8Bytes": 380,
+      "expectedRecordDigest": "sha256:e58adccfff037a420d6634ece28e51cc544f306871f45a7238c6e2e87a28cc3f"
+    },
+    {
+      "identity": [
+        "11111111-1111-4111-8111-111111111111",
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "BodyWaterMassRecord",
+        "r0-shared-id"
+      ],
+      "recordJson": "{\"time\":\"2026-01-02T03:04:05.123456789Z\",\"zoneOffset\":null,\"mass\":{\"value\":\"43.125\",\"unit\":\"kg\"},\"metadata\":{\"id\":\"r0-shared-id\",\"dataOrigin\":{\"packageName\":\"example.synthetic.beta\"},\"device\":{\"manufacturer\":null,\"model\":null,\"type\":0},\"lastModifiedTime\":\"2026-01-02T03:05:00.000000002Z\",\"clientRecordId\":null,\"clientRecordVersion\":\"1\",\"recordingMethod\":0}}",
+      "expectedUtf8Bytes": 357,
+      "expectedRecordDigest": "sha256:c75f9ec48ec178af6f10bfa22907417e79b0e45bb4cd4ac00e50b16a248d41e1"
+    },
+    {
+      "identity": [
+        "11111111-1111-4111-8111-111111111111",
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "CyclingPedalingCadenceRecord",
+        "r0-shared-id"
+      ],
+      "recordJson": "{\"startTime\":\"2026-01-02T03:00:00Z\",\"endTime\":\"2026-01-02T03:10:00Z\",\"startZoneOffset\":\"+11:00\",\"endZoneOffset\":\"+11:00\",\"samples\":[{\"time\":\"2026-01-02T03:01:00.000000001Z\",\"revolutionsPerMinute\":\"62.5\"},{\"time\":\"2026-01-02T03:05:00.000000002Z\",\"revolutionsPerMinute\":\"91.25\"}],\"metadata\":{\"id\":\"r0-shared-id\",\"dataOrigin\":{\"packageName\":\"example.synthetic.alpha\"},\"device\":{\"manufacturer\":\"Synthetic\",\"model\":\"Fixture Alpha\",\"type\":0},\"lastModifiedTime\":\"2026-01-02T03:11:00.000000001Z\",\"clientRecordId\":null,\"clientRecordVersion\":\"1\",\"recordingMethod\":3}}",
+      "expectedUtf8Bytes": 557,
+      "expectedRecordDigest": "sha256:87bc00ed3b441a2c5626223c2fe28019086bf28a799bdd0594bd284bec6eeec2"
+    }
+  ],
+  "recordSourceSha256": "421ce74dfc4401a57b5c95844ab2901095e90cba88eb3ea0db9366ad1fa16020",
+  "cutoff": "2026-01-02T03:07:00Z",
+  "cases": [
+    {
+      "id": "S01",
+      "sources": [
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+      ],
+      "types": [
+        "BodyWaterMassRecord"
+      ],
+      "period": null,
+      "expectedSelectedIdentities": [
+        [
+          "11111111-1111-4111-8111-111111111111",
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "BodyWaterMassRecord",
+          "r0-shared-id"
+        ]
+      ],
+      "status": 200,
+      "removedRecords": 1
+    },
+    {
+      "id": "S02",
+      "sources": [
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+      ],
+      "types": null,
+      "period": null,
+      "expectedSelectedIdentities": [
+        [
+          "11111111-1111-4111-8111-111111111111",
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "BodyWaterMassRecord",
+          "r0-shared-id"
+        ],
+        [
+          "11111111-1111-4111-8111-111111111111",
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "CyclingPedalingCadenceRecord",
+          "r0-shared-id"
+        ]
+      ],
+      "status": 200,
+      "removedRecords": 2
+    },
+    {
+      "id": "S03",
+      "sources": null,
+      "types": null,
+      "period": null,
+      "expectedSelectedIdentities": [
+        [
+          "11111111-1111-4111-8111-111111111111",
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "BodyWaterMassRecord",
+          "r0-shared-id"
+        ],
+        [
+          "11111111-1111-4111-8111-111111111111",
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "CyclingPedalingCadenceRecord",
+          "r0-shared-id"
+        ],
+        [
+          "11111111-1111-4111-8111-111111111111",
+          "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "BodyWaterMassRecord",
+          "r0-shared-id"
+        ]
+      ],
+      "status": 200,
+      "removedRecords": 3,
+      "control": "Equal native IDs do not collapse source/type."
+    },
+    {
+      "id": "S04",
+      "sources": [
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+      ],
+      "types": null,
+      "period": [
+        "2026-01-02T03:04:05.123456789Z",
+        "2026-01-02T03:04:05.12345679Z"
+      ],
+      "status": 200,
+      "expectedSelectedIdentities": [
+        [
+          "11111111-1111-4111-8111-111111111111",
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "BodyWaterMassRecord",
+          "r0-shared-id"
+        ],
+        [
+          "11111111-1111-4111-8111-111111111111",
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "CyclingPedalingCadenceRecord",
+          "r0-shared-id"
+        ]
+      ],
+      "control": "One nanosecond includes lower instant and overlapping whole cadence."
+    },
+    {
+      "id": "S05",
+      "instantControls": [
+        [
+          "2026-01-02T03:04:05.123456788Z",
+          false
+        ],
+        [
+          "2026-01-02T03:04:05.123456789Z",
+          true
+        ],
+        [
+          "2026-01-02T03:04:05.12345679Z",
+          false
+        ]
+      ],
+      "period": [
+        "2026-01-02T03:04:05.123456789Z",
+        "2026-01-02T03:04:05.12345679Z"
+      ],
+      "sameMembershipWithOriginalOffsets": [
+        "+11:00",
+        null
+      ]
+    },
+    {
+      "id": "S06",
+      "record": [
+        "11111111-1111-4111-8111-111111111111",
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "CyclingPedalingCadenceRecord",
+        "r0-shared-id"
+      ],
+      "intervalWindowControls": [
+        [
+          "2026-01-02T02:59:00Z",
+          "2026-01-02T03:00:00Z",
+          false
+        ],
+        [
+          "2026-01-02T03:10:00Z",
+          "2026-01-02T03:11:00Z",
+          false
+        ],
+        [
+          "2026-01-02T03:09:59.999999999Z",
+          "2026-01-02T03:10:00Z",
+          true
+        ]
+      ],
+      "unchanged": "Whole557-byte record and ordered samples remain byte exact."
+    },
+    {
+      "id": "S07",
+      "controls": [
+        {
+          "case": "missing common footprint, no period",
+          "status": 200,
+          "included": true
+        },
+        {
+          "case": "same missing footprint, date filter",
+          "status": 409,
+          "code": "scope-incomplete"
+        },
+        {
+          "case": "matching staged-only declaration",
+          "status": 409,
+          "code": "scope-incomplete"
+        },
+        {
+          "case": "matching unknown-ID tomb without footprint",
+          "status": 409,
+          "code": "scope-incomplete"
+        },
+        {
+          "case": "unrelated source/type missing period",
+          "status": 200,
+          "included": false
+        }
+      ]
+    },
+    {
+      "id": "S08",
+      "badControls": [
+        "invalid PRESENT time",
+        "duplicate common temporal member",
+        "end<=start",
+        "malformed encoded stream",
+        "partial present native/derived component"
+      ],
+      "status": 503,
+      "code": "storage-unavailable",
+      "noEffects": true,
+      "healthyControl": "Complete optional derived component absent is not partial and remains readonly."
+    },
+    {
+      "id": "S09",
+      "controls": [
+        {
+          "case": "100 selected identities",
+          "status": 200
+        },
+        {
+          "case": "101 selected identities",
+          "status": 413
+        },
+        {
+          "case": "1001 candidate identities",
+          "status": 413
+        },
+        {
+          "case": "selected raw >67108864 bytes",
+          "status": 413
+        },
+        {
+          "case": "request >65536 bytes",
+          "status": 413
+        }
+      ],
+      "overflowCode": "limit-exceeded",
+      "noTruncation": true
+    },
+    {
+      "id": "S10",
+      "controls": [
+        {
+          "case": "current retained owner, revoked native connector",
+          "status": 200
+        },
+        {
+          "case": "other current owner, known foreign source",
+          "status": 403
+        },
+        {
+          "case": "native bearer as browser authority",
+          "status": 401
+        },
+        {
+          "case": "lost/ambiguous retained catalogue",
+          "status": 503
+        },
+        {
+          "case": "valid current browser session with wrong Origin",
+          "status": 403,
+          "code": "scope-mismatch"
+        },
+        {
+          "case": "absent or revoked browser session after await",
+          "status": 401,
+          "code": "unauthorised"
+        }
+      ],
+      "noMintRepairWorker": true
+    },
+    {
+      "id": "S11",
+      "cutoff": "2026-01-02T03:07:00Z",
+      "laterClock": "2026-01-03T00:00:00Z",
+      "sameCutoffSameState": "same exact revision",
+      "newNativeVectorOrInScopeIdentity": "different revision",
+      "correctedIntervalMovesIntoWindow": "different membership/revision",
+      "singleCapturedCutoff": true
+    },
+    {
+      "id": "S12",
+      "utf8Order": [
+        "record-id-",
+        "record-id-𐀀"
+      ],
+      "expectedUtf8Hex": [
+        "7265636f72642d69642dee8080",
+        "7265636f72642d69642df0908080"
+      ],
+      "timezoneControls": [
+        {
+          "zone": "Australia/Sydney",
+          "localDate": "2026-04-05",
+          "utcStart": "2026-04-04T13:00:00Z",
+          "utcEnd": "2026-04-05T14:00:00Z",
+          "hours": 25
+        },
+        {
+          "zone": "Australia/Sydney",
+          "localDate": "2026-10-04",
+          "utcStart": "2026-10-03T14:00:00Z",
+          "utcEnd": "2026-10-04T13:00:00Z",
+          "hours": 23
+        }
+      ],
+      "qualification": "Literal UTC arithmetic, no IANA/SDK/provider runtime proof."
+    }
+  ],
+  "coldExpectationEveryCase": "No native/legacy SQL row/schema/frontier/receipt/outbox/object/part/index/guard/tomb, authority/catalogue or archive/file payload change. Closed owned fixtures compare durable state; ordinary SQLite sidecar maintenance is not automatically called a product write.",
+  "meaningfulBaselinePrerequisites": "Actual owner/grants for exact wire types, original nonempty3records, successful native ACKs, supported V2 and current index before expecting new real-route200. Fixed paper UUIDs are not issued authority; actual tests independently bind real issued IDs/state.",
+  "revisionLiterals": [
+    {
+      "id": "R01-alpha-category",
+      "literalArray": [
+        "health-connect-user-delete-selection",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "paper-owner",
+        "0",
+        2,
+        [
+          [
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          ],
+          [
+            "BodyWaterMassRecord"
+          ],
+          null,
+          "2026-01-02T03:07:00Z"
+        ],
+        [
+          [
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            [
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\",\"BodyWaterMassRecord\",\"1\",\"0\"]",
+                "BodyWaterMassRecord",
+                "1"
+              ],
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\",\"CyclingPedalingCadenceRecord\",\"1\",\"0\"]",
+                "CyclingPedalingCadenceRecord",
+                "1"
+              ]
+            ],
+            [
+              [
+                "BodyWaterMassRecord",
+                "r0-shared-id",
+                [
+                  "health-connect-record",
+                  1,
+                  "ordinary",
+                  "raw-only",
+                  380,
+                  "sha256:e58adccfff037a420d6634ece28e51cc544f306871f45a7238c6e2e87a28cc3f",
+                  [
+                    "instant",
+                    "2026-01-02T03:04:05.123456789Z",
+                    "+11:00"
+                  ]
+                ],
+                null,
+                null,
+                []
+              ]
+            ]
+          ]
+        ]
+      ],
+      "expectedCompactUtf8": "[\"health-connect-user-delete-selection\",1,\"11111111-1111-4111-8111-111111111111\",\"paper-owner\",\"0\",2,[[\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\"],[\"BodyWaterMassRecord\"],null,\"2026-01-02T03:07:00Z\"],[[\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\\\",\\\"BodyWaterMassRecord\\\",\\\"1\\\",\\\"0\\\"]\",\"BodyWaterMassRecord\",\"1\"],[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\\\",\\\"CyclingPedalingCadenceRecord\\\",\\\"1\\\",\\\"0\\\"]\",\"CyclingPedalingCadenceRecord\",\"1\"]],[[\"BodyWaterMassRecord\",\"r0-shared-id\",[\"health-connect-record\",1,\"ordinary\",\"raw-only\",380,\"sha256:e58adccfff037a420d6634ece28e51cc544f306871f45a7238c6e2e87a28cc3f\",[\"instant\",\"2026-01-02T03:04:05.123456789Z\",\"+11:00\"]],null,null,[]]]]]]",
+      "expectedUtf8Bytes": 959,
+      "expectedRevision": "sha256:5e4e0d85c1aa1aa9a83d7fb2d13446f181247107410540d08a0f39b3cf0670ec"
+    },
+    {
+      "id": "R02-alpha-source",
+      "literalArray": [
+        "health-connect-user-delete-selection",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "paper-owner",
+        "0",
+        2,
+        [
+          [
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          ],
+          null,
+          null,
+          "2026-01-02T03:07:00Z"
+        ],
+        [
+          [
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            [
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\",\"BodyWaterMassRecord\",\"1\",\"0\"]",
+                "BodyWaterMassRecord",
+                "1"
+              ],
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\",\"CyclingPedalingCadenceRecord\",\"1\",\"0\"]",
+                "CyclingPedalingCadenceRecord",
+                "1"
+              ]
+            ],
+            [
+              [
+                "BodyWaterMassRecord",
+                "r0-shared-id",
+                [
+                  "health-connect-record",
+                  1,
+                  "ordinary",
+                  "raw-only",
+                  380,
+                  "sha256:e58adccfff037a420d6634ece28e51cc544f306871f45a7238c6e2e87a28cc3f",
+                  [
+                    "instant",
+                    "2026-01-02T03:04:05.123456789Z",
+                    "+11:00"
+                  ]
+                ],
+                null,
+                null,
+                []
+              ],
+              [
+                "CyclingPedalingCadenceRecord",
+                "r0-shared-id",
+                [
+                  "health-connect-record",
+                  1,
+                  "ordinary",
+                  "raw-only",
+                  557,
+                  "sha256:87bc00ed3b441a2c5626223c2fe28019086bf28a799bdd0594bd284bec6eeec2",
+                  [
+                    "interval",
+                    "2026-01-02T03:00:00Z",
+                    "2026-01-02T03:10:00Z",
+                    "+11:00",
+                    "+11:00"
+                  ]
+                ],
+                null,
+                null,
+                []
+              ]
+            ]
+          ]
+        ]
+      ],
+      "expectedCompactUtf8": "[\"health-connect-user-delete-selection\",1,\"11111111-1111-4111-8111-111111111111\",\"paper-owner\",\"0\",2,[[\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\"],null,null,\"2026-01-02T03:07:00Z\"],[[\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\\\",\\\"BodyWaterMassRecord\\\",\\\"1\\\",\\\"0\\\"]\",\"BodyWaterMassRecord\",\"1\"],[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\\\",\\\"CyclingPedalingCadenceRecord\\\",\\\"1\\\",\\\"0\\\"]\",\"CyclingPedalingCadenceRecord\",\"1\"]],[[\"BodyWaterMassRecord\",\"r0-shared-id\",[\"health-connect-record\",1,\"ordinary\",\"raw-only\",380,\"sha256:e58adccfff037a420d6634ece28e51cc544f306871f45a7238c6e2e87a28cc3f\",[\"instant\",\"2026-01-02T03:04:05.123456789Z\",\"+11:00\"]],null,null,[]],[\"CyclingPedalingCadenceRecord\",\"r0-shared-id\",[\"health-connect-record\",1,\"ordinary\",\"raw-only\",557,\"sha256:87bc00ed3b441a2c5626223c2fe28019086bf28a799bdd0594bd284bec6eeec2\",[\"interval\",\"2026-01-02T03:00:00Z\",\"2026-01-02T03:10:00Z\",\"+11:00\",\"+11:00\"]],null,null,[]]]]]]",
+      "expectedUtf8Bytes": 1206,
+      "expectedRevision": "sha256:9a3a4dfd4c70b427a12a903b8970d559ea399b1a22505c7cc61b9614bdad5122"
+    },
+    {
+      "id": "R03-all-owned",
+      "literalArray": [
+        "health-connect-user-delete-selection",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "paper-owner",
+        "0",
+        2,
+        [
+          null,
+          null,
+          null,
+          "2026-01-02T03:07:00Z"
+        ],
+        [
+          [
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            [
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\",\"BodyWaterMassRecord\",\"1\",\"0\"]",
+                "BodyWaterMassRecord",
+                "1"
+              ],
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\",\"CyclingPedalingCadenceRecord\",\"1\",\"0\"]",
+                "CyclingPedalingCadenceRecord",
+                "1"
+              ]
+            ],
+            [
+              [
+                "BodyWaterMassRecord",
+                "r0-shared-id",
+                [
+                  "health-connect-record",
+                  1,
+                  "ordinary",
+                  "raw-only",
+                  380,
+                  "sha256:e58adccfff037a420d6634ece28e51cc544f306871f45a7238c6e2e87a28cc3f",
+                  [
+                    "instant",
+                    "2026-01-02T03:04:05.123456789Z",
+                    "+11:00"
+                  ]
+                ],
+                null,
+                null,
+                []
+              ],
+              [
+                "CyclingPedalingCadenceRecord",
+                "r0-shared-id",
+                [
+                  "health-connect-record",
+                  1,
+                  "ordinary",
+                  "raw-only",
+                  557,
+                  "sha256:87bc00ed3b441a2c5626223c2fe28019086bf28a799bdd0594bd284bec6eeec2",
+                  [
+                    "interval",
+                    "2026-01-02T03:00:00Z",
+                    "2026-01-02T03:10:00Z",
+                    "+11:00",
+                    "+11:00"
+                  ]
+                ],
+                null,
+                null,
+                []
+              ]
+            ]
+          ],
+          [
+            "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            [
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"dddddddd-dddd-4ddd-8ddd-dddddddddddd\",\"BodyWaterMassRecord\",\"1\",\"0\"]",
+                "BodyWaterMassRecord",
+                "1"
+              ]
+            ],
+            [
+              [
+                "BodyWaterMassRecord",
+                "r0-shared-id",
+                [
+                  "health-connect-record",
+                  1,
+                  "ordinary",
+                  "raw-only",
+                  357,
+                  "sha256:c75f9ec48ec178af6f10bfa22907417e79b0e45bb4cd4ac00e50b16a248d41e1",
+                  [
+                    "instant",
+                    "2026-01-02T03:04:05.123456789Z",
+                    null
+                  ]
+                ],
+                null,
+                null,
+                []
+              ]
+            ]
+          ]
+        ]
+      ],
+      "expectedCompactUtf8": "[\"health-connect-user-delete-selection\",1,\"11111111-1111-4111-8111-111111111111\",\"paper-owner\",\"0\",2,[null,null,null,\"2026-01-02T03:07:00Z\"],[[\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\\\",\\\"BodyWaterMassRecord\\\",\\\"1\\\",\\\"0\\\"]\",\"BodyWaterMassRecord\",\"1\"],[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\\\",\\\"CyclingPedalingCadenceRecord\\\",\\\"1\\\",\\\"0\\\"]\",\"CyclingPedalingCadenceRecord\",\"1\"]],[[\"BodyWaterMassRecord\",\"r0-shared-id\",[\"health-connect-record\",1,\"ordinary\",\"raw-only\",380,\"sha256:e58adccfff037a420d6634ece28e51cc544f306871f45a7238c6e2e87a28cc3f\",[\"instant\",\"2026-01-02T03:04:05.123456789Z\",\"+11:00\"]],null,null,[]],[\"CyclingPedalingCadenceRecord\",\"r0-shared-id\",[\"health-connect-record\",1,\"ordinary\",\"raw-only\",557,\"sha256:87bc00ed3b441a2c5626223c2fe28019086bf28a799bdd0594bd284bec6eeec2\",[\"interval\",\"2026-01-02T03:00:00Z\",\"2026-01-02T03:10:00Z\",\"+11:00\",\"+11:00\"]],null,null,[]]]],[\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\\\",\\\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\\\",\\\"dddddddd-dddd-4ddd-8ddd-dddddddddddd\\\",\\\"BodyWaterMassRecord\\\",\\\"1\\\",\\\"0\\\"]\",\"BodyWaterMassRecord\",\"1\"]],[[\"BodyWaterMassRecord\",\"r0-shared-id\",[\"health-connect-record\",1,\"ordinary\",\"raw-only\",357,\"sha256:c75f9ec48ec178af6f10bfa22907417e79b0e45bb4cd4ac00e50b16a248d41e1\",[\"instant\",\"2026-01-02T03:04:05.123456789Z\",null]],null,null,[]]]]]]",
+      "expectedUtf8Bytes": 1677,
+      "expectedRevision": "sha256:6caf8e57f12000d5bb98beb5060b1a555effdd2f0cc2af7f42d23d6d964ab812"
+    },
+    {
+      "id": "R04-one-nanosecond-window",
+      "literalArray": [
+        "health-connect-user-delete-selection",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "paper-owner",
+        "0",
+        2,
+        [
+          [
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          ],
+          null,
+          [
+            "2026-01-02T03:04:05.123456789Z",
+            "2026-01-02T03:04:05.12345679Z"
+          ],
+          "2026-01-02T03:07:00Z"
+        ],
+        [
+          [
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            [
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\",\"BodyWaterMassRecord\",\"1\",\"0\"]",
+                "BodyWaterMassRecord",
+                "1"
+              ],
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\",\"CyclingPedalingCadenceRecord\",\"1\",\"0\"]",
+                "CyclingPedalingCadenceRecord",
+                "1"
+              ]
+            ],
+            [
+              [
+                "BodyWaterMassRecord",
+                "r0-shared-id",
+                [
+                  "health-connect-record",
+                  1,
+                  "ordinary",
+                  "raw-only",
+                  380,
+                  "sha256:e58adccfff037a420d6634ece28e51cc544f306871f45a7238c6e2e87a28cc3f",
+                  [
+                    "instant",
+                    "2026-01-02T03:04:05.123456789Z",
+                    "+11:00"
+                  ]
+                ],
+                null,
+                null,
+                []
+              ],
+              [
+                "CyclingPedalingCadenceRecord",
+                "r0-shared-id",
+                [
+                  "health-connect-record",
+                  1,
+                  "ordinary",
+                  "raw-only",
+                  557,
+                  "sha256:87bc00ed3b441a2c5626223c2fe28019086bf28a799bdd0594bd284bec6eeec2",
+                  [
+                    "interval",
+                    "2026-01-02T03:00:00Z",
+                    "2026-01-02T03:10:00Z",
+                    "+11:00",
+                    "+11:00"
+                  ]
+                ],
+                null,
+                null,
+                []
+              ]
+            ]
+          ]
+        ]
+      ],
+      "expectedCompactUtf8": "[\"health-connect-user-delete-selection\",1,\"11111111-1111-4111-8111-111111111111\",\"paper-owner\",\"0\",2,[[\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\"],null,[\"2026-01-02T03:04:05.123456789Z\",\"2026-01-02T03:04:05.12345679Z\"],\"2026-01-02T03:07:00Z\"],[[\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\\\",\\\"BodyWaterMassRecord\\\",\\\"1\\\",\\\"0\\\"]\",\"BodyWaterMassRecord\",\"1\"],[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\\\",\\\"CyclingPedalingCadenceRecord\\\",\\\"1\\\",\\\"0\\\"]\",\"CyclingPedalingCadenceRecord\",\"1\"]],[[\"BodyWaterMassRecord\",\"r0-shared-id\",[\"health-connect-record\",1,\"ordinary\",\"raw-only\",380,\"sha256:e58adccfff037a420d6634ece28e51cc544f306871f45a7238c6e2e87a28cc3f\",[\"instant\",\"2026-01-02T03:04:05.123456789Z\",\"+11:00\"]],null,null,[]],[\"CyclingPedalingCadenceRecord\",\"r0-shared-id\",[\"health-connect-record\",1,\"ordinary\",\"raw-only\",557,\"sha256:87bc00ed3b441a2c5626223c2fe28019086bf28a799bdd0594bd284bec6eeec2\",[\"interval\",\"2026-01-02T03:00:00Z\",\"2026-01-02T03:10:00Z\",\"+11:00\",\"+11:00\"]],null,null,[]]]]]]",
+      "expectedUtf8Bytes": 1268,
+      "expectedRevision": "sha256:40f8ae99cb04ba42853cd742c7bbb0a687f5e2d94a04a8905e6c0e1dac2742d3"
+    },
+    {
+      "id": "R05-zero-result",
+      "literalArray": [
+        "health-connect-user-delete-selection",
+        1,
+        "11111111-1111-4111-8111-111111111111",
+        "paper-owner",
+        "0",
+        2,
+        [
+          [
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          ],
+          null,
+          [
+            "2026-01-02T03:10:00Z",
+            "2026-01-02T03:11:00Z"
+          ],
+          "2026-01-02T03:07:00Z"
+        ],
+        [
+          [
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            [
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\",\"BodyWaterMassRecord\",\"1\",\"0\"]",
+                "BodyWaterMassRecord",
+                "1"
+              ],
+              [
+                "[\"11111111-1111-4111-8111-111111111111\",\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\",\"CyclingPedalingCadenceRecord\",\"1\",\"0\"]",
+                "CyclingPedalingCadenceRecord",
+                "1"
+              ]
+            ],
+            []
+          ]
+        ]
+      ],
+      "expectedCompactUtf8": "[\"health-connect-user-delete-selection\",1,\"11111111-1111-4111-8111-111111111111\",\"paper-owner\",\"0\",2,[[\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\"],null,[\"2026-01-02T03:10:00Z\",\"2026-01-02T03:11:00Z\"],\"2026-01-02T03:07:00Z\"],[[\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",[[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\\\",\\\"BodyWaterMassRecord\\\",\\\"1\\\",\\\"0\\\"]\",\"BodyWaterMassRecord\",\"1\"],[\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\\\",\\\"CyclingPedalingCadenceRecord\\\",\\\"1\\\",\\\"0\\\"]\",\"CyclingPedalingCadenceRecord\",\"1\"]],[]]]]",
+      "expectedUtf8Bytes": 750,
+      "expectedRevision": "sha256:c88cca8d0a7f7da8bc49b13974486047f0d34bc71561797a3cb451bf79952ddf"
+    }
+  ],
+  "literalQualification": "Pure compact revision-serialization controls only. The fixed epoch '0' and paper-owner label do not represent a supported current browser authority catalogue or real issued route fixture. Preserve all five literal arrays/compact UTF-8 bytes/hashes unchanged. Meaningful real-route tests independently bind actual issued IDs, current canonical UUID restoreEpoch and actual owner/ACK state as required by original B1; no real authority or native receipt is inferred from these serialization examples."
+}

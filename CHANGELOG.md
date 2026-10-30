@@ -9,6 +9,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Browser-owner saved-history Health Connect selection preview with explicit
+  source/type selectors, nanosecond UTC windows, fixed cutoffs and revisions,
+  and bounded read-only effect counts. Range apply, period policy and recovery
+  remain separate gates. Refs #818.
+
 - Android SleepSession codec preserving nullable title/notes, ordered
   nanosecond stages and opaque stage values without filling gaps or changing
   earlier encodings. Native/provider and capture gates remain open. Refs #821.
