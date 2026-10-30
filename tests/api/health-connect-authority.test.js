@@ -674,7 +674,12 @@ describe('#772 persisted authority, export and cold-start fences', () => {
         assert.equal(markerInput.includes(marker), true, 'excluded source marker was absent');
       }
       legacyServer = await spawnServer(legacyFixture.home, ENV);
-      const legacyLogs = observeLogs(legacyServer);
+      const legacyLogs = [observeLogs(legacyServer)];
+      const legacyProcess = legacyServer.proc;
+      await legacyServer.kill();
+      assert.ok(legacyProcess.exitCode !== null || legacyProcess.signalCode !== null,
+        'legacy source snapshot requires a confirmed stopped server');
+      legacyServer = null;
       const legacyDb = path.join(legacyFixture.home, 'db', 'klebb.db');
       if (fs.existsSync(legacyDb)) {
         const { DatabaseSync } = require('node:sqlite');
@@ -697,6 +702,8 @@ describe('#772 persisted authority, export and cold-start fences', () => {
         assert.deepEqual(unused.grants, []);
         assert.deepEqual(unused.connectors, []);
       }
+      legacyServer = await spawnServer(legacyFixture.home, ENV);
+      legacyLogs.push(observeLogs(legacyServer));
       const downloaded = await binaryGet(legacyServer, '/api/export', legacyFixture.owner.cookie);
       assert.equal(downloaded.status, 200);
       const archive = path.join(legacyFixture.home, 'authority-test-export.zip');
@@ -719,7 +726,7 @@ describe('#772 persisted authority, export and cold-start fences', () => {
         paired.credential, grant.grant, cursorGrant.grant, verifier, grantVerifier,
         ADMIN, CHAT, CURSOR,
       ]);
-      assertNoSecrets(refused.body.toString('utf8') + legacyLogs(), markers);
+      assertNoSecrets(refused.body.toString('utf8') + legacyLogs.map(read => read()).join(''), markers);
       const provenance = JSON.parse(fs.readFileSync(path.join(target, 'klebb-export.json'), 'utf8'));
       assert.equal(provenance.format, 'klebb.export.v1');
       assert.equal(provenance.formatVersion, 1);
