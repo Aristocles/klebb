@@ -1,6 +1,6 @@
 # Controlled browser and phone pairing evidence
 
-The CORE-01 proof used an isolated synthetic instance and the actual Samsung
+The CORE-01 proof used an isolated synthetic instance and a controlled physical
 phone. It did not read Health Connect records or upload personal history.
 The temporary HTTPS origin is a test endpoint, not an installation link.
 
@@ -10,8 +10,8 @@ The temporary HTTPS origin is a test endpoint, not an installation link.
 | Android package | `app.klebb.companion`, version code 3, `0.2.0-pairing-proof`, protocol 1 |
 | APK SHA-256 | `1013c44045398ef299ae29c49d01a1897b1cd681c3debb9c6d4208fac074f4b3` |
 | Retained signing certificate SHA-256 | `8375a2de5555bb7884324a7c6d3f6ab3d07d77bb1ce3b01e9621c99850bfac62` |
-| Phone | Samsung SM-F776B, Android 17 / API 37, One UI 9 |
-| Phone build | `CP2A.260605.016.F776BXXS2AZIH`, security patch 2026-10-05 |
+| Phone | Controlled physical Android device |
+| Phone build | Verified runtime, build and security-patch evidence retained privately |
 | Pinned Health Connect SDK | `1.2.0-alpha06`; no Health Connect calls in this pairing activity |
 
 The release-signed APK updated the existing installation in place without
@@ -28,9 +28,9 @@ cookie injection or loopback route bridge was used.
 
 Both screens showed the same destination before exchanging authority:
 
-![Authenticated instance browser confirms the canonical HTTPS destination and Steps proof scope.](pairing-proof-browser.png)
+![Authenticated instance browser shows the Steps proof scope; the destination URL is redacted.](pairing-proof-browser.png)
 
-![Release-signed Android client shows its version and the same approved HTTPS destination; the grant input is empty.](pairing-proof-phone.png)
+![Release-signed Android client shows its version and an empty grant input; destination URLs and the status bar are redacted.](pairing-proof-phone.png)
 
 | Controlled action | Independent expectation | Actual observation, UTC 2026-10-28 |
 |---|---|---|
@@ -47,10 +47,12 @@ Both screens showed the same destination before exchanging authority:
 
 Server observations recorded only a fixed route, method, response status and
 timestamp. They did not read request headers/bodies or response bodies.
-Screenshots omit grant/credential values. ADB's original screenshot stream
-included a multiple-display warning before the PNG; the retained PNG is the
-unchanged image byte sequence after that warning. Later captures selected
-the primary display explicitly.
+Screenshots omit grant/credential values. Public copies redact only destination
+URLs and the phone status bar. Complete original PNGs are retained privately.
+ADB's original screenshot stream included a multiple-display warning before
+the PNG; the privately retained original PNG is the unchanged image byte
+sequence after that warning. Later captures selected the primary display
+explicitly.
 
 Transport tests separately used real controlled HTTPS handlers to establish
 zero authority forwarding on redirects, untrusted certificates and wrong

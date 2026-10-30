@@ -29,6 +29,8 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+      - name: Test isolated queue installer preflight
+        run: python3 -I -S -B android/tools/test-queue-preflight.py --workflow .github/workflows/android-queue-native.yml
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
@@ -48,11 +50,28 @@ jobs:
           dpkg-query --show --showformat='${Package}=${Version}\n' libpulse0
       - name: Install pinned official packages into the isolated SDK
         run: |
+          test "$ANDROID_HOME" = "$RUNNER_TEMP/queue-android-sdk"
+          test ! -L "$ANDROID_HOME"
+          sdk_real="$(realpath -e -- "$ANDROID_HOME")"
+          runner_temp_real="$(realpath -e -- "$RUNNER_TEMP")"
+          test "$sdk_real" = "$runner_temp_real/queue-android-sdk"
+          test ! -e "$ANDROID_HOME/emulator"
+          test ! -L "$ANDROID_HOME/emulator"
+          archive="$RUNNER_TEMP/emulator-linux_x64-16428233.zip"
+          test ! -e "$archive"
+          test ! -L "$archive"
           cli="$ANDROID_HOME/cmdline-tools/16111833/bin/android"
           "$cli" --sdk="$ANDROID_HOME" sdk --ignore-outdated-xmls install platform-tools@37.0.1
           "$cli" --sdk="$ANDROID_HOME" sdk --ignore-outdated-xmls install platforms/android-37.0@2.0.0
           "$cli" --sdk="$ANDROID_HOME" sdk --ignore-outdated-xmls install build-tools/36.0.0@36.0.0
-          "$cli" --sdk="$ANDROID_HOME" sdk --ignore-outdated-xmls install emulator@37.2.12
+          curl --fail --location --silent --show-error --max-time 600 \
+            --max-filesize 349654171 --output "$archive" \
+            https://dl.google.com/android/repository/emulator-linux_x64-16428233.zip
+          test "$(wc -c < "$archive")" -eq 349654171
+          printf '%s  %s\n' \
+            'b08fc43d8608d2955f607f1b287beb525041e730086bdca3af152accac3af9c1' "$archive" \
+            | sha256sum --check --strict
+          unzip -q "$archive" -d "$ANDROID_HOME"
           "$cli" --sdk="$ANDROID_HOME" sdk --ignore-outdated-xmls install system-images/android-35/default/x86_64@2.0.0
       - name: Require Linux KVM and create one fresh credential-free AOSP target
         run: |

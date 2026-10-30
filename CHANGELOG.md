@@ -82,7 +82,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - A read-only Android Health Connect feasibility module with pinned build
   tooling, external release signing and controlled steps/weight permission
   checks. Signed installation, controlled reading and an in-place update
-  passed on the first Samsung phone; broader capture and release gates remain.
+  passed on a controlled physical device; broader capture and release gates remain.
 - Versioned Health Connect wire contracts and shared fixtures, with exact
   UTF-8 batch digests, separate native identities, lossless value encodings
   and bounded validation.
@@ -97,6 +97,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   their separate implementation gates.
 
 ### Fixed
+
+- I removed private device and test destination details from validation notes
+  and screenshots. Original results and open provider/release gates remain
+  unchanged. Refs #834.
+
+- Restore the frozen API35 queue emulator setup with the official 37.2.12
+  archive and checks before extraction; retain all original queue cases.
+  Refs #832.
 
 - Make the legacy export API fixture confirm server exit before its read-only
   source snapshot, then restart the same home while retaining both log streams
