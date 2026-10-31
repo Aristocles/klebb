@@ -83,13 +83,20 @@ describe('#600 the agent loop finishes multi-step turns', () => {
   before(async () => { gateway = await startAgentStubGateway(); });
   after(async () => { if (gateway) await gateway.close(); });
 
-  async function withChatServer(env, fn) {
+  async function withChatServer(env, fn, fixedChildClock = false) {
     const sandbox = createSandbox({ seed: { 'w.json': makeCard('w') } });
     const server = await spawnServer(sandbox, {
       CHAT_ENDPOINT_URL: `http://127.0.0.1:${gateway.port}/v1/chat/completions`,
       CHAT_API_KEY: 'k',
       CHAT_MODEL: 'm',
       ...env,
+      ...(fixedChildClock ? {
+        NODE_OPTIONS: [
+          env.NODE_OPTIONS ?? process.env.NODE_OPTIONS ?? '',
+          `--require=${JSON.stringify(require.resolve('../helpers/health-connect-fixed-child-clock-preload.cjs'))}`,
+        ].filter(Boolean).join(' '),
+        INDEPENDENT_FIXED_CHILD_CLOCK: String(require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json').base.milliseconds),
+      } : {}),
     });
     try {
       return await fn(server);
@@ -162,5 +169,17 @@ describe('#600 the agent loop finishes multi-step turns', () => {
         'a timeout misdescribed as a capability gap teaches users the feature is missing');
       assert.match(reply, /too long/i, 'the reply must name the real cause');
     });
+  });
+
+  test('the turn deadline stops the loop when the child wall clock is fixed', async () => {
+    gateway.reset({ stepsNeeded: 8, delayMs: 300 });
+    await withChatServer({ CHAT_TURN_DEADLINE_MS: '400' }, async (server) => {
+      const res = await ask(server);
+      assert.equal(res.status, 200,
+        'running out of turn budget is a capped reply, never a 5xx');
+      assert.equal(res.json?.capped, true);
+      assert.ok(gateway.hits <= 2, `the deadline must stop new round-trips (saw ${gateway.hits})`);
+      assert.match(res.json?.reply || '', /keep going/i);
+    }, true);
   });
 });

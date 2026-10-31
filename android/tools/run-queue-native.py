@@ -15,7 +15,7 @@ assert phase in ("baseline-f21", "final-seven")
 repo = Path.cwd().resolve()
 sdk = Path(os.environ["ANDROID_HOME"]).resolve()
 adb = sdk / "platform-tools/adb"
-emulator = sdk / "emulator/emulator"
+emulator = Path(os.environ["QUEUE_EMULATOR_ROOT"]) / "emulator"
 serial = "emulator-5580"
 evidence = repo / "android/build/queue-native-evidence"
 evidence.mkdir(parents=True, exist_ok=False)

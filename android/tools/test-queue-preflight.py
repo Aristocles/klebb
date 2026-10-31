@@ -3,10 +3,12 @@
 """Check queue SDK preflight without installing packages or downloading archives."""
 
 import argparse
+import ast
 import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import stat
 import subprocess
@@ -53,6 +55,103 @@ output.write_bytes(b"preflight curl stub\n")
 sys.stdout.write("PREFLIGHT_STUB_CURL_BOUNDARY\n")
 raise SystemExit(79)
 '''
+
+
+PINNED_PAYLOAD = b"queue-fixture-pinned-37.2.12-build16428233\n"
+MANAGED_PAYLOAD = b"queue-fixture-managed-37.2.13-build16740729\n"
+SYSTEM_IMAGE = "system-images/android-35/default/x86_64@2.0.0"
+
+# These tiny fixture bytes and outcomes were fixed independently before this source.
+FULL_STUB_SOURCE = r"""import json, os, pathlib, sys
+mode, *argv = sys.argv[1:]
+root = pathlib.Path(os.environ["PREFLIGHT_ROOT"])
+def owned(value):
+    path = pathlib.Path(value)
+    if not path.is_absolute() or path == root or not path.resolve().is_relative_to(root):
+        raise RuntimeError("Full stub escaped its fixture")
+    return path
+trace = owned(os.environ["PREFLIGHT_TRACE"])
+marker = owned(os.environ["PREFLIGHT_MARKER"])
+archive = owned(os.environ["PREFLIGHT_ARCHIVE"])
+sdk = owned(os.environ["PREFLIGHT_SDK"])
+payload = b"preflight curl stub\n"
+if mode not in ("installer", "curl", "wc", "sha256sum", "unzip"):
+    raise RuntimeError("Unexpected full stub mode")
+with trace.open("ab") as stream:
+    stream.write((json.dumps({"tool": mode + "-stub", "argv": argv}) + "\n").encode())
+if mode == "installer":
+    if argv[:4] != ["--sdk=" + str(sdk), "sdk", "--ignore-outdated-xmls", "install"] or len(argv) != 5:
+        raise RuntimeError("Unexpected installer arguments")
+    with marker.open("ab") as stream:
+        stream.write((argv[-1] + "\n").encode("ascii"))
+    if argv[-1] == "system-images/android-35/default/x86_64@2.0.0":
+        destination = owned(str(sdk / "emulator/emulator"))
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(b"queue-fixture-managed-37.2.13-build16740729\n")
+elif mode == "curl":
+    if owned(argv[argv.index("--output") + 1]) != archive:
+        raise RuntimeError("Wrong full archive output")
+    archive.write_bytes(payload)
+elif mode == "wc":
+    if argv != ["-c"] or sys.stdin.buffer.read() != payload:
+        raise RuntimeError("Unexpected size-check input")
+    sys.stdout.write("349654171\n")
+elif mode == "sha256sum":
+    expected = "b08fc43d8608d2955f607f1b287beb525041e730086bdca3af152accac3af9c1  " + str(archive) + "\n"
+    if argv != ["--check", "--strict"] or sys.stdin.read() != expected or archive.read_bytes() != payload:
+        raise RuntimeError("Unexpected checksum-check input")
+    sys.stdout.write(str(archive) + ": OK\n")
+elif mode == "unzip":
+    if len(argv) != 4 or argv[:3] != ["-q", str(archive), "-d"] or archive.read_bytes() != payload:
+        raise RuntimeError("Unexpected extraction input")
+    destination = owned(argv[3]) / "emulator/emulator"
+    destination.parent.mkdir(parents=True, exist_ok=False)
+    destination.write_bytes(b"queue-fixture-pinned-37.2.12-build16428233\n")
+raise SystemExit(0)
+"""
+
+
+def workflow_emulator_root(workflow, runner):
+    exports = re.findall(r'^\s*"QUEUE_EMULATOR_ROOT=([^"\r\n]+)"', workflow.read_text(), re.M)
+    if len(exports) > 1:
+        raise ValueError("Ambiguous workflow emulator export")
+    if not exports:
+        return None  # The retained old workflow exports no separate emulator root.
+    prefix = "$RUNNER_TEMP/"
+    if not exports[0].startswith(prefix) or "$" in exports[0][len(prefix):] or "`" in exports[0]:
+        raise ValueError("Unsupported workflow emulator export")
+    return str(runner) + "/" + exports[0][len(prefix):]
+
+
+def runner_emulator_path(source, sdk, env, root):
+    # Observe just the actual assignment as data; never import or run the queue runner.
+    tree = ast.parse(source.read_bytes(), filename=str(source))
+    matches = [node.value for node in tree.body if isinstance(node, ast.Assign)
+               and any(isinstance(target, ast.Name) and target.id == "emulator" for target in node.targets)]
+    if len(matches) != 1:
+        raise ValueError("Expected one actual emulator assignment")
+    value = matches[0]
+    if not (isinstance(value, ast.BinOp) and isinstance(value.op, ast.Div)
+            and isinstance(value.right, ast.Constant) and isinstance(value.right.value, str)):
+        raise ValueError("Unsupported emulator assignment")
+    left = value.left
+    if isinstance(left, ast.Name) and left.id == "sdk":
+        parent = sdk.resolve()
+    elif (isinstance(left, ast.Call) and isinstance(left.func, ast.Name)
+          and left.func.id == "Path" and len(left.args) == 1 and not left.keywords):
+        lookup = left.args[0]
+        if not (isinstance(lookup, ast.Subscript) and isinstance(lookup.value, ast.Attribute)
+                and lookup.value.attr == "environ" and isinstance(lookup.value.value, ast.Name)
+                and lookup.value.value.id == "os" and isinstance(lookup.slice, ast.Constant)
+                and isinstance(lookup.slice.value, str)):
+            raise ValueError("Unsupported emulator environment lookup")
+        parent = Path(env[lookup.slice.value])
+    else:
+        raise ValueError("Unsupported emulator assignment base")
+    selected = parent / value.right.value
+    if not selected.is_absolute() or not selected.resolve().is_relative_to(root):
+        raise ValueError("Observed emulator selection escaped fixture")
+    return selected
 
 
 def installer_body(workflow):
@@ -182,6 +281,8 @@ def run_installer(body, root, env, evidence):
 class QueuePreflight(unittest.TestCase):
     body = b""
     receipts = None
+    workflow_path = None
+    runner_source = None
 
     def run(self, result=None):
         self.test_result = result if result is not None else self.defaultTestResult()
@@ -213,6 +314,13 @@ class QueuePreflight(unittest.TestCase):
             elif case == "linked-sdk-root":
                 sdk.symlink_to(physical_sdk, target_is_directory=True)
             archive = runner / ARCHIVE_NAME
+            pinned_root = sdk / "queue-pinned-emulator"
+            if case == "existing-pinned-destination":
+                pinned_root.mkdir()
+                (pinned_root / "preserve-original.txt").write_bytes(
+                    b"preflight pinned destination must remain untouched\n")
+            elif case == "linked-pinned-destination":
+                pinned_root.symlink_to(root / "absent-pinned-destination-owned", target_is_directory=True)
             if case == "dangling-emulator":
                 (sdk / "emulator").symlink_to(root / "absent-emulator-owned")
             elif case == "dangling-archive":
@@ -221,14 +329,18 @@ class QueuePreflight(unittest.TestCase):
             stub_bin = root / "stub-bin"
             stub_bin.mkdir()
             stub = stub_bin / "stub.py"
-            stub.write_text(STUB_SOURCE, encoding="utf-8")
+            complete = case == "dependency-replaces-managed-emulator"
+            stub.write_text(FULL_STUB_SOURCE if complete else STUB_SOURCE, encoding="utf-8")
             trace = root / "calls.jsonl"
             marker = physical_sdk / "installer-writes.txt"
             trace.write_bytes(b"")
             marker.write_bytes(b"")
             cli = physical_sdk / "cmdline-tools/16111833/bin/android"
             cli.parent.mkdir(parents=True)
-            for target, mode in ((cli, "installer"), (stub_bin / "curl", "curl")):
+            tools = [(cli, "installer"), (stub_bin / "curl", "curl")]
+            if complete:
+                tools += [(stub_bin / name, name) for name in ("wc", "sha256sum", "unzip")]
+            for target, mode in tools:
                 target.write_text(
                     '#!/bin/sh\nexec "$PREFLIGHT_PYTHON" -I -S -B '
                     '"$PREFLIGHT_STUB" ' + mode + ' "$@"\n',
@@ -245,6 +357,12 @@ class QueuePreflight(unittest.TestCase):
                 "PREFLIGHT_PYTHON": sys.executable,
                 "PREFLIGHT_TRACE": str(trace), "PREFLIGHT_MARKER": str(marker),
             }
+            exported_root = workflow_emulator_root(self.workflow_path, runner)
+            if exported_root is not None:
+                env["QUEUE_EMULATOR_ROOT"] = exported_root
+            if complete:
+                env["PREFLIGHT_ARCHIVE"] = str(archive)
+                env["PREFLIGHT_SDK"] = str(sdk)
             retain_json(evidence / "fixture.json", {
                 "fixtureRoot": str(root), "callTrace": str(trace), "installerMarker": str(marker),
             })
@@ -271,6 +389,58 @@ class QueuePreflight(unittest.TestCase):
                 "fixtureContentOrEntryDelta": delta,
             })
             self.assertFalse(timed_out, "Installer exceeded 30 seconds")
+            if complete:
+                full_tools = ["installer-stub"] * 3 + ["curl-stub", "wc-stub", "sha256sum-stub", "unzip-stub", "installer-stub"]
+                if (code != 0 or stdout != (str(archive) + ": OK\n").encode() or stderr != b""
+                        or [call["tool"] for call in calls] != full_tools
+                        or calls[-1]["argv"] != ["--sdk=" + str(sdk), "sdk", "--ignore-outdated-xmls", "install", SYSTEM_IMAGE]):
+                    raise RuntimeError("Full fixture did not complete dependency replacement; no meaningful RED")
+                managed = sdk / "emulator/emulator"
+                managed_raw = managed.read_bytes()
+                if managed_raw != MANAGED_PAYLOAD:
+                    raise RuntimeError("Managed dependency replacement control missing; no meaningful RED")
+                selected = runner_emulator_path(self.runner_source, sdk, env, root)
+                if selected.is_symlink() or not selected.is_file():
+                    raise RuntimeError("Selected fixture binary unavailable; no meaningful RED")
+                selected_raw = selected.read_bytes()
+                retain_bytes(evidence / "selected-emulator.raw", selected_raw)
+                retain_bytes(evidence / "managed-emulator.raw", managed_raw)
+                retain_json(evidence / "selection.json", {
+                    "observedRunnerSource": str(self.runner_source),
+                    "actualWorkflowExport": exported_root,
+                    "selectedRelativePath": selected.relative_to(root).as_posix(),
+                    "selectedSha256": hashlib.sha256(selected_raw).hexdigest(),
+                    "managedSha256": hashlib.sha256(managed_raw).hexdigest(),
+                    "focusedAssignmentOnly": True, "tinyStubsOnly": True,
+                    "realArchiveVersionVmOrQueueCredit": False,
+                })
+                self.assertEqual(selected.relative_to(root).as_posix(),
+                                 "runner-temp/queue-android-sdk/queue-pinned-emulator/emulator/emulator",
+                                 "Completed dependency replacement selected the managed emulator")
+                self.assertEqual(selected_raw, PINNED_PAYLOAD, "Pinned fixture bytes did not survive")
+                expected_calls = [
+                    {"tool": "installer-stub", "argv": ["--sdk=" + str(sdk), "sdk", "--ignore-outdated-xmls", "install", package]}
+                    for package in PACKAGES
+                ] + [
+                    {"tool": "curl-stub", "argv": ["--fail", "--location", "--silent", "--show-error", "--max-time", "600", "--max-filesize", "349654171", "--output", str(archive), ARCHIVE_URL]},
+                    {"tool": "wc-stub", "argv": ["-c"]},
+                    {"tool": "sha256sum-stub", "argv": ["--check", "--strict"]},
+                    {"tool": "unzip-stub", "argv": ["-q", str(archive), "-d", str(sdk / "queue-pinned-emulator")]},
+                    {"tool": "installer-stub", "argv": ["--sdk=" + str(sdk), "sdk", "--ignore-outdated-xmls", "install", SYSTEM_IMAGE]},
+                ]
+                self.assertEqual(calls, expected_calls)
+                self.assertEqual(writes, "".join(p + "\n" for p in (*PACKAGES, SYSTEM_IMAGE)).encode("ascii"))
+                self.assertEqual(archive.read_bytes(), PAYLOAD)
+                self.assertEqual(delta, sorted([
+                    "calls.jsonl", "runner-temp/emulator-linux_x64-16428233.zip",
+                    "runner-temp/queue-android-sdk/installer-writes.txt",
+                    "runner-temp/queue-android-sdk/emulator", "runner-temp/queue-android-sdk/emulator/emulator",
+                    "runner-temp/queue-android-sdk/queue-pinned-emulator",
+                    "runner-temp/queue-android-sdk/queue-pinned-emulator/emulator",
+                    "runner-temp/queue-android-sdk/queue-pinned-emulator/emulator/emulator",
+                ]))
+                passed = True
+                return
             if case != "clean-isolated":
                 installer_calls = sum(call["tool"] == "installer-stub" for call in calls)
                 curl_calls = sum(call["tool"] == "curl-stub" for call in calls)
@@ -335,6 +505,15 @@ class QueuePreflight(unittest.TestCase):
     def test_clean_isolated(self):
         self.check_case("clean-isolated")
 
+    def test_dependency_replacement(self):
+        self.check_case("dependency-replaces-managed-emulator")
+
+    def test_existing_pinned_destination(self):
+        self.check_case("existing-pinned-destination")
+
+    def test_linked_pinned_destination(self):
+        self.check_case("linked-pinned-destination")
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -343,8 +522,12 @@ def main():
         default=Path(__file__).resolve().parents[2] / ".github/workflows/android-queue-native.yml",
     )
     parser.add_argument("--receipts", type=Path, help="Fresh directory for retained case evidence")
+    parser.add_argument("--runner", type=Path,
+                        default=Path(__file__).resolve().parents[2] / "android/tools/run-queue-native.py")
     args = parser.parse_args()
     QueuePreflight.body = installer_body(args.workflow)
+    QueuePreflight.workflow_path = args.workflow
+    QueuePreflight.runner_source = args.runner
     if args.receipts is None:
         QueuePreflight.receipts = Path(tempfile.mkdtemp(prefix="queue-preflight-receipts-")).resolve()
     else:
@@ -353,6 +536,7 @@ def main():
     suite = unittest.TestSuite(QueuePreflight(name) for name in (
         "test_wrong_sdk", "test_linked_sdk_root", "test_dangling_emulator",
         "test_dangling_archive", "test_clean_isolated",
+        "test_dependency_replacement", "test_existing_pinned_destination", "test_linked_pinned_destination",
     ))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     return 0 if result.wasSuccessful() else 1
