@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Bounded read-only ordinary Health Connect census custody and scoped membership
+  previews. Provider completeness stays unverified and deletion remains disabled.
+  Refs #757.
+
 - Browser-owner saved-history Health Connect selection preview with explicit
   source/type selectors, nanosecond UTC windows, fixed cutoffs and revisions,
   and bounded read-only effect counts. Range apply, period policy and recovery
