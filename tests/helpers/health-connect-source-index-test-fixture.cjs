@@ -36,11 +36,15 @@ function bindVector(id, data) {
 const first = data => bindVector('initial-raw-only', data);
 const second = data => bindVector('second-delete-and-correction', data);
 
-async function fixture(extraEnv = {}) {
+async function fixture(extraEnv = {}, expectedPublishedAt) {
   const fixtureStartedAt = Date.now();
   const data = await authority.fixture(extraEnv);
   try {
     data.fixtureStartedAt = fixtureStartedAt;
+    if (expectedPublishedAt !== undefined) {
+      assert.ok(Number.isSafeInteger(expectedPublishedAt));
+      data.expectedPublishedAt = expectedPublishedAt;
+    }
     data.initial = coldReadSourceState(data.home);
     assert.deepEqual(data.initial.native.records, []);
     assert.deepEqual(data.initial.native.receipts, []);
@@ -158,7 +162,11 @@ function assertCurrentIndex(index, data, sequence, { attemptCount = 1 } = {}) {
   assert.equal(state.error_code, null);
   assert.equal(state.published_restore_epoch, data.binding.restoreEpoch);
   assert.equal(Number.isSafeInteger(state.published_at), true);
+  if (data.expectedPublishedAt === undefined) {
   assert.ok(state.published_at >= data.fixtureStartedAt && state.published_at <= Date.now());
+  } else {
+    assert.equal(state.published_at, data.expectedPublishedAt);
+  }
   noAuthority(JSON.stringify(index), data);
 }
 const assertFirstIndex = (index, data, options) => assertCurrentIndex(index, data, '1', options);

@@ -69,6 +69,7 @@ test('S03 null source/type resolves all retained owned namespaces without collap
 
 test('S04 a one-nanosecond window includes its lower instant and whole overlapping ordered cadence',
   options, async () => owned(async data => {
+    H.clock(data, E.inputs.fixedClock.initialAfterHealthySetup);
     const result = await H.success(data, H.body([data.alpha], null, oneNs), [group(data.alpha, allAlpha)]);
     assert.equal(result.json.effects.removedRecords, 2);
     const raw = F.identityRows(F.coldRead(data.home), 'health_records', F.identity(data.alpha, F.TYPES[1]))[0];

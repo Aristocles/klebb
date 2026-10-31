@@ -263,7 +263,12 @@ for (const defect of ['missing-latest-reference', 'changed-latest-digest',
 
 test('O10 revoked phone loses upload authority while its real owner rebuilds exhausted retained derived state',
   { timeout: 25000 }, async () => {
-    const data = await fixture();
+    const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json').base;
+    const preload = path.resolve(__dirname, '../helpers/health-connect-fixed-child-clock-preload.cjs');
+    const data = await fixture({
+      NODE_OPTIONS: `--require=${JSON.stringify(preload)}`,
+      INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.milliseconds),
+    }, healthyClock.milliseconds);
     try {
       const complete = await published(data);
       const revoke = await req(data.server.baseUrl, `${BASE}/${data.paired.connectorId}`, {
