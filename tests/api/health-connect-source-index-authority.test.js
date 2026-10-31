@@ -66,10 +66,21 @@ async function current(data, sequence) {
   diagnostics(result.body, data);
   return result;
 }
-async function published(data, sequence = '1') {
+async function published(data, sequence = '1', clockEnv) {
   await saved(data, first(data));
   await current(data, '1');
   assertFirstNative(cold(data).native, data);
+  if (clockEnv !== undefined) {
+    const expectedPublishedAt = Number(clockEnv.INDEPENDENT_FIXED_CHILD_CLOCK);
+    const publishedAt = cold(data).index.stateRows[0]?.published_at;
+    console.log(JSON.stringify({ kind: 'source-index-fixed-clock-precondition',
+      expectedPublishedAt, publishedAt, fixtureStartedAt: data.fixtureStartedAt }));
+    assert.equal(publishedAt, expectedPublishedAt, 'publication uses the independently fixed child time');
+    if (data.expectedPublishedAt === undefined) {
+      assert.ok(Number.isSafeInteger(data.fixtureStartedAt) && data.fixtureStartedAt > expectedPublishedAt,
+        'unmarked controlled publication requires a later parent fixture start');
+    }
+  }
   assertFirstIndex(cold(data).index, data);
   if (sequence === '2') {
     await saved(data, second(data));
@@ -202,11 +213,18 @@ for (const defect of ['missing-latest-reference', 'changed-latest-digest',
   'changed-latest-batch', 'missing-earlier-reference', 'changed-earlier-unqualified-digest']) {
   test(`O09 ${defect} refuses status/rebuild despite an existing complete publication`,
     { timeout: 25000 }, async () => {
-      const data = await fixture();
+      const healthyClock = defect === 'changed-latest-batch' ?
+        require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json').base : undefined;
+      const clockEnv = healthyClock === undefined ? undefined : {
+        NODE_OPTIONS: `--require=${JSON.stringify(path.resolve(__dirname,
+          '../helpers/health-connect-fixed-child-clock-preload.cjs'))}`,
+        INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.milliseconds),
+      };
+      const data = clockEnv === undefined ? await fixture() : await fixture(clockEnv, healthyClock.milliseconds);
       try {
         const changedReceipt = defect === 'changed-earlier-unqualified-digest';
         const two = defect === 'missing-earlier-reference' || changedReceipt;
-        const healthy = await published(data, two ? '2' : '1');
+        const healthy = await published(data, two ? '2' : '1', clockEnv);
         const key = expectedFrontier(data, '1').stream_key;
         assert.notEqual(first(data).receipt.payloadDigest, WRONG_DIGEST);
         writer(data, db => {
@@ -263,7 +281,12 @@ for (const defect of ['missing-latest-reference', 'changed-latest-digest',
 
 test('O10 revoked phone loses upload authority while its real owner rebuilds exhausted retained derived state',
   { timeout: 25000 }, async () => {
-    const data = await fixture();
+    const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json').base;
+    const preload = path.resolve(__dirname, '../helpers/health-connect-fixed-child-clock-preload.cjs');
+    const data = await fixture({
+      NODE_OPTIONS: `--require=${JSON.stringify(preload)}`,
+      INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.milliseconds),
+    }, healthyClock.milliseconds);
     try {
       const complete = await published(data);
       const revoke = await req(data.server.baseUrl, `${BASE}/${data.paired.connectorId}`, {

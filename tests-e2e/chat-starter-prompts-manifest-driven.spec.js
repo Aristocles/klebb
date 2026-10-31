@@ -9,6 +9,16 @@ const { test, expect } = require('./helpers/auth-fixture');
 
 test.describe('#195: chat starter chips are manifest-driven', () => {
   test('empty chat shows chips sourced from seeded cards + keeps combine chip', async ({ page }) => {
+    // Keep this case's intended Mood + Weight fixture below the seven-chip cap.
+    await page.route('**/api/manifests', async route => {
+      const response = await route.fetch();
+      const body = await response.json();
+      await route.fulfill({
+        response,
+        json: { ...body, entries: body.entries.filter(entry =>
+          entry.id === 'weight' || entry.id === 'mood') },
+      });
+    });
     await page.goto('/');
     await expect(page.locator('eh-date-view')).toBeVisible();
 
@@ -26,6 +36,8 @@ test.describe('#195: chat starter chips are manifest-driven', () => {
 
     // Combine-cards chip stays hardcoded.
     await expect(page.getByText('✨ Combine cards')).toBeVisible({ timeout: 10_000 });
+    // Combine is hardcoded; wait for the two manifest-driven chips as well.
+    await expect(page.locator('.suggestion:not(.combine)')).toHaveCount(2);
 
     // Weight card declared two starterPrompts. The picker takes one
     // per card, so exactly one of weight's two texts should appear.
@@ -34,12 +46,9 @@ test.describe('#195: chat starter chips are manifest-driven', () => {
     const weightVisible = (await weightData.count()) + (await weightTweak.count());
     expect(weightVisible).toBe(1);
 
-    // Mood has no chat.starterPrompts, so the generated fallback
-    // "Show me my Mood data" should be eligible. The picker samples
-    // at random, so it may or may not be in the visible 7; instead,
-    // assert there are NO literal hardcoded labels from the old
-    // fixed list — they shouldn't appear at all for a sandbox
-    // without supplements / injections / bloods / etc. cards.
+    // Mood's generated fallback also fits in this two-card fixture.
+    await expect(page.getByText('Show me my Mood data', { exact: true })).toHaveCount(1);
+    // The old fixed-list labels must still be absent.
     await expect(page.getByText('Supplements', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Injections', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Bloods', { exact: true })).toHaveCount(0);
