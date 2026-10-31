@@ -51,6 +51,12 @@ fail-closed baseline mode and its original failing evidence. The test target
 package is the ordinary debug package and must never be installed over the
 user's release app to obtain these checks.
 
+The isolated installer uses the official Linux emulator 37.2.12.0 archive,
+build 16428233, with SHA-256
+`b08fc43d8608d2955f607f1b287beb525041e730086bdca3af152accac3af9c1`.
+It verifies the checksum before extraction and requires the original version,
+build and binary identity. A setup mismatch stops before any queue check.
+
 Native checks retain original process exits, instrumentation status bundles,
 APK hashes and populated encrypted DB/WAL artifacts. A build or tooling failure
 does not establish the behavioral baseline. Emulator results do not prove

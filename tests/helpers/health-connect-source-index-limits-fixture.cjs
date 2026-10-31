@@ -88,7 +88,7 @@ async function finish(data) {
   if (data.server) await stop(data);
   try { noAuthority(data.requestLogs, data); } finally { await close(data); }
 }
-async function initialPublished(data) {
+async function initialPublished(data, expectedInitialPublishedAt) {
   const vector = first(data);
   const saved = await postBatch(data, vector);
   assert.equal(saved.status, 200);
@@ -98,6 +98,18 @@ async function initialPublished(data) {
   // The common reader is used only before any large inventory is seeded.
   const initial = coldReadSourceState(data.home);
   assertFirstNative(initial.native, data);
+  if (expectedInitialPublishedAt !== undefined) {
+    assert.ok(Number.isSafeInteger(expectedInitialPublishedAt));
+    const publishedAt = initial.index.stateRows[0]?.published_at;
+    console.log(JSON.stringify({ kind: 'source-index-fixed-clock-precondition',
+      expectedPublishedAt: expectedInitialPublishedAt, publishedAt,
+      fixtureStartedAt: data.fixtureStartedAt }));
+    assert.equal(publishedAt, expectedInitialPublishedAt,
+      'publication uses the independently fixed child time');
+    assert.ok(Number.isSafeInteger(data.fixtureStartedAt) &&
+      data.fixtureStartedAt > expectedInitialPublishedAt,
+      'controlled publication requires a later parent fixture start');
+  }
   assertFirstIndex(initial.index, data);
   return initial;
 }

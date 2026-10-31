@@ -15,7 +15,7 @@ assert phase in ("baseline-f21", "final-seven")
 repo = Path.cwd().resolve()
 sdk = Path(os.environ["ANDROID_HOME"]).resolve()
 adb = sdk / "platform-tools/adb"
-emulator = sdk / "emulator/emulator"
+emulator = Path(os.environ["QUEUE_EMULATOR_ROOT"]) / "emulator"
 serial = "emulator-5580"
 evidence = repo / "android/build/queue-native-evidence"
 evidence.mkdir(parents=True, exist_ok=False)
@@ -82,7 +82,8 @@ try:
         "cliSha256": sha(cli), "sourcePropertiesSha256": sha(tools / "source.properties")}) + "\n")
     run("cli-version", [str(cli), "--version"])
     _, emulator_version = run("emulator-version", [str(emulator), "-version"])
-    assert "37.2.12" in emulator_version
+    assert emulator_version.splitlines()[0] == "Android emulator version 37.2.12.0 (build_id 16428233) (CL:N/A)"
+    assert sha(emulator) == "27e9a8cbd545529ba2c1aca973e5bc060f50b36a68d2c03296b0162291a16b83"
     _, adb_version = run("adb-version", [str(adb), "version"])
     assert "37.0.1" in adb_version
     run("java-version", ["java", "-version"])

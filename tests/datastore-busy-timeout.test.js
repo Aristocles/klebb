@@ -63,14 +63,14 @@ function holdWriteLock(file, holdMs) {
 // Returns { ok, errcode, ms }.
 function openInChild(file) {
   const script = `
-    const t0 = Date.now();
+    const t0 = process.hrtime.bigint();
     try {
       const store = require(${JSON.stringify(DATASTORE)}).open(process.argv[1]);
       store.load();
       store.close();
-      console.log('RESULT ok ' + (Date.now() - t0));
+      console.log('RESULT ok ' + Number((process.hrtime.bigint() - t0) / 1000000n));
     } catch (e) {
-      console.log('RESULT fail ' + (Date.now() - t0) + ' ' + (e.errcode === undefined ? '?' : e.errcode));
+      console.log('RESULT fail ' + Number((process.hrtime.bigint() - t0) / 1000000n) + ' ' + (e.errcode === undefined ? '?' : e.errcode));
     }
   `;
   const r = spawnSync(process.execPath, ['-e', script, file], { encoding: 'utf8', timeout: 60000 });

@@ -87,7 +87,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - A read-only Android Health Connect feasibility module with pinned build
   tooling, external release signing and controlled steps/weight permission
   checks. Signed installation, controlled reading and an in-place update
-  passed on the first Samsung phone; broader capture and release gates remain.
+  passed on a controlled test device; broader capture and release gates remain.
 - Versioned Health Connect wire contracts and shared fixtures, with exact
   UTF-8 batch digests, separate native identities, lossless value encodings
   and bounded validation.
@@ -102,6 +102,34 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   their separate implementation gates.
 
 ### Fixed
+
+- I gave the two-generation source-index publication test an explicit child clock,
+  preserving its bound vector, raw receipt and restart assertions. Refs #845.
+
+- I use monotonic elapsed time in the datastore contention test while retaining
+  its real write lock and original timing bounds. Refs #844.
+
+- I give the long-stream status-budget test an independent child clock,
+  retaining its byte-budget refusals and native-state assertions. Refs #842.
+
+- I replace private setup details with generic changelog wording. Refs #841.
+
+- I give source-index publication tests independent initial and later clock
+  phases across child restarts, retaining strict timestamp and original
+  rollback and retry assertions. Refs #838, #839.
+
+- I add bounded S14 phase observations while retaining its original errors,
+  state assertions, operation order and cleanup. Refs #840.
+
+- Use elapsed time for chat turn deadlines and controlled timestamps in Health Connect regression checks (#836).
+
+- I removed private device and test destination details from validation notes
+  and screenshots. Original results and open provider/release gates remain
+  unchanged. Refs #834.
+
+- Restore the frozen API35 queue emulator setup with the official 37.2.12
+  archive and checks before extraction; retain all original queue cases.
+  Refs #832.
 
 - Make the legacy export API fixture confirm server exit before its read-only
   source snapshot, then restart the same home while retaining both log streams
@@ -809,10 +837,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   the two cannot drift; everything else under `auto-export/` is still
   wiped and restored as before.
 
-- **Import validation no longer reads the history file whole.** The first
-  real-sized restore into a memory-capped instance was OOM-killed inside
-  `POST /api/import/start`: the samples drain had streamed since the
-  incident fix, but validation still read and `JSON.parse`d the entire
+- **Import validation no longer reads the history file whole.** Validating
+  a large history could exceed a memory limit inside `POST /api/import/start`:
+  the samples drain streamed, but validation still read and `JSON.parse`d the entire
   `samples.json` for its plan counts (twice per job, plus a whole-file
   read for the inventory checksum). Validation now streams the scan
   through the same incremental reader as the drain, header values arrive
@@ -879,11 +906,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   because mid-pipeline the registry is transiently wiped and serving a read
   would present an empty instance as truth. (#633)
 - **Importing a large HAE history no longer blows the heap of a small
-  container.** A real restore whose `data/auto-export/samples.json`
-  weighed tens of MB died of `FatalProcessOutOfMemory` inside a 256 MB
-  container: the samples drain read and JSON.parse'd the whole file, then
-  bound large strings per sample, and boot recovery re-crashed on every
-  restart until one pass squeaked under the ceiling. The drain now streams
+  container.** Reading a large `data/auto-export/samples.json` whole
+  could exhaust memory and make boot recovery fail repeatedly. The samples
+  drain read and JSON.parse'd the whole file, then bound large strings
+  per sample. The drain now streams
   the file one push at a time through a minimal JSON-aware scanner (string
   and escape state, bracket depth; no new dependencies), so peak memory is
   proportional to one push, never the file; a subprocess test drains a
@@ -1001,7 +1027,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **Replay no longer gets quadratically slower as history grows.**
   `replayMetric` merged into the accumulated result once per push group, and that
   merge rebuilds a Map of the whole result and re-sorts the whole array every
-  call. The cost was always O(groups x dates); reading 412 MB of archive files
+  call. The cost was always O(groups x dates); parsing the archive files
   used to dominate it, so moving history into the samples table exposed the
   asymptote rather than creating it. Measured on synthetic histories: 2.5 months
   16 ms, five years 1084 ms, all of it inside `POST /api/manifests` on a
@@ -1060,18 +1086,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **HAE push history moved from a file archive into a deduplicated table.**
   Every push used to be written to its own file under
   `data/auto-export/raw/`. Health Auto Export re-sends a rolling window
-  rather than a delta, so the same samples were archived over and over:
-  measured on the longest-running instance at 404 MB across 482 files for
-  2.5 months of data, of which 85.6% was byte-identical re-sends. That
-  archive had exactly one reader (backfilling a newly created card), so
-  rebuilding one card meant parsing all 404 MB.
+  rather than a delta, so overlapping samples were repeatedly archived.
+  That archive had exactly one reader (backfilling a newly created card),
+  so rebuilding a card meant parsing the complete archive.
 
   Samples now live in the instance datastore, keyed by a hash of their full
   content, so each unique sample is stored once. **Every metric is stored,
-  catalogued or not.** That is the point rather than a detail: a real iPhone
-  pushes around twenty-five metrics and the catalogue covers thirteen, and
-  for the other twelve this is the only place their history exists. Adding a
-  metric to the catalogue later still backfills from the beginning.
+  catalogued or not.** This preserves history for metrics not yet in the
+  catalogue. Adding a metric to the catalogue later still backfills from
+  the beginning.
 
   Deduplication is on the whole sample, not on `metric + timestamp`: Apple
   Health emits several genuinely different samples at the same minute from
@@ -1374,8 +1397,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   without closing the datastore, so `docker stop` left recent writes living only
   in `klebb.db-wal`. Nothing was lost while the file pair stayed together
   (SQLite replays the WAL on next open), but a backup that copied `klebb.db`
-  alone silently dropped whatever had not been checkpointed: measured at 1084 of
-  1095 rows on a real instance. `docs/DEPLOY.md` already advised stopping the
+  alone silently dropped writes that had not been checkpointed.
+  `docs/DEPLOY.md` already advised stopping the
   container first, and that should not have been the only thing standing between
   a routine restart and a lossy backup. Fixes #562.
 
@@ -2157,7 +2180,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **Settings > Cards: Reorder is now a top-of-page section that takes
   you to Today.** The old inline button shared a flex row with the
   filter input and the on/off summary, which clipped its right edge
-  on iPhone 13 mini. More importantly, the button silently did
+  in narrow viewports. More importantly, the button silently did
   nothing on `/settings` because reorder mode lives on the Today
   view: dispatching the old `klebb-enter-reorder-mode` event went
   unheard with no Today renderer mounted. The button now sits in its
@@ -2241,8 +2264,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   endpoint and rate limiter are unchanged server-side; only the UI
   affordance is removed. Refs #392.
 
-- **Notifications row wraps below 560px.** On iPhone 13 Mini
-  (375px viewport) the [time | label | toggles] row was overflowing
+- **Notifications row wraps below 560px.** In a 375px viewport,
+  the [time | label | toggles] row was overflowing
   and the toggles visually overlapped the label. New `@media
   (max-width: 560px)` rule (matching the breakpoint convention used
   by Settings > Connections and Settings > Diagnostics) wraps the
@@ -2992,8 +3015,8 @@ gear-icon link.
   desktop. Fixes #325.
 - **`no-personal-refs` test honours gitignore.** The scanner walked
   the working tree directly and so flagged operator-private files
-  that exist on disk but never ship (`BRIEF-FOR-CC.md`, `CLAUDE.md`,
-  `.claude/`, `data/sessions/*.json`). CI was unaffected (clean
+  that exist on disk but never ship (private operator notes and
+  configuration, plus local session data). CI was unaffected (clean
   checkout) but local `npm test` was noisy with up to 17 spurious
   hits, conditioning developers to ignore the scanner. The scanner
   now drives off `git ls-files`, so it only sees what actually
@@ -3209,8 +3232,7 @@ gear-icon link.
   carries an `## Available docs` catalogue listing every callable
   path with a one-line summary; the agent picks one and calls
   `read_doc`. Allowlist-gated (no traversal, no symlink escape, no
-  reading of gitignored operator files like CLAUDE.md or
-  BRIEF-FOR-CC.md). See #246.
+  reading of gitignored private operator notes or configuration). See #246.
 
 - **`workouts` rows expose `sessionCount`.** The
   `workouts-merge-per-date` aggregator now emits a `sessionCount`
@@ -3656,9 +3678,8 @@ gear-icon link.
 
 - **HAE discovery card filters to catalogue-supported metrics and groups
   by category.** Previously the card listed every metric HAE pushed
-  that no manifest subscribed to — on a real iPhone export that was
-  ~20 rows, most of them (`vo2_max`, `heart_rate`, `respiratory_rate`,
-  `flights_climbed`, etc.) not in klebb's catalogue at all, so clicking
+  that no manifest subscribed to, including unsupported metric types.
+  Those types were absent from klebb's catalogue, so clicking
   "Build a card" would produce a manifest the dispatcher silently
   logged as "unknown metric" on every subsequent push. Now supported
   metrics group into six categories (Sleep, Recovery, Activity,
@@ -3968,9 +3989,8 @@ gear-icon link.
   modal) hit a non-2xx response from \`/api/manifests/:id/data\`, the UI
   rendered either \`HTTP 403\` or a fixed "Could not save. Try again or
   dismiss." — hiding the server's actual \`{error: "..."}\` payload. A
-  container running in UTC while the browser is in Australia/Sydney
-  would reject today's writes as "future-dated (2026-05-05) not allowed
-  for this card", but the operator saw only the generic message. New
+  timezone mismatch could reject a write as future-dated, while the UI
+  showed only the generic message. New
   \`public/js/lib/save-error.js\` helper (\`errorFromResponse\`) reads
   the server's JSON \`error\` field and surfaces it as
   \`"403: future-dated entry ... not allowed"\`, pointing straight at
@@ -4041,9 +4061,8 @@ gear-icon link.
   a rule with no \`min\`, \`max\`, or \`eq\` was silently skipped, so
   the natural way to write "anything else" (a bare \`{emoji}\` as the
   last rule, matching the CSS / switch-default pattern) produced no
-  marker. Agents and users both wrote this pattern unprompted; the BP
-  card on klebbtest showed 🩺 on readings over 140 because the
-  catch-all \`{emoji:"🔴"}\` was ignored. Now a bounds-less rule
+  marker. A blood-pressure card could show its default marker when a
+  catch-all rule was ignored. Now a bounds-less rule
   matches any non-null value at the field — put it last. Applies to
   both \`display.thresholds\` (Today headline colouring) and
   \`meta.calendar.marker.{type:"threshold"}\` (calendar glyph). The
@@ -4232,7 +4251,7 @@ gear-icon link.
   "Swisse Ultiboost Magnesium Glycinate" with `white-space: nowrap` on
   the list row) could push its grid track wider than the viewport,
   dragging every other card with it and clipping the right edge of the
-  Today page on iPhone 13 mini (375px). Fix: the view-renderer grid
+  Today page at a 375px viewport. Fix: the view-renderer grid
   now uses `minmax(0, 1fr)` instead of plain `1fr` so a card's
   min-content width can't expand its column. Per-card
   ellipsis / overflow then does its job. (#37)
