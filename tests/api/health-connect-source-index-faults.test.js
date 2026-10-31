@@ -4,6 +4,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const http = require('node:http');
 const crypto = require('node:crypto');
 const product = process.env.INDEPENDENT_PRODUCT_ROOT || path.resolve(__dirname, '../..');
@@ -122,19 +123,45 @@ function assertLargeIndex(index, data, vector) {
     state.published_at >= data.fixtureStartedAt && state.published_at <= Date.now());
   noAuthority(JSON.stringify(index), data);
 }
-async function initialPublished(data, operation) {
-  await restart(data, faultEnv(data, operation));
+async function initialPublished(data, operation, clockEnv) {
+  const observationEnv = faultEnv(data, operation);
+  if (clockEnv !== undefined) {
+    observationEnv.NODE_OPTIONS = `${clockEnv.NODE_OPTIONS} ${observationEnv.NODE_OPTIONS}`;
+    observationEnv.INDEPENDENT_FIXED_CHILD_CLOCK = clockEnv.INDEPENDENT_FIXED_CHILD_CLOCK;
+    if (clockEnv.OWNER_INITIAL_PUBLICATION_CLOCK_DIRECTORY !== undefined) {
+      observationEnv.OWNER_INITIAL_PUBLICATION_CLOCK_DIRECTORY =
+        clockEnv.OWNER_INITIAL_PUBLICATION_CLOCK_DIRECTORY;
+    }
+  }
+  await restart(data, observationEnv);
   await saved(data, first(data));
   await current(data, '1');
   const cold = coldReadSourceState(data.home);
   assertFirstNative(cold.native, data);
+  if (clockEnv !== undefined) {
+    const expectedPublishedAt = Number(clockEnv.INDEPENDENT_FIXED_CHILD_CLOCK);
+    const publishedAt = cold.index.stateRows[0]?.published_at;
+    console.log(JSON.stringify({ kind: 'source-index-fixed-clock-precondition',
+      expectedPublishedAt, publishedAt, fixtureStartedAt: data.fixtureStartedAt }));
+    assert.equal(publishedAt, expectedPublishedAt, 'publication uses the independently fixed child time');
+    if (data.expectedPublishedAt === undefined) {
+      assert.ok(Number.isSafeInteger(data.fixtureStartedAt) && data.fixtureStartedAt > expectedPublishedAt,
+        'unmarked controlled publication requires a later parent fixture start');
+    }
+  }
   assertFirstIndex(cold.index, data);
   return cold;
 }
 test('actual source-index publication own handle is WAL/FULL before BEGIN and publishes the fixed first index', async () => {
-  const data = await fixture();
+  const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json').base;
+  const clockPreload = path.resolve(__dirname, '../helpers/health-connect-fixed-child-clock-preload.cjs');
+  const clockEnv = {
+    NODE_OPTIONS: `--require=${JSON.stringify(clockPreload)}`,
+    INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.milliseconds),
+  };
+  const data = await fixture(clockEnv, healthyClock.milliseconds);
   try {
-    await initialPublished(data, 'observe');
+    await initialPublished(data, 'observe', clockEnv);
     const observed = events(data);
     const writes = observed.filter(event => event.kind === 'successful-derived-write' && event.changes > 0);
     assert.ok(writes.length > 0);
@@ -147,9 +174,24 @@ test('actual source-index publication own handle is WAL/FULL before BEGIN and pu
 });
 for (const operation of ['sqlite-full', 'sqlite-busy', 'late-frontier-refusal']) {
   test(`actual publisher ${operation} preserves raw ACK and complete prior publication then rebuilds`, async () => {
-    const data = await fixture();
+    const healthyClock = operation === 'sqlite-busy' ?
+      require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json') : undefined;
+    let clockDirectory;
+    let clockEnv;
+    if (healthyClock !== undefined) {
+      clockDirectory = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'eh-selection-observer-'));
+      fs.writeFileSync(path.join(clockDirectory, 'clock'), healthyClock.base.instant, { mode: 0o600 });
+      const fixedPreload = path.resolve(__dirname, '../helpers/health-connect-fixed-child-clock-preload.cjs');
+      const removablePreload = path.resolve(__dirname, '../helpers/health-connect-removable-owner-clock-preload.cjs');
+      clockEnv = {
+        NODE_OPTIONS: `--require=${JSON.stringify(fixedPreload)} --require=${JSON.stringify(removablePreload)}`,
+        INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.base.milliseconds),
+        OWNER_INITIAL_PUBLICATION_CLOCK_DIRECTORY: clockDirectory,
+      };
+    }
+    const data = clockEnv === undefined ? await fixture() : await fixture(clockEnv, healthyClock.base.milliseconds);
     try {
-      const prior = await initialPublished(data, operation);
+      const prior = await initialPublished(data, operation, clockEnv);
       enable(data);
       const vector = operation === 'sqlite-full' ? largeSecond(data) : second(data);
       await saved(data, vector);
@@ -181,7 +223,17 @@ for (const operation of ['sqlite-full', 'sqlite-busy', 'late-frontier-refusal'])
       assert.equal(beforeRetry.index.stateRows[0].state, 'failed');
       assert.equal(JSON.stringify(beforeRetry.index).includes('39.000000000000000009'), false);
       noAuthority(JSON.stringify(beforeRetry.index), data);
+      if (clockEnv !== undefined) {
+        assert.equal(beforeRetry.index.stateRows[0].attempt_count, 1);
+        assert.equal(beforeRetry.index.stateRows[0].next_attempt_at, healthyClock.base.milliseconds + 1000);
+      }
       disable(data);
+      if (clockEnv !== undefined) {
+        fs.writeFileSync(path.join(clockDirectory, 'clock.next'), healthyClock.advanced.instant,
+        { mode: 0o600, flag: 'wx' });
+      fs.renameSync(path.join(clockDirectory, 'clock.next'), path.join(clockDirectory, 'clock'));
+        data.expectedPublishedAt = healthyClock.advanced.milliseconds;
+      }
       const queued = await ownerRebuild(data);
       assert.equal(queued.status, 202);
       await current(data, '2');
@@ -190,7 +242,17 @@ for (const operation of ['sqlite-full', 'sqlite-busy', 'late-frontier-refusal'])
         'every native/receipt/frontier/outbox/object/schema/legacy byte field stays unchanged');
       if (operation === 'sqlite-full') assertLargeIndex(afterRetry.index, data, vector);
       else assertSecondIndex(afterRetry.index, data);
-    } finally { await close(data); }
+    } finally {
+      await close(data);
+      if (clockDirectory !== undefined) {
+        const temporaryRoot = fs.realpathSync(os.tmpdir());
+        assert.equal(path.dirname(clockDirectory), temporaryRoot);
+        assert.ok(path.basename(clockDirectory).startsWith('eh-selection-observer-'));
+        assert.equal(fs.lstatSync(clockDirectory).isSymbolicLink(), false);
+        assert.equal(fs.realpathSync(clockDirectory), clockDirectory);
+        fs.rmSync(clockDirectory, { recursive: true, force: true });
+      }
+    }
   });
 }
 function boundedExit(child) {
