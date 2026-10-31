@@ -98,6 +98,24 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I gave the two-generation source-index publication test an explicit child clock,
+  preserving its bound vector, raw receipt and restart assertions. Refs #845.
+
+- I use monotonic elapsed time in the datastore contention test while retaining
+  its real write lock and original timing bounds. Refs #844.
+
+- I give the long-stream status-budget test an independent child clock,
+  retaining its byte-budget refusals and native-state assertions. Refs #842.
+
+- I replace private setup details with generic changelog wording. Refs #841.
+
+- I give source-index publication tests independent initial and later clock
+  phases across child restarts, retaining strict timestamp and original
+  rollback and retry assertions. Refs #838, #839.
+
+- I add bounded S14 phase observations while retaining its original errors,
+  state assertions, operation order and cleanup. Refs #840.
+
 - Use elapsed time for chat turn deadlines and controlled timestamps in Health Connect regression checks (#836).
 
 - I removed private device and test destination details from validation notes
@@ -2997,8 +3015,8 @@ gear-icon link.
   desktop. Fixes #325.
 - **`no-personal-refs` test honours gitignore.** The scanner walked
   the working tree directly and so flagged operator-private files
-  that exist on disk but never ship (`BRIEF-FOR-CC.md`, `CLAUDE.md`,
-  `.claude/`, `data/sessions/*.json`). CI was unaffected (clean
+  that exist on disk but never ship (private operator notes and
+  configuration, plus local session data). CI was unaffected (clean
   checkout) but local `npm test` was noisy with up to 17 spurious
   hits, conditioning developers to ignore the scanner. The scanner
   now drives off `git ls-files`, so it only sees what actually
@@ -3214,8 +3232,7 @@ gear-icon link.
   carries an `## Available docs` catalogue listing every callable
   path with a one-line summary; the agent picks one and calls
   `read_doc`. Allowlist-gated (no traversal, no symlink escape, no
-  reading of gitignored operator files like CLAUDE.md or
-  BRIEF-FOR-CC.md). See #246.
+  reading of gitignored private operator notes or configuration). See #246.
 
 - **`workouts` rows expose `sessionCount`.** The
   `workouts-merge-per-date` aggregator now emits a `sessionCount`
