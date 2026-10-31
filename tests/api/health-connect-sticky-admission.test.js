@@ -526,67 +526,114 @@ async function consumed(data, route, total) {
   assert.ok(event.bytes > 0 && event.bytes < total);
 }
 test('S14 current native body and saved-state fences refuse deletion PART and FINALISE before all effects', async () => {
-  for (const route of [BATCH, PART, FINAL]) {
-    for (const action of ['revocation', 'freeze']) {
-      const data = await fixture({ v2: true });
-      let pending;
-      try {
-        const active = object(data.alpha);
-        if (route !== BATCH) await stage(data, data.alpha, active, route === PART ? [0] : [0, 1, 2]);
-        const frame = route === BATCH ? batch(data.alpha, '2', [deletion(data.alpha)]).wire :
-          route === PART ? active.partFrames[1] : active.finalise;
-        await arm(data, action === 'freeze' ? 'held-freeze' : 'held-observe', route);
-        const before = coldRead(data.home), copyBefore = copies(data);
-        pending = held(data, data.alpha, route, frame);
-        await consumed(data, route, pending.bytes);
-        if (action === 'revocation') {
-          const revoked = await request(data, `${BASE}/${data.alpha.paired.connectorId}`,
-            { method: 'DELETE', browser: true });
-          assert.equal(revoked.status, 200); assert.deepEqual(revoked.json, { revoked: true });
-        }
-        pending.finish();
-        const response = await pending.response;
-        failure(response, action === 'freeze' ? 503 : 401,
-          action === 'freeze' ? 'IMPORT_FROZEN' : 'revoked', data);
-        assert.deepEqual(coldRead(data.home).native, before.native);
-        assert.deepEqual(coldRead(data.home).physical, before.physical);
-        assert.deepEqual(copies(data), copyBefore);
-      } finally { if (pending) pending.destroy(); await close(data); }
-    }
-    const data = await fixture({ v2: true });
-    try {
-      const active = object(data.alpha);
-      const frame = route === BATCH ? batch(data.alpha, '2', [deletion(data.alpha)]).wire :
-        route === PART ? active.partFrames[0] : active.finalise;
-      for (const changed of [
-        { 'Klebb-Health-Generation': '2' },
-        { 'Klebb-Health-Restore-Epoch': '99999999-9999-4999-8999-999999999999' },
-      ]) {
-        await unchanged(data, () => post(data, data.alpha, route, frame,
-          { ...headers(data.alpha), ...changed }), { code: 'binding-mismatch' });
+  let routeClass, currentAction, phase, caughtError, caughtPhase;
+  const observe = next => {
+    phase = next;
+    console.error(JSON.stringify({ kind: 'S14-phase', routeClass, action: currentAction, phase }));
+  };
+  try {
+    for (const route of [BATCH, PART, FINAL]) {
+      routeClass = route === BATCH ? 'deletion' : route === PART ? 'part' : 'finalise';
+      for (const action of ['revocation', 'freeze']) {
+        currentAction = action; caughtError = undefined; caughtPhase = undefined;
+        observe('fixture');
+        const data = await fixture({ v2: true });
+        let pending;
+        try {
+          observe('object-and-frame');
+          const active = object(data.alpha);
+          observe('stage-if-required');
+          if (route !== BATCH) await stage(data, data.alpha, active, route === PART ? [0] : [0, 1, 2]);
+          const frame = route === BATCH ? batch(data.alpha, '2', [deletion(data.alpha)]).wire :
+            route === PART ? active.partFrames[1] : active.finalise;
+          observe('arm');
+          await arm(data, action === 'freeze' ? 'held-freeze' : 'held-observe', route);
+          observe('snapshot');
+          const before = coldRead(data.home), copyBefore = copies(data);
+          observe('held-start');
+          pending = held(data, data.alpha, route, frame);
+          observe('body-consumed');
+          await consumed(data, route, pending.bytes);
+          if (action === 'revocation') {
+            observe('revocation-request');
+            const revoked = await request(data, `${BASE}/${data.alpha.paired.connectorId}`,
+              { method: 'DELETE', browser: true });
+            assert.equal(revoked.status, 200); assert.deepEqual(revoked.json, { revoked: true });
+          }
+          observe('held-finish');
+          pending.finish();
+          observe('held-response');
+          const response = await pending.response;
+          observe('refusal-and-state-checks');
+          failure(response, action === 'freeze' ? 503 : 401,
+            action === 'freeze' ? 'IMPORT_FROZEN' : 'revoked', data);
+          assert.deepEqual(coldRead(data.home).native, before.native);
+          assert.deepEqual(coldRead(data.home).physical, before.physical);
+          assert.deepEqual(copies(data), copyBefore);
+        } catch (error) { caughtError = error; caughtPhase = phase; throw error; }
+        finally { observe('cleanup'); if (pending) pending.destroy(); await close(data); }
       }
-      const newEpoch = '99999999-9999-4999-8999-999999999999';
-      await updateAuthority(data, data.alpha, { restoreEpoch: newEpoch });
-      await unchanged(data, () => post(data, data.alpha, route, frame,
-        { ...headers(data.alpha), 'Klebb-Health-Restore-Epoch': newEpoch }),
-      { status: 401, code: 'revoked' });
-    } finally { await close(data); }
-    const recovery = await fixture({ v2: true });
+      currentAction = 'binding-setup'; caughtError = undefined; caughtPhase = undefined;
+      observe('fixture');
+      const data = await fixture({ v2: true });
+      try {
+        observe('object-and-frame');
+        const active = object(data.alpha);
+        const frame = route === BATCH ? batch(data.alpha, '2', [deletion(data.alpha)]).wire :
+          route === PART ? active.partFrames[0] : active.finalise;
+        for (const changed of [
+          { 'Klebb-Health-Generation': '2' },
+          { 'Klebb-Health-Restore-Epoch': '99999999-9999-4999-8999-999999999999' },
+        ]) {
+          currentAction = Object.hasOwn(changed, 'Klebb-Health-Generation') ?
+            'binding-generation' : 'binding-restore-epoch';
+          observe('binding-request');
+          await unchanged(data, () => post(data, data.alpha, route, frame,
+            { ...headers(data.alpha), ...changed }), { code: 'binding-mismatch' });
+        }
+        const newEpoch = '99999999-9999-4999-8999-999999999999';
+        currentAction = 'saved-epoch';
+        observe('authority-change');
+        await updateAuthority(data, data.alpha, { restoreEpoch: newEpoch });
+        observe('saved-epoch-request');
+        await unchanged(data, () => post(data, data.alpha, route, frame,
+          { ...headers(data.alpha), 'Klebb-Health-Restore-Epoch': newEpoch }),
+        { status: 401, code: 'revoked' });
+      } catch (error) { caughtError = error; caughtPhase = phase; throw error; }
+      finally { observe('cleanup'); await close(data); }
+      currentAction = 'recovery'; caughtError = undefined; caughtPhase = undefined;
+      observe('fixture');
+      const recovery = await fixture({ v2: true });
+      try {
+        observe('object-and-frame');
+        const active = object(recovery.alpha);
+        const frame = route === BATCH ? batch(recovery.alpha, '2', [deletion(recovery.alpha)]).wire :
+          route === PART ? active.partFrames[0] : active.finalise;
+        observe('recovery-stop');
+        await stop(recovery);
+        observe('recovery-marker-write');
+        const directory = path.join(recovery.home, 'import');
+        fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+        const marker = JSON.stringify({ state: 'applying', treePath: path.join(directory, 'missing-tree'),
+          snapshotPath: path.join(directory, 'missing-snapshot') });
+        fs.writeFileSync(path.join(directory, 'job.json'), marker, { mode: 0o600 });
+        observe('recovery-restart');
+        await restart(recovery);
+        observe('recovery-request');
+        await unchanged(recovery, () => post(recovery, recovery.alpha, route, frame),
+          { status: 503, code: 'IMPORT_RECOVERY_FAILED' });
+        observe('recovery-marker-check');
+        assert.equal(fs.readFileSync(path.join(directory, 'job.json'), 'utf8'), marker);
+      } catch (error) { caughtError = error; caughtPhase = phase; throw error; }
+      finally { observe('cleanup'); await close(recovery); }
+    }
+  } catch (error) {
     try {
-      const active = object(recovery.alpha);
-      const frame = route === BATCH ? batch(recovery.alpha, '2', [deletion(recovery.alpha)]).wire :
-        route === PART ? active.partFrames[0] : active.finalise;
-      await stop(recovery);
-      const directory = path.join(recovery.home, 'import');
-      fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
-      const marker = JSON.stringify({ state: 'applying', treePath: path.join(directory, 'missing-tree'),
-        snapshotPath: path.join(directory, 'missing-snapshot') });
-      fs.writeFileSync(path.join(directory, 'job.json'), marker, { mode: 0o600 });
-      await restart(recovery);
-      await unchanged(recovery, () => post(recovery, recovery.alpha, route, frame),
-        { status: 503, code: 'IMPORT_RECOVERY_FAILED' });
-      assert.equal(fs.readFileSync(path.join(directory, 'job.json'), 'utf8'), marker);
-    } finally { await close(recovery); }
+      const code = ["EPIPE", "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "ENOENT", "EACCES", "ERR_ASSERTION", "ERR_STREAM_DESTROYED", "ERR_STREAM_WRITE_AFTER_END"].includes(error?.code) ? error.code : undefined;
+      const syscall = ["write", "read", "connect", "spawn", "open", "close", "stat", "unlink", "rename", "mkdir"].includes(error?.syscall) ? error.syscall : undefined;
+      console.error(JSON.stringify({ kind: 'S14-error', routeClass, action: currentAction,
+        phase: error === caughtError ? caughtPhase : phase, code, syscall }));
+    } finally { throw error; }
   }
 });
 test('S15 actual own WAL FULL deletion writer returns SQLITE_FULL and complete transaction rollback', async () => {

@@ -70,15 +70,26 @@ function current(data, sequence, epoch = data.binding.restoreEpoch) {
     json.sources[0].published.restoreEpoch === epoch &&
     json.sources[0].saved.frontiers[0].acknowledgedSequence === sequence);
 }
-async function initial(data) {
+async function initial(data, clockEnv) {
   await saved(data, first(data));
   await current(data, '1');
   const cold = coldReadSourceState(data.home);
   assertFirstNative(cold.native, data);
+  if (clockEnv !== undefined) {
+    const expectedPublishedAt = Number(clockEnv.INDEPENDENT_FIXED_CHILD_CLOCK);
+    const publishedAt = cold.index.stateRows[0]?.published_at;
+    console.log(JSON.stringify({ kind: 'source-index-fixed-clock-precondition',
+      expectedPublishedAt, publishedAt, fixtureStartedAt: data.fixtureStartedAt }));
+    assert.equal(publishedAt, expectedPublishedAt, 'publication uses the independently fixed child time');
+    if (data.expectedPublishedAt === undefined) {
+      assert.ok(Number.isSafeInteger(data.fixtureStartedAt) && data.fixtureStartedAt > expectedPublishedAt,
+        'unmarked controlled publication requires a later parent fixture start');
+    }
+  }
   assertFirstIndex(cold.index, data);
   return cold;
 }
-function assertFence(index, data, sequence, epoch) {
+function assertFence(index, data, sequence, epoch, expectedPublishedAt) {
   assert.deepEqual(index.indexRows, expectedIndex(data, sequence));
   assert.deepEqual(index.frontierRows, [expectedFrontier(data, sequence)],
     'saved historical stream retains its original binding, including its old epoch');
@@ -94,8 +105,13 @@ function assertFence(index, data, sequence, epoch) {
   assert.equal(state.attempt_count, 1);
   assert.equal(state.next_attempt_at, null);
   assert.equal(state.error_code, null);
-  assert.ok(Number.isSafeInteger(state.published_at) &&
-    state.published_at >= data.fixtureStartedAt && state.published_at <= Date.now());
+  if (expectedPublishedAt === undefined) {
+    assert.ok(Number.isSafeInteger(state.published_at) &&
+      state.published_at >= data.fixtureStartedAt && state.published_at <= Date.now());
+  } else {
+    assert.equal(Number.isSafeInteger(state.published_at), true);
+    assert.equal(state.published_at, expectedPublishedAt);
+  }
   noAuthority(JSON.stringify(index), data);
 }
 function rotateStoppedCatalogue(data, epoch) {
@@ -140,10 +156,24 @@ test('changed live restore fence rebuilds the same saved old-binding vector and 
 
 test('actual final live fence change rolls back already-written publisher identities vector and current rows before rebuild',
   { timeout: 25000 }, async () => {
-    const data = await fixture();
+    const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json');
+    const clockDirectory = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'eh-selection-observer-'));
+    fs.writeFileSync(path.join(clockDirectory, 'clock'), healthyClock.base.instant, { mode: 0o600 });
+    const fixedPreload = path.resolve(__dirname, '../helpers/health-connect-fixed-child-clock-preload.cjs');
+    const removablePreload = path.resolve(__dirname, '../helpers/health-connect-removable-owner-clock-preload.cjs');
+    const clockEnv = {
+      NODE_OPTIONS: `--require=${JSON.stringify(fixedPreload)} --require=${JSON.stringify(removablePreload)}`,
+      INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.base.milliseconds),
+      OWNER_INITIAL_PUBLICATION_CLOCK_DIRECTORY: clockDirectory,
+    };
+    const data = await fixture(clockEnv, healthyClock.base.milliseconds);
     try {
-      const before = await initial(data);
-      await restart(data, environment(data, 'rotate', FINAL_FENCE_EPOCH));
+      const before = await initial(data, clockEnv);
+      const lifecycleEnv = environment(data, 'rotate', FINAL_FENCE_EPOCH);
+      await restart(data, {
+        ...clockEnv, ...lifecycleEnv,
+        NODE_OPTIONS: `${clockEnv.NODE_OPTIONS} ${lifecycleEnv.NODE_OPTIONS}`,
+      });
       assert.deepEqual(coldReadSourceState(data.home), before);
       fs.writeFileSync(data.enabled, 'enabled\n', { mode: 0o600 });
       await saved(data, second(data));
@@ -183,6 +213,10 @@ test('actual final live fence change rolls back already-written publisher identi
       assert.deepEqual(coldReadSourceState(data.home), rolledBack);
       noAuthority(status.body, data);
       fs.unlinkSync(data.enabled);
+      fs.writeFileSync(path.join(clockDirectory, 'clock.next'), healthyClock.advanced.instant,
+        { mode: 0o600, flag: 'wx' });
+      fs.renameSync(path.join(clockDirectory, 'clock.next'), path.join(clockDirectory, 'clock'));
+      data.expectedPublishedAt = healthyClock.advanced.milliseconds;
       const queued = await ownerRebuild(data);
       assert.equal(queued.status, 202);
       assert.deepEqual(queued.json, { target: TARGET, queuedSources: 1 });
@@ -190,8 +224,17 @@ test('actual final live fence change rolls back already-written publisher identi
       await current(data, '2', FINAL_FENCE_EPOCH);
       const rebuilt = coldReadSourceState(data.home);
       assert.deepEqual(rebuilt.native, rolledBack.native);
-      assertFence(rebuilt.index, data, '2', FINAL_FENCE_EPOCH);
-    } finally { await finish(data); }
+      assertFence(rebuilt.index, data, '2', FINAL_FENCE_EPOCH,
+        healthyClock.advanced.milliseconds);
+    } finally {
+      await finish(data);
+      const temporaryRoot = fs.realpathSync(os.tmpdir());
+      assert.equal(path.dirname(clockDirectory), temporaryRoot);
+      assert.ok(path.basename(clockDirectory).startsWith('eh-selection-observer-'));
+      assert.equal(fs.lstatSync(clockDirectory).isSymbolicLink(), false);
+      assert.equal(fs.realpathSync(clockDirectory), clockDirectory);
+      fs.rmSync(clockDirectory, { recursive: true, force: true });
+    }
   });
 
 test('actual refused import recovery startup never schedules initialises or publishes saved source history',
