@@ -7,6 +7,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- Stabilise the concurrent export check with an explicit ZIP stream hold
+  and verify released bytes independently of network buffering. Refs #849.
+
 ### Added
 
 - Bounded read-only ordinary Health Connect census custody and scoped membership
