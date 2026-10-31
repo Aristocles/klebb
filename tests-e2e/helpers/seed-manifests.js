@@ -180,8 +180,8 @@ function peptides(today) {
 }
 
 // Seed the HAE "discovered metrics" ledger with one unknown metric and
-// no supported ones. This reproduces the operator's steady-state on
-// klebbtest after every catalogue-supported HAE metric has a subscriber
+// no supported ones. This represents a fixture in which every
+// catalogue-supported HAE metric has a subscriber
 // — the exact condition that used to suppress the discovery card
 // entirely (#192). Specs can use this to assert the footer-only
 // rendering path.

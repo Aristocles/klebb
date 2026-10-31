@@ -192,17 +192,21 @@ function binGet(baseUrl, pathname, cookie) {
   });
 }
 
-// Open a download and PAUSE it after the headers, so the server's response
-// cannot finish and its in-flight flag stays held for the concurrency test.
+// Keep ownership of the request before waiting for headers or the server gate.
 function openPausedDownload(baseUrl, pathname, cookie) {
-  return new Promise((resolve, reject) => {
-    const r = http.request(new URL(pathname, baseUrl), { headers: { Cookie: cookie } }, res => {
-      res.pause();
-      resolve(res);
-    });
-    r.on('error', reject);
-    r.end();
+  let response = null, failure = null;
+  const r = http.request(new URL(pathname, baseUrl), { headers: { Cookie: cookie } }, res => {
+    res.pause();
+    response = res;
+    res.on('error', e => { failure = e; });
+    res.on('aborted', () => { failure = new Error('Export response aborted'); });
   });
+  r.on('error', e => { failure = e; });
+  r.end();
+  return {
+    response() { if (failure) throw failure; return response; },
+    cancel() { r.destroy(); if (response) response.destroy(); },
+  };
 }
 
 function drain(res) {
@@ -249,11 +253,12 @@ describe('GET /api/export', { skip }, () => {
   let auth;
   let home;
   let server;
+  let exportGate;
 
   before(async () => {
     auth = fakeAuthState();
-    // A bulk card too: random hex defeats deflate, so the zip is megabytes
-    // and the paused-download concurrency test below holds a real window.
+    // Keep the existing bulk fixture; the selected concurrency test uses an
+    // explicit one-byte server stream hold rather than a buffering assumption.
     const bulkRows = [];
     for (let i = 0; i < 100; i++) {
       bulkRows.push({ date: `2026-01-${String((i % 28) + 1).padStart(2, '0')}`, v: crypto.randomBytes(32 * 1024).toString('hex') });
@@ -266,7 +271,12 @@ describe('GET /api/export', { skip }, () => {
         'bulk.json': card('bulk', bulkRows),
       },
     });
-    server = await spawnServer(home);
+    exportGate = scratchDir('export-stream-control-');
+    const preload = path.join(__dirname, '../helpers/export-stream-gate.js').replaceAll('\\', '/');
+    server = await spawnServer(home, {
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require="${preload}"`,
+      KLEBB_TEST_EXPORT_GATE_DIR: exportGate,
+    });
   });
 
   after(async () => {
@@ -302,20 +312,79 @@ describe('GET /api/export', { skip }, () => {
   });
 
   test('a concurrent export answers 409 while one is streaming', async () => {
-    const first = await openPausedDownload(server.baseUrl, '/api/export', auth.cookie);
-    assert.strictEqual(first.statusCode, 200);
+    const control = name => path.join(exportGate, name);
+    let download = null, first = null, input = null, failure = null;
+    const heldState = () => {
+      const state = JSON.parse(fs.readFileSync(control('state.json'), 'utf8'));
+      assert.strictEqual(state.selectedOnce, 1);
+      assert.strictEqual(state.destinationAttached, true);
+      assert.strictEqual(state.forwardedBytes, 1);
+      assert.strictEqual(state.heldCallback, true);
+      assert.strictEqual(state.terminal, false);
+      assert.strictEqual(state.failure, null);
+      assert.ok(Number.isSafeInteger(state.zipBytes) && state.zipBytes > 1);
+      assert.ok(first && !first.destroyed && !first.aborted && !first.complete);
+      download.response();
+      return state;
+    };
     try {
+      fs.writeFileSync(control('arm'), '1', { flag: 'wx', mode: 0o600 });
+      download = openPausedDownload(server.baseUrl, '/api/export', auth.cookie);
+      first = await waitFor(() => download.response(), { what: 'export response headers' });
+      assert.strictEqual(first.statusCode, 200);
+      await waitFor(() => {
+        if (!fs.existsSync(control('state.json'))) return false;
+        const state = JSON.parse(fs.readFileSync(control('state.json'), 'utf8'));
+        if (state.failure || state.terminal) throw new Error('Export gate ended before its hold');
+        return state.destinationAttached && state.heldCallback && state.forwardedBytes === 1;
+      }, { what: 'the first-byte export hold' });
+      const state = heldState();
+      assert.match(state.zipName, /^export-staging\.\d+\.zip$/);
+      const zipFile = path.join(fs.realpathSync(home), state.zipName);
+      assert.strictEqual(path.dirname(fs.realpathSync(zipFile)), fs.realpathSync(home));
+      const before = fs.lstatSync(zipFile, { bigint: true });
+      assert.ok(before.isFile() && !before.isSymbolicLink());
+      input = fs.readFileSync(zipFile);
+      const after = fs.lstatSync(zipFile, { bigint: true });
+      for (const field of ['dev', 'ino', 'size', 'mtimeNs']) assert.strictEqual(after[field], before[field]);
+      assert.strictEqual(input.length, state.zipBytes);
+      assert.strictEqual(input.length, Number(first.headers['content-length']));
       const second = await req(server.baseUrl, '/api/export', { cookie: auth.cookie });
       assert.strictEqual(second.status, 409, second.body);
       assert.match(second.json.error, /already in progress/);
+      heldState();
+    } catch (e) {
+      failure = e;
     } finally {
+      try {
+        try { fs.unlinkSync(control('arm')); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+        fs.writeFileSync(control(failure ? 'cancel' : 'release'), '1', { flag: 'wx', mode: 0o600 });
+      } catch (e) { if (!failure) failure = e; }
+      if (failure && download) download.cancel();
+    }
+    if (failure) throw failure;
+    try {
       const body = await drain(first);
       assert.strictEqual(body.length, Number(first.headers['content-length']));
+      assert.ok(body.equals(input), 'Released export differs from its captured ZIP input');
+      await waitFor(() => JSON.parse(fs.readFileSync(control('state.json'), 'utf8')).terminal,
+        { what: 'the actual export response terminal event' });
+      const terminal = JSON.parse(fs.readFileSync(control('state.json'), 'utf8'));
+      assert.strictEqual(terminal.terminalEvent, 'finish');
+      assert.strictEqual(terminal.failure, null);
+      assert.strictEqual(terminal.released, true);
+      assert.strictEqual(terminal.heldCallback, false);
+      assert.strictEqual(first.complete, true);
+      download.response();
+    } catch (e) {
+      download.cancel();
+      throw e;
     }
     await waitFor(() => noStagingLeft(home), { what: 'export staging cleanup after drain' });
     // The in-flight flag released with the stream: a fresh export succeeds.
     const third = await binGet(server.baseUrl, '/api/export', auth.cookie);
     assert.strictEqual(third.status, 200);
+    assert.strictEqual(JSON.parse(fs.readFileSync(control('state.json'), 'utf8')).selectedOnce, 1);
     await waitFor(() => noStagingLeft(home), { what: 'export staging cleanup after third' });
   });
 
