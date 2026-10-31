@@ -14,6 +14,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I added a bounded WeightRecord pager and Health Connect reader adapter,
+  with permission, cancellation and generation guards. Durable page
+  checkpoints and deletion completeness remain separate. Refs #755, #757.
+
 - Bounded read-only ordinary Health Connect census custody and scoped membership
   previews. Provider completeness stays unverified and deletion remains disabled.
   Refs #757.
