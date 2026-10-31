@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Bounded read-only ordinary Health Connect census custody and scoped membership
+  previews. Provider completeness stays unverified and deletion remains disabled.
+  Refs #757.
+
 - Android ExerciseSession codec preserving complete metadata, ordered segments,
   laps and explicitly authorized routes, with whole-record refusal before route
   payload access and unchanged prior encodings. Native consent, provider and
