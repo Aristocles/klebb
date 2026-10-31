@@ -100,6 +100,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 - Use elapsed time for chat turn deadlines and controlled timestamps in Health Connect regression checks (#836).
 
+- I removed private device and test destination details from validation notes
+  and screenshots. Original results and open provider/release gates remain
+  unchanged. Refs #834.
+
+- Restore the frozen API35 queue emulator setup with the official 37.2.12
+  archive and checks before extraction; retain all original queue cases.
+  Refs #832.
+
 - Make the legacy export API fixture confirm server exit before its read-only
   source snapshot, then restart the same home while retaining both log streams
   and every secret-exclusion assertion. Refs #828.
