@@ -82,7 +82,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - A read-only Android Health Connect feasibility module with pinned build
   tooling, external release signing and controlled steps/weight permission
   checks. Signed installation, controlled reading and an in-place update
-  passed on the first Samsung phone; broader capture and release gates remain.
+  passed on a controlled test device; broader capture and release gates remain.
 - Versioned Health Connect wire contracts and shared fixtures, with exact
   UTF-8 batch digests, separate native identities, lossless value encodings
   and bounded validation.
