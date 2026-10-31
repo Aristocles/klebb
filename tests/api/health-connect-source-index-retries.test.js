@@ -232,7 +232,13 @@ test('three actual late publication failures obey 1s/5s durable retry times, sur
 
 test('actual generation1 sequence2 and generation2 sequence1 uploads publish two complete bound vector components, never a shared counter',
   { timeout: 25000 }, async () => {
-    const data = await fixture();
+    const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json').base;
+    const clockEnv = {
+      NODE_OPTIONS: `--require=${JSON.stringify(path.resolve(__dirname,
+        '../helpers/health-connect-fixed-child-clock-preload.cjs'))}`,
+      INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.milliseconds),
+    };
+    const data = await fixture(clockEnv, healthyClock.milliseconds);
     try {
       await save(data, first(data));
       await current(data, '1');
@@ -240,6 +246,16 @@ test('actual generation1 sequence2 and generation2 sequence1 uploads publish two
       await current(data, '2');
       const before = coldReadSourceState(data.home);
       assertSecondNative(before.native, data);
+      const publishedAt = before.index.stateRows[0]?.published_at;
+      console.log(JSON.stringify({ kind: 'source-index-fixed-clock-precondition',
+        expectedPublishedAt: healthyClock.milliseconds, publishedAt,
+        fixtureStartedAt: data.fixtureStartedAt }));
+      assert.equal(Number.isSafeInteger(publishedAt), true);
+      assert.equal(publishedAt, healthyClock.milliseconds,
+        'publication uses the independently fixed child time');
+      assert.ok(Number.isSafeInteger(data.fixtureStartedAt) &&
+        data.fixtureStartedAt > healthyClock.milliseconds,
+      'controlled publication requires a later parent fixture start');
       assertSecondIndex(before.index, data);
       await stop(data);
       // Explicit synthetic generation control: the server-issued source and

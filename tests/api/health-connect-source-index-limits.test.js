@@ -3,6 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const path = require('node:path');
 const {
   fixture, restart, ownerStatus, ownerRebuild, noAuthority, TARGET, TABLE_NAMES,
   IDS, STREAMS, STATUS_BYTES, snapshot, publication, initialPublished, stop, finish,
@@ -98,9 +99,15 @@ test('inclusive 1000 complete streams publish; 1001 is failed with null incomple
 
 test('1000 valid long stream bindings exceed the status byte budget and refuse status/rebuild before effects',
   { timeout: 45000 }, async () => {
-    const data = await fixture();
+    const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json').base;
+    const clockPreload = path.resolve(__dirname, '../helpers/health-connect-fixed-child-clock-preload.cjs');
+    const clockEnv = {
+      NODE_OPTIONS: `--require=${JSON.stringify(clockPreload)}`,
+      INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.milliseconds),
+    };
+    const data = await fixture(clockEnv, healthyClock.milliseconds);
     try {
-      await initialPublished(data);
+      await initialPublished(data, healthyClock.milliseconds);
       await stop(data);
       seedStreams(data, 1, STREAMS, true);
       const seeded = snapshot(data);
