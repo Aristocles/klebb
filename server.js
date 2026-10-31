@@ -6,6 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { performance } = require('node:perf_hooks');
 const { marked } = require('marked');
 const { isAuthenticated, isAgentRequest, isPublicPath, handleAuthRoutes, isSetup, listCredentialsForUser, deleteCredentialForUser, getSessionRecord } = require('./auth/webauthn');
 const { handleAdminRoutes } = require('./auth/admin-api');
@@ -433,7 +434,7 @@ function windowTranscript(stored) {
 //      assistant turn and one {role:"tool"} per call, loop.
 //   3. otherwise, return the assistant's text as the final reply.
 // Caps at CHAT_MAX_TURNS round-trips to keep a misbehaving model from
-// looping forever, and at CHAT_TURN_DEADLINE_MS of wall clock so a raised
+// looping forever, and at CHAT_TURN_DEADLINE_MS of elapsed time so a raised
 // cap cannot stack per-iteration timeouts into a multi-minute silent
 // spinner. Either budget running out returns the last text we saw (or a
 // fallback) with cappedOut set; the caller tells the user how to resume.
@@ -447,7 +448,7 @@ function windowTranscript(stored) {
 async function runAgentLoop({ systemMessage, userMessages, reqId = '-', emit = () => {}, streamTokens = false, shouldAbort = () => false }) {
   const MAX_ITERS = CHAT_MAX_TURNS;
   const deadline = CHAT_TURN_DEADLINE_MS;
-  const loopStart = Date.now();
+  const loopStart = Math.floor(performance.now());
   const messages = [systemMessage, ...userMessages];
   const ctx = { touches: [] };
   let lastAssistantText = '';
@@ -458,7 +459,7 @@ async function runAgentLoop({ systemMessage, userMessages, reqId = '-', emit = (
       chatLog(reqId, `iter=${i} aborted`);
       return { finalText: '', cappedOut: false, aborted: true, ctx, iters: itersDone };
     }
-    const elapsed = Date.now() - loopStart;
+    const elapsed = Math.floor(performance.now()) - loopStart;
     if (deadline && elapsed >= deadline) {
       deadlined = true;
       break;
@@ -494,7 +495,7 @@ async function runAgentLoop({ systemMessage, userMessages, reqId = '-', emit = (
         // A step cut short by the turn deadline is budget exhaustion, not a
         // slow step: report it as capped so the user resumes instead of
         // narrowing a request that was fine.
-        if (deadline && Date.now() - loopStart >= deadline) {
+        if (deadline && Math.floor(performance.now()) - loopStart >= deadline) {
           chatLog(reqId, `iter=${i} gw=${gwMs}ms deadline`);
           deadlined = true;
           break;
