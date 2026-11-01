@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "scope": "Invented opaque local stream storage only; category/ACK/stop authority supplied by caller, not fixture strings.",
+  "marker": {
+    "utf8Hex": "5b226b6c6562622d71756575652d7265636f6e63696c696174696f6e2d7631222c312c2266726573682d7363616e2d7265717569726564225d",
+    "bytes": 57,
+    "sha256": "697be27c4277813293cf1e164e0adc1e50c952d2ea6114f5cb02345d8253588f",
+    "version": 1,
+    "kind": "state",
+    "nonceBytes": 12,
+    "ciphertextAndTagBytes": 73,
+    "encryptedBytes": 85
+  },
+  "expectedOriginalRows": 5,
+  "expectedHealthyRows": 2,
+  "expectedPrefixControlRows": 3,
+  "noRandomEnvelopeGolden": true
+}

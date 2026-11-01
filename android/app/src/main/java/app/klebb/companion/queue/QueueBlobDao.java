@@ -17,4 +17,10 @@ public interface QueueBlobDao {
 
     @Query("SELECT * FROM queue_blobs ORDER BY row_id")
     List<QueueBlob> all();
+
+    @Query("SELECT EXISTS(SELECT 1 FROM queue_blobs WHERE local_stream_id = :localStreamId)")
+    boolean containsStream(String localStreamId);
+
+    @Query("DELETE FROM queue_blobs WHERE local_stream_id = :localStreamId AND row_id != :markerRowId")
+    int deleteStreamExceptMarker(String localStreamId, String markerRowId);
 }
