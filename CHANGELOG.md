@@ -20,6 +20,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I recognise the exact version 1 source-policy SQL family in retained-target
+  and migration checks, retain every policy row, and refuse partial or altered
+  schemas and undeclared policy objects without issuing policy authority.
+  Refs #876.
+
 - I added a read-only exporter for verified initial ordinary-history publications,
   with exact payload/footer checks and a version 2 archive manifest sealed last.
   Partial or retained HAE state stays refused; import/apply, live controls,
