@@ -891,9 +891,16 @@ function assertControlOutput(data, expected) {
   return output;
 }
 function replaceControlFamilies(db, tombstones, guards) {
-  db.exec('DELETE FROM health_tombstones');
-  if (guards !== null) db.exec('DELETE FROM health_deletion_guards');
-  writeControlRows(db, rowsForTombs(tombstones), guards === null ? null : rowsForGuards(guards));
+  db.exec('BEGIN');
+  try {
+    db.exec('DELETE FROM health_tombstones');
+    if (guards !== null) db.exec('DELETE FROM health_deletion_guards');
+    writeControlRows(db, rowsForTombs(tombstones), guards === null ? null : rowsForGuards(guards));
+    db.exec('COMMIT');
+  } catch (error) {
+    try { db.exec('ROLLBACK'); } catch {}
+    throw error;
+  }
 }
 
 test('SQLCTRL01 returns owned typed SQL collisions in one coherent read-only snapshot', t => {

@@ -54,37 +54,44 @@ test.describe('#194: Settings card list is alphabetical and toggles in place', (
     await page.locator('eh-settings-view [data-tab="cards"]').click();
     await expect(page.locator('eh-settings-cards')).toBeVisible();
 
-    // Capture order + scroll before toggling.
-    const beforeTitles = await page.locator('eh-settings-cards .card .card-title').allInnerTexts();
     const weightCard = page.locator('eh-settings-cards .card', { hasText: 'Weight' });
     await expect(weightCard).toBeVisible();
+    await expect(weightCard.locator('button.toggle')).toHaveAttribute('aria-pressed', 'true');
+
+    // Capture order only after the card list has loaded.
+    const beforeTitles = await page.locator('eh-settings-cards .card .card-title').allInnerTexts();
 
     // Scroll the weight card into view; if the page jumps to top after
     // toggle, the card will no longer be where we left it.
     await weightCard.scrollIntoViewIfNeeded();
     const scrollYBefore = await page.evaluate(() => window.scrollY);
 
-    // Toggle weight off.
-    await weightCard.locator('button.toggle').click();
+    try {
+      // Toggle weight off.
+      await weightCard.locator('button.toggle').click();
 
-    // Wait for the button's aria-pressed to settle.
-    await expect(weightCard.locator('button.toggle')).toHaveAttribute('aria-pressed', 'false');
+      // Wait for the button's aria-pressed to settle.
+      await expect(weightCard.locator('button.toggle')).toHaveAttribute('aria-pressed', 'false');
 
-    // Order should be preserved; scroll within a small tolerance.
-    const afterTitles = await page.locator('eh-settings-cards .card .card-title').allInnerTexts();
-    expect(afterTitles).toEqual(beforeTitles);
+      // Order should be preserved; scroll within a small tolerance.
+      const afterTitles = await page.locator('eh-settings-cards .card .card-title').allInnerTexts();
+      expect(afterTitles).toEqual(beforeTitles);
 
-    // The original guard was "page does not jump to the top after toggle".
-    // The tabbed layout reflows by ~150px on toggle re-render — still well
-    // short of a top-of-page jump, which on a populated card list would be
-    // many hundreds of pixels.
-    const scrollYAfter = await page.evaluate(() => window.scrollY);
-    expect(Math.abs(scrollYAfter - scrollYBefore)).toBeLessThan(300);
+      // The original guard was "page does not jump to the top after toggle".
+      // The tabbed layout reflows by ~150px on toggle re-render — still well
+      // short of a top-of-page jump, which on a populated card list would be
+      // many hundreds of pixels.
+      const scrollYAfter = await page.evaluate(() => window.scrollY);
+      expect(Math.abs(scrollYAfter - scrollYBefore)).toBeLessThan(300);
 
-    // Restore sandbox state so specs that run after this one (smoke
-    // etc.) see Weight enabled again. Global-setup is per-run, not
-    // per-spec.
-    await weightCard.locator('button.toggle').click();
-    await expect(weightCard.locator('button.toggle')).toHaveAttribute('aria-pressed', 'true');
+    } finally {
+      // Restore the shared seed even if a toggle or order assertion fails.
+      const restored = await page.request.post('/api/settings/cards/weight/enable');
+      expect(restored.status()).toBe(200);
+      if (await weightCard.locator('button.toggle').getAttribute('aria-pressed') === 'false') {
+        await weightCard.locator('button.toggle').click();
+      }
+      await expect(weightCard.locator('button.toggle')).toHaveAttribute('aria-pressed', 'true');
+    }
   });
 });

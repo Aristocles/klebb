@@ -9,10 +9,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I batch large publication-test fixture writes in one transaction, retaining
+  their original boundaries, data and refusal checks. Refs #873.
+
 - Stabilise the concurrent export check with an explicit ZIP stream hold
   and verify released bytes independently of network buffering. Refs #849.
 
 ### Added
+
+- I made the card-toggle browser test wait for its loaded seed and restore
+  shared card state after an assertion failure. Refs #870.
 
 - Atomic local queue stream purge that retains an encrypted reconciliation
   marker and preserves unrelated streams. Sharing-stop authority, upload
