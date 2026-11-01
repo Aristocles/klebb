@@ -20,6 +20,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I added an explicit ordinary-history policy byte profile 3 for independent
+  category intent and generation, preserving profiles 1/2 and the default.
+  This representation does not provide operative policy authority or complete
+  recovery. Refs #871, #856 and #762.
+
 - I added a read-only exporter for verified initial ordinary-history publications,
   with exact payload/footer checks and a version 2 archive manifest sealed last.
   Partial or retained HAE state stays refused; import/apply, live controls,

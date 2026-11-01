@@ -1265,3 +1265,81 @@ test('policy-authority mode requires genuine approval while the ordinary reader 
   }), { status: 409, code: 'IMPORT_APPROVAL_REQUIRED' });
   assert.deepEqual(data.inventory(), before);
 });
+
+const POLICY3_INPUT_JSON = "{\"catalog\":{\"version\":3,\"logicalTenantId\":\"11111111-1111-4111-8111-111111111111\",\"sources\":[{\"sourceStoreId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"provider\":\"health-connect-native\",\"policyRef\":\"r0-policy-alpha\"},{\"sourceStoreId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"provider\":\"health-connect-native\",\"policyRef\":\"r0-policy-beta\"}],\"policyAuthority\":{\"epoch\":\"44444444-4444-4444-8444-444444444444\",\"revision\":\"12\",\"knowledge\":\"COMPLETE\"}},\"records\":[{\"identity\":[\"11111111-1111-4111-8111-111111111111\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"StepsRecord\",\"raw-invented-id\"],\"nativeKeyJson\":\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"StepsRecord\\\",\\\"raw-invented-id\\\"]\",\"serializerId\":\"health-connect-record\",\"serializerVersion\":1,\"dataFamily\":\"ordinary\",\"projection\":\"raw-only\",\"expectedUtf8Bytes\":123,\"expectedRecordDigest\":\"sha256:413bf7b7c7ebf785d7bd7746f36e94e63b8df8812d8c0630fb8efc5778e84566\",\"recordJson\":\"{\\\"knownType\\\":null,\\\"nested\\\":{\\\"retained\\\":[1,\\\"\u00e9\\\"],\\\"empty\\\":null},\\\"native\\\":{\\\"recordType\\\":\\\"StepsRecord\\\",\\\"id\\\":\\\"raw-invented-id\\\"}}\"}],\"sourcePolicies\":[{\"id\":\"r0-policy-alpha\",\"sourceStoreId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"lifecycle\":\"active\",\"retainCommittedHistory\":true,\"categoryCount\":2,\"categories\":[{\"recordType\":\"StepsRecord\",\"sharing\":\"enabled\",\"generation\":\"3\"},{\"recordType\":\"WeightRecord\",\"sharing\":\"stopped\",\"generation\":\"8\"}]},{\"id\":\"r0-policy-beta\",\"sourceStoreId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"lifecycle\":\"active\",\"retainCommittedHistory\":true,\"categoryCount\":1,\"categories\":[{\"recordType\":\"WeightRecord\",\"sharing\":\"enabled\",\"generation\":\"7\"}]}],\"tombstones\":[{\"identity\":[\"11111111-1111-4111-8111-111111111111\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"WeightRecord\",\"same-invented-id\"],\"sourceStreamKey\":\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"33333333-3333-4333-8333-333333333333\\\",\\\"WeightRecord\\\",\\\"3\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",\"sourceSequence\":\"7\"}],\"suppressions\":[{\"sourceStoreId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"type\":\"WeightRecord\",\"startInclusive\":\"2025-12-01T00:00:00Z\",\"endExclusive\":\"2026-01-01T00:00:00Z\",\"explicitReimportAllowed\":false}],\"deletionGuards\":[{\"identity\":[\"11111111-1111-4111-8111-111111111111\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"StepsRecord\",\"same-invented-id\"],\"sourceDeleted\":0,\"userSuppressed\":1,\"sourceStreamKey\":null,\"sourceSequence\":null,\"footprintJson\":null},{\"identity\":[\"11111111-1111-4111-8111-111111111111\",\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"WeightRecord\",\"same-invented-id\"],\"sourceDeleted\":1,\"userSuppressed\":1,\"sourceStreamKey\":\"[\\\"11111111-1111-4111-8111-111111111111\\\",\\\"22222222-2222-4222-8222-222222222222\\\",\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"33333333-3333-4333-8333-333333333333\\\",\\\"WeightRecord\\\",\\\"3\\\",\\\"44444444-4444-4444-8444-444444444444\\\"]\",\"sourceSequence\":\"7\",\"footprintJson\":null}]}";
+const POLICY3_FOOTER_JSON = "{\"version\":3,\"counts\":{\"sources\":2,\"records\":1,\"sourcePolicies\":2,\"tombstones\":1,\"suppressions\":1,\"deletionGuards\":2},\"sha256\":\"sha256:88e524e18434a1d7de63dbf198793cf81ee18fdd05c773d8534bde45a34f1850\"}";
+const POLICY3_EMPTY_INPUT_JSON = "{\"catalog\":{\"version\":3,\"logicalTenantId\":\"11111111-1111-4111-8111-111111111111\",\"sources\":[],\"policyAuthority\":{\"epoch\":\"44444444-4444-4444-8444-444444444444\",\"revision\":\"0\",\"knowledge\":\"COMPLETE\"}},\"records\":[],\"sourcePolicies\":[],\"tombstones\":[],\"suppressions\":[],\"deletionGuards\":[]}";
+const POLICY3_EMPTY_FOOTER_JSON = "{\"version\":3,\"counts\":{\"sources\":0,\"records\":0,\"sourcePolicies\":0,\"tombstones\":0,\"suppressions\":0,\"deletionGuards\":0},\"sha256\":\"sha256:cffc9014bc7b985e4a01c700b08fcb3a12e3e86517c481de080aa5f9b8b571a9\"}";
+
+test('PCAP3BYTE01 preserves independently fixed mixed policy and typed controls through explicit profile3', () => {
+  const { encodeOrdinaryHistory, decodeOrdinaryHistory } = require('../lib/import/native-publication');
+  const options = { controlProfileVersion: 3 };
+  const encoded = encodeOrdinaryHistory(JSON.parse(POLICY3_INPUT_JSON), options);
+  assert.deepEqual(encoded.inputBytes, Buffer.from(POLICY3_INPUT_JSON));
+  assert.deepEqual(encoded.footerBytes, Buffer.from(POLICY3_FOOTER_JSON));
+  assert.equal(encoded.inputBytes.length, 2976);
+  assert.equal(sha(encoded.inputBytes), 'sha256:88e524e18434a1d7de63dbf198793cf81ee18fdd05c773d8534bde45a34f1850');
+  assert.equal(encoded.footerBytes.length, 201);
+  assert.equal(sha(encoded.footerBytes), 'sha256:7df655b1675fef6d849b4c910cb328bcf98033ad20ea955e579d7eebd473eaa1');
+  const decoded = decodeOrdinaryHistory(encoded.inputBytes, encoded.footerBytes, options);
+  assert.deepEqual(decoded.inventory, JSON.parse(POLICY3_INPUT_JSON));
+  assert.deepEqual(decoded.inventory.sourcePolicies[0].categories, [
+    { recordType: 'StepsRecord', sharing: 'enabled', generation: '3' },
+    { recordType: 'WeightRecord', sharing: 'stopped', generation: '8' },
+  ]);
+  assert.equal(JSON.parse(decoded.inventory.tombstones[0].sourceStreamKey)[5], '3');
+  assert.deepEqual(decoded.inventory.deletionGuards.map(item => [item.sourceDeleted, item.userSuppressed]), [[0, 1], [1, 1]]);
+  assert.equal(Buffer.byteLength(decoded.inventory.records[0].recordJson), 123);
+  assert.equal(sha(decoded.inventory.records[0].recordJson), 'sha256:413bf7b7c7ebf785d7bd7746f36e94e63b8df8812d8c0630fb8efc5778e84566');
+  assert.equal(JSON.parse(decoded.inventory.records[0].recordJson).knownType, null);
+  const second = encodeOrdinaryHistory(JSON.parse(POLICY3_INPUT_JSON), options);
+  encoded.inputBytes.fill(0); encoded.footerBytes.fill(0);
+  assert.deepEqual(second.inputBytes, Buffer.from(POLICY3_INPUT_JSON));
+  assert.deepEqual(second.footerBytes, Buffer.from(POLICY3_FOOTER_JSON));
+  const explicitEmpty = encodeOrdinaryHistory(JSON.parse(POLICY3_EMPTY_INPUT_JSON), options);
+  assert.deepEqual(explicitEmpty.inputBytes, Buffer.from(POLICY3_EMPTY_INPUT_JSON));
+  assert.deepEqual(explicitEmpty.footerBytes, Buffer.from(POLICY3_EMPTY_FOOTER_JSON));
+});
+
+test('PCAP3BYTE02 refuses independently invalid policy completeness, category and generation values', () => {
+  const { encodeOrdinaryHistory, decodeOrdinaryHistory } = require('../lib/import/native-publication');
+  const changes = [
+    value => { value.catalog.policyAuthority.knowledge = 'UNKNOWN'; },
+    value => { value.catalog.policyAuthority.revision = '01'; },
+    value => { value.catalog.policyAuthority.revision = '9223372036854775808'; },
+    value => { value.sourcePolicies[0].categoryCount = 1; },
+    value => { value.sourcePolicies[0].categories[1].recordType = 'StepsRecord'; },
+    value => { value.sourcePolicies[0].categories.reverse(); },
+    value => { value.sourcePolicies[0].categories[0].recordType = 'InventedRecord'; },
+    value => { value.sourcePolicies[0].categories[0].sharing = 'UNKNOWN'; },
+    value => { value.sourcePolicies[0].categories[0].generation = '01'; },
+    value => { value.sourcePolicies[0].categories[0].generation = '9223372036854775808'; },
+    value => { value.sourcePolicies[0].lifecycle = 'unknown'; },
+    value => { value.tombstones[0] = { tenantId: TENANT, sourceStoreId: ALPHA,
+      nativeRecordId: 'same-invented-id', knownType: null, reason: 'source-delete' }; },
+  ];
+  for (const change of changes) {
+    const value = JSON.parse(POLICY3_INPUT_JSON);
+    change(value);
+    assert.throws(() => encodeOrdinaryHistory(value, { controlProfileVersion: 3 }), invalid);
+    const input = Buffer.from(JSON.stringify(value));
+    const footer = JSON.parse(POLICY3_FOOTER_JSON);
+    footer.sha256 = sha(input); // Valid synthetic digest isolates the declared field fault.
+    assert.throws(() => decodeOrdinaryHistory(input, Buffer.from(JSON.stringify(footer)),
+      { controlProfileVersion: 3 }), invalid);
+  }
+});
+
+test('PCAP3BYTE03 keeps profile3 data separate from default and explicit profile2 readers', () => {
+  const { encodeOrdinaryHistory, decodeOrdinaryHistory } = require('../lib/import/native-publication');
+  for (const options of [undefined, { controlProfileVersion: 2 }, { controlProfileVersion: '3' },
+    { controlProfileVersion: true }]) {
+    assert.throws(() => encodeOrdinaryHistory(JSON.parse(POLICY3_INPUT_JSON), options), invalid);
+    assert.throws(() => decodeOrdinaryHistory(Buffer.from(POLICY3_INPUT_JSON),
+      Buffer.from(POLICY3_FOOTER_JSON), options), invalid);
+  }
+  const wrongDigest = JSON.parse(POLICY3_FOOTER_JSON);
+  wrongDigest.sha256 = 'sha256:' + '0'.repeat(64);
+  assert.throws(() => decodeOrdinaryHistory(Buffer.from(POLICY3_INPUT_JSON),
+    Buffer.from(JSON.stringify(wrongDigest)), { controlProfileVersion: 3 }), invalid);
+});

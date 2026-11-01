@@ -297,3 +297,51 @@ format version 2; the internal read-only archive preflight can inspect it.
 Ordinary apply, live policy/deletion extraction, credential/cursor exclusion,
 stale restore epochs, complete R0 recovery and personal capture readiness
 remain open. Refs #868 and #762.
+
+
+## Explicit source-policy byte profile 3
+
+The pure `encodeOrdinaryHistory` and `decodeOrdinaryHistory` helpers accept
+`{controlProfileVersion: 3}` only when the selector is the numeric value `3`.
+This representation carries independent category decisions. Profile 1 remains
+the default, and profile 2 retains its explicit typed-control contract.
+Neither selection changes the native SQL schema or outer archive version.
+
+Profile 3 retains the ordered root families `catalog`, `records`,
+`sourcePolicies`, `tombstones`, `suppressions` and `deletionGuards`. Its catalog
+has ordered fields `version`, `logicalTenantId`, `sources` and
+`policyAuthority`. The latter has `epoch`, `revision` and `knowledge`, with
+`knowledge` equal to `COMPLETE` for a declared complete descriptor. The epoch
+is an opaque UUID; revision is a canonical nonnegative decimal string bounded
+to the signed 64-bit maximum.
+
+Each source policy has ordered fields `id`, `sourceStoreId`, `lifecycle`,
+`retainCommittedHistory`, `categoryCount` and `categories`. Lifecycle is
+`active` or `retired`. Each category has ordered fields `recordType`,
+`sharing` and `generation`; supported record types must be unique and in
+ascending ASCII order, sharing is `enabled` or `stopped`, and generation uses
+the same canonical decimal-string bound. The declared category count must
+match the list. This preserves, for example, Steps enabled at generation 3
+alongside Weight stopped at generation 8 for the same source.
+
+Raw record JSON, unresolved display types, typed four-key deletion identities,
+independent source/user guard flags and nullable footprints remain unchanged.
+Historical transport generation and source sequence are retained separately
+from current category intent. The footer has ordered fields `version`,
+`counts` and `sha256`; profile 3 uses the six profile-2 count keys with version
+`3`, and its digest covers the original compact UTF-8 payload bytes.
+
+The existing limits remain: 16 MiB per payload/footer, 1 MiB per record,
+128 sources and categories per source, 10000 rows per record/control family,
+8192 bytes per source stream key and 2048 bytes per footprint. Supported type
+and uniqueness checks further constrain categories. Invalid, incomplete,
+unsorted, duplicate, overflowing or incompatible descriptors are refused.
+Original byte checks and independently owned output buffers still apply.
+
+A declared descriptor and its decoded bytes do not issue owner, source,
+permission, deletion, database or admission authority. The real publication,
+owner, lifecycle and SQL paths are unchanged; the opt-in source-policy SQL
+reader continues to refuse UNKNOWN authority. Persisted policy, coherent
+capture and apply remain separate prerequisites. This internal profile does
+not activate a complete archive format or satisfy recovery readiness.
+Refs #871, #856 and #762.
