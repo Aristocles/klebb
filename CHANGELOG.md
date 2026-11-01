@@ -14,9 +14,24 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I added bounded owner-approved ordinary SQL byte reads and strict typed controls.
+  Initial source-policy reads require genuine owner approval before filesystem access;
+  unsupported policy output remains refused. Full archive and recovery lifecycle
+  readiness remain pending. Refs #854, #855, #856 and #762.
+
 - I added a bounded WeightRecord pager and Health Connect reader adapter,
   with permission, cancellation and generation guards. Durable page
   checkpoints and deletion completeness remain separate. Refs #755, #757.
+
+- I added owner-bound initial read-only SQL byte output preserving complete native raw
+  records and null controls, with copied-buffer output and unchanged live authority
+  reads. Full archive, active controls and recovery lifecycle remain pending.
+  Refs #851 and #762.
+
+- I added strict internal read-only ordinary-history archive preflight with bounded,
+  checksummed required streams and owned byte copies. Default newer-format
+  refusal remains intact; portable apply, active controls and complete recovery
+  readiness remain pending. Refs #853 and #762.
 
 - Bounded read-only ordinary Health Connect census custody and scoped membership
   previews. Provider completeness stays unverified and deletion remains disabled.
@@ -2547,7 +2562,7 @@ gear-icon link.
   parse it with manifest-format expectations rather than as generic
   JSON. Refs #384.
 
-- **Demo mode 404s `/sw.js`.** The public demo at `demo.klebb.app`
+- **Demo mode 404s `/sw.js`.** The public demo deployment
   should not capture push subscriptions for a tenant that no one
   owns. Service-worker registration on the demo now fails harmlessly
   in the browser instead of installing a dead handler. The web app
@@ -2792,7 +2807,7 @@ gear-icon link.
   on BPC-157 and Ozempic are annotated with plausible rotation
   patterns and the occasional `bruised` / `tender` / `red, itchy`
   reaction so the "Last:" context line renders something real when
-  a visitor taps ✓ on demo.klebb.app. Insulin's last six doses are
+  a visitor taps ✓ in the demo. Insulin's last six doses are
   annotated; the 24 older daily entries stay bare. Refs #352.
 
 ## [2.2.0] - 2026-06-08
@@ -2923,7 +2938,7 @@ gear-icon link.
   hourly. Refs #296.
 
 - **Demo rings-layout Sleep card and Strength Training schedule
-  card.** The `demo.klebb.app` Sleep fixture is now a self-referencing
+  card.** The demo Sleep fixture is now a self-referencing
   combination-card with `layout: rings`, surfacing Total / Deep / REM
   / Light as concentric progress arcs against per-stage daily goals.
   A new `demo/fixtures/strength-training.json` schedule-card fixture
@@ -2944,7 +2959,7 @@ gear-icon link.
   `read_report` chat tool plus the `## Available reports` system
   prompt block let Klebbius pull any ingested report into a turn on
   demand. Fixes #288.
-- **`demo.klebb.app` now auto-deploys on every push to `main`.** A
+- **The demo now auto-deploys on every push to `main`.** A
   new `.github/workflows/deploy-demo.yml` workflow fires when the
   existing publish workflow finishes successfully, SSHes to the
   demo host, and runs `klebb-demo-deploy` (which does
@@ -3078,7 +3093,7 @@ gear-icon link.
   `1.`) are all stripped. Parentheses are left alone so prose like
   "your weight (in kg) trended down" still reads naturally. Fixes #314.
 - **PWA / apple-touch-icon home-screen artwork.** The five
-  `public/icons/icon-*.png` tiles still showed the legacy "Eddz"
+  `public/icons/icon-*.png` tiles still showed the previous
   wordmark and rocket image, so adding Klebb to the iOS home screen
   produced a bookmark with the old branding. They have been
   regenerated from `logo-dark.png` with the dog-head mark centred on
@@ -3104,8 +3119,8 @@ gear-icon link.
   so without one set the container defaults to UTC, which causes the
   newest date to lag visitors in eastward timezones by up to a day.
   `docs/DEMO.md` §5, §6, §7, and the troubleshooting table now show
-  `-e TZ=Australia/Sydney` alongside the existing env vars; fork
-  operators should swap in their own zone. No code change. Fixes
+  an explicit `TZ` value alongside the existing env vars; fork
+  operators should select their own zone. No code change. Fixes
   #286.
 
 - **Schedule card week-dot ring now follows the day being viewed.**
@@ -4384,14 +4399,14 @@ Total: 228/228 (was 190 before Phase 8+9).
 
 ## [2.0.0] - 2026-04-21
 
-First public release, renamed from **EddzHealth** to **Klebb**. Major
+First public release under the **Klebb** name. Major
 rewrite: **files are the source of truth**, zero-code card authoring, no
 catalog or install flow, AI-agent-friendly HTTP API.
 
 ### Breaking changes
 
-- **Manifest `$schema`** changed from `eddzhealth.datafile.v1` to
-  `klebb.datafile.v1`. The server only accepts the new value. Migration:
+- **Manifest `$schema`** changed to `klebb.datafile.v1` from its
+  previous value. The server only accepts the new value. Migration:
   `npm run migrate-schema` (idempotent, `--dry-run` available).
 - **Mood + notes data shape** — cards that previously stored data as a
   date-keyed object (`{ "2026-04-21": { ... } }`) now use the array-of-dated-rows
@@ -4508,6 +4523,6 @@ version:
    `HEALTH_ORIGIN` to match your domain
 5. `systemctl restart klebb@<instance>` (or your own equivalent)
 
-[Unreleased]: https://github.com/Aristocles/klebb/compare/v3.3.0...HEAD
-[3.3.0]: https://github.com/Aristocles/klebb/compare/v3.2.0...v3.3.0
-[2.0.0]: https://github.com/Aristocles/klebb/releases/tag/v2.0.0
+[Unreleased]: ../../compare/v3.3.0...HEAD
+[3.3.0]: ../../compare/v3.2.0...v3.3.0
+[2.0.0]: ../../releases/tag/v2.0.0

@@ -676,3 +676,89 @@ describe('validateTree: happy tree', () => {
     });
   });
 });
+
+// Internal read-only R0 preflight; default importer support remains version 1.
+const ordinaryGolden = require('./helpers/ordinary-archive-golden.cjs');
+const ORDINARY_PAYLOAD = 'data/health-connect/ordinary-history.json';
+const ORDINARY_FOOTER = 'data/health-connect/ordinary-history-footer.json';
+function ordinaryTree() {
+  return makeTree({
+    cards: { 'ordinary-legacy.json': cardBody('ordinary-legacy', { data: [{ value: 17 }] }) },
+    extra: { [ORDINARY_PAYLOAD]: ordinaryGolden.ORDINARY_BYTE_INPUT_JSON,
+      [ORDINARY_FOOTER]: ordinaryGolden.ORDINARY_BYTE_FOOTER_JSON },
+    mutateManifest(m) {
+      m.formatVersion = 2;
+      m.inventory.ordinaryHistory = { version: 1,
+        payload: { file: ORDINARY_PAYLOAD, bytes: 4419,
+          sha256: '0331b06e9595a6115e11ab8712d7d5884a3e89f96b48fc0348350396342ff00b' },
+        footer: { file: ORDINARY_FOOTER, bytes: 182,
+          sha256: '6a29e1acbdc2b06cca969ae35b9acd771717ac69f39fbdcb194104d9e3ef2373' } };
+      return m;
+    },
+  });
+}
+function alterOrdinaryManifest(root, fn) {
+  const file = path.join(root, MANIFEST_NAME), manifest = JSON.parse(fs.readFileSync(file));
+  fn(manifest); fs.writeFileSync(file, JSON.stringify(manifest));
+}
+test('R0ARCH01 strict read-only ordinary profile preserves a healthy legacy tree and all fixed bytes', async () => {
+  assert.equal((await validateTree(makeTree({ cards: { 'healthy.json': cardBody('healthy', { data: [17] }) } }))).ok, true);
+  const tree = ordinaryTree();
+  const result = await validateTree(tree, { ordinaryArchiveReadOnly: true });
+  assert.equal(result.ok, true, 'healthy fixed v2 ordinary profile must pass internal read-only preflight');
+  assert.equal(result.plan.cards.length, 1);
+  assert.deepEqual(result.plan.nativeOrdinary.inputBytes, Buffer.from(ordinaryGolden.ORDINARY_BYTE_INPUT_JSON));
+  assert.deepEqual(result.plan.nativeOrdinary.footerBytes, Buffer.from(ordinaryGolden.ORDINARY_BYTE_FOOTER_JSON));
+  assert.deepEqual(result.plan.nativeOrdinary.envelope.counts,
+    { sources: 2, records: 3, sourcePolicies: 2, tombstones: 2, suppressions: 1 });
+  assert.equal(result.plan.nativeOrdinary.inventory.tombstones[1].knownType, null);
+  assert.equal(Object.hasOwn(result.plan.nativeOrdinary, 'token'), false);
+});
+test('R0ARCH02 missing, corrupt and misdeclared required ordinary streams refuse read-only', async () => {
+  const changes = [
+    tree => fs.unlinkSync(path.join(tree, ORDINARY_PAYLOAD)),
+    tree => fs.unlinkSync(path.join(tree, ORDINARY_FOOTER)),
+    tree => { fs.unlinkSync(path.join(tree, ORDINARY_PAYLOAD)); fs.mkdirSync(path.join(tree, ORDINARY_PAYLOAD)); },
+    tree => { const source = ordinaryTree(); fs.unlinkSync(path.join(tree, ORDINARY_PAYLOAD));
+      fs.linkSync(path.join(source, ORDINARY_PAYLOAD), path.join(tree, ORDINARY_PAYLOAD)); },
+    tree => fs.truncateSync(path.join(tree, ORDINARY_PAYLOAD), 16777217),
+    tree => alterOrdinaryManifest(tree, m => { delete m.inventory.ordinaryHistory; }),
+    tree => alterOrdinaryManifest(tree, m => { m.inventory.ordinaryHistory.payload.file = '../unselected.json'; }),
+    tree => alterOrdinaryManifest(tree, m => { m.inventory.ordinaryHistory.payload.bytes = 4420; }),
+    tree => alterOrdinaryManifest(tree, m => { m.inventory.ordinaryHistory.footer.sha256 = '0'.repeat(64); }),
+    tree => fs.writeFileSync(path.join(tree, ORDINARY_PAYLOAD), ordinaryGolden.ORDINARY_BYTE_INPUT_JSON.replace('43.125', '43.126')),
+    tree => fs.writeFileSync(path.join(tree, ORDINARY_FOOTER), Buffer.from([0xff])),
+  ];
+  for (const change of changes) {
+    const tree = ordinaryTree(); change(tree);
+    const result = await validateTree(tree, { ordinaryArchiveReadOnly: true });
+    assert.equal(result.ok, false);
+    assert.equal(result.findings.some(f => f.code === 'VAL_ORDINARY_ARCHIVE' && f.severity === 'refusal'), true);
+    assert.equal(result.plan.nativeOrdinary, undefined);
+  }
+});
+test('R0ARCH03 owned buffers and source/deletion values survive revalidation without archive writes', async () => {
+  const tree = ordinaryTree(), input = fs.readFileSync(path.join(tree, ORDINARY_PAYLOAD)), footer = fs.readFileSync(path.join(tree, ORDINARY_FOOTER));
+  const first = await validateTree(tree, { ordinaryArchiveReadOnly: true }); assert.equal(first.ok, true);
+  first.plan.nativeOrdinary.inputBytes.fill(0); first.plan.nativeOrdinary.footerBytes.fill(0);
+  first.plan.nativeOrdinary.inventory.tombstones[1].knownType = 'invented';
+  const next = await validateTree(tree, { ordinaryArchiveReadOnly: true }); assert.equal(next.ok, true);
+  assert.deepEqual(next.plan.nativeOrdinary.inputBytes, input); assert.deepEqual(next.plan.nativeOrdinary.footerBytes, footer);
+  assert.equal(next.plan.nativeOrdinary.inventory.sourcePolicies[0].sharing, 'stopped');
+  assert.equal(next.plan.nativeOrdinary.inventory.tombstones[1].knownType, null);
+  assert.deepEqual(fs.readFileSync(path.join(tree, ORDINARY_PAYLOAD)), input);
+  assert.deepEqual(fs.readFileSync(path.join(tree, ORDINARY_FOOTER)), footer);
+});
+test('R0ARCH04 default format refusal and strict native bounds remain separate from internal parsing', async () => {
+  const tree = ordinaryTree();
+  for (const ordinaryArchiveReadOnly of [undefined, false, 1, 'true']) {
+    const result = await validateTree(tree, { ordinaryArchiveReadOnly });
+    assert.equal(result.ok, false); assert.equal(result.findings.some(f => f.code === 'VAL_FORMAT_NEWER'), true);
+  }
+  alterOrdinaryManifest(tree, m => { m.formatVersion = 3; });
+  assert.equal((await validateTree(tree, { ordinaryArchiveReadOnly: true })).findings.some(f => f.code === 'VAL_FORMAT_NEWER'), true);
+  const oversized = ordinaryTree();
+  alterOrdinaryManifest(oversized, m => { m.inventory.ordinaryHistory.payload.bytes = 16777217; });
+  const result = await validateTree(oversized, { ordinaryArchiveReadOnly: true });
+  assert.equal(result.ok, false); assert.equal(result.findings.some(f => f.code === 'VAL_ORDINARY_ARCHIVE'), true);
+});

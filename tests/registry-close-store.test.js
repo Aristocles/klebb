@@ -4,7 +4,7 @@
 //
 // registry.closeStore() in isolation. Lives in its own file because it purges
 // the require cache to get a fresh registry against a fresh HEALTH_HOME, and
-// mixing that with spawnServer tests hangs the runner (see CLAUDE.md).
+// mixing that with spawnServer tests hangs the runner; isolate these tests.
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert');

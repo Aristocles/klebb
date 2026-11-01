@@ -15,6 +15,8 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { findPrivateSourceRules, parsePrivateIdentifiers } = require('../lib/private-source-rules');
+const LOCAL_IDENTIFIERS = parsePrivateIdentifiers(process.env.KLEBB_PRIVATE_IDENTIFIERS || '');
 
 const REPO_ROOT = path.join(__dirname, '..');
 
@@ -40,29 +42,13 @@ const SKIP_FILES = new Set([
   'tests/no-personal-refs.test.js', // this file contains the forbidden strings as data
 ]);
 
-// Forbidden patterns. Each entry: { pattern: RegExp, name: string, severity: 'error' }.
-const FORBIDDEN = [
-  // Personal identifiers — word-boundary match to avoid false positives
-  { pattern: /\bAxis\b/, name: 'Axis' },
-  { pattern: /\bEddy\b/, name: 'Eddy' },
-  { pattern: /\bOnyx\b/, name: 'Onyx' },
-  { pattern: /\bChuck\b/, name: 'Chuck' },
-  { pattern: /\bSayadian\b/, name: 'Sayadian' },
-  // Hardcoded absolute paths
-  { pattern: /\/home\/minecraft/, name: '/home/minecraft' },
-  { pattern: /\/mnt\/nas/, name: '/mnt/nas' },
-  { pattern: /\/opt\/onyx/, name: '/opt/onyx' },
-  { pattern: /~\/axis/, name: '~/axis' },
-  // Leaked tokens — anything that looks like a production bearer token
-  // (32+ hex chars) shouldn't be in source. We'll pattern-match on
-  // 48-char hex strings as a heuristic.
-  { pattern: /['"][0-9a-f]{48,}['"]/, name: 'hex token ≥48 chars' },
-];
+// Generic user paths and credential syntax always apply. Exact local-name
+// coverage is optional: KLEBB_PRIVATE_IDENTIFIERS is a JSON string array.
+// Cryptographic source hashes alone are not credential evidence.
 
 // List tracked files via git so the scan only sees what actually ships.
-// Local-only artefacts (BRIEF-FOR-CC.md, CLAUDE.md, .claude/, data/, etc.)
-// are gitignored and therefore invisible here, even though they exist
-// on the operator's working copy. Fixes #330.
+// Ignored local configuration and data are outside the tracked-source scan.
+// Fixes #330.
 function listTrackedFiles() {
   const out = execFileSync('git', ['-C', REPO_ROOT, 'ls-files', '-z'], {
     encoding: 'utf8',
@@ -95,15 +81,12 @@ function scanRepo() {
     }
     const lines = content.split('\n');
     lines.forEach((line, idx) => {
-      for (const rule of FORBIDDEN) {
-        if (rule.pattern.test(line)) {
-          findings.push({
-            file: rel,
-            line: idx + 1,
-            rule: rule.name,
-            text: line.trim().slice(0, 120),
-          });
-        }
+      for (const rule of findPrivateSourceRules(line, LOCAL_IDENTIFIERS)) {
+        findings.push({
+          fileId: crypto.createHash('sha256').update(rel).digest('hex').slice(0, 12),
+          line: idx + 1,
+          rule,
+        });
       }
     });
   }
@@ -115,9 +98,181 @@ describe('no-personal-refs (repo hygiene)', () => {
     const findings = scanRepo();
     if (findings.length > 0) {
       const report = findings
-        .map(f => `  ${f.file}:${f.line}  [${f.rule}]  ${f.text}`)
+        .map(f => `  file-${f.fileId}:${f.line}  [${f.rule}]`)
         .join('\n');
       assert.fail(`Found ${findings.length} forbidden reference(s):\n${report}`);
     }
+  });
+  test('portable checks use invented literals and omit private diagnostic values', () => {
+    const cases = [
+      {
+        "id": "G01",
+        "text": "C:\\Users\\ExamplePerson\\notes\\private.txt",
+        "identifiers": [],
+        "expected": [
+          "PRIVATE_USER_PATH"
+        ]
+      },
+      {
+        "id": "G02",
+        "text": "/home/example-person/project/private.txt",
+        "identifiers": [],
+        "expected": [
+          "PRIVATE_USER_PATH"
+        ]
+      },
+      {
+        "id": "G03",
+        "text": "/Users/ExamplePerson/private.txt",
+        "identifiers": [],
+        "expected": [
+          "PRIVATE_USER_PATH"
+        ]
+      },
+      {
+        "id": "G04",
+        "text": "/usr/local/bin/node",
+        "identifiers": [],
+        "expected": []
+      },
+      {
+        "id": "G05",
+        "text": "C:\\Program Files\\ExampleLibrary\\tool.exe",
+        "identifiers": [],
+        "expected": []
+      },
+      {
+        "id": "G06",
+        "text": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "identifiers": [],
+        "expected": []
+      },
+      {
+        "id": "G07",
+        "text": "aa1133445566778899aabbccddeeff00112233445566778899aabbccddeeff0011",
+        "identifiers": [],
+        "expected": []
+      },
+      {
+        "id": "G08",
+        "text": "-----BEGIN PRIVATE KEY-----",
+        "identifiers": [],
+        "expected": [
+          "PRIVATE_KEY_MATERIAL"
+        ]
+      },
+      {
+        "id": "G09",
+        "text": "sk-exampletokenabcdefghijklmnopqrstuv",
+        "identifiers": [],
+        "expected": [
+          "STRUCTURED_SECRET_TOKEN"
+        ]
+      },
+      {
+        "id": "G10",
+        "text": "ordinary fixture value",
+        "identifiers": [],
+        "expected": []
+      },
+      {
+        "id": "G11",
+        "text": "example-local-identifier appears here",
+        "identifiers": [
+          "example-local-identifier"
+        ],
+        "expected": [
+          "LOCAL_IDENTIFIER"
+        ]
+      },
+      {
+        "id": "G12",
+        "text": "example-local-identifier appears here",
+        "identifiers": [],
+        "expected": []
+      },
+      {
+        "id": "G13",
+        "text": "PUBLIC_API_NAME and unsupported records",
+        "identifiers": [],
+        "expected": []
+      },
+      {
+        "id": "G14",
+        "text": "const EXPECTED_SHA256 = '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';",
+        "identifiers": [],
+        "expected": []
+      },
+      {
+        "id": "G15",
+        "text": "Authorization: Bearer inventedbearertokenabcdefghijklmnopqrstuv",
+        "identifiers": [],
+        "expected": [
+          "STRUCTURED_SECRET_TOKEN"
+        ]
+      },
+      {
+        "id": "G16",
+        "text": "const apiKey = \"inventedcredentialabcdefghijklmnopqrstuv\";",
+        "identifiers": [],
+        "expected": [
+          "SECRET_VALUE_WITH_CREDENTIAL_CONTEXT"
+        ]
+      },
+      {
+        "id": "G17",
+        "text": "const home = \"C:\\\\Users\\\\ExamplePerson\\\\private.txt\";",
+        "identifiers": [],
+        "expected": [
+          "PRIVATE_USER_PATH"
+        ]
+      },
+      {
+        "id": "G18",
+        "text": "aXb",
+        "identifiers": [
+          "a.b"
+        ],
+        "expected": []
+      },
+      {
+        "id": "G19",
+        "text": "a.b",
+        "identifiers": [
+          "a.b"
+        ],
+        "expected": [
+          "LOCAL_IDENTIFIER"
+        ]
+      },
+      {
+        "id": "G20",
+        "text": "/home/<user>/example",
+        "identifiers": [],
+        "expected": []
+      }
+    ];
+    cases.push(
+      {"id": "URL01", "text": "https://example.com/home/member/profile", "identifiers": [], "expected": []},
+      {"id": "PATH01", "text": "/home/example-person/project/private.txt", "identifiers": [], "expected": ["PRIVATE_USER_PATH"]},
+      {"id": "PATH02", "text": "const root = \"/home/example-person/project/private.txt\";", "identifiers": [], "expected": ["PRIVATE_USER_PATH"]},
+      {"id": "PATH03", "text": "const root = \"/Users/ExamplePerson/private.txt\";", "identifiers": [], "expected": ["PRIVATE_USER_PATH"]}
+    );
+    cases.push(
+      {"id": "BT01", "text": "Use `/home/example-person/private.txt`", "identifiers": [], "expected": ["PRIVATE_USER_PATH"]},
+      {"id": "BT02", "text": "`/home/example-person`", "identifiers": [], "expected": ["PRIVATE_USER_PATH"]},
+      {"id": "BT03", "text": "`/Users/ExamplePerson`", "identifiers": [], "expected": ["PRIVATE_USER_PATH"]},
+      {"id": "BT04", "text": "`C:\\Users\\ExamplePerson`", "identifiers": [], "expected": ["PRIVATE_USER_PATH"]}
+    );
+    for (const fixture of cases) {
+      assert.deepStrictEqual(findPrivateSourceRules(fixture.text, fixture.identifiers), fixture.expected, fixture.id);
+    }
+    assert.deepStrictEqual(parsePrivateIdentifiers(), []);
+    assert.deepStrictEqual(parsePrivateIdentifiers('[]'), []);
+    assert.deepStrictEqual(parsePrivateIdentifiers('["example-local-identifier"]'), ['example-local-identifier']);
+    assert.throws(() => parsePrivateIdentifiers('example-local-identifier'), { message: 'Optional local identifiers must be a JSON array of nonempty strings' });
+    const diagnostics = JSON.stringify(findPrivateSourceRules('example-local-identifier appears here', ['example-local-identifier']));
+    assert.ok(!diagnostics.includes('example-local-identifier'));
+    assert.ok(!diagnostics.includes('appears here'));
   });
 });

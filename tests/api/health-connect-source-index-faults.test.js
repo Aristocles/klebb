@@ -174,7 +174,7 @@ test('actual source-index publication own handle is WAL/FULL before BEGIN and pu
 });
 for (const operation of ['sqlite-full', 'sqlite-busy', 'late-frontier-refusal']) {
   test(`actual publisher ${operation} preserves raw ACK and complete prior publication then rebuilds`, async () => {
-    const healthyClock = operation === 'sqlite-busy' ?
+    const healthyClock = operation === 'sqlite-busy' || operation === 'late-frontier-refusal' ?
       require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json') : undefined;
     let clockDirectory;
     let clockEnv;

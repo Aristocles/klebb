@@ -2,7 +2,7 @@
 
 Klebb is maintained by:
 
-- Aristocles <https://github.com/Aristocles>
+- Project maintainers
 
 ## Contributors
 

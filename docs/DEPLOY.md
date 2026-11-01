@@ -11,7 +11,7 @@ server. It covers:
 The approach is intentionally lightweight: Node.js + systemd + nginx.
 No Docker, no build step, no CI dependencies.
 
-For a **public, no-credentials demo deployment** (e.g. `demo.klebb.app`),
+For a **public, no-credentials demo deployment** (e.g. `demo.example.com`),
 see [DEMO.md](DEMO.md).
 
 ---
@@ -32,7 +32,8 @@ see [DEMO.md](DEMO.md).
 
 ```bash
 # Clone the repo wherever you like — it's the running code directory.
-git clone https://github.com/Aristocles/klebb.git /opt/klebb
+# Set KLEBB_REPOSITORY_URL to the repository URL.
+git clone "$KLEBB_REPOSITORY_URL" /opt/klebb
 cd /opt/klebb
 npm install --omit=dev
 ```
@@ -49,7 +50,7 @@ Create `/etc/klebb.env`:
 
 ```ini
 # Paths
-HEALTH_HOME=/home/you/klebb
+HEALTH_HOME=/srv/klebb/data
 
 # Branding
 HEALTH_INSTANCE_NAME=My Health
@@ -68,7 +69,7 @@ HOST=127.0.0.1
 # Timezone (IANA zone; default UTC if unset)
 # Set this to your local zone if you want card dates and log
 # timestamps to match your wall clock.
-# TZ=Australia/Sydney
+# TZ=UTC
 
 # Chat agent — strongly recommended. Klebb is LLM-first: card creation,
 # editing, and most ongoing interaction flows through the chat agent.
@@ -116,7 +117,7 @@ RestartSec=5
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/you/klebb
+ReadWritePaths=/srv/klebb/data
 
 [Install]
 WantedBy=multi-user.target
@@ -270,7 +271,7 @@ verification loop, the privacy boundary, and troubleshooting.
 The webapp is instance-per-user. Each user gets:
 
 - A dedicated system user (e.g. `alice`)
-- Their own `$HEALTH_HOME` (e.g. `/home/alice/health`)
+- Their own `$HEALTH_HOME` (e.g. `/srv/health/<user>`)
 - Their own systemd unit on a unique port
 - Their own subdomain (e.g. `alice.health.example.com`)
 
@@ -450,7 +451,7 @@ SMOKE_URL=https://klebb.example.com/auth/status ./scripts/deploy.sh --instance a
 Before your first deploy, run:
 
 ```bash
-./scripts/verify-install.sh --health-home /home/alice/klebb-data
+./scripts/verify-install.sh --health-home /srv/klebb/data
 ```
 
 It reports on the install state (directory perms, card file shapes,
@@ -460,7 +461,8 @@ means healthy; 1 means issues were found.
 ## 4. Development quickstart
 
 ```bash
-git clone https://github.com/Aristocles/klebb.git
+# Set KLEBB_REPOSITORY_URL to the repository URL.
+git clone "$KLEBB_REPOSITORY_URL"
 cd klebb
 npm install
 export HEALTH_HOME=~/klebb-dev

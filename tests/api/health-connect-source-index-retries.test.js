@@ -113,9 +113,17 @@ function unavailable(response, data) {
 
 test('corrupt reference admission leaves the prior persisted attempt/publication unchanged and does not retry unadmitted work',
   { timeout: 25000 }, async () => {
-    const data = await fixture();
+    const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json').base;
+    const clockEnv = {
+      NODE_OPTIONS: `--require=${JSON.stringify(path.resolve(__dirname,
+        '../helpers/health-connect-fixed-child-clock-preload.cjs'))}`,
+      INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.milliseconds),
+    };
+    const data = await fixture(clockEnv, healthyClock.milliseconds);
     try {
-      const environment = observerEnvironment(data, 'observe');
+      const observationEnv = observerEnvironment(data, 'observe');
+      const environment = { ...clockEnv, ...observationEnv,
+        NODE_OPTIONS: `${clockEnv.NODE_OPTIONS} ${observationEnv.NODE_OPTIONS}` };
       await restart(data, environment);
       await save(data, first(data));
       await current(data, '1');
