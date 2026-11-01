@@ -9,7 +9,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
-- I bind the second-publication reference test to its independent child clock,
+- I bind all five O09 reference tests to their independent child clock,
   retaining exact timestamps, original snapshots and refusal checks. Refs #875.
 
 - I batch large publication-test fixture writes in one transaction, retaining

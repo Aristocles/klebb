@@ -213,9 +213,7 @@ for (const defect of ['missing-latest-reference', 'changed-latest-digest',
   'changed-latest-batch', 'missing-earlier-reference', 'changed-earlier-unqualified-digest']) {
   test(`O09 ${defect} refuses status/rebuild despite an existing complete publication`,
     { timeout: 25000 }, async () => {
-      const healthyClock = defect === 'changed-latest-batch' ||
-        defect === 'missing-earlier-reference' ?
-        require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json').base : undefined;
+      const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json').base;
       const clockEnv = healthyClock === undefined ? undefined : {
         NODE_OPTIONS: `--require=${JSON.stringify(path.resolve(__dirname,
           '../helpers/health-connect-fixed-child-clock-preload.cjs'))}`,
