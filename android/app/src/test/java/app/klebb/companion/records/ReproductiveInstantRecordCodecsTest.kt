@@ -132,8 +132,8 @@ class ReproductiveInstantRecordCodecsTest {
             }.associate { it.name to it.returnType.name }
             assertEquals(name, getters, compiled)
         }
-        val registry = (fixed["expectedRegistry"] as List<*>).toSet() + setOf("NutritionRecord", "SkinTemperatureRecord", "SleepSessionRecord", "ExerciseSessionRecord")
-        assertEquals(41, registry.size)
+        val registry = (fixed["expectedRegistry"] as List<*>).toSet() + setOf("NutritionRecord", "SkinTemperatureRecord", "SleepSessionRecord", "ExerciseSessionRecord", "PlannedExerciseSessionRecord")
+        assertEquals(42, registry.size)
         assertEquals(registry, RecordCodecs.supportedRecordTypes)
         assertThrows(UnsupportedOperationException::class.java) {
             (RecordCodecs.supportedRecordTypes as MutableSet<String>).add("FutureRecord")

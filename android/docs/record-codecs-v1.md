@@ -10,7 +10,7 @@ protocol's payload digest then hashes the complete original UTF-8
 `payloadJson`, not this record alone. Existing record or payload JSON is
 never passed back through this encoder for reserialization.
 
-Forty record types are implemented: `StepsRecord`, `WeightRecord`,
+Forty-two record types are declared in the mapper registry: `StepsRecord`, `WeightRecord`,
 `BodyFatRecord`, `BodyWaterMassRecord`, `BoneMassRecord`, `LeanBodyMassRecord`,
 `HeightRecord`, `HeartRateVariabilityRmssdRecord`, `RespiratoryRateRecord`,
 `RestingHeartRateRecord`, `BasalMetabolicRateRecord`, `BasalBodyTemperatureRecord`,
@@ -22,7 +22,8 @@ Forty record types are implemented: `StepsRecord`, `WeightRecord`,
 `WheelchairPushesRecord`, `MenstruationPeriodRecord`, `MindfulnessSessionRecord`,
 `ActivityIntensityRecord`, `CervicalMucusRecord`, `IntermenstrualBleedingRecord`,
 `MenstruationFlowRecord`, `OvulationTestRecord`, `SexualActivityRecord`,
-`NutritionRecord`, `SkinTemperatureRecord` and `SleepSessionRecord`.
+`NutritionRecord`, `SkinTemperatureRecord`, `SleepSessionRecord`,
+`ExerciseSessionRecord` and `PlannedExerciseSessionRecord`.
 The immutable `supportedRecordTypes` registry
 has exactly those entries and has no
 card subscription input. Other classes throw `RecordCodecException` with
@@ -355,10 +356,37 @@ JVM tests exercise their older-platform branch and do not prove native
 Android 17 provider availability. Such availability and signed device
 checks remain separate evidence.
 
-These slices establish pure serialization for forty ordinary types.
-ExerciseSessionRecord and PlannedExerciseSessionRecord remain required ordinary adapters. Complete-page
-and checkpoint transactions, the encrypted Room queue, chunking, process
-death, migrations, purges and signed native update checks remain AND-03
-gates; parent #755 stays open. This code reads no Health Connect history,
+The explicit registry now declares 42 ordinary adapters, including ExerciseSessionRecord
+and PlannedExerciseSessionRecord. The previous 41 golden strings remain unchanged.
+This declaration describes mapper support, not 42 observed native types or provider
+availability. Complete-page and checkpoint transactions, the encrypted Room queue,
+chunking, process death, migrations, purges and signed native update checks remain
+AND-03 gates; parent #755 stays open. This code reads no Health Connect history,
 stages no batch and sends no data. Series encoding does not truncate lists
 to satisfy a wire limit or implement record chunking.
+
+Planned sessions preserve all eleven session fields, complete metadata, nanosecond
+times, independently nullable offsets, explicit-time Boolean, opaque numeric values
+and ordered blocks, steps and targets. All nine goals and eight targets retain the
+existing unit observations and exact Duration seconds/nanoseconds. An unfamiliar
+exposed integer remains intact; an unsupported future goal or target refuses the
+whole record with unsupported-value and returns no partial JSON. Encoding copies
+current values eagerly, so later caller-list changes do not alter returned output.
+
+The controlled native positive profile is O1/O2/O3/N4/O5/O6: 492 independently fixed
+getter paths, with all six complete wire strings checked. Original O4 contains
+duplicate target types and is rejected by the tested native constructor. Its
+original fixture and refusal are retained separately. Native-valid N4 uses Power,
+Weight and RPE targets, with 148 getters, ten changed expected entries and a
+separate 4,202-byte wire. This is not unchanged original O1-O6 native success.
+
+The future-goal and future-target tests first establish the same healthy O1,
+all 138 getters, the 3,962-byte wire and the three retained public caller lists.
+Each then verifies its fixed 133-path mutated state before whole-record refusal.
+Direct constructor refusal remains distinct from this caller-list boundary; no
+raw 266-value negative dump was observed. The tenth controlled method verifies
+the unchanged returned wire after clearing each caller-owned list on fresh O1
+and N4 records. These observations do not establish a provider read, permission,
+FEATURE_PLANNED_EXERCISE availability or capture readiness. Final Android, Node,
+browser, CI and review/merge checks remain separate. CORE-06.R0 remains required
+before personal-history capture; HAE remains deferred.

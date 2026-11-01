@@ -159,14 +159,14 @@ class CategorySetupTest {
 
     @Test
     fun SETUP09_registryUsesActualMapperClassesWithoutNativeCoverageClaims() {
-        assertEquals(41, CategorySetup.registry.size)
+        assertEquals(42, CategorySetup.registry.size)
         assertEquals(RecordCodecs.supportedRecordTypes, CategorySetup.registry.keys)
         assertEquals(WeightRecord::class, CategorySetup.registry.getValue(weight).recordType)
         for ((name, adapter) in CategorySetup.registry) {
             assertEquals(name, adapter.recordType.simpleName)
             assertEquals(HealthPermission.getReadPermission(adapter.recordType), adapter.readPermission)
         }
-        assertFalse(CategorySetup.registry.containsKey("PlannedExerciseSessionRecord"))
+        assertTrue(CategorySetup.registry.containsKey("PlannedExerciseSessionRecord"))
         val skin = CategorySetup.states(emptySet(), null).getValue("SkinTemperatureRecord")
         assertEquals(CategoryAvailability.UNKNOWN, skin.available)
         assertEquals(CategoryTruth.UNKNOWN, skin.observed)
@@ -175,7 +175,7 @@ class CategorySetupTest {
     @Test
     fun SETUP10_unsupportedSelectionsAreExplicitlyRefused() {
         for (unsupported in listOf(
-            "PlannedExerciseSessionRecord", "ExerciseRoute", "MedicalResource", "NotARecord"
+            "ExerciseRoute", "MedicalResource", "NotARecord"
         )) {
             assertThrows(IllegalArgumentException::class.java) {
                 CategorySetup.requestedReadPermissions(setOf(unsupported))

@@ -1,6 +1,6 @@
 tl;dr: I added an ordinary category setup contract that keeps selection, permission, availability, observation, saving and display separate. I have not connected it to the setup UI or enabled collection.
 
-`CategorySetup.registry` derives its types from `RecordCodecs.supportedRecordTypes` and resolves each concrete SDK class through `HealthPermission.getReadPermission`. It describes mapper support, not native availability. Skin Temperature remains unknown without evidence; Planned Exercise, routes and medical resources are excluded from this ordinary registry.
+`CategorySetup.registry` derives its types from `RecordCodecs.supportedRecordTypes` and resolves each concrete SDK class through `HealthPermission.getReadPermission`. It describes mapper support, not native availability. Skin Temperature and Planned Exercise availability remain unknown without evidence. Planned Exercise is included only as a declared mapper type; routes and medical resources remain outside this ordinary registry. No category is selected or granted permission by registry membership.
 
 The upcoming setup screen can persist selected registry names and pass them to `requestedReadPermissions`. That API requests only selected ordinary read permissions and deduplicates permissions shared by several categories. Producer writes, background access and extended history remain separate. The existing controlled Steps/Weight feasibility screen and `ProofPolicy` are unchanged.
 

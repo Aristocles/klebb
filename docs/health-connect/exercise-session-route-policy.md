@@ -2,7 +2,7 @@ tl;dr: Exercise sessions preserve their complete SDK data. Route payloads requir
 
 # Exercise session serialization
 
-`RecordCodecs` includes `ExerciseSessionRecord` in its immutable 41-type registry. The previous 40 encodings and their golden JSON stay unchanged. `PlannedExerciseSessionRecord` remains unsupported; a planned-session ID on an Exercise record is preserved as an opaque value.
+`RecordCodecs` includes `ExerciseSessionRecord` and `PlannedExerciseSessionRecord` in its immutable 42-type registry. The previous 41 encodings and their golden JSON stay unchanged. A planned-session ID on an Exercise record remains an opaque value. Registry membership does not establish provider availability or route authority; see the [planned-session constructor and codec limits](../../android/docs/record-codecs-v1.md).
 
 The codec preserves complete metadata, nanosecond intervals and offsets, nullable title and notes, ordered segments and laps, numeric exercise and segment values, optional public unit observations, and the shortest exact Float32 exertion representation. It copies nested lists eagerly, so later mutation of caller-owned segment, lap or route lists does not change earlier encodings. It preserves order and repeated values without sorting, deduplication or filling gaps.
 
