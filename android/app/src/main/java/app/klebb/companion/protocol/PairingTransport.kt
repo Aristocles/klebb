@@ -87,6 +87,7 @@ class PairingTransport internal constructor(
     private val open: (URL) -> HttpsURLConnection
 ) {
     constructor(origin: ApprovedOrigin) : this(origin, { it.openConnection() as HttpsURLConnection })
+    val destination: String get() = origin.text
     private class Request(val connection: HttpsURLConnection) {
         val cancelled = AtomicBoolean()
         val expired = AtomicBoolean()

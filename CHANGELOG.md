@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I added local Weight scope facts and bound upload receipts to their exact batches,
+  guarding stale permission checks and replacement pairing custody. Policy
+  admission and complete recovery remain separate. Refs #856.
+
 - I bind all five O09 reference tests to their independent child clock,
   retaining exact timestamps, original snapshots and refusal checks. Refs #875.
 
