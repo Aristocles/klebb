@@ -164,3 +164,61 @@ value, a `null`, or an absent value counts `0`.
 tree. A tree that was restored from an export and later re-exported would
 otherwise carry the old manifest along as data, nesting a stale inventory
 inside the new tree. The export skips any such file and logs a warning.
+
+
+## Partial ordinary-history byte component
+
+The internal ordinary-history encoder and decoder preserve the five families
+`catalog`, `records`, `sourcePolicies`, `tombstones` and `suppressions`.
+The partial proposed entry names are
+`data/health-connect/ordinary-history.json` and
+`data/health-connect/ordinary-history-footer.json`. This component does not
+write an archive manifest or activate a complete format or importer.
+
+The payload is compact UTF-8 JSON with those root families in that order.
+Nested object property order and complete `recordJson` strings are preserved;
+explicit null values, including a scope-less tombstone type, remain null.
+The footer is compact JSON with `version`, `counts` and `sha256`, in that order.
+Its five count keys are `sources`, `records`, `sourcePolicies`, `tombstones`
+and `suppressions`. The digest covers the original payload bytes exactly.
+
+Each buffer is bounded to the existing 16 MiB limit before copying or parsing.
+The decoder owns a copy, rejects invalid UTF-8, hashes the original bytes
+before payload parsing, and verifies compact canonical encoding separately.
+It reuses the existing family and footer validators. The encoder also retains
+the existing 1 MiB record limit and family-count bounds. These limits do not
+establish realistic-history scale or streaming-memory evidence.
+
+The pure helpers return bytes or values and confer no approval, database,
+deletion, replay, restore or boot authority. The existing `preparePublication`
+constructor authenticates its owner first, accepts a payload/footer Buffer
+pair through this decoder, and retains those exact strings in its existing
+private capability. Its original object input remains supported.
+
+Legacy native-history export refusal and format version 1 remain unchanged.
+SQL extraction and apply, active policy/control mapping, epochs, boot recovery
+and the fresh-instance round trip remain pending. Preserving a null control
+in this byte profile does not assign it an active typed deletion meaning.
+Refs #850 and #762.
+
+
+## Owner-bound initial SQL byte output
+
+The existing recovery reader accepts `initialOrdinaryBytes: true` only with
+a genuine `initialPreparedToken` for the current owner and selected database.
+It returns `{publication, inputBytes, footerBytes}`; other option values retain
+the existing authority result. Missing or copied tokens, foreign current
+owners and alternate databases are refused before the selected database read.
+
+The mode uses one bounded read-only SQL snapshot. Output record strings and
+identity fields come from SQL rows; catalog and control values come from stored
+family metadata, and footer bytes come from the stored footer. Trusted original
+input supplies field order only. Its original checksum verification remains
+separate; a reconstructed output checksum does not certify the producer input.
+Returned buffers are fresh copies. Changed initial data is refused, while the
+default reader continues to accept legitimate later corrections and deletions.
+
+This initial component does not provide complete archive extraction, active
+policy or deletion mapping, apply, epochs, boot recovery or capture readiness.
+Legacy native export refusal and the existing archive format remain unchanged.
+Refs #851 and #762.

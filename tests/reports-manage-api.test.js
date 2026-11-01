@@ -106,6 +106,7 @@ describe('GET /api/reports envelope', () => {
     seedHandAuthored(sandbox, 'genome-notes');
     // Internal files must stay excluded.
     fs.writeFileSync(path.join(sandbox, 'reports', 'PROFILE.md'), '# Profile\n');
+    fs.writeFileSync(path.join(sandbox, 'reports', 'EXAMPLE_SYSTEM_PROMPT_FOR_TEST.md'), '# Invented internal prompt fixture\n');
     // Failed, with a reason.
     fs.writeFileSync(path.join(sandbox, 'inbox', '_failed', 'broken.pdf'), 'x');
     fs.writeFileSync(path.join(sandbox, 'inbox', '_failed', 'broken.pdf.error'),
@@ -162,6 +163,8 @@ describe('GET /api/reports envelope', () => {
   test('internal files stay excluded', async () => {
     const r = await request(server.baseUrl, '/api/reports', { cookie: auth.cookie });
     assert.ok(!r.json.reports.some(x => x.name === 'PROFILE'), 'PROFILE.md leaked into the list');
+    assert.ok(!r.json.reports.some(x => x.name === 'EXAMPLE_SYSTEM_PROMPT_FOR_TEST'), 'internal prompt fixture leaked into the list');
+    assert.ok(r.json.reports.some(x => x.name === 'genome-notes'), 'ordinary hand-authored report missing');
   });
 
   test('reports are newest-first by document date', async () => {

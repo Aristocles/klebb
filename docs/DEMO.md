@@ -1,7 +1,7 @@
 # DEMO.md: running a public Klebb demo
 
 This document covers standing up a public, no-credentials demo of
-Klebb (e.g. `demo.klebb.app`) using the official Docker image.
+Klebb (e.g. `demo.example.com`) using the official Docker image.
 
 A demo instance behaves differently from a normal Klebb deployment:
 
@@ -29,12 +29,15 @@ so the reset cron can't accidentally fire against a real instance.
 
 ## 1. Compose file
 
+Set `KLEBB_IMAGE_OWNER` to the image namespace and `KLEBB_REPOSITORY` to the
+repository name (`owner/repository`) used by the examples below.
+
 Create `/opt/klebb-demo/compose.yml`:
 
 ```yaml
 services:
   klebb-demo:
-    image: ghcr.io/aristocles/klebb:2.1.2
+    image: ghcr.io/${KLEBB_IMAGE_OWNER}/klebb:2.1.2
     container_name: klebb-demo
     restart: unless-stopped
     ports:
@@ -56,9 +59,9 @@ Create `/opt/klebb-demo/.env` (mode 600):
 ```ini
 KLEBB_DEMO=1
 SESSION_SECRET=<long random hex string>
-HEALTH_RP_ID=demo.klebb.app
+HEALTH_RP_ID=demo.example.com
 HEALTH_RP_NAME=Klebb demo
-HEALTH_ORIGIN=https://demo.klebb.app
+HEALTH_ORIGIN=https://demo.example.com
 ```
 
 Generate a fresh `SESSION_SECRET` with `openssl rand -hex 32`.
@@ -68,20 +71,20 @@ so you don't need to set those.
 
 ## 3. nginx vhost
 
-Create `/etc/nginx/sites-available/demo.klebb.app` (assumes you
+Create `/etc/nginx/sites-available/demo.example.com` (assumes you
 already have a TLS cert covering the demo hostname; if not, run
-`certbot --nginx --expand -d demo.klebb.app -d <other names>` first):
+`certbot --nginx --expand -d demo.example.com -d <other names>` first):
 
 ```nginx
 server {
     listen 80;
-    server_name demo.klebb.app;
+    server_name demo.example.com;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name demo.klebb.app;
+    server_name demo.example.com;
 
     ssl_certificate /etc/letsencrypt/live/<cert-name>/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/<cert-name>/privkey.pem;
@@ -101,8 +104,8 @@ server {
 ```
 
 ```bash
-ln -s /etc/nginx/sites-available/demo.klebb.app \
-      /etc/nginx/sites-enabled/demo.klebb.app
+ln -s /etc/nginx/sites-available/demo.example.com \
+      /etc/nginx/sites-enabled/demo.example.com
 nginx -t && systemctl reload nginx
 ```
 
@@ -117,7 +120,7 @@ docker compose logs --tail=50
 
 The first boot will create `./data/` (owned by the in-container
 `klebb` user, uid 1001) and seed an empty welcome card. Visit
-`https://demo.klebb.app/` and click "Enter the demo" to confirm.
+`https://demo.example.com/` and click "Enter the demo" to confirm.
 
 ## 5. Seed the demo dataset
 
@@ -126,7 +129,7 @@ so you can seed straight from inside the running container:
 
 ```bash
 docker exec --user root \
-  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=Australia/Sydney \
+  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=UTC \
   klebb-demo node /app/scripts/reset-demo.js
 ```
 
@@ -145,8 +148,8 @@ then start it again:
 ```bash
 docker stop klebb-demo
 docker run --rm --volumes-from klebb-demo \
-  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=Australia/Sydney \
-  ghcr.io/aristocles/klebb:main node /app/scripts/reset-demo.js --wipe-db
+  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=UTC \
+  ghcr.io/${KLEBB_IMAGE_OWNER}/klebb:main node /app/scripts/reset-demo.js --wipe-db
 docker start klebb-demo
 ```
 
@@ -158,8 +161,7 @@ them, so the next boot would come up empty.
 container's local calendar date. The image has no `TZ` baked in, so
 without one set here it defaults to UTC. Pin it to whatever timezone
 matches the demo's intended audience so visitors always see entries
-on today's date; for the operator's `demo.klebb.app` that's
-`Australia/Sydney`. Pick your own if forking.
+on today's date; select the timezone appropriate for your demo.
 
 Verify the dashboard now shows the curated cards plus the Reports
 page entries.
@@ -179,8 +181,8 @@ fi
 
 docker stop klebb-demo
 docker run --rm --volumes-from klebb-demo \
-  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=Australia/Sydney \
-  ghcr.io/aristocles/klebb:main node /app/scripts/reset-demo.js --wipe-db
+  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=UTC \
+  ghcr.io/${KLEBB_IMAGE_OWNER}/klebb:main node /app/scripts/reset-demo.js --wipe-db
 docker start klebb-demo
 ```
 
@@ -208,32 +210,31 @@ The cron fires at the top of every hour. Watch
 ## 7. Updating to a new release
 
 If `compose.yml` pins to a moving tag like `:main` (the default for
-`demo.klebb.app`), every push to the project's `main` branch is
-already auto-deployed by the `Deploy demo.klebb.app` GitHub Actions
-workflow. There is nothing to do.
+`demo.example.com`), every push to the project's `main` branch is
+already auto-deployed by the deployment workflow. There is nothing to do.
 
 If `compose.yml` pins to a fixed version (e.g. `:2.1.2`), bump the
 tag and redeploy by hand:
 
 ```bash
 cd /opt/klebb-demo
-# Edit compose.yml to ghcr.io/aristocles/klebb:<new-tag>
+# Edit compose.yml to ghcr.io/${KLEBB_IMAGE_OWNER}/klebb:<new-tag>
 docker compose pull
 docker compose up -d
 # Re-seed; new fixtures may have landed
 docker exec --user root \
-  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=Australia/Sydney \
+  -e KLEBB_DEMO=1 -e HEALTH_HOME=/data -e TZ=UTC \
   klebb-demo node /app/scripts/reset-demo.js
 ```
 
 Image tag must match the compose file. `latest` is also published but
 explicit version pinning is recommended for visibility.
 
-### How the auto-deploy works (for `demo.klebb.app` only)
+### How the auto-deploy works (for `demo.example.com` only)
 
 1. PR merges to `main`.
 2. `.github/workflows/publish.yml` builds and pushes
-   `ghcr.io/aristocles/klebb:main` (and `:sha-<short>`).
+   `ghcr.io/${KLEBB_IMAGE_OWNER}/klebb:main` (and `:sha-<short>`).
 3. `.github/workflows/deploy-demo.yml` fires on completion of (2),
    SSHes to the demo host, and the host's forced-command runs
    `/usr/local/bin/klebb-demo-deploy`.
@@ -256,7 +257,7 @@ ssh -i "$DEPLOY_SSH_KEY_FILE" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" \
    echo 'command=\"/usr/local/bin/klebb-demo-deploy\",restrict $(cat /tmp/klebb_demo_deploy_new.pub)' >> ~/.ssh/authorized_keys"
 
 # Update the GitHub secret
-gh secret set DEMO_SSH_KEY --body "$(cat /tmp/klebb_demo_deploy_new)" --repo Aristocles/klebb
+gh secret set DEMO_SSH_KEY --body "$(cat /tmp/klebb_demo_deploy_new)" --repo "$KLEBB_REPOSITORY"
 ```
 
 A full forensic of the auto-deploy lives in `/var/log/syslog` (sshd
@@ -269,7 +270,7 @@ workflow will fail noisily.
 | Symptom | First check |
 |---|---|
 | `docker compose pull` returns "unauthorized" | The GHCR package may be private. Flip it to public at `https://github.com/users/<owner>/packages/container/klebb/settings`. The image is meant to be anonymously pullable. |
-| `docker compose pull` returns "tag not found" | Confirm the tag exists at `https://github.com/Aristocles/klebb/pkgs/container/klebb`. Remember the publish workflow strips the `v` prefix: git tag `v2.1.2` → image tag `2.1.2`. |
+| `docker compose pull` returns "tag not found" | Confirm the tag exists on the repository's container package page. Remember the publish workflow strips the `v` prefix: git tag `v2.1.2` → image tag `2.1.2`. |
 | Reset script: "Cannot find module" | The image is older than 2.1.2 and doesn't carry `demo/` or `scripts/reset-demo.js`. Pull a newer tag. |
 | Reset script: "refuses to run without KLEBB_DEMO=1" | The cron is wired correctly; the `.env` for the running container does not have `KLEBB_DEMO=1`. Add it and `docker compose up -d` to recreate. |
 | Visitors see the passkey prompt instead of "Enter the demo" | `KLEBB_DEMO=1` not set in the environment of the running container. Confirm with `docker inspect klebb-demo \| grep -i klebb_demo`. |

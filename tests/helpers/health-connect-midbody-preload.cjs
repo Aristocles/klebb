@@ -12,12 +12,14 @@ assert.ok(home.startsWith(path.resolve(os.tmpdir()) + path.sep) &&
 const latch = path.resolve(process.env.INDEPENDENT_MID_BODY_LATCH || '');
 assert.equal(path.dirname(latch), home);
 const mode = process.env.INDEPENDENT_MID_BODY_ACTION;
-assert.ok(['observe', 'freeze'].includes(mode));
+assert.ok(['observe', 'freeze', 'admission-observe'].includes(mode));
 const originalEmit = http.Server.prototype.emit;
 http.Server.prototype.emit = function (event, ...args) {
   const message = args[0];
   if (event === 'request' && message.method === 'POST' &&
-      message.url === '/api/connectors/health-connect/v1/batches') {
+      (mode === 'admission-observe' ?
+      ['/api/connectors/health-connect/pairing-grants', '/api/connectors/health-connect/v1/pairing/exchange']
+        .includes(message.url) : message.url === '/api/connectors/health-connect/v1/batches')) {
     const original = message[Symbol.asyncIterator].bind(message);
     message[Symbol.asyncIterator] = async function* () {
       let first = true;
@@ -29,7 +31,9 @@ http.Server.prototype.emit = function (event, ...args) {
               .engage('synthetic-midbody-review');
           }
           fs.writeFileSync(latch, JSON.stringify({
-            phase: 'batch-iterator-consumed-first-chunk-before-request-end',
+            phase: mode === 'admission-observe' ?
+              'admission-iterator-consumed-first-chunk-before-request-end' :
+              'batch-iterator-consumed-first-chunk-before-request-end',
             bytes: chunk.length,
             action: mode,
           }), { encoding: 'utf8', mode: 0o600 });

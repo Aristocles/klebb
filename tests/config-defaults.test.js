@@ -8,6 +8,8 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
+const { findPrivateSourceRules, parsePrivateIdentifiers } = require('../lib/private-source-rules');
+const LOCAL_IDENTIFIERS = parsePrivateIdentifiers(process.env.KLEBB_PRIVATE_IDENTIFIERS || '');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const CONFIG_DIR = path.resolve(REPO_ROOT, 'config') + path.sep;
@@ -153,7 +155,7 @@ describe('config/env.js defaults', () => {
     assert.equal(env.TZ, 'UTC');
   });
 
-  test('no default value references "Axis", "Eddy", "Onyx", or "Chuck"', () => {
+  test('public-facing defaults contain no private paths, tokens or configured identifiers', () => {
     const env = freshEnv();
     const serialised = JSON.stringify({
       CHAT_AGENT_NAME: env.CHAT_AGENT_NAME,
@@ -165,25 +167,15 @@ describe('config/env.js defaults', () => {
       CHAT_ENDPOINT_URL: env.CHAT_ENDPOINT_URL,
       HEALTH_SYSTEM_PROMPT: env.HEALTH_SYSTEM_PROMPT,
     });
-    for (const name of ['Axis', 'Eddy', 'Onyx', 'Chuck']) {
-      // Word-boundary match: "Axis" matches but "Oasis" doesn't.
-      const re = new RegExp(`\\b${name}\\b`);
-      assert.ok(
-        !re.test(serialised),
-        `Default values contain forbidden identifier "${name}"`
-      );
-    }
+    assert.deepStrictEqual(findPrivateSourceRules(serialised, LOCAL_IDENTIFIERS), [],
+      'Public-facing defaults contain a private path, token or configured identifier');
   });
 
-  test('no default path references /home/minecraft or /mnt/nas or ~/axis', () => {
+  test('default paths contain no private user locations', () => {
     const env = freshEnv();
-    const serialised = JSON.stringify(env);
-    for (const forbidden of ['/home/minecraft', '/mnt/nas', '~/axis', '/opt/onyx']) {
-      assert.ok(
-        !serialised.includes(forbidden),
-        `Defaults contain forbidden path "${forbidden}"`
-      );
-    }
+    const rules = findPrivateSourceRules(JSON.stringify(env));
+    assert.deepStrictEqual(rules.filter(rule => rule === 'PRIVATE_USER_PATH'), [],
+      'Defaults contain a private user path');
   });
 
   test('system prompt falls back to built-in default when HEALTH_SYSTEM_PROMPT unset', () => {

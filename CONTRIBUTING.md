@@ -7,7 +7,8 @@ conventions we follow, and how to propose changes.
 ## Quick start
 
 ```bash
-git clone https://github.com/Aristocles/klebb.git
+# Set KLEBB_REPOSITORY_URL to the repository URL.
+git clone "$KLEBB_REPOSITORY_URL"
 cd klebb
 npm ci
 
@@ -27,7 +28,7 @@ npm test           # unit + API integration (~15s)
 npm run test:e2e   # end-to-end (Playwright, headless, ~10s)
 ```
 
-All tests should pass on Node 20 and Node 22. CI enforces both.
+All tests should pass on Node 22 and Node 24. CI enforces both.
 
 ## Project layout
 
@@ -140,6 +141,6 @@ No new test dependencies without a PR justification — stdlib
 ## Reporting bugs or asking for features
 
 Use the issue templates at
-<https://github.com/Aristocles/klebb/issues/new/choose>.
+[the issue chooser](../../issues/new/choose).
 
 For security issues, see [`SECURITY.md`](SECURITY.md).

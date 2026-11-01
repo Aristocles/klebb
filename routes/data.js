@@ -37,6 +37,25 @@ const crypto = require('crypto');
 const ENV = require('../config/env');
 const PATHS = require('../config/paths');
 const { originAllowed } = require('../lib/origin-check');
+const { getSessionRecord } = require('../auth/webauthn');
+const { isHealthConnectorBearer } = require('../auth/bearer-scope');
+const { OwnerApprovalError } = require('../lib/import/owner-approval');
+function importActor(req) {
+  if (isHealthConnectorBearer(req)) throw new OwnerApprovalError(401, 'IMPORT_OWNER_REQUIRED');
+  const ownerId = getSessionRecord(req)?.userId;
+  if (typeof ownerId !== 'string' || !ownerId.length) throw new OwnerApprovalError(401, 'IMPORT_OWNER_REQUIRED');
+  return Object.freeze({ ownerId, check() {
+    const current = getSessionRecord(req)?.userId;
+    if (typeof current !== 'string' || !current.length) throw new OwnerApprovalError(401, 'IMPORT_OWNER_REQUIRED');
+    if (current !== ownerId) throw new OwnerApprovalError(403, 'IMPORT_OWNER_MISMATCH');
+    return current;
+  } });
+}
+function ownerRefusal(res, result) {
+  if (!['IMPORT_OWNER_REQUIRED', 'IMPORT_OWNER_MISMATCH', 'IMPORT_APPROVAL_REQUIRED'].includes(result?.code)) return false;
+  send(res, result.status, result);
+  return true;
+}
 const { openZip } = require('../lib/zip/read');
 const { writeZip } = require('../lib/zip/write');
 const { exportTo } = require('../scripts/export-embed');
@@ -126,7 +145,7 @@ async function handleExport(req, res) {
   _exportInFlight = true;
 
   // A crash mid-export (the process, not this handler) leaves staging
-  // behind that no finally can reach (#655 leaked 86MB). Age-gated because
+  // behind that no finally can reach (#655). Age-gated because
   // this process is not the only stager: the hosting control plane writes
   // its own export-staging.* into this HEALTH_HOME for a couple of minutes
   // per portal export, and sweeping a live one hands the customer an empty
@@ -269,7 +288,7 @@ function handleUpload(req, res) {
   return true;
 }
 
-async function handleStart(req, res) {
+async function handleStart(req, res, ownerOptions) {
   // Job-active first, so a refused second start never consumes the staged
   // upload the running job's owner may still need.
   const active = jobActive();
@@ -304,7 +323,8 @@ async function handleStart(req, res) {
   }
   fs.rmSync(zipPath, { force: true });
 
-  const started = await wizard().startFromTree(staging);
+  const started = await wizard().startFromTree(staging, ownerOptions);
+  if (ownerRefusal(res, started)) return true;
   if (started.code === 'JOB_ACTIVE') {
     // Lost the (in-process) race with another start: the tree just staged
     // belongs to no job, so it must not linger.
@@ -314,11 +334,13 @@ async function handleStart(req, res) {
   }
   // status(), not the startFromTree return: only status() carries the
   // once-only confirmNonce, and the starter is the caller who must hold it.
-  send(res, 200, wizard().status());
+  const status = wizard().status(ownerOptions);
+  if (ownerRefusal(res, status)) return true;
+  send(res, 200, status);
   return true;
 }
 
-async function handleScanTree(req, res) {
+async function handleScanTree(req, res, ownerOptions) {
   const treeDir = path.join(PATHS.IMPORT_DIR, 'tree');
   let st = null;
   try { st = fs.statSync(treeDir); } catch {}
@@ -326,16 +348,19 @@ async function handleScanTree(req, res) {
     send(res, 404, { error: `no extracted tree at ${treeDir}` });
     return true;
   }
-  const started = await wizard().startFromTree(treeDir);
+  const started = await wizard().startFromTree(treeDir, ownerOptions);
+  if (ownerRefusal(res, started)) return true;
   if (started.code === 'JOB_ACTIVE') {
     send(res, 409, started);
     return true;
   }
-  send(res, 200, wizard().status());
+  const status = wizard().status(ownerOptions);
+  if (ownerRefusal(res, status)) return true;
+  send(res, 200, status);
   return true;
 }
 
-async function handleApply(req, res) {
+async function handleApply(req, res, ownerOptions) {
   let body;
   try { body = await readBody(req); }
   catch { send(res, 400, { error: 'invalid JSON body' }); return true; }
@@ -344,7 +369,8 @@ async function handleApply(req, res) {
   // The wizard has already persisted 'applying' and engaged the freeze by
   // the time confirmAndApply returns, so nothing can slip in between this
   // response and the gate.
-  const result = wizard().confirmAndApply({ nonce: body.nonce, selection: body.selection });
+  const result = wizard().confirmAndApply({ nonce: body.nonce, selection: body.selection, ...(ownerOptions || {}) });
+  if (ownerRefusal(res, result)) return true;
   if (result.code === 'CONFIRM_REQUIRED') { send(res, 428, result); return true; }
   if (result.code === 'BAD_STATE') { send(res, 409, result); return true; }
   // A selection the archive cannot satisfy is the caller's mistake, and it is
@@ -358,22 +384,24 @@ async function handleApply(req, res) {
   return true;
 }
 
-function handleRollback(req, res) {
-  const result = wizard().rollback();
+function handleRollback(req, res, ownerOptions) {
+  const result = wizard().rollback(ownerOptions);
+  if (ownerRefusal(res, result)) return true;
   if (result.code === 'NO_SNAPSHOT') { send(res, 404, result); return true; }
   if (result.code === 'BAD_STATE') { send(res, 409, result); return true; }
   send(res, 202, result);
   return true;
 }
 
-function handleAbort(req, res) {
-  const result = wizard().abort();
+function handleAbort(req, res, ownerOptions) {
+  const result = wizard().abort(ownerOptions);
+  if (ownerRefusal(res, result)) return true;
   if (result.code === 'BAD_STATE') { send(res, 409, result); return true; }
   send(res, 200, result);
   return true;
 }
 
-async function handle(req, res, parts) {
+async function handle(req, res, parts, options = {}) {
   // GET /api/export
   if (parts[0] === 'export' && parts.length === 1 && req.method === 'GET') {
     return handleExport(req, res);
@@ -386,9 +414,21 @@ async function handle(req, res, parts) {
     return true;
   }
 
+  let ownerOptions;
+  if (options.ownerBound === true) {
+    try { ownerOptions = { importActor: importActor(req) }; }
+    catch (error) {
+      if (!(error instanceof OwnerApprovalError)) throw error;
+      send(res, error.status, { error: error.code, code: error.code, status: error.status });
+      req.resume();
+      return true;
+    }
+  }
   // GET /api/import/status
   if (parts[1] === 'status' && parts.length === 2 && req.method === 'GET') {
-    send(res, 200, wizard().status());
+    const status = wizard().status(ownerOptions);
+    if (ownerRefusal(res, status)) return true;
+    send(res, 200, status);
     return true;
   }
 
@@ -400,11 +440,11 @@ async function handle(req, res, parts) {
   }
 
   if (parts[1] === 'upload') return handleUpload(req, res);
-  if (parts[1] === 'start') return handleStart(req, res);
-  if (parts[1] === 'scan-tree') return handleScanTree(req, res);
-  if (parts[1] === 'apply') return handleApply(req, res);
-  if (parts[1] === 'rollback') return handleRollback(req, res);
-  if (parts[1] === 'abort') return handleAbort(req, res);
+  if (parts[1] === 'start') return handleStart(req, res, ownerOptions);
+  if (parts[1] === 'scan-tree') return handleScanTree(req, res, ownerOptions);
+  if (parts[1] === 'apply') return handleApply(req, res, ownerOptions);
+  if (parts[1] === 'rollback') return handleRollback(req, res, ownerOptions);
+  if (parts[1] === 'abort') return handleAbort(req, res, ownerOptions);
   return false;
 }
 

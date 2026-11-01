@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // tests/agent-api.test.js
 // Bearer-token (AGENT_API_TOKEN) auth path. This is how external agents
-// (Onyx, HAE webhooks, cron jobs, etc.) talk to Klebb without a WebAuthn
+// (external clients, HAE webhooks, cron jobs, etc.) talk to Klebb without a WebAuthn
 // session. Covers:
 //   - Valid token → authorised
 //   - Wrong / missing token → 401
@@ -213,7 +213,7 @@ describe('bearer-token agent API', () => {
     });
 
     test('bearer can write to a card with meta.enabled: false', async () => {
-      // Per the Onyx integration contract (§10): disabled cards still
+      // The bearer-token integration contract permits disabled cards to still
       // accept writes. Agents may want to log quietly while the card is
       // off the dashboard.
       const res = await req(server.baseUrl, '/api/manifests/weight/data', {

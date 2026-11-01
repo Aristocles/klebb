@@ -22,7 +22,7 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 // added manually (no globbing) so each new exposure is a deliberate
 // choice.
 //
-// `.claude/`, BRIEF-FOR-CC.md, CLAUDE.md, data/, credentials/,
+// Private operator notes, data/, credentials/,
 // sessions/, .env, anything under server.js / chat/ / manifests/ etc.
 // are NOT listed and cannot be read through this tool, by design.
 const DOC_INDEX = [

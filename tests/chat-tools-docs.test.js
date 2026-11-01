@@ -104,11 +104,11 @@ describe('chat/docs.readDoc: rejection path', () => {
     assert.match(res.error, /unknown doc/);
   });
 
-  test('rejects gitignored hygiene-risk files even if they exist', () => {
-    // CLAUDE.md and BRIEF-FOR-CC.md are gitignored operator-only files;
+  test('rejects private operator files outside the allowlist', () => {
+    // Private operator notes are excluded from this tool's allowlist;
     // they must not be reachable through this tool.
-    const a = readDoc('CLAUDE.md');
-    const b = readDoc('BRIEF-FOR-CC.md');
+    const a = readDoc('PRIVATE-OPERATOR-NOTES.md');
+    const b = readDoc('PRIVATE-OPERATOR-BRIEF.md');
     assert.match(a.error, /unknown doc/);
     assert.match(b.error, /unknown doc/);
   });
