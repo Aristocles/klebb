@@ -20,6 +20,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I added typed ordinary readers for all 42 registered Health Connect record types,
+  preserving category and feature gates, query boundaries and complete-page type
+  refusal. Durable collection, native verification and release gates remain open.
+  Refs #754 and #755.
+
 - I added explicit Planned Exercise serialization with lossless nested values,
   whole-record future-value refusal and immutable returned snapshots. The 42-type
   registry declares mapper support; native-valid fixture and constructor limits
