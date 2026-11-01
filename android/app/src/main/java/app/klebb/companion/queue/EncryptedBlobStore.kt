@@ -33,6 +33,44 @@ class EncryptedBlobStore(private val db: QueueDatabase, private val cipher: Queu
         }
     }
 
+    /** Atomic opaque pair; the bound is supplied by the caller, not a global queue quota. */
+    fun putPayloadAndCursor(
+        payloadRowId: String, cursorRowId: String, localStreamId: String,
+        payload: ByteArray, cursor: ByteArray, maxEncryptedBytes: Long
+    ): QueueResult<Unit> {
+        if (maxEncryptedBytes <= 0L) return Blocked("queue-unavailable", "stage-bound-exceeded")
+        val rows = try {
+            listOf(
+                Triple(payloadRowId, BlobKind.PAYLOAD, payload.copyOf()),
+                Triple(cursorRowId, BlobKind.CURSOR, cursor.copyOf())
+            ).map { (rowId, kind, plaintext) ->
+                val envelope = cipher.seal(plaintext, aad(kind.stored, rowId, localStreamId))
+                val nonce = envelope.nonce.copyOf()
+                val encrypted = envelope.ciphertextAndTag.copyOf()
+                val size = nonce.size.toLong() + encrypted.size.toLong()
+                if (envelope.version != 1 || nonce.size != 12 || encrypted.size < 16 || size > Int.MAX_VALUE) {
+                    throw MalformedEnvelope()
+                }
+                QueueBlob(rowId, localStreamId, kind.stored, 1, nonce, encrypted, size.toInt())
+            }
+        } catch (_: QueueKeyUnavailable) {
+            return Blocked("key-unavailable", "key-unavailable")
+        } catch (_: Exception) {
+            return Blocked("queue-unavailable", "encryption-failed")
+        }
+        if (rows.sumOf { it.encryptedBytes.toLong() } > maxEncryptedBytes) {
+            return Blocked("queue-unavailable", "stage-bound-exceeded")
+        }
+        return try {
+            db.runInTransaction(Callable<QueueResult<Unit>> {
+                rows.forEach { db.blobs().insert(it) }
+                Ok(Unit)
+            })
+        } catch (_: Exception) {
+            Blocked("queue-unavailable", "storage-failed")
+        }
+    }
+
     fun read(rowId: String): QueueResult<ByteArray?> {
         val row = try {
             db.blobs().find(rowId)
