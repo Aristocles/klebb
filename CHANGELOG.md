@@ -20,6 +20,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I added atomic encrypted payload and local-read cursor staging, preserving
+  existing rows on failure and the fixed byte bounds. Refs #872.
+
 - I added a read-only exporter for verified initial ordinary-history publications,
   with exact payload/footer checks and a version 2 archive manifest sealed last.
   Partial or retained HAE state stays refused; import/apply, live controls,
