@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I added local Weight scope facts and bound upload receipts to their exact batches,
+  guarding stale permission checks and replacement pairing custody. Policy
+  admission and complete recovery remain separate. Refs #856.
+
 - I bind all five O09 reference tests to their independent child clock,
   retaining exact timestamps, original snapshots and refusal checks. Refs #875.
 
@@ -29,6 +33,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   whole-record future-value refusal and immutable returned snapshots. The 42-type
   registry declares mapper support; native-valid fixture and constructor limits
   remain distinct from provider availability and capture readiness. Refs #863, #755.
+
+- I added atomic encrypted payload and local-read cursor staging, preserving
+  existing rows on failure and the fixed byte bounds. Refs #872.
 
 - I added a read-only exporter for verified initial ordinary-history publications,
   with exact payload/footer checks and a version 2 archive manifest sealed last.

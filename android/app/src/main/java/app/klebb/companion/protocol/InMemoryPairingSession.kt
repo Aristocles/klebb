@@ -35,6 +35,10 @@ class InMemoryPairingSession(
     private var pending: ExchangeAttempt? = null
     private var paired: HealthFrame? = null
     private val requests = mutableSetOf<AuthorisedRequest>()
+    private data class ReceiptExpectation(val recordType: String, val sequence: String,
+        val batchId: String, val payloadDigest: String)
+    private val batchReceipts = mutableMapOf<AuthorisedRequest, ReceiptExpectation>()
+    private val batchTransports = mutableMapOf<AuthorisedRequest, PairingTransport>()
     private var epoch = 0L
     val destination: String? get() = origin?.text
     val categories: Set<String> get() = (paired?.fields?.get("categories") as? List<*>)
@@ -103,6 +107,43 @@ class InMemoryPairingSession(
         if (recordType !in categories) throw ProtocolException("scope-denied")
         return authorised("$BASE/streams/$recordType/status", recordType)
     }
+    /** A durable upload receipt is page acceptance, never native coverage or policy authority. */
+    fun uploadBatch(transport: PairingTransport, bytes: ByteArray): HealthFrame {
+        val selected = destination ?: throw ProtocolException("not-paired")
+        if (transport.destination != selected) throw ProtocolException("invalid-destination")
+        val body = bytes.copyOf()
+        try {
+            val request = batchRequest(body)
+            val owner = paired
+            batchTransports[request] = transport
+            try {
+                val response = transport.request("POST", request.path, body, request.headers)
+                return acceptResult(request, response.body, response.status)
+            } catch (failure: Exception) {
+                // A lost reply may follow a remote commit; only its current owner may be cleared.
+                if (request.epoch == epoch && paired === owner && request in requests) clear()
+                throw failure
+            } finally { batchTransports.remove(request) }
+        } finally { body.fill(0) }
+    }
+    private fun batchRequest(bytes: ByteArray): AuthorisedRequest {
+        if (paired == null) throw ProtocolException("not-paired")
+        val frame = protocol.decode(bytes, ValidationContext(categories = categories))
+        if (frame.kind != "batch") throw ProtocolException("invalid-message")
+        val payload = StrictJson.parse((frame.fields["payloadJson"] as String).toByteArray()).objectValue()
+        val recordType = payload["recordType"] as String
+        val request = authorised("$BASE/batches", recordType)
+        try {
+            protocol.decode(bytes, request.context)
+            batchReceipts[request] = ReceiptExpectation(recordType, payload["sequence"] as String,
+                payload["batchId"] as String, frame.fields["payloadDigest"] as String)
+            return request
+        } catch (failure: Exception) {
+            request.clear()
+            requests.remove(request)
+            throw failure
+        }
+    }
     private fun authorised(path: String, recordType: String?): AuthorisedRequest {
         val fields = paired?.fields ?: throw ProtocolException("not-paired")
         val binding = listOf("tenantId", "instanceId", "sourceStoreId", "installationId", "restoreEpoch")
@@ -128,7 +169,16 @@ class InMemoryPairingSession(
             val frame = protocol.decode(response, request.context)
             if (frame.kind == "error") throw ProtocolException(frame.fields["code"] as String)
             if (httpStatus !in 200..299) throw ProtocolException("request-refused")
-            if (request.recordType == null && frame.kind == "capabilities") {
+            val receipt = batchReceipts[request]
+            if (receipt != null) {
+                if (frame.kind != "durable-receipt" || frame.fields["recordType"] != receipt.recordType ||
+                    frame.fields["sequence"] != receipt.sequence || frame.fields["batchId"] != receipt.batchId) {
+                    throw ProtocolException("binding-mismatch")
+                }
+                if (frame.fields["payloadDigest"] != receipt.payloadDigest) {
+                    throw ProtocolException("digest-mismatch")
+                }
+            } else if (request.recordType == null && frame.kind == "capabilities") {
                 if (frame.fields["destination"] != origin?.text ||
                     frame.fields["connectorId"] != paired!!.fields["connectorId"] ||
                     (frame.fields["categories"] as List<*>).toSet() != categories) {
@@ -150,14 +200,18 @@ class InMemoryPairingSession(
         } finally {
             request.clear()
             requests.remove(request)
+            batchReceipts.remove(request)
         }
     }
     fun clear() {
         epoch++
+        batchTransports.values.forEach { it.cancel() }
+        batchTransports.clear()
         pending?.clear()
         pending = null
         requests.forEach { it.clear() }
         requests.clear()
+        batchReceipts.clear()
         paired = null
         grant = null
         origin = null
