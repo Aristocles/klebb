@@ -28,16 +28,29 @@ methods = [
     "F26_nativeKeyPolicyRandomIVsAndExistingKeyRetention",
     "F27_populatedNativeArtifactsAndDiagnosticsContainNoPlaintextFields",
 ]
-selected = methods[:1] if phase == "baseline-f21" else methods
+purge_methods = [
+    "A601_exactStreamPurgeKeepsOnlyEncryptedMinimalMarkerAndForeignRow",
+    "A602_sameStreamMarkerIdentityCollisionPreservesEveryRow",
+    "A603_foreignMarkerIdentityCollisionPreservesEveryRow",
+    "A604_activatedDeleteFailureRollsBackInsertedMarkerAndEveryRemoval",
+    "A605_activatedSealFailureNeverInsertsOrDeletesAnyRow",
+    "A606_absentExactStreamRefusesWithoutInventingAStream",
+    "A607_prefixSimilarStreamIsNotTheSelectedStream",
+]
+selected = methods[:1] if phase == "baseline-f21" else methods + purge_methods
 unit_methods = {"SW01_original_exact_encrypt_output", "SW02_original_exact_decrypt_output",
                 "SW03_all_original_five_authentication_mutations_refuse"}
 class_name = "app.klebb.companion.queue.QueueStorageInstrumentedTest"
+purge_class_name = "app.klebb.companion.queue.QueueStreamPurgeInstrumentedTest"
+expected_classes = {method: class_name for method in methods}
+expected_classes.update({method: purge_class_name for method in purge_methods})
 paths = [repo / "android/app/build.gradle.kts", repo / "android/app/gradle.lockfile",
          repo / ".github/workflows/android-queue-native.yml", repo / "android/tools/run-queue-native.py"]
 paths += sorted((repo / "android/app/src/main/java/app/klebb/companion/queue").glob("*"))
 paths += sorted((repo / "android/app/src/test/java/app/klebb/companion/queue").glob("*"))
 paths += sorted((repo / "android/app/src/androidTest/java/app/klebb/companion/queue").glob("*"))
 paths += [repo / "android/app/src/androidTest/assets/queue-storage-inputs-v1.json"]
+paths += [repo / "android/app/src/androidTest/assets/queue-stream-purge-inputs-v1.json"]
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 snapshot = lambda: {str(p.relative_to(repo)): sha(p) for p in paths}
 before = snapshot()
@@ -139,7 +152,7 @@ try:
     (evidence / "apk-hashes.json").write_text(json.dumps({"app": sha(app), "test": sha(test_app)}) + "\n")
     targeted("install-app", "install", str(app), timeout=180)
     targeted("install-tests", "install", str(test_app), timeout=180)
-    selector = class_name + "#" + methods[0] if phase == "baseline-f21" else class_name
+    selector = class_name + "#" + methods[0] if phase == "baseline-f21" else class_name + "," + purge_class_name
     native, raw = targeted("instrumentation", "shell", "am", "instrument", "-w", "-r", "-e", "class", selector,
         "app.klebb.companion.test/androidx.test.runner.AndroidJUnitRunner", timeout=600, allow_failure=True)
     # Android's adb client exit can be zero even when JUnit failed; retain raw status bundles and parse actual results.
@@ -162,7 +175,7 @@ try:
         str(evidence / "native-files"), timeout=120, allow_failure=True)
     assert not native["timedOut"] and native["exit"] == 0
     assert len(results) == len(selected) and {r["method"] for r in results} == set(selected)
-    assert all(r["class"] == class_name and r["status"] == 0 and r["numtests"] == str(len(selected)) for r in results)
+    assert all(r["class"] == expected_classes[r["method"]] and r["status"] == 0 and r["numtests"] == str(len(selected)) for r in results)
     assert "INSTRUMENTATION_CODE: -1" in raw
     assert re.search(r"OK \(" + str(len(selected)) + r" tests?\)", raw)
     if phase == "final-seven":

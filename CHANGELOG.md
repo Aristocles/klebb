@@ -14,6 +14,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- Atomic local queue stream purge that retains an encrypted reconciliation
+  marker and preserves unrelated streams. Sharing-stop authority, upload
+  fencing and pending-copy cleanup remain separate. Refs #755.
+
 - I added bounded owner-approved ordinary SQL byte reads and strict typed controls.
   Initial source-policy reads require genuine owner approval before filesystem access;
   unsupported policy output remains refused. Full archive and recovery lifecycle
