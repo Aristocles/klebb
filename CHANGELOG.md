@@ -20,6 +20,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I added a pure Health Connect period classifier with fixed half-open
+  boundary cases and input immutability checks. Missing common time stays
+  unknown; admission and persistent suppression remain separate. Refs #867.
+
 - I added a read-only exporter for verified initial ordinary-history publications,
   with exact payload/footer checks and a version 2 archive manifest sealed last.
   Partial or retained HAE state stays refused; import/apply, live controls,
