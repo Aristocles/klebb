@@ -217,15 +217,16 @@ function exportTo(targetDir, opts = {}) {
     throw new Error(`no data dir at ${PATHS.DATA_DIR}`);
   }
 
-  // Portable v1 cannot represent native state; check before legacy storage opens.
-  require('../lib/export/native-source').assertLegacyExportableSource(
+  // Verify the complete initial native publication in one read-only snapshot
+  // before opening legacy storage or creating any output.
+  const ordinarySnapshot = require('../lib/export/native-source').readExportableSource(
     PATHS.DB_FILE, path.join(PATHS.CREDENTIALS_DIR, 'health-connect.json'));
 
   // Read-only view of the datastore. A missing DB is a valid state (fresh or
   // pre-migration instance): every card then exports with whatever its file
   // already carries. Never let the export create db/ as a side effect.
-  let store = null;
-  if (fs.existsSync(PATHS.DB_FILE)) {
+  let store = ordinarySnapshot ? ordinarySnapshot.legacy : null;
+  if (!ordinarySnapshot && fs.existsSync(PATHS.DB_FILE)) {
     const { open } = require('../lib/datastore');
     store = open(PATHS.DB_FILE);
     store.load();
@@ -305,7 +306,11 @@ function exportTo(targetDir, opts = {}) {
       try {
         cfg = JSON.parse(fs.readFileSync(PATHS.CONFIG_PATH, 'utf8'));
       } catch (e) {
+        if (ordinarySnapshot) throw new Error('native-history-source-unavailable');
         console.warn(`  ! config.json unreadable, not exported: ${e.message}`);
+      }
+      if (ordinarySnapshot && (!cfg || typeof cfg !== 'object' || Array.isArray(cfg))) {
+        throw new Error('native-history-source-unavailable');
       }
       if (cfg && typeof cfg === 'object') {
         const to = path.join(target, 'config.json');
@@ -329,7 +334,7 @@ function exportTo(targetDir, opts = {}) {
     //
     // Read through the module singleton and leave it OPEN: closing here would
     // take a live server's own handle down with it. The CLI wrapper closes it.
-    if (fs.existsSync(PATHS.DB_FILE)) {
+    if (!ordinarySnapshot && fs.existsSync(PATHS.DB_FILE)) {
       const to = path.join(target, 'data', 'auto-export', 'samples.json');
       try {
         const samples = require('../health-auto-export/samples');
@@ -347,18 +352,23 @@ function exportTo(targetDir, opts = {}) {
         // snapshot that looks complete while silently holding no history
         // would let a later rollback wipe the last copy and report done
         // (#672). Failing before the wipe loses nothing.
-        if (opts.strict) throw e;
+        if (opts.strict || ordinarySnapshot) throw e;
         console.warn(`  ! HAE sample history not exported: ${e.message}`);
       }
+    }
+
+    if (ordinarySnapshot) {
+      inventory.ordinaryHistory = require('../lib/export/ordinary-history')
+        .writeOrdinaryHistory(target, ordinarySnapshot);
     }
 
     // The manifest is the last file written, on purpose: an export that threw
     // anywhere above leaves a tree with no manifest, which readers treat as
     // torn and refuse. The `samples` key is absent when no samples file was
     // exported. Contract: docs/EXPORT-FORMAT.md.
-    writeJSON(path.join(target, MANIFEST_NAME), {
+    const manifest = {
       format: 'klebb.export.v1',
-      formatVersion: 1,
+      formatVersion: ordinarySnapshot ? 2 : 1,
       appVersion: require('../package.json').version,
       exportedAt: new Date().toISOString(),
       inventory: {
@@ -366,12 +376,15 @@ function exportTo(targetDir, opts = {}) {
         ...(inventory.samples ? { samples: inventory.samples } : {}),
         reports: inventory.reports,
         other: inventory.other,
+        ...(inventory.ordinaryHistory ? { ordinaryHistory: inventory.ordinaryHistory } : {}),
       },
-    });
+    };
+    if (ordinarySnapshot) require('../lib/export/ordinary-history').writeOrdinaryManifest(target, manifest);
+    else writeJSON(path.join(target, MANIFEST_NAME), manifest);
 
     return { target, counts };
   } finally {
-    if (store) store.close();
+    if (store && !ordinarySnapshot) store.close();
   }
 }
 

@@ -20,6 +20,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I added a read-only exporter for verified initial ordinary-history publications,
+  with exact payload/footer checks and a version 2 archive manifest sealed last.
+  Partial or retained HAE state stays refused; import/apply, live controls,
+  mixed-history capture and complete recovery remain pending. Refs #868 and #762.
+
 - I made the card-toggle browser test wait for its loaded seed and restore
   shared card state after an assertion failure. Refs #870.
 

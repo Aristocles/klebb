@@ -170,7 +170,7 @@ inside the new tree. The export skips any such file and logs a warning.
 
 The internal ordinary-history encoder and decoder preserve the five families
 `catalog`, `records`, `sourcePolicies`, `tombstones` and `suppressions`.
-The partial proposed entry names are
+The entry names are
 `data/health-connect/ordinary-history.json` and
 `data/health-connect/ordinary-history-footer.json`. This component does not
 write an archive manifest or activate a complete format or importer.
@@ -195,9 +195,10 @@ constructor authenticates its owner first, accepts a payload/footer Buffer
 pair through this decoder, and retains those exact strings in its existing
 private capability. Its original object input remains supported.
 
-Legacy native-history export refusal and format version 1 remain unchanged.
-SQL extraction and apply, active policy/control mapping, epochs, boot recovery
-and the fresh-instance round trip remain pending. Preserving a null control
+Legacy-only exports retain format version 1. The verified initial-publication
+writer described below adds a limited format version 2 archive. Apply, active
+policy/control mapping, epochs, boot recovery and the fresh-instance round trip
+remain pending. Preserving a null control
 in this byte profile does not assign it an active typed deletion meaning.
 Refs #850 and #762.
 
@@ -220,5 +221,79 @@ default reader continues to accept legitimate later corrections and deletions.
 
 This initial component does not provide complete archive extraction, active
 policy or deletion mapping, apply, epochs, boot recovery or capture readiness.
-Legacy native export refusal and the existing archive format remain unchanged.
+This owner-bound reader does not enable archive apply or change the default
+live-authority reader. The separate export writer below does not relax its
+owner/prepared-token requirements.
 Refs #851 and #762.
+
+
+## Verified initial-publication archive writer
+
+The portable exporter can write an ordinary-history archive from a complete,
+verified persisted publication. Its outer `formatVersion` is **2**, and
+`inventory.ordinaryHistory.version` is **1**. The five-family payload and
+footer both use ordinary stream version **1**. These versions are distinct
+from typed deletion-controls stream version 2 and source-policy authority
+version 3; neither later profile is enabled by this writer.
+
+The manifest adds this descriptor shape alongside the existing card, report
+and other-file inventories:
+
+```json
+{
+  "ordinaryHistory": {
+    "version": 1,
+    "payload": {
+      "file": "data/health-connect/ordinary-history.json",
+      "bytes": 4419,
+      "sha256": "0331b06e9595a6115e11ab8712d7d5884a3e89f96b48fc0348350396342ff00b"
+    },
+    "footer": {
+      "file": "data/health-connect/ordinary-history-footer.json",
+      "bytes": 182,
+      "sha256": "6a29e1acbdc2b06cca969ae35b9acd771717ac69f39fbdcb194104d9e3ef2373"
+    }
+  }
+}
+```
+
+The example lengths and hashes describe the fixed ordinary-history fixture.
+Real descriptors cover the exact written UTF-8 bytes. The footer also verifies
+all five family counts and the original complete payload digest.
+
+Capture uses one read-only SQL snapshot for native records, publication
+metadata, source ownership and legacy card values. It checks the initial
+version 1 native schema, physical TEXT encoding, complete identity inventory,
+serializer versions, record lengths and digests, metadata checksum, retained
+family metadata and original footer. UTF-8 and valid UTF-16 databases produce
+UTF-8 archive streams; malformed stored bytes are refused.
+
+This first profile supports the original record layout with `recordJson`
+immediately after `identity`, preserving every other descriptor field's
+position. The persisted footer must verify that reconstruction. A publication
+whose unrecorded original layout cannot be reconstructed is refused; the
+writer never replaces the original footer with a newly computed authority.
+Existing byte, family and record bounds apply. Legacy SQL card capture is
+also bounded to 10,000 cards/rows, 1 MiB per selected TEXT value and 16 MiB
+aggregate selected TEXT bytes per table. These limits do not establish
+realistic-history scale.
+
+Nonempty native transport or SQL deletion state, unknown native objects,
+partial legacy schemas and retained credential authority remain refused.
+HAE SQL history must be wholly absent or have both known tables empty;
+partial or nonempty HAE history is refused rather than omitted. Legacy-only
+exports continue through their existing format version 1 path. Mixed-history
+capture remains a separate delivery.
+
+The payload and footer are written and checked before sealing. The success
+manifest is written to an exclusively created temporary file, closed,
+checked and renamed last. A failed capture or output does not seal an archive.
+Native exports do not open the legacy datastore or HAE writer interfaces.
+
+Retained policies, tombstones and suppressions are historical data in this
+profile, not operative sharing or deletion authority. Non-SQL files are not
+part of a live multi-store freeze. Default import/apply still refuses outer
+format version 2; the internal read-only archive preflight can inspect it.
+Ordinary apply, live policy/deletion extraction, credential/cursor exclusion,
+stale restore epochs, complete R0 recovery and personal capture readiness
+remain open. Refs #868 and #762.
