@@ -509,7 +509,7 @@ public final class ExerciseSessionRecordCodecsTest {
         assertEquals(2, caller.touches);
     }
 
-    @Test public void x12RegistryAddsOnlyExerciseRemainsImmutableAndPlannedAbsent() {
+    @Test public void x12RegistryAddsPlannedRemainsExactAndImmutable() {
         java.util.Set<String> expected = new java.util.LinkedHashSet<>(Arrays.asList(
             "StepsRecord", "WeightRecord", "BodyFatRecord", "BodyWaterMassRecord",
             "BoneMassRecord", "LeanBodyMassRecord", "HeightRecord", "HeartRateVariabilityRmssdRecord",
@@ -521,13 +521,13 @@ public final class ExerciseSessionRecordCodecsTest {
             "WheelchairPushesRecord", "MenstruationPeriodRecord", "MindfulnessSessionRecord", "ActivityIntensityRecord",
             "CervicalMucusRecord", "IntermenstrualBleedingRecord", "MenstruationFlowRecord", "OvulationTestRecord",
             "SexualActivityRecord", "NutritionRecord", "SkinTemperatureRecord", "SleepSessionRecord",
-            "ExerciseSessionRecord"
+            "ExerciseSessionRecord", "PlannedExerciseSessionRecord"
         ));
-        assertEquals(41, expected.size());
-        System.out.println("EX-REGISTRY independent41 registry expectations frozen");
+        assertEquals(42, expected.size());
+        System.out.println("EX-REGISTRY independent42 registry expectations frozen");
         java.util.Set<String> actual = RecordCodecs.INSTANCE.getSupportedRecordTypes();
-        assertEquals("Exact41 ordinary codec registry", expected, actual);
-        assertFalse(actual.contains("PlannedExerciseSessionRecord"));
+        assertEquals("Exact42 ordinary codec registry", expected, actual);
+        assertTrue(actual.contains("PlannedExerciseSessionRecord"));
         try {
             actual.add("FutureRecord");
             fail("Ordinary codec registry must remain immutable");

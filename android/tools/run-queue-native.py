@@ -37,13 +37,22 @@ purge_methods = [
     "A606_absentExactStreamRefusesWithoutInventingAStream",
     "A607_prefixSimilarStreamIsNotTheSelectedStream",
 ]
-selected = methods[:1] if phase == "baseline-f21" else methods + purge_methods
+pair_methods = [
+    "PAIR01_exactBoundSuccessAndReopen",
+    "PAIR02_secondSealFailureLeavesOriginalFour",
+    "PAIR03_duplicateSecondInsertRollsBackFirst",
+    "PAIR04_boundMinusOneRefusesWithoutInsert",
+    "PAIR05_existingSinglePutStillAbortsDuplicates",
+]
+selected = methods[:1] if phase == "baseline-f21" else methods + purge_methods + pair_methods
 unit_methods = {"SW01_original_exact_encrypt_output", "SW02_original_exact_decrypt_output",
                 "SW03_all_original_five_authentication_mutations_refuse"}
 class_name = "app.klebb.companion.queue.QueueStorageInstrumentedTest"
 purge_class_name = "app.klebb.companion.queue.QueueStreamPurgeInstrumentedTest"
+pair_class_name = "app.klebb.companion.queue.QueueAtomicPairInstrumentedTest"
 expected_classes = {method: class_name for method in methods}
 expected_classes.update({method: purge_class_name for method in purge_methods})
+expected_classes.update({method: pair_class_name for method in pair_methods})
 paths = [repo / "android/app/build.gradle.kts", repo / "android/app/gradle.lockfile",
          repo / ".github/workflows/android-queue-native.yml", repo / "android/tools/run-queue-native.py"]
 paths += sorted((repo / "android/app/src/main/java/app/klebb/companion/queue").glob("*"))
@@ -152,7 +161,7 @@ try:
     (evidence / "apk-hashes.json").write_text(json.dumps({"app": sha(app), "test": sha(test_app)}) + "\n")
     targeted("install-app", "install", str(app), timeout=180)
     targeted("install-tests", "install", str(test_app), timeout=180)
-    selector = class_name + "#" + methods[0] if phase == "baseline-f21" else class_name + "," + purge_class_name
+    selector = class_name + "#" + methods[0] if phase == "baseline-f21" else class_name + "," + purge_class_name + "," + pair_class_name
     native, raw = targeted("instrumentation", "shell", "am", "instrument", "-w", "-r", "-e", "class", selector,
         "app.klebb.companion.test/androidx.test.runner.AndroidJUnitRunner", timeout=600, allow_failure=True)
     # Android's adb client exit can be zero even when JUnit failed; retain raw status bundles and parse actual results.

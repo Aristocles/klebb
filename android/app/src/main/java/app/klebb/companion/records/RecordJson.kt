@@ -10,6 +10,7 @@ internal object RecordJson {
         null -> "null"
         is String -> quote(value)
         is Int -> value.toString() // Opaque native enums remain Int32.
+        is Boolean -> value.toString()
         is Map<*, *> -> value.entries.joinToString(",", "{", "}") {
             quote(it.key as String) + ":" + text(it.value)
         }

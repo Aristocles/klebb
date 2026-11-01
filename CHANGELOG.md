@@ -24,6 +24,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I added explicit Planned Exercise serialization with lossless nested values,
+  whole-record future-value refusal and immutable returned snapshots. The 42-type
+  registry declares mapper support; native-valid fixture and constructor limits
+  remain distinct from provider availability and capture readiness. Refs #863, #755.
+
+- I added atomic encrypted payload and local-read cursor staging, preserving
+  existing rows on failure and the fixed byte bounds. Refs #872.
+
 - I added a read-only exporter for verified initial ordinary-history publications,
   with exact payload/footer checks and a version 2 archive manifest sealed last.
   Partial or retained HAE state stays refused; import/apply, live controls,

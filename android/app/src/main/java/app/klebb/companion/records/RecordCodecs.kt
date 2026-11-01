@@ -43,6 +43,9 @@ import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.SkinTemperatureRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.PlannedExerciseSessionRecord
+import androidx.health.connect.client.records.ExerciseCompletionGoal
+import androidx.health.connect.client.records.ExercisePerformanceTarget
 import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Mass
@@ -58,6 +61,7 @@ import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Volume
 import java.util.Collections
 import java.time.Instant
+import java.time.Duration
 import java.time.ZoneOffset
 
 class EncodedRecord internal constructor(
@@ -86,7 +90,8 @@ object RecordCodecs {
             "MindfulnessSessionRecord", "ActivityIntensityRecord",
             "CervicalMucusRecord", "IntermenstrualBleedingRecord",
             "MenstruationFlowRecord", "OvulationTestRecord", "SexualActivityRecord",
-            "NutritionRecord", "SkinTemperatureRecord", "SleepSessionRecord", "ExerciseSessionRecord"))
+            "NutritionRecord", "SkinTemperatureRecord", "SleepSessionRecord", "ExerciseSessionRecord",
+            "PlannedExerciseSessionRecord"))
 
     fun encode(record: Record): EncodedRecord =
         encode(record, ExerciseRoutePayloadAuthority.DENY)
@@ -368,10 +373,76 @@ object RecordCodecs {
                     })
                 }
             }
+            is PlannedExerciseSessionRecord -> "PlannedExerciseSessionRecord" to interval(
+                record.metadata, record.startTime, record.startZoneOffset,
+                record.endTime, record.endZoneOffset).apply {
+                    put("hasExplicitTime", record.hasExplicitTime)
+                    put("exerciseType", record.exerciseType)
+                    put("completedExerciseSessionId", record.completedExerciseSessionId)
+                    put("blocks", record.blocks.map { block ->
+                        linkedMapOf(
+                            "repetitions" to block.repetitions,
+                            "steps" to block.steps.map { step ->
+                                linkedMapOf(
+                                    "exerciseType" to step.exerciseType,
+                                    "exercisePhase" to step.exercisePhase,
+                                    "completionGoal" to completionGoal(step.completionGoal),
+                                    "performanceTargets" to step.performanceTargets.map { performanceTarget(it) },
+                                    "description" to step.description)
+                            },
+                            "description" to block.description)
+                    })
+                    put("title", record.title)
+                    put("notes", record.notes)
+                }
             else -> throw RecordCodecException("unsupported-record")
         }
         return EncodedRecord(type, record.metadata.id, RecordJson.text(fields))
     }
+
+    private fun completionGoal(value: ExerciseCompletionGoal): Map<String, Any?> = when (value) {
+        is ExerciseCompletionGoal.DistanceGoal -> linkedMapOf(
+            "variant" to "DistanceGoal", "distance" to length(value.distance))
+        is ExerciseCompletionGoal.DistanceAndDurationGoal -> linkedMapOf(
+            "variant" to "DistanceAndDurationGoal", "distance" to length(value.distance),
+            "duration" to duration(value.duration))
+        is ExerciseCompletionGoal.StepsGoal -> linkedMapOf(
+            "variant" to "StepsGoal", "steps" to value.steps)
+        is ExerciseCompletionGoal.DurationGoal -> linkedMapOf(
+            "variant" to "DurationGoal", "duration" to duration(value.duration))
+        is ExerciseCompletionGoal.RepetitionsGoal -> linkedMapOf(
+            "variant" to "RepetitionsGoal", "repetitions" to value.repetitions)
+        is ExerciseCompletionGoal.TotalCaloriesBurnedGoal -> linkedMapOf(
+            "variant" to "TotalCaloriesBurnedGoal", "totalCalories" to energy(value.totalCalories))
+        is ExerciseCompletionGoal.ActiveCaloriesBurnedGoal -> linkedMapOf(
+            "variant" to "ActiveCaloriesBurnedGoal", "activeCalories" to energy(value.activeCalories))
+        ExerciseCompletionGoal.UnknownGoal -> linkedMapOf("variant" to "UnknownGoal")
+        ExerciseCompletionGoal.ManualCompletion -> linkedMapOf("variant" to "ManualCompletion")
+        else -> throw RecordCodecException("unsupported-value")
+    }
+
+    private fun performanceTarget(value: ExercisePerformanceTarget): Map<String, Any?> = when (value) {
+        is ExercisePerformanceTarget.PowerTarget -> linkedMapOf(
+            "variant" to "PowerTarget", "minPower" to power(value.minPower), "maxPower" to power(value.maxPower))
+        is ExercisePerformanceTarget.SpeedTarget -> linkedMapOf(
+            "variant" to "SpeedTarget", "minSpeed" to velocity(value.minSpeed), "maxSpeed" to velocity(value.maxSpeed))
+        is ExercisePerformanceTarget.CadenceTarget -> linkedMapOf(
+            "variant" to "CadenceTarget", "minCadence" to LosslessValues.float64(value.minCadence),
+            "maxCadence" to LosslessValues.float64(value.maxCadence))
+        is ExercisePerformanceTarget.HeartRateTarget -> linkedMapOf(
+            "variant" to "HeartRateTarget", "minHeartRate" to LosslessValues.float64(value.minHeartRate),
+            "maxHeartRate" to LosslessValues.float64(value.maxHeartRate))
+        is ExercisePerformanceTarget.WeightTarget -> linkedMapOf(
+            "variant" to "WeightTarget", "mass" to mass(value.mass))
+        is ExercisePerformanceTarget.RateOfPerceivedExertionTarget -> linkedMapOf(
+            "variant" to "RateOfPerceivedExertionTarget", "rpe" to value.rpe)
+        ExercisePerformanceTarget.AmrapTarget -> linkedMapOf("variant" to "AmrapTarget")
+        ExercisePerformanceTarget.UnknownTarget -> linkedMapOf("variant" to "UnknownTarget")
+        else -> throw RecordCodecException("unsupported-value")
+    }
+
+    private fun duration(value: Duration) = linkedMapOf(
+        "seconds" to LosslessValues.int64(value.seconds), "nanoAdjustment" to value.nano)
 
     private fun instantaneous(sourceMetadata: Metadata, time: Instant, offset: ZoneOffset?,
                               field: String, value: Any?) =
