@@ -7,6 +7,8 @@ import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.WeightRecord
 import app.klebb.companion.records.RecordCodecs
 import app.klebb.companion.sync.HealthConnectRecordReader
+import app.klebb.companion.sync.OrdinaryReaderChoice
+import app.klebb.companion.sync.OrdinaryRecordReaderFactory
 import java.util.Collections
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.reflect.KClass
@@ -110,6 +112,10 @@ object CategorySetup {
         }
         return states(selection, grants, known)
     }
+
+    /** Construct a mapper-supported typed adapter without granting collection or upload authority. */
+    fun ordinaryReader(client: HealthConnectClient, state: CategoryState): OrdinaryReaderChoice =
+        OrdinaryRecordReaderFactory.create(client, state)
 
     /** Construct the existing inert Weight adapter only after all three setup facts agree. */
     fun weightReaderIfEligible(

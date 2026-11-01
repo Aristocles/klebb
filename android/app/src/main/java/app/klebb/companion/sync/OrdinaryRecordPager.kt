@@ -24,8 +24,11 @@ class OrdinaryRecordPage(records: List<EncodedRecord>, val nextPageToken: String
 }
 
 interface OrdinaryRecordReader {
+    val recordType: String get() = "WeightRecord"
     suspend fun readPage(scope: WeightReadScope, pageToken: String?): OrdinaryRecordPage
 }
+
+internal class WrongRecordTypeException : Exception("Unexpected ordinary record type")
 
 enum class ReadGate { OPEN, PERMISSION_DENIED, STALE_BINDING }
 enum class ScanStop {
@@ -41,6 +44,7 @@ sealed class PageScanResult(val pages: Int, val recordCount: Long) {
 
 /** Pagination only. Finished does not mean complete native coverage or Cloud acknowledgement. */
 class OrdinaryRecordPager(private val reader: OrdinaryRecordReader) {
+    private val expectedRecordType = reader.recordType
     suspend fun scan(scope: WeightReadScope, maximumPages: Int,
         gate: suspend () -> ReadGate,
         acceptPage: suspend (OrdinaryRecordPage) -> QueueResult<Unit>): PageScanResult {
@@ -59,11 +63,13 @@ class OrdinaryRecordPager(private val reader: OrdinaryRecordReader) {
                 reader.readPage(scope, token)
             } catch (cancelled: CancellationException) {
                 throw cancelled
+            } catch (_: WrongRecordTypeException) {
+                return PageScanResult.Incomplete(ScanStop.WRONG_RECORD_TYPE, pages, records)
             } catch (_: Exception) {
                 return PageScanResult.Incomplete(ScanStop.READER_UNAVAILABLE, pages, records)
             }
             checkpoint(gate)?.let { return PageScanResult.Incomplete(it, pages, records) }
-            if (page.records.any { it.recordType != "WeightRecord" }) {
+            if (page.records.any { it.recordType != expectedRecordType }) {
                 return PageScanResult.Incomplete(ScanStop.WRONG_RECORD_TYPE, pages, records)
             }
             if (page.nextPageToken != null && page.nextPageToken in requested) {
