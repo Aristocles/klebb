@@ -1,0 +1,11 @@
+tl;dr: I added an ordinary category setup contract that keeps selection, permission, availability, observation, saving and display separate. I have not connected it to the setup UI or enabled collection.
+
+`CategorySetup.registry` derives its types from `RecordCodecs.supportedRecordTypes` and resolves each concrete SDK class through `HealthPermission.getReadPermission`. It describes mapper support, not native availability. Skin Temperature remains unknown without evidence; Planned Exercise, routes and medical resources are excluded from this ordinary registry.
+
+The upcoming setup screen can persist selected registry names and pass them to `requestedReadPermissions`. That API requests only selected ordinary read permissions and deduplicates permissions shared by several categories. Producer writes, background access and extended history remain separate. The existing controlled Steps/Weight feasibility screen and `ProofPolicy` are unchanged.
+
+`snapshot(client, selected, evidence)` reads the current SDK grant set. A failed query leaves permission unknown; a successful empty set establishes missing grants. Availability, observed, saved and displayed values must come from their own evidence. Neither a grant nor a native record establishes that Cloud saving or website display succeeded.
+
+`weightReaderIfEligible(client, state)` connects the contract to the existing `HealthConnectRecordReader`. It constructs that inert adapter only for selected, permitted and explicitly available Weight. The sync owner must still recheck current permission and its scope fence before reads and require durable page acceptance. This setup snapshot grants no upload, deletion or replay authority.
+
+Deselection removes read requests and setup collection eligibility. It does not delete saved history or prove pending-copy purge. That integration depends on the pending-copy work; pairing, dates, networking, UI persistence and full category collection remain incomplete. The focused JVM run passed 12 category setup tests and 13 existing controlled-read policy tests; the debug and instrumentation APKs compiled, and lint reported no errors. Phone permissions, provider reads, setup UI, pairing and pending-copy purge remain unverified.
