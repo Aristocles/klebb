@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package app.klebb.companion
 
+import android.content.Intent
 import android.os.Bundle
 import android.os.Build
 import android.text.InputType
@@ -119,6 +120,9 @@ class PairingProofActivity : ComponentActivity() {
                     } finally { response.body.fill(0) }
                 } finally { attempt.body.fill(0) }
             }
+        }
+        action("Capture dates") {
+            startActivity(Intent(this, app.klebb.companion.setup.SetupDatesActivity::class.java))
         }
         action("Check connector capabilities") { check(null) }
         action("Clear pairing") {
