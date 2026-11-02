@@ -28,6 +28,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I added durable immutable Android queue batches and exact receipt admission,
+  preserving prepared upload bytes across retries and fencing stale pairing
+  and sharing state. Scheduling, provider sync and release gates remain open.
+  Refs #758.
+
 - I added typed ordinary readers for all 42 registered Health Connect record types,
   preserving category and feature gates, query boundaries and complete-page type
   refusal. Durable collection, native verification and release gates remain open.
