@@ -2,17 +2,32 @@
 package app.klebb.companion.protocol
 
 import java.time.Instant
+import java.util.Collections
 import java.util.UUID
 
 class ExchangeAttempt internal constructor(
     internal val epoch: Long,
     val body: ByteArray,
     internal val binding: Map<String, String>,
-    internal val categories: Set<String>
+    internal val categories: Set<String>,
+    internal val negotiatedLimits: Map<String, Long>
 ) {
     internal fun clear() { body.fill(0) }
     override fun toString() = "ExchangeAttempt"
 }
+/** Read-only current pairing scope; it contains no credential or upload authority. */
+internal class PairedBatchScope internal constructor(
+    internal val sessionEpoch: Long,
+    internal val pairedOwner: Any,
+    binding: Map<String, String>,
+    limits: Map<String, Long>,
+    val acknowledgedSequence: String
+) {
+    val binding: Map<String, String> = Collections.unmodifiableMap(LinkedHashMap(binding))
+    val limits: Map<String, Long> = Collections.unmodifiableMap(LinkedHashMap(limits))
+    override fun toString() = "PairedBatchScope"
+}
+
 class AuthorisedRequest internal constructor(
     internal val epoch: Long,
     val path: String,
@@ -34,6 +49,7 @@ class InMemoryPairingSession(
     private var grant: HealthFrame? = null
     private var pending: ExchangeAttempt? = null
     private var paired: HealthFrame? = null
+    private var pairedLimits: Map<String, Long>? = null
     private val requests = mutableSetOf<AuthorisedRequest>()
     private data class ReceiptExpectation(val recordType: String, val sequence: String,
         val batchId: String, val payloadDigest: String)
@@ -76,7 +92,10 @@ class InMemoryPairingSession(
             "categories" to fields["categories"]
         )).toByteArray()
         grant = null
-        return ExchangeAttempt(epoch, body, binding, categories).also { pending = it }
+        val limits = Collections.unmodifiableMap(LinkedHashMap(
+            fields["limits"].objectValue().mapValues { it.value as Long }
+        ))
+        return ExchangeAttempt(epoch, body, binding, categories, limits).also { pending = it }
     }
     fun acceptPairing(attempt: ExchangeAttempt, response: ByteArray, httpStatus: Int = 200) {
         if (attempt.epoch != epoch || pending !== attempt || origin == null) {
@@ -95,6 +114,7 @@ class InMemoryPairingSession(
                 throw ProtocolException("scope-mismatch")
             }
             paired = frame
+            pairedLimits = attempt.negotiatedLimits
             pending = null
             attempt.clear()
         } catch (failure: Exception) {
@@ -102,6 +122,21 @@ class InMemoryPairingSession(
             throw failure
         }
     }
+    internal fun batchScope(recordType: String): PairedBatchScope {
+        val owner = paired ?: throw ProtocolException("not-paired")
+        if (recordType !in categories) throw ProtocolException("scope-denied")
+        val limits = pairedLimits ?: throw ProtocolException("not-paired")
+        if (limits.keys != setOf("maxBytes", "maxChanges", "maxDepth", "maxNodes",
+                "maxSamples", "maxParts", "maxObjectBytes")) throw ProtocolException("invalid-message")
+        val fields = owner.fields
+        val stream = fields["streams"].objectValue()[recordType].objectValue()
+        val binding = listOf("tenantId", "instanceId", "sourceStoreId", "installationId", "restoreEpoch")
+            .associateWith { fields[it] as String } + ("generation" to (stream["generation"] as String))
+        return PairedBatchScope(epoch, owner, binding, limits, stream["acknowledgedSequence"] as String)
+    }
+    internal fun isCurrentBatchScope(scope: PairedBatchScope): Boolean =
+        scope.sessionEpoch == epoch && paired === scope.pairedOwner && pairedLimits == scope.limits
+
     fun capabilityRequest(): AuthorisedRequest = authorised("$BASE/capabilities", null)
     fun statusRequest(recordType: String): AuthorisedRequest {
         if (recordType !in categories) throw ProtocolException("scope-denied")
@@ -128,7 +163,8 @@ class InMemoryPairingSession(
     }
     private fun batchRequest(bytes: ByteArray): AuthorisedRequest {
         if (paired == null) throw ProtocolException("not-paired")
-        val frame = protocol.decode(bytes, ValidationContext(categories = categories))
+        val frame = protocol.decode(bytes, ValidationContext(
+            limits = pairedLimits ?: throw ProtocolException("not-paired"), categories = categories))
         if (frame.kind != "batch") throw ProtocolException("invalid-message")
         val payload = StrictJson.parse((frame.fields["payloadJson"] as String).toByteArray()).objectValue()
         val recordType = payload["recordType"] as String
@@ -159,7 +195,8 @@ class InMemoryPairingSession(
             selectedBinding = binding + ("generation" to generation)
         }
         return AuthorisedRequest(epoch, path, headers, recordType,
-            ValidationContext(binding = selectedBinding, categories = categories)).also { requests.add(it) }
+            ValidationContext(limits = pairedLimits ?: throw ProtocolException("not-paired"),
+                binding = selectedBinding, categories = categories)).also { requests.add(it) }
     }
     fun acceptResult(request: AuthorisedRequest, response: ByteArray, httpStatus: Int = 200): HealthFrame {
         if (request.epoch != epoch || paired == null || request !in requests) {
@@ -213,6 +250,7 @@ class InMemoryPairingSession(
         requests.clear()
         batchReceipts.clear()
         paired = null
+        pairedLimits = null
         grant = null
         origin = null
     }

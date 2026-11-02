@@ -44,15 +44,25 @@ pair_methods = [
     "PAIR04_boundMinusOneRefusesWithoutInsert",
     "PAIR05_existingSinglePutStillAbortsDuplicates",
 ]
-selected = methods[:1] if phase == "baseline-f21" else methods + purge_methods + pair_methods
+room_methods = [
+    "ROOM01_reopenRetainsTheExactOldestWireWithoutAnotherAllocation",
+    "ROOM02_nativeCursorInsertRefusalAfterActualPayloadWriteRollsBackEverything",
+    "ROOM03_nativeStateCasZeroRollsBackAllPayloadAndCursorWrites",
+    "ROOM04_exactContiguousReceiptReleasesOnlyItsOwnPendingPayload",
+    "ROOM05_emptyStringAndTerminalNullStayLocalWithoutAnEmptyBatch",
+    "ROOM06_controlledLostReplyRetainsRealRoomBytesForFreshSameBindingRetry"
+]
+selected = methods[:1] if phase == "baseline-f21" else methods + purge_methods + pair_methods + room_methods
 unit_methods = {"SW01_original_exact_encrypt_output", "SW02_original_exact_decrypt_output",
                 "SW03_all_original_five_authentication_mutations_refuse"}
 class_name = "app.klebb.companion.queue.QueueStorageInstrumentedTest"
 purge_class_name = "app.klebb.companion.queue.QueueStreamPurgeInstrumentedTest"
 pair_class_name = "app.klebb.companion.queue.QueueAtomicPairInstrumentedTest"
+room_class_name = "app.klebb.companion.sync.RoomDurableBatchQueueInstrumentedTest"
 expected_classes = {method: class_name for method in methods}
 expected_classes.update({method: purge_class_name for method in purge_methods})
 expected_classes.update({method: pair_class_name for method in pair_methods})
+expected_classes.update({method: room_class_name for method in room_methods})
 paths = [repo / "android/app/build.gradle.kts", repo / "android/app/gradle.lockfile",
          repo / ".github/workflows/android-queue-native.yml", repo / "android/tools/run-queue-native.py"]
 paths += sorted((repo / "android/app/src/main/java/app/klebb/companion/queue").glob("*"))
@@ -60,6 +70,35 @@ paths += sorted((repo / "android/app/src/test/java/app/klebb/companion/queue").g
 paths += sorted((repo / "android/app/src/androidTest/java/app/klebb/companion/queue").glob("*"))
 paths += [repo / "android/app/src/androidTest/assets/queue-storage-inputs-v1.json"]
 paths += [repo / "android/app/src/androidTest/assets/queue-stream-purge-inputs-v1.json"]
+if phase == "final-seven":
+    # The complete suite requires the joined atomic-pair and durable Room sources.
+    paths += [repo / relative for relative in [
+        "android/app/src/androidTest/java/app/klebb/companion/queue/QueueAtomicPairInstrumentedTest.kt",
+        "android/app/src/androidTest/java/app/klebb/companion/sync/RoomDurableBatchQueueInstrumentedTest.kt",
+        "android/app/src/main/java/app/klebb/companion/queue/GcmEnvelope.kt",
+        "android/app/src/main/java/app/klebb/companion/queue/KeystoreQueueKey.kt",
+        "android/app/src/main/java/app/klebb/companion/queue/QueueBlob.java",
+        "android/app/src/main/java/app/klebb/companion/queue/QueueDatabase.java",
+        "android/app/src/main/java/app/klebb/companion/queue/QueueTypes.kt",
+        "android/app/src/main/java/app/klebb/companion/protocol/ControlJson.kt",
+        "android/app/src/main/java/app/klebb/companion/protocol/HealthProtocol.kt",
+        "android/app/src/main/java/app/klebb/companion/protocol/PairingTransport.kt",
+        "android/app/src/main/java/app/klebb/companion/protocol/SchemaRules.kt",
+        "android/app/src/main/java/app/klebb/companion/protocol/StrictJson.kt",
+        "android/app/src/main/java/app/klebb/companion/records/ExerciseRoutePayloadAuthority.kt",
+        "android/app/src/main/java/app/klebb/companion/records/LosslessValues.kt",
+        "android/app/src/main/java/app/klebb/companion/records/RecordCodecs.kt",
+        "android/app/src/main/java/app/klebb/companion/records/RecordJson.kt",
+        "android/app/src/main/java/app/klebb/companion/queue/EncryptedBlobStore.kt",
+        "android/app/src/main/java/app/klebb/companion/queue/QueueBlobDao.java",
+        "android/app/src/main/java/app/klebb/companion/protocol/InMemoryPairingSession.kt",
+        "android/app/src/main/java/app/klebb/companion/sync/ImmutableBatchCoordinator.kt",
+        "android/app/src/main/java/app/klebb/companion/sync/OrdinaryRecordPager.kt",
+        "android/app/src/main/java/app/klebb/companion/sync/RoomDurableBatchQueue.kt",
+        "android/app/src/androidTest/assets/room-durable-batch-inputs-v1.json",
+        "schemas/health-connect/protocol-v1.schema.json"
+]]
+    paths = sorted(set(paths))
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 snapshot = lambda: {str(p.relative_to(repo)): sha(p) for p in paths}
 before = snapshot()
@@ -161,7 +200,7 @@ try:
     (evidence / "apk-hashes.json").write_text(json.dumps({"app": sha(app), "test": sha(test_app)}) + "\n")
     targeted("install-app", "install", str(app), timeout=180)
     targeted("install-tests", "install", str(test_app), timeout=180)
-    selector = class_name + "#" + methods[0] if phase == "baseline-f21" else class_name + "," + purge_class_name + "," + pair_class_name
+    selector = class_name + "#" + methods[0] if phase == "baseline-f21" else class_name + "," + purge_class_name + "," + pair_class_name + "," + room_class_name
     native, raw = targeted("instrumentation", "shell", "am", "instrument", "-w", "-r", "-e", "class", selector,
         "app.klebb.companion.test/androidx.test.runner.AndroidJUnitRunner", timeout=600, allow_failure=True)
     # Android's adb client exit can be zero even when JUnit failed; retain raw status bundles and parse actual results.

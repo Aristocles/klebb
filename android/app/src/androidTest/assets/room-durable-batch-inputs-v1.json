@@ -1,0 +1,58 @@
+{
+  "fixtureVersion": 1,
+  "allDataSynthetic": true,
+  "binding": {
+    "tenantId": "tenant-a",
+    "instanceId": "instance-a",
+    "sourceStoreId": "store-a",
+    "installationId": "install-a",
+    "generation": "1",
+    "restoreEpoch": "epoch-a"
+  },
+  "limits": {
+    "maxBytes": 1048576,
+    "maxChanges": 500,
+    "maxDepth": 16,
+    "maxNodes": 20000,
+    "maxSamples": 10000,
+    "maxParts": 128,
+    "maxObjectBytes": 67108864
+  },
+  "grant": "{\"version\":1,\"kind\":\"pairing-grant\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"destination\":\"https://health.example.test\",\"grant\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"expiresAt\":\"2026-10-28T04:00:00.000000001Z\",\"categories\":[\"WeightRecord\"],\"limits\":{\"maxBytes\":1048576,\"maxChanges\":500,\"maxDepth\":16,\"maxNodes\":20000,\"maxSamples\":10000,\"maxParts\":128,\"maxObjectBytes\":67108864},\"sourceStoreId\":\"store-a\",\"restoreEpoch\":\"epoch-a\"}",
+  "paired": "{\"version\":1,\"kind\":\"paired\",\"destination\":\"https://health.example.test\",\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"connectorId\":\"connector-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"restoreEpoch\":\"epoch-a\",\"categories\":[\"WeightRecord\"],\"streams\":{\"WeightRecord\":{\"generation\":\"1\",\"acknowledgedSequence\":\"0\"}},\"credential\":\"klebb_hc1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}",
+  "cases": [
+    {
+      "sequence": "1",
+      "batchId": "native-batch-1",
+      "nativeRecordId": "native-1",
+      "recordJson": "{\"metadata\":{\"id\":\"native-1\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"clientRecordVersion\":\"1\",\"lastModifiedTime\":\"2026-10-28T03:50:00.123456789Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"weight\":{\"value\":\"76.25\",\"unit\":\"kg\"}}",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"1\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"WeightRecord\\\",\\\"sequence\\\":\\\"1\\\",\\\"batchId\\\":\\\"native-batch-1\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"WeightRecord\\\",\\\"nativeRecordId\\\":\\\"native-1\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"raw-only\\\",\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1,\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-1\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic.producer\\\"},\\\"clientRecordVersion\\\":\\\"1\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:50:00.123456789Z\\\",\\\"recordingMethod\\\":1},\\\"time\\\":\\\"2026-10-28T03:45:00.123456789Z\\\",\\\"zoneOffset\\\":\\\"+11:00\\\",\\\"weight\\\":{\\\"value\\\":\\\"76.25\\\",\\\"unit\\\":\\\"kg\\\"}}}]}\",\"payloadDigest\":\"sha256:cae70387dec29ab2ebaa904e32eccc17fc91f21d78df4f7fec04ecc65d94fab7\"}",
+      "wireBytes": 1043,
+      "wireSha256": "ab7ea5e5072584beb0b6bf2a7eae34e46308538b41150949a7406517921b1ae5",
+      "payloadDigest": "sha256:cae70387dec29ab2ebaa904e32eccc17fc91f21d78df4f7fec04ecc65d94fab7",
+      "receipt": "{\"version\":1,\"kind\":\"durable-receipt\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"1\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"WeightRecord\",\"sequence\":\"1\",\"batchId\":\"native-batch-1\",\"payloadDigest\":\"sha256:cae70387dec29ab2ebaa904e32eccc17fc91f21d78df4f7fec04ecc65d94fab7\"}"
+    },
+    {
+      "sequence": "2",
+      "batchId": "native-batch-2",
+      "nativeRecordId": "native-2",
+      "recordJson": "{\"metadata\":{\"id\":\"native-2\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"clientRecordVersion\":\"1\",\"lastModifiedTime\":\"2026-10-28T03:50:00.123456789Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"weight\":{\"value\":\"77.25\",\"unit\":\"kg\"}}",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"1\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"WeightRecord\\\",\\\"sequence\\\":\\\"2\\\",\\\"batchId\\\":\\\"native-batch-2\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"WeightRecord\\\",\\\"nativeRecordId\\\":\\\"native-2\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"raw-only\\\",\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1,\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-2\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic.producer\\\"},\\\"clientRecordVersion\\\":\\\"1\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:50:00.123456789Z\\\",\\\"recordingMethod\\\":1},\\\"time\\\":\\\"2026-10-28T03:45:00.123456789Z\\\",\\\"zoneOffset\\\":\\\"+11:00\\\",\\\"weight\\\":{\\\"value\\\":\\\"77.25\\\",\\\"unit\\\":\\\"kg\\\"}}}]}\",\"payloadDigest\":\"sha256:023f225b597fc4d8e7b51cd3510313edc11a1a3a0410812474d9231ba687ecdb\"}",
+      "wireBytes": 1043,
+      "wireSha256": "e8b9321f3c8268bf5e00df01f2be7ea1cfe6681ebd593334a9a370c76807a455",
+      "payloadDigest": "sha256:023f225b597fc4d8e7b51cd3510313edc11a1a3a0410812474d9231ba687ecdb",
+      "receipt": "{\"version\":1,\"kind\":\"durable-receipt\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"1\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"WeightRecord\",\"sequence\":\"2\",\"batchId\":\"native-batch-2\",\"payloadDigest\":\"sha256:023f225b597fc4d8e7b51cd3510313edc11a1a3a0410812474d9231ba687ecdb\"}"
+    },
+    {
+      "sequence": "3",
+      "batchId": "native-batch-3",
+      "nativeRecordId": "native-3",
+      "recordJson": "{\"metadata\":{\"id\":\"native-3\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"clientRecordVersion\":\"1\",\"lastModifiedTime\":\"2026-10-28T03:50:00.123456789Z\",\"recordingMethod\":1},\"time\":\"2026-10-28T03:45:00.123456789Z\",\"zoneOffset\":\"+11:00\",\"weight\":{\"value\":\"78.25\",\"unit\":\"kg\"}}",
+      "wire": "{\"version\":1,\"kind\":\"batch\",\"payloadJson\":\"{\\\"binding\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"instanceId\\\":\\\"instance-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"installationId\\\":\\\"install-a\\\",\\\"generation\\\":\\\"1\\\",\\\"restoreEpoch\\\":\\\"epoch-a\\\"},\\\"recordType\\\":\\\"WeightRecord\\\",\\\"sequence\\\":\\\"3\\\",\\\"batchId\\\":\\\"native-batch-3\\\",\\\"changes\\\":[{\\\"operation\\\":\\\"upsert\\\",\\\"identity\\\":{\\\"tenantId\\\":\\\"tenant-a\\\",\\\"sourceStoreId\\\":\\\"store-a\\\",\\\"recordType\\\":\\\"WeightRecord\\\",\\\"nativeRecordId\\\":\\\"native-3\\\"},\\\"dataFamily\\\":\\\"ordinary\\\",\\\"projection\\\":\\\"raw-only\\\",\\\"serializerId\\\":\\\"health-connect-record\\\",\\\"serializerVersion\\\":1,\\\"record\\\":{\\\"metadata\\\":{\\\"id\\\":\\\"native-3\\\",\\\"dataOrigin\\\":{\\\"packageName\\\":\\\"org.example.synthetic.producer\\\"},\\\"clientRecordVersion\\\":\\\"1\\\",\\\"lastModifiedTime\\\":\\\"2026-10-28T03:50:00.123456789Z\\\",\\\"recordingMethod\\\":1},\\\"time\\\":\\\"2026-10-28T03:45:00.123456789Z\\\",\\\"zoneOffset\\\":\\\"+11:00\\\",\\\"weight\\\":{\\\"value\\\":\\\"78.25\\\",\\\"unit\\\":\\\"kg\\\"}}}]}\",\"payloadDigest\":\"sha256:68ed8ebb377ded118f6cd2279a21732418f00a913ae8f418771ba7e0000e95f4\"}",
+      "wireBytes": 1043,
+      "wireSha256": "26918743a88b8c1219e4d898c1533ee74465a0604ae1411619bb91434cfd3141",
+      "payloadDigest": "sha256:68ed8ebb377ded118f6cd2279a21732418f00a913ae8f418771ba7e0000e95f4",
+      "receipt": "{\"version\":1,\"kind\":\"durable-receipt\",\"binding\":{\"tenantId\":\"tenant-a\",\"instanceId\":\"instance-a\",\"sourceStoreId\":\"store-a\",\"installationId\":\"install-a\",\"generation\":\"1\",\"restoreEpoch\":\"epoch-a\"},\"recordType\":\"WeightRecord\",\"sequence\":\"3\",\"batchId\":\"native-batch-3\",\"payloadDigest\":\"sha256:68ed8ebb377ded118f6cd2279a21732418f00a913ae8f418771ba7e0000e95f4\"}"
+    }
+  ]
+}
