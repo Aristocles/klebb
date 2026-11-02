@@ -9,6 +9,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Private fixture clocks on Windows**: I protect each newly allocated empty clock directory before writing its synthetic clock, while preserving the strict ownership checks and independent failure cleanup (#879).
+
 - I publish complete synthetic mid-body observations through an exclusive
   same-directory pending file and rename, preserving the original values and
   helper modes. Refs #884.

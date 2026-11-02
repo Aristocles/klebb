@@ -263,6 +263,53 @@ async function defaultFixture({ v2, extraEnv }) {
     registerMarkers(home, data.markers);
     clockDirectory = fs.mkdtempSync(path.join(temporaryRoot, 'eh-selection-observer-'));
     ownedClockDirectory();
+    if (process.platform === 'win32') {
+      const quoted = clockDirectory.replaceAll("'", "''");
+      const quotedTemporaryRoot = temporaryRoot.replaceAll("'", "''");
+      const script = `
+        $ErrorActionPreference = 'Stop'
+        $absoluteClockDirectory = [IO.Path]::GetFullPath('${quoted}')
+        $temporaryRoot = [IO.Path]::GetFullPath('${quotedTemporaryRoot}')
+        if ([IO.Path]::GetDirectoryName($absoluteClockDirectory) -ne $temporaryRoot -or
+            -not [IO.Path]::GetFileName($absoluteClockDirectory).StartsWith('eh-selection-observer-')) {
+          throw 'Unexpected empty clock directory'
+        }
+        $item = Get-Item -LiteralPath $absoluteClockDirectory
+        if (-not $item.PSIsContainer -or
+            ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Unexpected link' }
+        if (@(Get-ChildItem -LiteralPath $absoluteClockDirectory -Force).Count -ne 0) {
+          throw 'Clock directory is populated'
+        }
+        $currentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User
+        $systemSid = [Security.Principal.SecurityIdentifier]::new('S-1-5-18')
+        $administratorSid = [Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
+        $inheritance = [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor
+          [Security.AccessControl.InheritanceFlags]::ObjectInherit
+        foreach ($target in @($absoluteClockDirectory)) {
+          $security = [Security.AccessControl.DirectorySecurity]::new()
+          $security.SetAccessRuleProtection($true, $false)
+          $security.SetOwner($currentSid)
+          foreach ($principal in @($currentSid, $systemSid, $administratorSid)) {
+            $rule = [Security.AccessControl.FileSystemAccessRule]::new(
+              $principal, [Security.AccessControl.FileSystemRights]::FullControl, $inheritance,
+              [Security.AccessControl.PropagationFlags]::None, [Security.AccessControl.AccessControlType]::Allow)
+            [void]$security.AddAccessRule($rule)
+          }
+          Set-Acl -LiteralPath $target -AclObject $security
+          $observed = Get-Acl -LiteralPath $target
+          if (-not $observed.AreAccessRulesProtected) { throw 'Private inheritance not protected' }
+          $allowed = @($currentSid.Value, $systemSid.Value, $administratorSid.Value)
+          foreach ($rule in $observed.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
+            if ($rule.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
+                $allowed -notcontains $rule.IdentityReference.Value) { throw 'Unexpected effective allow' }
+          }
+        }`;
+      const outcome = spawnSync('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive',
+        '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
+      { windowsHide: true, encoding: 'utf8', timeout: 10000 });
+      assert.equal(outcome.status, 0, 'new empty synthetic clock directory must have private ACL before population');
+      ownedClockDirectory();
+    }
     const clock = path.join(clockDirectory, 'clock');
     fs.writeFileSync(clock, inputs.base.instant, { flag: 'wx', mode: 0o600 });
     const preload = path.join(__dirname, 'health-connect-removable-owner-clock-preload.cjs');
