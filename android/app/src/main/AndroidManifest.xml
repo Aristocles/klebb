@@ -25,6 +25,9 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".setup.SetupDatesActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="false" />
         <activity

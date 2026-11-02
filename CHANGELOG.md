@@ -30,6 +30,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I added an Android editor for separate history-import and display-switch dates,
+  with strict saved-choice validation and explicit save/cancel controls. Refs #754.
+
 - I added a versioned active workout energy mapping with independent kJ/kcal
   fixtures, preserving existing import values, caller-selected dates and
   per-session rounding. Provider association and release gates remain open.

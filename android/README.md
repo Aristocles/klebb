@@ -17,6 +17,13 @@ browser exchange, capability, status and revocation evidence. Unit tests or a
 compiled feature flag cannot establish those native gates. Other categories,
 queues, serializers, routes and medical ingestion belong to later tickets.
 
+Open **Capture dates** from the foreground pairing proof to enter the historical
+import start and display switch separately in `YYYY-MM-DD` format. **Save dates**
+stores both choices on this phone; **Cancel** leaves the saved choices unchanged.
+Saving does not begin an import or change the dashboard's source policy yet.
+Actual preference persistence and screen interactions still require the native
+checks; compiling the instrumentation APK does not establish those results.
+
 ## Shared wire and HTTPS checks
 
 The Kotlin consumer validates the same schema and language-neutral wire
