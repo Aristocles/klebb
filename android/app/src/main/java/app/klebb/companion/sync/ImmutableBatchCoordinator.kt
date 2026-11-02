@@ -298,8 +298,8 @@ internal object CompleteRecordObject {
             val manifest = (0 until count.toInt()).map { index ->
                 val start = index * size
                 val raw = payload.copyOfRange(start, minOf(start + size, payload.size))
-                try { linkedMapOf("index" to index.toLong(), "digest" to digest(raw),
-                    "bytes" to raw.size.toLong()) } finally { raw.fill(0) }
+                try { linkedMapOf("index" to index.toLong(), "bytes" to raw.size.toLong(),
+                    "digest" to digest(raw)) } finally { raw.fill(0) }
             }
             protocol.decodeAssembledPayload(payload, declaration, context)
             return bytes(linkedMapOf("version" to 1L, "kind" to "object-finalise") +
