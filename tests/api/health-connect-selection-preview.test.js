@@ -247,8 +247,23 @@ test('S10 actual retained owners, revoked connectors, browser origin/session and
     await owned(async data => {
       const requested = H.body([data.beta], [F.TYPE]);
       await H.refuse(data, requested, 401, 'unauthorised', { browser: false, headers: F.headers(data.beta) });
-      await H.refuse(data, requested, 403, 'scope-mismatch', { browser: false,
-        headers: { Cookie: data.owner.cookie, Origin: 'https://unapproved-selection.example.test' } });
+      // Independently fixed child instants keep actual auth maintenance deterministic.
+      for (const [instant, milliseconds] of [
+        [E.inputs.fixedClock.initialAfterHealthySetup, 1767326400000],
+        [E.inputs.fixedClock.later, 1767398400000],
+      ]) {
+        assert.equal(Date.parse(instant), milliseconds, 'independent UTC input remains exact');
+        H.clock(data, instant);
+        await H.refuse(data, requested, 403, 'scope-mismatch', { browser: false,
+          headers: { Cookie: data.owner.cookie, Origin: 'https://unapproved-selection.example.test' } });
+        const witness = data.selectionAuthWitnesses.at(-1);
+        assert.equal(witness.interval.clock.text, instant);
+        assert.equal(witness.changed, true, 'actual issued session maintenance was observed');
+        assert.equal(witness.after.parsed[data.owner.token].lastSeen, milliseconds);
+      }
+      fs.unlinkSync(path.join(data.observer, 'clock'));
+      assert.equal(fs.existsSync(path.join(data.observer, 'clock')), false,
+        'ordinary child clock is restored before the remaining authority checks');
       const foreign = await H.otherOwner(data);
       await H.refuse(data, H.body([foreign], [F.TYPE]), 403, 'scope-mismatch');
       const revoked = await F.request(data, `${F.BASE}/${data.beta.paired.connectorId}`,

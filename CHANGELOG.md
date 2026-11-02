@@ -9,6 +9,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I use two independently fixed child-clock inputs for the authenticated origin-refusal check, retaining exact session timestamps and the existing authority and zero-effects assertions.
+
 - **Private fixture clocks on Windows**: I protect each newly allocated empty clock directory before writing its synthetic clock, while preserving the strict ownership checks and independent failure cleanup (#879).
 
 - I publish complete synthetic mid-body observations through an exclusive
