@@ -143,7 +143,16 @@ internal class RoomDurableBatchQueue(
             val bytes = makeBatch(sequence.toString(), batchId).copyOf()
             val parsed = wire(owner, paired, bytes)
             if (parsed.sequence != sequence || parsed.batchId != batchId) reject("batch-mismatch")
-            if (parsed.payload != StrictJson.parse(
+            if (parsed.frame.kind == "object-finalise") {
+                if (page.records.size != 1) reject("incomplete-page")
+                val original = CompleteRecordObject.payload(owner, page.records.single(),
+                    sequence.toString(), batchId)
+                try {
+                    // Actual reader-issued record and declared original must match before writes.
+                    protocol.decodeAssembledPayload(original,
+                        CompleteRecordObject.declaration(parsed.frame), context(owner, paired))
+                } finally { original.fill(0) }
+            } else if (parsed.payload != StrictJson.parse(
                     expectedPayloadText(owner, page, sequence, batchId).toByteArray(Charsets.UTF_8)
                 ).objectValue()) {
                 reject("incomplete-page")
@@ -159,6 +168,20 @@ internal class RoomDurableBatchQueue(
         if (wire == null) {
             requireOk(store.put(cursorId, owner.localStreamId, BlobKind.CURSOR, cursor))
         } else {
+            if (wire.frame.kind == "object-finalise") {
+                val original = CompleteRecordObject.payload(owner, page.records.single(),
+                    wire.sequence.toString(), wire.batchId)
+                try {
+                    CompleteRecordObject.partWires(protocol, context(owner, paired), wire.frame, original)
+                        .forEachIndexed { index, part ->
+                            try {
+                                requireOk(store.put(partId(owner, wire.sequence, index),
+                                    owner.localStreamId, BlobKind.PAYLOAD, part))
+                            } finally { part.fill(0) }
+                        }
+                } finally { original.fill(0) }
+            }
+            // Every part, finalise, cursor and head shares THIS outer transaction and quota.
             // EncryptedBlobStore catches its inner error. Throw its Blocked through THIS transaction.
             requireOk(store.putPayloadAndCursor(payloadId(owner, wire.sequence), cursorId,
                 owner.localStreamId, wire.bytes, cursor, maximumEncryptedBytes))
@@ -179,6 +202,28 @@ internal class RoomDurableBatchQueue(
         }
         ensureCurrent(owner, paired, currentGate)
         result
+    }
+
+    override fun objectParts(owner: BatchOwner, batch: QueuedBatch,
+        currentGate: () -> ReadGate): QueueResult<List<ByteArray>> = tx {
+        val paired = current(owner, currentGate)
+        val supplied = wire(owner, paired, batch.copyWire())
+        if (supplied.frame.kind != "object-finalise") reject("batch-mismatch")
+        val head = load(owner).head
+        if (supplied.sequence != increment(head.ack) || supplied.sequence > head.allocated) {
+            reject("noncontiguous-object")
+        }
+        val persisted = pending(owner, paired, supplied.sequence, false)
+        if (!persisted.bytes.contentEquals(supplied.bytes)) reject("batch-mismatch")
+        val parts = readParts(owner, persisted)
+        try {
+            CompleteRecordObject.validateParts(protocol, context(owner, paired), persisted.frame, parts)
+            ensureCurrent(owner, paired, currentGate)
+            parts
+        } catch (failure: Exception) {
+            parts.forEach { it.fill(0) }
+            throw failure
+        }
     }
 
     override fun acknowledge(owner: BatchOwner, batch: QueuedBatch, receipt: HealthFrame,
@@ -204,6 +249,10 @@ internal class RoomDurableBatchQueue(
             ensureCurrent(owner, paired, currentGate)
             val next = h.copy(ack = supplied.sequence, lastAck = identity)
             replaceHead(owner, loaded.row, next)
+            if (persisted.frame.kind == "object-finalise") {
+                val count = (persisted.frame.fields["partCount"] as Long).toInt()
+                for (index in 0 until count) delete(owner, partId(owner, supplied.sequence, index), BlobKind.PAYLOAD)
+            }
             delete(owner, payloadId(owner, supplied.sequence), BlobKind.PAYLOAD)
             val acknowledgedCursor = cursorId(owner, supplied.sequence)
             if (acknowledgedCursor != h.cursor) delete(owner, acknowledgedCursor, BlobKind.CURSOR)
@@ -213,7 +262,8 @@ internal class RoomDurableBatchQueue(
         Unit
     }
 
-    private fun pending(owner: BatchOwner, paired: PairedBatchScope, sequence: Long): Wire {
+    private fun pending(owner: BatchOwner, paired: PairedBatchScope, sequence: Long,
+        validateObject: Boolean = true): Wire {
         val value = wire(owner, paired, readOwned(owner, payloadId(owner, sequence), BlobKind.PAYLOAD))
         if (value.sequence != sequence) reject("corrupt-queue")
         val cursor = checkedCursor(owner, cursorId(owner, sequence))
@@ -221,18 +271,40 @@ internal class RoomDurableBatchQueue(
         if (cursor["query"] != queryObject(head.query) || decimal(cursor["revision"] as String) > head.revision ||
             cursor["sequence"] != sequence.toString() || cursor["batchId"] != value.batchId ||
             cursor["payloadDigest"] != value.digest || cursor["uploadEligible"] != true) reject("corrupt-queue")
+        if (validateObject && value.frame.kind == "object-finalise") {
+            val parts = readParts(owner, value)
+            try { CompleteRecordObject.validateParts(protocol, context(owner, paired), value.frame, parts) }
+            finally { parts.forEach { it.fill(0) } }
+        }
         return value
+    }
+
+    private fun readParts(owner: BatchOwner, wire: Wire): List<ByteArray> {
+        val result = mutableListOf<ByteArray>()
+        try {
+            val count = (wire.frame.fields["partCount"] as Long).toInt()
+            for (index in 0 until count) {
+                result.add(readOwned(owner, partId(owner, wire.sequence, index), BlobKind.PAYLOAD))
+            }
+            return result
+        } catch (failure: Exception) {
+            result.forEach { it.fill(0) }
+            throw failure
+        }
     }
 
     private fun wire(owner: BatchOwner, paired: PairedBatchScope, bytes: ByteArray): Wire {
         val frame = protocol.decode(bytes, context(owner, paired))
-        if (frame.kind != "batch") reject("batch-mismatch")
-        val payload = StrictJson.parse((frame.fields["payloadJson"] as String).toByteArray(Charsets.UTF_8)).objectValue()
+        val payload = when (frame.kind) {
+            "batch" -> StrictJson.parse((frame.fields["payloadJson"] as String).toByteArray(Charsets.UTF_8)).objectValue()
+            "object-finalise" -> frame.fields
+            else -> reject("batch-mismatch")
+        }
         if (payload["binding"] != owner.binding || payload["recordType"] != owner.recordType) reject("stale-binding")
         val sequence = decimal(payload["sequence"] as String)
         if (sequence == 0L) reject("batch-mismatch")
         return Wire(bytes.copyOf(), frame, payload, sequence, payload["batchId"] as String,
-            frame.fields["payloadDigest"] as String)
+            (frame.fields["payloadDigest"] ?: frame.fields["objectDigest"]) as String)
     }
 
     private fun expectedPayloadText(owner: BatchOwner, page: OrdinaryRecordPage,
@@ -411,6 +483,8 @@ internal class RoomDurableBatchQueue(
     private fun headId(owner: BatchOwner) = prefix(owner) + ":head"
     private fun payloadId(owner: BatchOwner, sequence: Long) = prefix(owner) + ":payload:" + sequence
     private fun cursorId(owner: BatchOwner, sequence: Long) = prefix(owner) + ":cursor:" + sequence
+    private fun partId(owner: BatchOwner, sequence: Long, index: Int) =
+        payloadId(owner, sequence) + ":part:" + index
     private fun queryObject(scope: WeightReadScope) = linkedMapOf(
         "start" to scope.start.toString(), "end" to scope.end.toString(), "pageSize" to scope.pageSize.toLong())
     private fun query(fields: JsonObject): WeightReadScope {
