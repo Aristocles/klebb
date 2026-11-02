@@ -30,6 +30,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I added a versioned active workout energy mapping with independent kJ/kcal
+  fixtures, preserving existing import values, caller-selected dates and
+  per-session rounding. Provider association and release gates remain open.
+  Refs #759.
+
 - I added a versioned body-mass mapping for controlled provider fixtures,
   preserving exact unit conversions and caller-selected dates in the existing
   date/kg row contract. Source cutover, projection and release gates remain open.

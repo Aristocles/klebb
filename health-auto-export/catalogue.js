@@ -34,6 +34,7 @@ const {
   readQty, toKcal, toKm, toM, toKg, passQty,
   extractHHMM,
 } = require('./helpers');
+const workoutEnergy = require('../lib/health-metrics/workout-energy');
 
 module.exports = {
   // --- Sleep / recovery ---------------------------------------------------
@@ -247,7 +248,8 @@ module.exports = {
 
       // Calories: prefer activeEnergyBurned (excludes BMR). Units may be
       // "kcal" or "kJ" depending on the iPhone's unit preference.
-      const kcal = readQty(entry.activeEnergyBurned, toKcal);
+      const kcal = readQty(entry.activeEnergyBurned, (quantity, units) =>
+        workoutEnergy.toKilocalories('active', quantity, units) ?? toKcal(quantity, units));
       if (kcal !== null && kcal > 0) {
         row.calories = round(kcal, 0);
       }
