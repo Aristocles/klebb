@@ -28,6 +28,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Added
 
+- I added a versioned body-mass mapping for controlled provider fixtures,
+  preserving exact unit conversions and caller-selected dates in the existing
+  date/kg row contract. Source cutover, projection and release gates remain open.
+  Refs #759.
+
 - I added typed ordinary readers for all 42 registered Health Connect record types,
   preserving category and feature gates, query boundaries and complete-page type
   refusal. Durable collection, native verification and release gates remain open.
