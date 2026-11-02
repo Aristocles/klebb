@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I publish complete synthetic mid-body observations through an exclusive
+  same-directory pending file and rename, preserving the original values and
+  helper modes. Refs #884.
+
 - I added local Weight scope facts and bound upload receipts to their exact batches,
   guarding stale permission checks and replacement pairing custody. Policy
   admission and complete recovery remain separate. Refs #856.

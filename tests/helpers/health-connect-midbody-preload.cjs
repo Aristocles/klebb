@@ -30,13 +30,15 @@ http.Server.prototype.emit = function (event, ...args) {
             require(path.join(process.env.INDEPENDENT_PRODUCT_ROOT, 'lib/import/freeze'))
               .engage('synthetic-midbody-review');
           }
-          fs.writeFileSync(latch, JSON.stringify({
+          const pending = latch + '.pending';
+          fs.writeFileSync(pending, JSON.stringify({
             phase: mode === 'admission-observe' ?
               'admission-iterator-consumed-first-chunk-before-request-end' :
               'batch-iterator-consumed-first-chunk-before-request-end',
             bytes: chunk.length,
             action: mode,
-          }), { encoding: 'utf8', mode: 0o600 });
+          }), { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+          fs.renameSync(pending, latch);
         }
         yield chunk;
       }
