@@ -29,6 +29,20 @@ internal class QueueStorageNativeFixture : AutoCloseable {
     val alias = "klebb-queue-test-$suffix"
     private val databaseName = "queue-test-$suffix.db"
     val sql = Collections.synchronizedList(mutableListOf<String>())
+    @Volatile
+    var observeNativeStatement: ((String, List<Any?>) -> Unit)? = null
+    private val nativeObserverFailures = Collections.synchronizedList(mutableListOf<Throwable>())
+    @Volatile private var nativeObserverEmergencyFailure: Throwable? = null
+
+    fun nativeObserverFailuresSnapshot(): List<Throwable> =
+        synchronized(nativeObserverFailures) { nativeObserverFailures.toList() }.let { failures ->
+            nativeObserverEmergencyFailure?.let { failures + it } ?: failures
+        }
+
+    private fun captureNativeObserverFailure(failure: Throwable) {
+        try { nativeObserverFailures.add(failure) }
+        catch (_: Throwable) { nativeObserverEmergencyFailure = failure }
+    }
     var db: QueueDatabase
         private set
     private val fixed = JSONObject(
@@ -48,7 +62,16 @@ internal class QueueStorageNativeFixture : AutoCloseable {
     private fun openDatabase(): QueueDatabase =
         Room.databaseBuilder(context, QueueDatabase::class.java, databaseName)
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-            .setQueryCallback({ statement, _ -> sql.add(statement) }, Executor { it.run() })
+            .setQueryCallback({ statement, arguments ->
+                // Query callbacks are coroutine diagnostics, not a production fault seam.
+                // Keep every observer/logging failure inside this private callback boundary.
+                try {
+                    sql.add(statement)
+                    observeNativeStatement?.invoke(statement, arguments.toList())
+                } catch (failure: Throwable) {
+                    captureNativeObserverFailure(failure)
+                }
+            }, Executor { it.run() })
             .build()
 
     fun reopen() {

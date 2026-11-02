@@ -9,6 +9,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Private fixture clocks on Windows**: I protect each newly allocated empty clock directory before writing its synthetic clock, while preserving the strict ownership checks and independent failure cleanup (#879).
+
 - I publish complete synthetic mid-body observations through an exclusive
   same-directory pending file and rename, preserving the original values and
   helper modes. Refs #884.
@@ -32,6 +34,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   preserving exact unit conversions and caller-selected dates in the existing
   date/kg row contract. Source cutover, projection and release gates remain open.
   Refs #759.
+
+- I added durable immutable Android queue batches and exact receipt admission,
+  preserving prepared upload bytes across retries and fencing stale pairing
+  and sharing state. Scheduling, provider sync and release gates remain open.
+  Refs #758.
 
 - I added typed ordinary readers for all 42 registered Health Connect record types,
   preserving category and feature gates, query boundaries and complete-page type
