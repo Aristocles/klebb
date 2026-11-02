@@ -9,6 +9,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I bind both held-rebuild authority checks to an independent child clock, retaining exact publication timestamps, logout/freeze refusals and unchanged-state assertions. Refs #755.
+
 - I use two independently fixed child-clock inputs for the authenticated origin-refusal check, retaining exact session timestamps and the existing authority and zero-effects assertions.
 
 - **Private fixture clocks on Windows**: I protect each newly allocated empty clock directory before writing its synthetic clock, while preserving the strict ownership checks and independent failure cleanup (#879).
@@ -31,6 +33,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   and verify released bytes independently of network buffering. Refs #849.
 
 ### Added
+
+- I added encrypted Room storage for bounded complete-record parts and finalisation,
+  retaining immutable bytes until the final exact receipt and registering six
+  native checks. Complete-page partitioning and native release gates remain open.
+  Refs #755.
 
 - I added an Android editor for separate history-import and display-switch dates,
   with strict saved-choice validation and explicit save/cancel controls. Refs #754.

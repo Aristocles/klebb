@@ -60,6 +60,13 @@ Their authority and namespace are server issued. This proof implements no
 health ingestion endpoint and cannot establish durability, reconciliation or
 release readiness.
 
+The internal paired upload transport also supports the existing fixed object-part
+and object-finalise routes. It checks every part receipt against the original
+declaration and bytes; only finalisation accepts the ordinary durable receipt
+for the whole record digest. Part custody does not advance a queue checkpoint.
+Encrypted multipart queue staging, native collection and release checks remain
+separate requirements; the foreground launcher does not begin collection.
+
 ## Pinned build
 
 | Component | Version |

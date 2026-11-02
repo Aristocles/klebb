@@ -2,6 +2,7 @@
 package app.klebb.companion.protocol
 
 import java.time.Instant
+import java.util.Base64
 import java.util.Collections
 import java.util.UUID
 
@@ -54,6 +55,7 @@ class InMemoryPairingSession(
     private data class ReceiptExpectation(val recordType: String, val sequence: String,
         val batchId: String, val payloadDigest: String)
     private val batchReceipts = mutableMapOf<AuthorisedRequest, ReceiptExpectation>()
+    private val objectPartReceipts = mutableMapOf<AuthorisedRequest, JsonObject>()
     private val batchTransports = mutableMapOf<AuthorisedRequest, PairingTransport>()
     private var epoch = 0L
     val destination: String? get() = origin?.text
@@ -143,12 +145,21 @@ class InMemoryPairingSession(
         return authorised("$BASE/streams/$recordType/status", recordType)
     }
     /** A durable upload receipt is page acceptance, never native coverage or policy authority. */
-    fun uploadBatch(transport: PairingTransport, bytes: ByteArray): HealthFrame {
+    fun uploadBatch(transport: PairingTransport, bytes: ByteArray): HealthFrame =
+        upload(transport, bytes, ::batchRequest)
+    /** Part custody is not a durable record receipt and must never advance the queue ACK. */
+    internal fun uploadObjectPart(transport: PairingTransport, bytes: ByteArray): HealthFrame =
+        upload(transport, bytes) { objectRequest(it, false) }
+    /** Only the complete object digest can receive the ordinary durable receipt. */
+    internal fun uploadObjectFinalise(transport: PairingTransport, bytes: ByteArray): HealthFrame =
+        upload(transport, bytes) { objectRequest(it, true) }
+    private fun upload(transport: PairingTransport, bytes: ByteArray,
+        prepare: (ByteArray) -> AuthorisedRequest): HealthFrame {
         val selected = destination ?: throw ProtocolException("not-paired")
         if (transport.destination != selected) throw ProtocolException("invalid-destination")
         val body = bytes.copyOf()
         try {
-            val request = batchRequest(body)
+            val request = prepare(body)
             val owner = paired
             batchTransports[request] = transport
             try {
@@ -180,6 +191,36 @@ class InMemoryPairingSession(
             throw failure
         }
     }
+    private fun objectRequest(bytes: ByteArray, finalise: Boolean): AuthorisedRequest {
+        if (paired == null) throw ProtocolException("not-paired")
+        val frame = protocol.decode(bytes, ValidationContext(
+            limits = pairedLimits ?: throw ProtocolException("not-paired"), categories = categories))
+        val kind = if (finalise) "object-finalise" else "object-part"
+        if (frame.kind != kind) throw ProtocolException("invalid-message")
+        val recordType = frame.fields["recordType"] as String
+        val request = authorised(if (finalise) "$BASE/object-finalise" else "$BASE/object-parts", recordType)
+        try {
+            val verified = protocol.decode(bytes, request.context)
+            if (finalise) {
+                batchReceipts[request] = ReceiptExpectation(recordType, verified.fields["sequence"] as String,
+                    verified.fields["batchId"] as String, verified.fields["objectDigest"] as String)
+            } else {
+                val expected = LinkedHashMap(verified.fields)
+                val part = Base64.getDecoder().decode(expected.remove("partBase64") as String)
+                expected["kind"] = "object-part-receipt"
+                expected["partBytes"] = part.size.toLong()
+                part.fill(0)
+                objectPartReceipts[request] = Collections.unmodifiableMap(expected)
+            }
+            return request
+        } catch (failure: Exception) {
+            request.clear()
+            requests.remove(request)
+            batchReceipts.remove(request)
+            objectPartReceipts.remove(request)
+            throw failure
+        }
+    }
     private fun authorised(path: String, recordType: String?): AuthorisedRequest {
         val fields = paired?.fields ?: throw ProtocolException("not-paired")
         val binding = listOf("tenantId", "instanceId", "sourceStoreId", "installationId", "restoreEpoch")
@@ -207,7 +248,15 @@ class InMemoryPairingSession(
             if (frame.kind == "error") throw ProtocolException(frame.fields["code"] as String)
             if (httpStatus !in 200..299) throw ProtocolException("request-refused")
             val receipt = batchReceipts[request]
-            if (receipt != null) {
+            val partReceipt = objectPartReceipts[request]
+            if (partReceipt != null) {
+                if (frame.kind != "object-part-receipt") throw ProtocolException("binding-mismatch")
+                if (frame.fields["objectDigest"] != partReceipt["objectDigest"] ||
+                    frame.fields["partDigest"] != partReceipt["partDigest"]) {
+                    throw ProtocolException("digest-mismatch")
+                }
+                if (frame.fields != partReceipt) throw ProtocolException("binding-mismatch")
+            } else if (receipt != null) {
                 if (frame.kind != "durable-receipt" || frame.fields["recordType"] != receipt.recordType ||
                     frame.fields["sequence"] != receipt.sequence || frame.fields["batchId"] != receipt.batchId) {
                     throw ProtocolException("binding-mismatch")
@@ -238,6 +287,7 @@ class InMemoryPairingSession(
             request.clear()
             requests.remove(request)
             batchReceipts.remove(request)
+            objectPartReceipts.remove(request)
         }
     }
     fun clear() {
@@ -249,6 +299,7 @@ class InMemoryPairingSession(
         requests.forEach { it.clear() }
         requests.clear()
         batchReceipts.clear()
+        objectPartReceipts.clear()
         paired = null
         pairedLimits = null
         grant = null

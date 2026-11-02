@@ -10,6 +10,12 @@ const { fixture, restart, close, first, postBatch, req, ORIGIN, REBUILD,
   waitForStatus, coldReadSourceState, assertFirstNative, assertFirstIndex, noAuthority } =
   require(path.join(product, 'tests/helpers/health-connect-source-index-test-fixture.cjs'));
 const preload = path.join(__dirname, '../helpers/health-connect-source-index-midbody-preload.cjs');
+const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json').base;
+const clockPreload = path.join(__dirname, '../helpers/health-connect-fixed-child-clock-preload.cjs');
+const clockEnv = {
+  NODE_OPTIONS: `--require=${JSON.stringify(clockPreload)}`,
+  INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.milliseconds),
+};
 function heldRebuild(data) {
   const wire = Buffer.from('{}', 'utf8');
   let request;
@@ -46,7 +52,7 @@ async function firstChunk(latch, action) {
 }
 for (const action of ['observe', 'freeze']) {
   test(`held browser rebuild rechecks ${action === 'freeze' ? 'actual new import freeze' : 'actual session logout'} before queue effects`, async () => {
-    const data = await fixture();
+    const data = await fixture(clockEnv, healthyClock.milliseconds);
     let pending;
     try {
       const vector = first(data);
@@ -58,7 +64,8 @@ for (const action of ['observe', 'freeze']) {
       assertFirstNative(before.native, data);
       assertFirstIndex(before.index, data);
       const latch = path.join(data.home, 'source-index-midbody-latch.json');
-      await restart(data, { NODE_OPTIONS: `--require "${preload.replaceAll('\\', '/')}"`,
+      await restart(data, { ...clockEnv,
+        NODE_OPTIONS: `${clockEnv.NODE_OPTIONS} --require=${JSON.stringify(preload)}`,
         INDEPENDENT_PRODUCT_ROOT: product, INDEPENDENT_INDEX_MIDBODY_ACTION: action,
         INDEPENDENT_INDEX_MIDBODY_LATCH: latch });
       // Actual read-only status waits for boot; an identical current target
