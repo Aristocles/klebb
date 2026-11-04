@@ -300,3 +300,45 @@ test('existing Steps owner setup keeps pre-cutover history and excludes overlapp
     expect(fixture.bridgeFailures).toEqual([]);
   } finally { await fixture.close(); }
 });
+
+test('switching saved Weight and Steps keeps the visible card and source choices', async ({ browser }) => {
+  const fixture = await authorityPage(browser);
+  try {
+    const source = await newSource(fixture);
+    for (const spec of [E.weight, E.steps]) {
+      await activate(fixture, source, spec.sourceType);
+      await saved(fixture, source, spec);
+      const created = await owner(fixture, '/api/manifests', {
+        method: 'POST', body: {
+          $schema: 'klebb.datafile.v1', meta: {
+            id: spec.cardId, label: spec.sourceType,
+            ingest: { source: 'hae', metric: spec.metric },
+            view: { enabled: true, component: 'generic-card' },
+            writeable: { fromWebapp: false },
+          }, data: spec.HAEBeforeRows,
+        },
+      });
+      expect(created.status).toBe(201);
+      const expected = selection(source, spec);
+      const patched = await owner(fixture, `/api/manifests/${spec.cardId}`, {
+        method: 'PATCH', body: { meta: { healthConnectDisplay: expected } },
+      });
+      expect(patched.status).toBe(200);
+      const stored = await owner(fixture, `/api/manifests/${spec.cardId}`);
+      expect(stored.status).toBe(200);
+      expect(stored.json.meta.healthConnectDisplay).toEqual(expected);
+    }
+    const region = await chooser(fixture);
+    for (const spec of [E.weight, E.steps, E.weight]) {
+      await region.getByLabel('Display metric', { exact: true }).selectOption(spec.sourceType);
+      const expectedKey = JSON.stringify([
+        source.binding.tenantId, source.binding.sourceStoreId, spec.sourceType, PRODUCER,
+      ]);
+      await expect(region.getByLabel('Captured source and app', { exact: true })).toHaveValue(expectedKey);
+      await expect(region.getByLabel('Dashboard card', { exact: true })).toHaveValue(spec.cardId);
+      await expect(region.getByLabel('Phone display date', { exact: true })).toHaveValue(spec.switchDate);
+      await expect(region.getByLabel('Display timezone', { exact: true })).toHaveValue('UTC');
+    }
+    expect(fixture.bridgeFailures).toEqual([]);
+  } finally { await fixture.close(); }
+});

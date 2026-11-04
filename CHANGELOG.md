@@ -9,6 +9,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I retain the saved card and source choices when switching between Weight and
+  Steps in dashboard settings. Refs #759.
+
 - I preserve signed native metadata versions through encoding and upload without
   changing non-negative sequence, generation or receipt-frontier rules. Refs #755.
 
