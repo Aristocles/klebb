@@ -558,8 +558,8 @@ object RecordCodecs {
             "fl. oz (US)" to LosslessValues.float64(value.inFluidOuncesUs)))
 
     private fun metadata(value: Metadata): Map<String, Any?> {
-        if (value.id.isEmpty() || value.id.codePointCount(0, value.id.length) > 256 ||
-            value.clientRecordVersion < 0) throw RecordCodecException("unsupported-value")
+        if (value.id.isEmpty() || value.id.codePointCount(0, value.id.length) > 256)
+            throw RecordCodecException("unsupported-value")
         return linkedMapOf(
             "recordingMethod" to value.recordingMethod,
             "id" to value.id,

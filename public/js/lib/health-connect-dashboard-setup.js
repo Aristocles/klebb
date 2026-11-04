@@ -84,7 +84,8 @@ export async function saveDashboardSelection({
   if (!id) {
     const created = await requestJson(fetchImpl, '/api/settings/cards/from-template', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ templateId: DASHBOARD_METRICS[recordType].templateId }),
+      body: JSON.stringify({ templateId: DASHBOARD_METRICS[recordType].templateId,
+        label: DASHBOARD_METRICS[recordType].label }),
     }, signal);
     if (created.ok !== true || typeof created.id !== 'string' || !created.id) {
       throw new Error('Could not confirm the new card. Refresh the card list before retrying.');

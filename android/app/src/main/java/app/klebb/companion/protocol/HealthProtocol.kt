@@ -243,7 +243,7 @@ class HealthProtocol(schemaBytes: ByteArray) {
     private fun raw(record: JsonObject, family: String) {
         val metadata = record["metadata"] as? Map<*, *>
         if (family == "ordinary" && metadata?.containsKey("clientRecordVersion") == true &&
-            !rules.definition("int64", metadata["clientRecordVersion"])) fail()
+            !rules.definition("signedInt64", metadata["clientRecordVersion"])) fail()
         fun visit(value: Any?, key: String = "") {
             when (value) {
                 is List<*> -> value.forEach { visit(it) }

@@ -241,7 +241,7 @@ const CSP_INDEX = [
 
 // Per-path header overrides applied on top of the static handler's
 // default Content-Type. Returns the headers object (possibly empty).
-// Exact-path match only — no substring or suffix logic, so a future
+// Exact-path match only - no substring or suffix logic, so a future
 // upload at /data/foo-sw.js cannot inherit SW-only policy.
 function staticHeadersFor(pathname) {
   const headers = {};
@@ -667,7 +667,7 @@ function renderReportPage(title, htmlContent) {
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${title} — Health Dashboard</title>
+<title>${title} - Health Dashboard</title>
 <style>
 :root {
   --bg: #f5f7fa;
@@ -831,7 +831,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Liveness probe — dependency-free, no auth, no FS reads.
+  // Liveness probe - dependency-free, no auth, no FS reads.
   // Used by container healthchecks and external monitors. Must stay cheap.
   if (pathname === '/healthz') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -839,7 +839,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Build-info probe — populated at container build time from env vars.
+  // Build-info probe - populated at container build time from env vars.
   // Lets the browser show which branch / commit is running so testers can
   // verify they're hitting the right build. Session-gated: branch/commit
   // metadata is mild reconnaissance value on a public subdomain, and every
@@ -972,12 +972,12 @@ const server = http.createServer(async (req, res) => {
     // === Manifest endpoints (v2) ===
     // These take precedence over legacy flat endpoints when a manifest file exists.
 
-    // GET /api/manifests — list of all registered manifests
+    // GET /api/manifests - list of all registered manifests
     if (parts[0] === 'manifests' && parts.length === 1 && req.method === 'GET') {
       return sendJSON(res, { entries: registry.list(), errors: registry.errors() });
     }
 
-    // POST /api/manifests — create a brand new card from a full manifest body.
+    // POST /api/manifests - create a brand new card from a full manifest body.
     // Lenient on purpose: any JSON whose $schema, meta.id, meta.label satisfy
     // the load path's contract is accepted. Unknown renderer names are allowed
     // (ad-hoc escape hatch) and render as eh-unknown-card until a matching
@@ -1020,7 +1020,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // DELETE /api/manifests/:id — remove a card + its file.
+    // DELETE /api/manifests/:id - remove a card + its file.
     if (parts[0] === 'manifests' && parts.length === 2 && req.method === 'DELETE') {
       const id = parts[1];
       if (!registry.get(id)) return send404(res, 'manifest not found');
@@ -1032,7 +1032,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // PATCH /api/manifests/:id — RFC 7396 JSON Merge Patch over meta + description.
+    // PATCH /api/manifests/:id - RFC 7396 JSON Merge Patch over meta + description.
     // Body: { meta?: {...}, description?: "..." }
     //   - Nested objects deep-merge; arrays replace; null removes.
     //   - data + $schema + meta.id are protected.
@@ -1103,7 +1103,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // GET /api/views/:viewName — cards that opt into a named view
+    // GET /api/views/:viewName - cards that opt into a named view
     if (parts[0] === 'views' && parts.length === 2 && req.method === 'GET') {
       const viewName = parts[1];
       const valid = ['view', 'trends', 'calendar', 'reports', 'dayDetail'];
@@ -1114,7 +1114,7 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // GET /api/manifests/:id — full manifest
+    // GET /api/manifests/:id - full manifest
     if (parts[0] === 'manifests' && parts.length === 2 && req.method === 'GET') {
       const entry = registry.get(parts[1]);
       if (!entry) return send404(res, 'manifest not found');
@@ -1134,7 +1134,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // GET /api/manifests/:id/data — data block only
+    // GET /api/manifests/:id/data - data block only
     if (parts[0] === 'manifests' && parts.length === 3 && parts[2] === 'data' && req.method === 'GET') {
       const entry = registry.get(parts[1]);
       if (!entry) return send404(res, 'manifest not found');
@@ -1154,7 +1154,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // GET /api/manifests/:id/orphans — stored row keys nothing in the
+    // GET /api/manifests/:id/orphans - stored row keys nothing in the
     // manifest references. Drives the Settings gear's orphan section.
     if (parts[0] === 'manifests' && parts.length === 3 && parts[2] === 'orphans' && req.method === 'GET') {
       const report = orphanReport(registry, parts[1]);
@@ -1162,7 +1162,7 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, report);
     }
 
-    // POST /api/manifests/:id/data — full rewrite (honours meta.writeable.fromWebapp)
+    // POST /api/manifests/:id/data - full rewrite (honours meta.writeable.fromWebapp)
     if (parts[0] === 'manifests' && parts.length === 3 && parts[2] === 'data' && req.method === 'POST') {
       const entry = registry.get(parts[1]);
       if (!entry) return send404(res, 'manifest not found');
@@ -1220,7 +1220,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // POST /api/manifests/reorder — reassign meta.order across cards
+    // POST /api/manifests/reorder - reassign meta.order across cards
     // Body: { order: ["id1", "id2", "id3", ...] }
     // Writes sparse-numbered meta.order (100, 200, 300, ...) to each listed
     // manifest. Unlisted cards keep their existing order. Unknown ids cause
@@ -1266,7 +1266,7 @@ const server = http.createServer(async (req, res) => {
     // Settings just lists them and provides per-card master enable/disable
     // (flips meta.enabled in the file).
 
-    // GET /api/settings/cards — list all discovered cards with enabled state
+    // GET /api/settings/cards - list all discovered cards with enabled state
     if (parts[0] === 'settings' && parts[1] === 'cards' && parts.length === 2 && req.method === 'GET') {
       const cards = registry.list().map(c => ({
         id: c.id,
@@ -1279,7 +1279,7 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, { cards });
     }
 
-    // POST /api/settings/cards/:id/enable — set meta.enabled: true
+    // POST /api/settings/cards/:id/enable - set meta.enabled: true
     if (parts[0] === 'settings' && parts[1] === 'cards' && parts.length === 4 && parts[3] === 'enable' && req.method === 'POST') {
       if (ENV.KLEBB_DEMO) {
         return sendJSON(res, { error: 'demo mode: cards cannot be hidden' }, 403);
@@ -1292,7 +1292,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // POST /api/settings/cards/:id/disable — set meta.enabled: false
+    // POST /api/settings/cards/:id/disable - set meta.enabled: false
     if (parts[0] === 'settings' && parts[1] === 'cards' && parts.length === 4 && parts[3] === 'disable' && req.method === 'POST') {
       if (ENV.KLEBB_DEMO) {
         return sendJSON(res, { error: 'demo mode: cards cannot be hidden' }, 403);
@@ -1305,7 +1305,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // POST /api/settings/cards/from-template — create a real card from a
+    // POST /api/settings/cards/from-template - create a real card from a
     // shipped template. Body: { templateId }. Fills the template's
     // {{string:…}} placeholders from meta.template.defaults, derives a
     // unique id, strips meta.template, and writes the manifest.
@@ -1334,6 +1334,7 @@ const server = http.createServer(async (req, res) => {
         try {
           const takenIds = registry.list().map(c => c.id);
           const { manifest } = instantiateTemplate(tmpl.manifest, takenIds);
+          if (Object.hasOwn(parsed, 'label')) manifest.meta.label = parsed.label;
           const result = registry.createManifest(manifest);
           return sendJSON(res, { ok: true, id: result.id }, 201);
         } catch (e) {
@@ -1369,7 +1370,7 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, { prompts: listPrompts() });
     }
 
-    // GET /api/chat/status — is a chat endpoint configured? UI affordances
+    // GET /api/chat/status - is a chat endpoint configured? UI affordances
     // that depend on the agent use this to render an enabled/disabled state
     // without making an actual chat request. In demo mode the chat endpoint
     // is "configured" (the canned-reply short-circuit answers it) but
@@ -1384,14 +1385,14 @@ const server = http.createServer(async (req, res) => {
 
     // === End content endpoints ===
 
-    // GET /api/config — instance config file (not a manifest).
+    // GET /api/config - instance config file (not a manifest).
     if (parts.length === 1 && parts[0] === 'config') {
       const data = readJSONFile(path.join(DATA_DIR, 'config.json'));
       if (data) return sendJSON(res, data);
       return send404(res);
     }
 
-    // GET /api/info — list all info dates
+    // GET /api/info - list all info dates
     if (parts[0] === 'info' && parts.length === 1) {
       const dates = listDatesInDir(path.join(DATA_DIR, 'info'));
       return sendJSON(res, dates);
@@ -1548,7 +1549,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // GET /api/health-auto-export/status — settings-facing diagnostic.
+    // GET /api/health-auto-export/status - settings-facing diagnostic.
     // Reports whether the ingest token is configured, the effective
     // webhook URL (derived from the request host), and the most recent
     // push snapshot written by the dispatcher.
@@ -1617,7 +1618,7 @@ const server = http.createServer(async (req, res) => {
     // session's userId scopes which credentials are visible/removable, so a
     // request can only ever see and manage its own account's passkeys.
 
-    // GET /api/credentials — list the current user's passkeys (non-sensitive
+    // GET /api/credentials - list the current user's passkeys (non-sensitive
     // fields only; never publicKey/counter). Flags the current device.
     if (parts[0] === 'credentials' && parts.length === 1 && req.method === 'GET') {
       const session = getSessionRecord(req);
@@ -1627,7 +1628,7 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // POST /api/invites — mint a single-use register invite for the caller's
+    // POST /api/invites - mint a single-use register invite for the caller's
     // OWN account: the Settings > Security "add a device" flow. The label is
     // always the session's userId (never client input), so a passkey
     // registered on another device via the QR/link lands under the caller's
@@ -1647,7 +1648,7 @@ const server = http.createServer(async (req, res) => {
       }, 201);
     }
 
-    // DELETE /api/credentials/:id — remove one passkey by id. Refuses to
+    // DELETE /api/credentials/:id - remove one passkey by id. Refuses to
     // remove the last remaining credential (would re-open the instance to
     // bootstrap). Sessions bound to the removed credential are invalidated.
     if (parts[0] === 'credentials' && parts.length === 2 && req.method === 'DELETE') {
@@ -1662,7 +1663,7 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, { error: 'Passkey not found' }, 404);
     }
 
-    // GET /api/health-auto-export/discoveries — list metrics present in
+    // GET /api/health-auto-export/discoveries - list metrics present in
     // past HAE pushes that no manifest subscribes to. Shape (see
     // discoveries.list()):
     //   { undismissed: { supported: {<category>: [{metric, firstSeenAt}]},
@@ -1688,7 +1689,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // --- Combination-card suggestions ---------------------------------
-    // GET /api/cc-suggestions — returns { suggestions: [{category, cardIds}] }.
+    // GET /api/cc-suggestions - returns { suggestions: [{category, cardIds}] }.
     // Clusters 3+ enabled atomic cards sharing a meta.category value,
     // excludes cards already used as donors in existing CCs, honours
     // dismissals.
@@ -1697,7 +1698,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // POST /api/cc-suggestions/:category/dismiss
-    // Body: { cardIds: [...] } — the cluster's card IDs at the moment of
+    // Body: { cardIds: [...] } - the cluster's card IDs at the moment of
     // dismissal. Stored as part of the dismissal key so adding a new
     // card to the cluster later re-fires as a fresh suggestion.
     if (parts[0] === 'cc-suggestions' && parts[2] === 'dismiss'
@@ -1726,7 +1727,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // GET /api/hygiene — ambient, high-confidence staleness only, minus
+    // GET /api/hygiene - ambient, high-confidence staleness only, minus
     // anything the user has dismissed. The full multi-kind scan is pull-only
     // via the hygiene_scan chat tool; this surface is the quiet nudge.
     if (parts[0] === 'hygiene' && parts.length === 1 && req.method === 'GET') {
@@ -1735,7 +1736,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // POST /api/hygiene/:cardId/dismiss
-    // Body: { kind } — silence one finding kind for one card, permanently.
+    // Body: { kind } - silence one finding kind for one card, permanently.
     // Mirrors the cc-suggestions dismissal model. `dismissedAt` is recorded but
     // nothing expires on it: since staleness is opt-in (meta.cadence), a
     // dismissal means the author asked to be chased and then said no, so the
@@ -1764,7 +1765,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // POST /api/feedback — append an anonymised feedback line.
+    // POST /api/feedback - append an anonymised feedback line.
     // Body: { kind?, intent, context?, toolsConsidered? }. Fired by the
     // in-app feedback form and mirrored by Klebbius's note_feedback tool
     // (which calls appendFeedback in-process). Anonymisation happens in
@@ -1916,7 +1917,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // GET /api/chat/turn/:conversationId — reattach to a turn (#602). A
+    // GET /api/chat/turn/:conversationId - reattach to a turn (#602). A
     // client that backgrounded mid-turn reconnects here: buffered events
     // replay from Last-Event-ID (or ?after=N), then the stream goes live.
     // 204 means no turn to attach to: the client reads the conversation,
@@ -1936,7 +1937,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // DELETE /api/chat/turn/:conversationId — stop the running turn. The
+    // DELETE /api/chat/turn/:conversationId - stop the running turn. The
     // loop halts at its next checkpoint (between round-trips or tool
     // calls); the user's message stays, no reply is persisted, and the
     // one-turn lock releases so the next send goes through.
@@ -1947,7 +1948,7 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, { ok: true });
     }
 
-    // /api/chat/history — per-instance chat transcript so it follows the
+    // /api/chat/history - per-instance chat transcript so it follows the
     // user across devices. Single-user-per-instance model (WebAuthn auth),
     // so no per-user keying is needed.
     if (parts[0] === 'chat' && parts[1] === 'history' && parts.length === 2) {
@@ -2033,7 +2034,7 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, { error: 'Method not allowed' }, 405);
     }
 
-    // POST /api/chat — proxy to chat gateway chat completions
+    // POST /api/chat - proxy to chat gateway chat completions
     // Body: { messages: [...], voiceMode?: boolean }
     //   voiceMode=true → append "keep replies short/conversational" to system prompt
     if (parts[0] === 'chat' && parts.length === 1 && req.method === 'POST') {
@@ -2186,7 +2187,7 @@ const server = http.createServer(async (req, res) => {
             voicePrefix = `You are ${process.env.CHAT_AGENT_NAME || 'Chat'}, a health assistant.
 Voice mode is active: the user is speaking to you and will hear your reply aloud.
 
-OUTPUT FORMAT — MANDATORY:
+OUTPUT FORMAT - MANDATORY:
 Reply with a single JSON object and nothing else. Schema:
 {
   "speak":   "what should be spoken aloud (plain prose, no markdown, no emoji, no code, no URLs)",
@@ -2198,7 +2199,7 @@ Voice-reply rules:
 - No bullet points, no markdown, no code blocks, no headings in speak.
 - Spell out abbreviations in speak (BP -> "blood pressure", HRV -> "heart rate variability", kg, lbs).
 - No emoji, no URLs, no file paths in speak.
-- If the answer is long, give the headline in speak + "ask me for details" — never cram.
+- If the answer is long, give the headline in speak + "ask me for details" - never cram.
 
 Conversational allow-list (reply naturally, no disclaimer footer, no "let me check my data"):
 - Thanks / cheers / awesome / nice / good one / ok -> a short friendly ack like "no worries" or "any time".
@@ -2442,7 +2443,7 @@ Original system prompt follows:
 
     // === Voice endpoints ===
 
-    // GET /api/instance — branding + runtime identity (for frontend)
+    // GET /api/instance - branding + runtime identity (for frontend)
     if (parts[0] === 'instance' && parts.length === 1 && req.method === 'GET') {
       return sendJSON(res, {
         name: ENV.INSTANCE_NAME,
@@ -2455,7 +2456,7 @@ Original system prompt follows:
       });
     }
 
-    // POST /api/user/tz — capture the user's IANA timezone for the
+    // POST /api/user/tz - capture the user's IANA timezone for the
     // notifications scheduler. The browser posts this on every session
     // boot; the server only writes when the value changed.
     if (parts[0] === 'user' && parts[1] === 'tz' && parts.length === 2 && req.method === 'POST') {
@@ -2488,13 +2489,13 @@ Original system prompt follows:
       return sendJSON(res, { error: 'Voice disabled in demo mode', demo: true }, 503);
     }
 
-    // GET /api/voice/config — current Fish Audio status (backend tier, credit, voiceId)
+    // GET /api/voice/config - current Fish Audio status (backend tier, credit, voiceId)
     if (parts[0] === 'voice' && parts[1] === 'config' && parts.length === 2 && req.method === 'GET') {
       voice.getStatus().then(s => sendJSON(res, s)).catch(e => sendJSON(res, { error: e.message }, 500));
       return;
     }
 
-    // POST /api/voice/tts — body { text } -> JSON { key, url, contentType, byteLength }
+    // POST /api/voice/tts - body { text } -> JSON { key, url, contentType, byteLength }
     // Generates TTS, caches the buffer, returns a GET URL the client can set
     // as an <audio> src. The GET endpoint below serves with Content-Length +
     // Range support (critical for iOS auto-play).
@@ -2542,7 +2543,7 @@ Original system prompt follows:
       return;
     }
 
-    // GET /api/voice/tts/:key — serves cached TTS bytes with full Content-Length
+    // GET /api/voice/tts/:key - serves cached TTS bytes with full Content-Length
     // and Range support. iOS's media pipeline probes with Range: bytes=0-1
     // before issuing the full fetch; we must honour it with 206 Partial Content
     // or auto-play silently fails.
@@ -2590,7 +2591,7 @@ Original system prompt follows:
       return res.end(entry.buffer);
     }
 
-    // POST /api/voice/asr — body: raw audio bytes -> { text }
+    // POST /api/voice/asr - body: raw audio bytes -> { text }
     if (parts[0] === 'voice' && parts[1] === 'asr' && parts.length === 2 && req.method === 'POST') {
       const chunks = [];
       let total = 0;
@@ -2635,7 +2636,7 @@ Original system prompt follows:
 
     // === End voice endpoints ===
 
-    // POST /api/reports/upload — body: raw file bytes, filename in a header.
+    // POST /api/reports/upload - body: raw file bytes, filename in a header.
     //
     // One file per request as an octet stream: no multipart parser (and so no
     // dependency), following the precedent set by POST /api/voice/asr. The
@@ -2832,7 +2833,7 @@ Original system prompt follows:
       return;
     }
 
-    // GET /api/reports — quota + reports + in-flight + failures
+    // GET /api/reports - quota + reports + in-flight + failures
     if (parts[0] === 'reports' && parts.length === 1 && req.method === 'GET') {
       try {
         return sendJSON(res, reportsApi.envelope());
@@ -2842,7 +2843,7 @@ Original system prompt follows:
       }
     }
 
-    // GET /api/reports/:name/source — the archived original, for the OCR
+    // GET /api/reports/:name/source - the archived original, for the OCR
     // compare view. Inline rather than a download, and never cached: it is the
     // most sensitive artefact in the instance (the only copy that still carries
     // the patient's identifiers).
@@ -2864,7 +2865,7 @@ Original system prompt follows:
       return fs.createReadStream(abs).pipe(res);
     }
 
-    // GET /api/reports/:name/text — the extracted text alone, for the compare
+    // GET /api/reports/:name/text - the extracted text alone, for the compare
     // view. /report/<name> renders a whole styled HTML page, so the client
     // cannot use it here: stripping frontmatter out of rendered markup with a
     // regex leaks the header into the pane the human is meant to be checking.
@@ -2878,7 +2879,7 @@ Original system prompt follows:
       return res.end(reportsApi.bodyText(found.text));
     }
 
-    // POST /api/reports/:name/verify — the human has compared the OCR text
+    // POST /api/reports/:name/verify - the human has compared the OCR text
     // against the original and it reads correctly.
     if (parts[0] === 'reports' && parts.length === 3 && parts[2] === 'verify' && req.method === 'POST') {
       if (ENV.KLEBB_DEMO) return sendJSON(res, { error: 'Not available in demo mode' }, 403);
@@ -2890,7 +2891,7 @@ Original system prompt follows:
       return sendJSON(res, result);
     }
 
-    // POST /api/reports/:name/reprocess — re-extract the archived original and
+    // POST /api/reports/:name/reprocess - re-extract the archived original and
     // re-comprehend, overwriting the SAME report. Body may carry {reader:
     // "vision"} or {psm} to pick a rung explicitly; the default takes the
     // first rung of the ladder (vision, then psm 3/6/4) the report has not
@@ -2948,7 +2949,7 @@ Original system prompt follows:
       return;
     }
 
-    // DELETE /api/reports/:name — remove the report and its archived original,
+    // DELETE /api/reports/:name - remove the report and its archived original,
     // freeing a quota slot.
     if (parts[0] === 'reports' && parts.length === 2 && req.method === 'DELETE') {
       if (ENV.KLEBB_DEMO) return sendJSON(res, { error: 'Not available in demo mode' }, 403);

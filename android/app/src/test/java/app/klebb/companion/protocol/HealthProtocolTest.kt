@@ -81,6 +81,30 @@ class HealthProtocolTest {
             "tenantId" to "a\"b", "sourceStoreId" to "c\\d", "recordType" to "StepsRecord",
             "nativeRecordId" to "line\nend")))
     }
+    @Test
+    fun signedOrdinaryMetadataBoundsDoNotRelaxUnsignedSequence() {
+        val protocol = SharedWire.protocol()
+        val context = SharedWire.context(SharedWire.read("protocol-v1.json"))
+        fun wire(versionLiteral: String, sequence: String = "1"): ByteArray {
+            val payload = """{"binding":{"tenantId":"tenant-a","instanceId":"instance-a","sourceStoreId":"store-a","installationId":"install-a","generation":"7","restoreEpoch":"epoch-a"},"recordType":"StepsRecord","sequence":"$sequence","batchId":"signed-metadata-a","changes":[{"operation":"upsert","identity":{"tenantId":"tenant-a","sourceStoreId":"store-a","recordType":"StepsRecord","nativeRecordId":"native-a"},"dataFamily":"ordinary","projection":"projected","record":{"metadata":{"id":"native-a","clientRecordVersion":$versionLiteral,"lastModifiedTime":"2001-01-01T00:00:00Z","dataOrigin":{"packageName":"org.example.synthetic"},"recordingMethod":0,"clientRecordId":null,"device":null},"startTime":"2001-01-01T00:00:00Z","endTime":"2001-01-01T00:10:00Z","startZoneOffset":null,"endZoneOffset":null,"count":"1234"},"serializerId":"health-connect-record","serializerVersion":1}]}"""
+            val digest = "sha256:" + java.security.MessageDigest.getInstance("SHA-256")
+                .digest(payload.toByteArray()).joinToString("") { "%02x".format(it.toInt() and 255) }
+            return ControlJson.text(mapOf("version" to 1L, "kind" to "batch",
+                "payloadJson" to payload, "payloadDigest" to digest)).toByteArray()
+        }
+        assertEquals("batch", protocol.decode(wire("\"0\""), context).kind)
+        for (version in listOf("-1", "-9223372036854775808")) {
+            assertEquals("batch", protocol.decode(wire("\"$version\""), context).kind)
+        }
+        for (versionLiteral in listOf("\"-9223372036854775809\"", "-1", "\"-0\"")) {
+            assertEquals("invalid-message", assertThrows(ProtocolException::class.java) {
+                protocol.decode(wire(versionLiteral), context)
+            }.code)
+        }
+        assertEquals("invalid-message", assertThrows(ProtocolException::class.java) {
+            protocol.decode(wire("\"-1\"", "-1"), context)
+        }.code)
+    }
 }
 
 @RunWith(Parameterized::class)

@@ -179,12 +179,14 @@ class RecordCodecsTest {
         }.code)
     }
 
-    @Test fun unsupportedNativeVersionAndWireInstantRangeRefuse() {
+    @Test fun signedNativeVersionPreservesTextAndWireInstantRangeRefuses() {
         val metadata = NativeMetadataFixture.create(0, "synthetic-id", "2001-01-01T00:00:00Z",
             null, -1, null)
-        assertEquals("unsupported-value", assertThrows(RecordCodecException::class.java) {
-            RecordCodecs.encode(steps(metadata))
-        }.code)
+        assertEquals(-1L, metadata.clientRecordVersion)
+        for (record in listOf(steps(metadata), weight(metadata))) {
+            val actual = parsed(RecordCodecs.encode(record).recordJson)["metadata"] as Map<*, *>
+            assertEquals("-1", actual["clientRecordVersion"])
+        }
         assertEquals("unsupported-value", assertThrows(RecordCodecException::class.java) {
             LosslessValues.instant(Instant.parse("+10000-01-01T00:00:00Z"))
         }.code)

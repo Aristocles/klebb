@@ -109,7 +109,7 @@ test('fresh Weight setup creates once, retains the ID before PATCH and verifies 
   ]);
   assert.deepEqual(stub.calls, [
     { url: '/api/settings/cards/from-template', method: 'POST', credentials: 'same-origin',
-      body: { templateId: 'body-mass-hae' } },
+      body: { templateId: 'body-mass-hae', label: 'Weight' } },
     { url: '/api/manifests/weight-card', method: 'PATCH', credentials: 'same-origin',
       body: { meta: { healthConnectDisplay: weightSelection } } },
     { url: '/api/manifests/weight-card', method: 'GET', credentials: 'same-origin' },
@@ -120,6 +120,7 @@ test('fresh Weight setup creates once, retains the ID before PATCH and verifies 
 test('existing Steps cutover keeps its card, metadata and history without creating another card', async () => {
   const previous = structuredClone(stepsEntry);
   previous.meta.healthConnectDisplay.switchDate = '2026-10-01';
+  previous.meta.label = 'Existing Steps';
   const expected = {
     ...previous,
     meta: { ...previous.meta, healthConnectDisplay: stepsSelection },
@@ -173,7 +174,7 @@ test('a failed PATCH retains the new Steps ID and retry uses that card without a
   ]);
   assert.deepEqual(first.calls, [
     { url: '/api/settings/cards/from-template', method: 'POST', credentials: 'same-origin',
-      body: { templateId: 'steps' } },
+      body: { templateId: 'steps', label: 'Steps' } },
     { url: '/api/manifests/steps-card', method: 'PATCH', credentials: 'same-origin',
       body: { meta: { healthConnectDisplay: stepsSelection } } },
   ]);
