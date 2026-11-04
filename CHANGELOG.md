@@ -4519,7 +4519,7 @@ catalog or install flow, AI-agent-friendly HTTP API.
   `/api/settings/cards/:id/archive`, `/api/settings/cards/:id/restore`,
   `/api/calendar/health`. The install flow is gone entirely (files are
   the source of truth).
-- **Session cookie renamed** - `vorhealth_session` → `klebb_session`.
+- **Session cookie renamed** - The current cookie is `klebb_session`.
   Existing browsers will see a one-time re-auth prompt after the upgrade.
 - **Default env values changed:**
   - `CHAT_AGENT_NAME`: was a project-specific string, now `Chat`
