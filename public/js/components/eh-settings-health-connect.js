@@ -421,7 +421,7 @@ export class EhSettingsHealthConnect extends LitElement {
             </select>
           </label>
           <label>Dashboard card
-            <select aria-label="Dashboard card" .value=${this._dashboardCardId}
+            <select aria-label="Dashboard card"
               ?disabled=${this._dashboardBusy}
               @change=${event => this._selectDashboardCard(event.target.value)}>
               <option value="" .selected=${!this._dashboardCardId}>Create a new ${metric.label} card</option>
@@ -430,7 +430,7 @@ export class EhSettingsHealthConnect extends LitElement {
             </select>
           </label>
           <label>Captured source and app
-            <select aria-label="Captured source and app" .value=${this._dashboardSourceKey}
+            <select aria-label="Captured source and app"
               ?disabled=${this._dashboardBusy || sources.length === 0}
               @change=${event => { this._dashboardSourceKey = event.target.value;
                 this._dashboardError = ''; this._dashboardStatus = ''; }}>
