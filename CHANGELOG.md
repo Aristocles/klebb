@@ -9,6 +9,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I acknowledge valid ordinary Health Connect batches after re-enabling sharing
+  while keeping deleted records suppressed and saving eligible records. Refs #757.
+
 - I retain the saved card and source choices when switching between Weight and
   Steps in dashboard settings. Refs #759.
 

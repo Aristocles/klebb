@@ -16,12 +16,20 @@ FINALISE returns its original durable receipt after later source deletion.
 These retries do not replay raw records, frontiers, references or cleanup.
 Changed immutable retry metadata still conflicts.
 
-Every identity in a new batch is checked before mutation. An upsert of a
-suppressed identity refuses the entire batch with `409 deletion-suppressed`.
+Every identity in a new batch is checked before mutation. A valid ordinary
+batch skips upserts protected by source deletion or user suppression and saves
+its other eligible changes. The receipt acknowledges the complete original
+payload and digest, including protected-only batches; it does not imply that
+a protected record was restored. Deletion controls remain unchanged. This
+allows a fresh scan after re-enabling sharing to progress when the provider
+offers a previously deleted identity again. Corrupt authority still refuses
+the whole batch before mutation.
+
 Opposite upsert/delete operations for one typed identity return `409 conflict`
-in either order. New PART and FINALISE perform the same admission before
-allocation, staging cleanup or reconstruction; suppression precedes
-`missing-parts`. The unchanged wire V1 error shape has `retryable:false`.
+in either order. New object PART and FINALISE retain strict admission: a
+suppressed identity returns `409 deletion-suppressed` before allocation,
+staging cleanup or reconstruction, and suppression precedes `missing-parts`.
+The unchanged wire V1 error shape has `retryable:false`.
 
 Confirmed source deletion removes its raw row and matching uncommitted object
 staging across transport streams. Actual cascade-owned BLOBs disappear in the
@@ -105,8 +113,10 @@ Apply persists user suppression while retaining source deletion/provenance and
 known common footprints. It removes selected current raw rows and matching
 uncommitted staging with its active parts. Native receipts, frontiers, outbox
 references, source tombstones and committed compact retries remain. Existing
-sticky admission blocks later new uploads; committed retries retain their
-original receipts. Suppression has no clearing operation.
+sticky admission prevents later uploads from restoring protected records;
+valid ordinary batches can still receive acknowledgements, while new object
+admission refuses them. Committed retries retain their original receipts.
+Suppression has no clearing operation.
 
 When effects are nonzero and a saved native stream or publication cycle exists,
 apply queues and resets its source index in the same transaction and schedules the
