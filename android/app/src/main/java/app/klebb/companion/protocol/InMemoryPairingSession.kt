@@ -497,8 +497,9 @@ class InMemoryPairingSession(
             val expiryText = response["expiresAt"] as? String ?: throw ProtocolException("invalid-message")
             val expiry = try { Instant.parse(expiryText) }
                 catch (_: Exception) { throw ProtocolException("invalid-message") }
+            // Allow a small clock offset around the server's five-minute lifetime.
             if (firstPageTime.format(expiry) != expiryText || !expiry.isAfter(now()) ||
-                expiry.isAfter(now().plusSeconds(300))) {
+                expiry.isAfter(now().plusSeconds(305))) {
                 throw ProtocolException("readiness-unverified")
             }
             val challenge = NativeFirstPageChallenge(ticket.epoch, ticket.owner, recordType,
@@ -978,7 +979,7 @@ class InMemoryPairingSession(
             if (!Regex("hc_ready_[A-Za-z0-9_-]{43}").matches(id)) throw ProtocolException("invalid-message")
             val expiryText = row["expiresAt"] as? String ?: throw ProtocolException("invalid-message")
             val expiry = Instant.parse(expiryText)
-            if (firstPageTime.format(expiry) != expiryText || expiry.isAfter(now().plusSeconds(300))) {
+            if (firstPageTime.format(expiry) != expiryText || expiry.isAfter(now().plusSeconds(305))) {
                 throw ProtocolException("readiness-unverified")
             }
             val challenge = NativeFirstPageChallenge(epoch, owner, type, scope, binding, revision,

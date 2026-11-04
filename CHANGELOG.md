@@ -9,6 +9,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I allow a small clock difference when accepting and restoring Health Connect
+  challenges, while retaining their expiry and binding checks. Refs #754.
+
 - I acknowledge valid ordinary Health Connect batches after re-enabling sharing
   while keeping deleted records suppressed and saving eligible records. Refs #757.
 
