@@ -40,6 +40,34 @@ Saving does not begin an import or change the dashboard's source policy yet.
 Actual preference persistence and screen interactions still require the native
 checks; compiling the instrumentation APK does not establish those results.
 
+## Install and update the current client
+
+No public Android APK download is available yet. Use the release-signed APK
+and its accompanying checksum when the release is published. Development
+builds and the historical proof APKs are separate artifacts.
+
+Open the verified APK on the phone and follow Android's installation prompt.
+In the client, choose Weight and/or Steps, use **Set capture dates** and
+**Save dates**, then **Request selected read permissions**. In the authenticated
+browser, open **Settings > Security > Health Connect**, choose the same
+categories, confirm the HTTPS destination and **Create pairing grant**. On the
+phone, **Approve this instance** using that same destination, paste the
+**Health Connect pairing payload** and **Exchange approved grant**. A grant
+works once and expires; create another if it is no longer usable.
+
+Use **Sync now** to start the selected capture. The historical import date
+starts at 00:00 UTC; the display switch date does not start an import or change
+the dashboard on its own. Background sync requires its actual permission and
+eligible scheduling; it does not promise an hourly upload or complete history.
+
+For an update, use the same package and signing certificate with a higher
+version code. Open that APK through Android's installer and confirm the update
+it offers. Keep the app installed and its data intact. Reopen it and check the
+client version, saved connection, category choices, dates and pending uploads.
+The developer alternative is `adb install -r "<update.apk>"`; report that as an
+ADB update, without claiming a user-visible installer confirmation. Neither
+route establishes update retention until the saved state is actually checked.
+
 ## Shared wire and HTTPS checks
 
 The Kotlin consumer validates the same schema and language-neutral wire
@@ -82,7 +110,7 @@ and object-finalise routes. It checks every part receipt against the original
 declaration and bytes; only finalisation accepts the ordinary durable receipt
 for the whole record digest. Part custody does not advance a queue checkpoint.
 Encrypted multipart queue staging, native collection and release checks remain
-separate requirements; the foreground launcher does not begin collection.
+separate requirements.
 
 ## Pinned build
 
@@ -140,6 +168,10 @@ in source, Gradle properties, command arguments, CI logs or an APK download.
 Release signing fails closed when the variables or keystore are missing.
 Debug builds are solely development artifacts.
 
+The version-code 1 and 2 commands below are historical AND-01 examples. For
+the current client, set `proofVersionCode` above the installed version and
+keep the same release key; set `proofVersionName` to the intended release name.
+
 ```powershell
 ./gradlew.bat --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleRelease '-PproofVersionCode=1' '-PproofVersionName=0.1.0-proof'
 ```
@@ -169,7 +201,7 @@ Use the release-signed proof and update APKs, not the debug build. Keep this
 ticket open until native results are recorded. These steps need the actual
 supported phone; an emulator does not establish Samsung/runtime support.
 
-A1. Install Google's [Health Connect Toolbox](https://goo.gle/health-connect-toolbox)
+1. Install Google's [Health Connect Toolbox](https://goo.gle/health-connect-toolbox)
 from its official download. Grant its selected write permissions in Health
 Connect. The inspected Toolbox 2.3.5 producer is
 `androidx.health.connect.client.devtool`. Create one invented steps record
@@ -177,20 +209,20 @@ with count 1234 and one weight record with value 75.25 kg in a known recent
 ten-minute interval. Record the exact UTC times and expected values independently.
 Do not use personal readings for this experiment.
 
-A2. Install the signed version-code 1 APK with Android's installation
+2. Install the signed version-code 1 APK with Android's installation
 confirmation, or enable USB debugging and run `adb install "<proof.apk>"`.
 If Android or Samsung blocks the install, record the exact observed screen
 and package response before changing settings. Record phone/OS/One UI,
 Health Connect provider, Toolbox and watch versions.
 
-A3. Open Klebb feasibility. Select Steps and Weight, request permissions and
+3. Open Klebb feasibility. Select Steps and Weight, request permissions and
 grant only Steps. Set the UTC interval to surround the controlled records
 (at most two hours, ending in the past). Read: expect the 1234-step record
 from the Toolbox, no weight call and no personal producer readings.
 Grant Weight separately and repeat: expect the 75.25 kg record. Zero records,
 denial and access failure stay pending; they are not successful native reads.
 
-A4. Copy runtime evidence, which excludes the health values. Separately
+4. Copy runtime evidence, which excludes the health values. Separately
 record the controlled expected/actual values. Check the displayed background,
 history, intensity, exercise and medical feature states. The optional
 permission buttons request only their own grant when available. They do not
@@ -198,14 +230,14 @@ prove background scheduling or access to older history. Revoke Steps and
 repeat to establish that revoked categories are not read. Leave the app during
 a read, then return; results should clear and collection remain foreground.
 
-A5. Record the update marker, install the version-code 2 APK using Android
+5. Record the update marker, install the version-code 2 APK using Android
 confirmation or `adb install -r "<update.apk>"`, then reopen. Expect the same
 package and marker, higher app version, retained category permissions and a
 successful controlled read. Do not uninstall between versions. Record any
 Health Connect package-registration or distribution restriction actually
 encountered.
 
-A6. Report the exact APK checksums and certificate, phone/provider versions,
+6. Report the exact APK checksums and certificate, phone/provider versions,
 expected/actual observations, available/unavailable features and any failed
 experiment. Remove invented records through the Toolbox when finished.
 Routes and medical consent/read remain separate AND-06 gates. Personal-history

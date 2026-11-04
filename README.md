@@ -42,7 +42,7 @@ Works equally well as:
 ## How Klebb works
 
 Klebb is **LLM-first**. Cards are JSON files on disk, but you don't
-write that JSON yourself in day-to-day use — you talk to a built-in
+write that JSON yourself in day-to-day use - you talk to a built-in
 chat agent that does it for you. "Track my weekly semaglutide cycle
 at 0.5mg" turns into a fully configured injection card; "I want a
 weight tracker in kg" produces a weight card with the right trend
@@ -118,12 +118,12 @@ I use invented demo data for the screenshots below. The mobile images illustrate
 
 <table>
   <tr>
-    <td width="50%" valign="top" align="center"><img src="docs/media/mobile/nav-tour.webp" alt="Navigation tour" width="100%"><br><sub><b>Navigation</b> — tap through every view.</sub></td>
-    <td width="50%" valign="top" align="center"><img src="docs/media/mobile/today-scroll.webp" alt="Scrolling Today" width="100%"><br><sub><b>Today</b> — scroll through the day's cards.</sub></td>
+    <td width="50%" valign="top" align="center"><img src="docs/media/mobile/nav-tour.webp" alt="Navigation tour" width="100%"><br><sub><b>Navigation</b> - tap through every view.</sub></td>
+    <td width="50%" valign="top" align="center"><img src="docs/media/mobile/today-scroll.webp" alt="Scrolling Today" width="100%"><br><sub><b>Today</b> - scroll through the day's cards.</sub></td>
   </tr>
   <tr>
-    <td width="50%" valign="top" align="center"><img src="docs/media/mobile/chat-open.webp" alt="Opening the chat" width="100%"><br><sub><b>Chat</b> — the same agent on a phone-sized canvas.</sub></td>
-    <td width="50%" valign="top" align="center"><img src="docs/media/mobile/date-scrub.webp" alt="Scrubbing dates" width="100%"><br><sub><b>Date scrub</b> — tap the arrow to walk back through past days.</sub></td>
+    <td width="50%" valign="top" align="center"><img src="docs/media/mobile/chat-open.webp" alt="Opening the chat" width="100%"><br><sub><b>Chat</b> - the same agent on a phone-sized canvas.</sub></td>
+    <td width="50%" valign="top" align="center"><img src="docs/media/mobile/date-scrub.webp" alt="Scrubbing dates" width="100%"><br><sub><b>Date scrub</b> - tap the arrow to walk back through past days.</sub></td>
   </tr>
 </table>
 
@@ -138,28 +138,28 @@ I use invented demo data for the screenshots below. The mobile images illustrate
 
 <table>
   <tr>
-    <td width="33%" valign="top"><img src="docs/media/desktop/trends.png" alt="Trends view"><br><sub><b>Trends</b> — every numeric card gets a line chart automatically.</sub></td>
-    <td width="33%" valign="top"><img src="docs/media/desktop/calendar.png" alt="Calendar view"><br><sub><b>Calendar</b> — month grid with per-day markers from any card that opts in.</sub></td>
-    <td width="33%" valign="top"><img src="docs/media/desktop/reports.png" alt="Reports view"><br><sub><b>Reports</b> — adherence and bloodwork tables driven by schedule cards.</sub></td>
+    <td width="33%" valign="top"><img src="docs/media/desktop/trends.png" alt="Trends view"><br><sub><b>Trends</b> - every numeric card gets a line chart automatically.</sub></td>
+    <td width="33%" valign="top"><img src="docs/media/desktop/calendar.png" alt="Calendar view"><br><sub><b>Calendar</b> - month grid with per-day markers from any card that opts in.</sub></td>
+    <td width="33%" valign="top"><img src="docs/media/desktop/reports.png" alt="Reports view"><br><sub><b>Reports</b> - adherence and bloodwork tables driven by schedule cards.</sub></td>
   </tr>
 </table>
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="docs/media/desktop/nav-tour.webp" alt="Navigating between views"><br><sub><b>Navigation</b> — Today, Calendar, Trends, Reports.</sub></td>
-    <td width="50%" valign="top"><img src="docs/media/desktop/theme-toggle.webp" alt="Theme toggle"><br><sub><b>Theme toggle</b> — switch dark / light in Settings.</sub></td>
+    <td width="50%" valign="top"><img src="docs/media/desktop/nav-tour.webp" alt="Navigating between views"><br><sub><b>Navigation</b> - Today, Calendar, Trends, Reports.</sub></td>
+    <td width="50%" valign="top"><img src="docs/media/desktop/theme-toggle.webp" alt="Theme toggle"><br><sub><b>Theme toggle</b> - switch dark / light in Settings.</sub></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><img src="docs/media/desktop/today-scroll.webp" alt="Scrolling through Today"><br><sub><b>Today</b> — every card on disk shows up here, in the order their manifest specifies.</sub></td>
-    <td width="50%" valign="top"><img src="docs/media/desktop/date-scrub.webp" alt="Scrubbing dates backwards"><br><sub><b>Date scrub</b> — the entire dashboard re-renders for any past day.</sub></td>
+    <td width="50%" valign="top"><img src="docs/media/desktop/today-scroll.webp" alt="Scrolling through Today"><br><sub><b>Today</b> - every card on disk shows up here, in the order their manifest specifies.</sub></td>
+    <td width="50%" valign="top"><img src="docs/media/desktop/date-scrub.webp" alt="Scrubbing dates backwards"><br><sub><b>Date scrub</b> - the entire dashboard re-renders for any past day.</sub></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><img src="docs/media/desktop/chat-open.webp" alt="Opening the chat"><br><sub><b>Chat</b> — open the demo chat and read its limits.</sub></td>
-    <td width="50%" valign="top"><img src="docs/media/desktop/settings-toggle.webp" alt="Browsing card controls in settings"><br><sub><b>Settings</b> — browse General and Cards; visibility changes are disabled in the demo.</sub></td>
+    <td width="50%" valign="top"><img src="docs/media/desktop/chat-open.webp" alt="Opening the chat"><br><sub><b>Chat</b> - open the demo chat and read its limits.</sub></td>
+    <td width="50%" valign="top"><img src="docs/media/desktop/settings-toggle.webp" alt="Browsing card controls in settings"><br><sub><b>Settings</b> - browse General and Cards; visibility changes are disabled in the demo.</sub></td>
   </tr>
 </table>
 
-<sub>Light theme works for every view — <a href="docs/media/desktop/today-light.png">light Today</a> for reference.</sub>
+<sub>Light theme works for every view - <a href="docs/media/desktop/today-light.png">light Today</a> for reference.</sub>
 
 </details>
 
@@ -197,7 +197,7 @@ Every card is a JSON file that looks like this:
 }
 ```
 
-- `meta.view.display.template` drives what the card shows — no
+- `meta.view.display.template` drives what the card shows - no
   component code needed for common cases
 - `meta.writeable.inputs` drives the edit form
 - `data` is the log; the webapp appends to it, the chat agent reads
@@ -219,7 +219,7 @@ instance:
 git clone https://github.com/Aristocles/klebb.git
 cd klebb
 cp .env.example .env
-# edit .env — set HEALTH_ORIGIN, HEALTH_RP_ID, SESSION_SECRET
+# edit .env - set HEALTH_ORIGIN, HEALTH_RP_ID, SESSION_SECRET
 docker compose up -d
 ```
 
@@ -408,17 +408,18 @@ demo predictable.
 
 ## Docs
 
-- [`docs/CARDS.md`](docs/CARDS.md) — How to write and manage cards (user guide)
-- [`docs/RECIPES.md`](docs/RECIPES.md) — 12 copy-pasteable card patterns (cookbook)
-- [`MANIFEST-SCHEMA.md`](MANIFEST-SCHEMA.md) — Manifest format reference
-- [`docs/CHAT-AGENT.md`](docs/CHAT-AGENT.md) — Chat widget + server-to-server integration
-- [`docs/VOICE.md`](docs/VOICE.md) — Voice chat (Fish Audio) configuration
-- [`docs/REPORTS.md`](docs/REPORTS.md) — Inbox-driven report ingest (PDF, scans, notes, audio)
-- [`docs/DEPLOY.md`](docs/DEPLOY.md) — Single-user + multi-user deploy guide
-- [`docs/CI.md`](docs/CI.md) — CI workflow overview
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — Contributor conventions
-- [`CHANGELOG.md`](CHANGELOG.md) — Release notes
-- [`SECURITY.md`](SECURITY.md) — Security policy
+- [Android Weight and Steps setup](android/README.md) - Install, pair and update the Android client
+- [`docs/CARDS.md`](docs/CARDS.md) - How to write and manage cards (user guide)
+- [`docs/RECIPES.md`](docs/RECIPES.md) - 12 copy-pasteable card patterns (cookbook)
+- [`MANIFEST-SCHEMA.md`](MANIFEST-SCHEMA.md) - Manifest format reference
+- [`docs/CHAT-AGENT.md`](docs/CHAT-AGENT.md) - Chat widget + server-to-server integration
+- [`docs/VOICE.md`](docs/VOICE.md) - Voice chat (Fish Audio) configuration
+- [`docs/REPORTS.md`](docs/REPORTS.md) - Inbox-driven report ingest (PDF, scans, notes, audio)
+- [`docs/DEPLOY.md`](docs/DEPLOY.md) - Single-user + multi-user deploy guide
+- [`docs/CI.md`](docs/CI.md) - CI workflow overview
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) - Contributor conventions
+- [`CHANGELOG.md`](CHANGELOG.md) - Release notes
+- [`SECURITY.md`](SECURITY.md) - Security policy
 
 ## Architecture
 
@@ -454,7 +455,7 @@ public/
       eh-view-renderer.js         composes cards into a grid
       ...                          specialised renderers (schedule, checklist, charts)
     lib/
-      display-template.js         template engine (UMD — Node tests load it)
+      display-template.js         template engine (UMD - Node tests load it)
       display-template.esm.js     same engine, ES module flavour for browser
 scripts/
   deploy.sh                       atomic release + auto-rollback
@@ -484,10 +485,10 @@ Bug reports + feature requests: use the templates at
 The easiest way to contribute to Klebb is to add a starter card or
 prompt. Both live in the repo as plain files: no code required.
 
-- **Templates** — single-card starter manifests that appear in the Add
+- **Templates** - single-card starter manifests that appear in the Add
   Card gallery. Drop a `.klebb.json` into `templates/`. See
   [`CONTRIBUTING-TEMPLATES.md`](CONTRIBUTING-TEMPLATES.md).
-- **Prompts** — natural-language prompts for the chat agent that build
+- **Prompts** - natural-language prompts for the chat agent that build
   multi-card protocols (GLP-1 cycles, supplement stacks, post-op
   recovery, etc.). Drop a `.md` with frontmatter into `prompts/`. See
   [`CONTRIBUTING-PROMPTS.md`](CONTRIBUTING-PROMPTS.md).
