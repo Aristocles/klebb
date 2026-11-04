@@ -119,8 +119,12 @@ function assertLargeIndex(index, data, vector) {
   assert.equal(state.published_restore_epoch, data.binding.restoreEpoch);
   assert.equal(state.next_attempt_at, null);
   assert.equal(state.error_code, null);
-  assert.ok(Number.isSafeInteger(state.published_at) &&
-    state.published_at >= data.fixtureStartedAt && state.published_at <= Date.now());
+  assert.equal(Number.isSafeInteger(state.published_at), true);
+  if (data.expectedPublishedAt === undefined) {
+    assert.ok(state.published_at >= data.fixtureStartedAt && state.published_at <= Date.now());
+  } else {
+    assert.equal(state.published_at, data.expectedPublishedAt);
+  }
   noAuthority(JSON.stringify(index), data);
 }
 async function initialPublished(data, operation, clockEnv) {
@@ -174,8 +178,7 @@ test('actual source-index publication own handle is WAL/FULL before BEGIN and pu
 });
 for (const operation of ['sqlite-full', 'sqlite-busy', 'late-frontier-refusal']) {
   test(`actual publisher ${operation} preserves raw ACK and complete prior publication then rebuilds`, async () => {
-    const healthyClock = operation === 'sqlite-busy' || operation === 'late-frontier-refusal' ?
-      require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json') : undefined;
+    const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json');
     let clockDirectory;
     let clockEnv;
     if (healthyClock !== undefined) {

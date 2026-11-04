@@ -9,6 +9,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I use monotonic elapsed time and fixed publication clocks in import and
+  source-index checks, retaining their data and recovery assertions.
+
+- I wait for the export response cleanup before checking that its temporary
+  staging files are gone, retaining the archive and recovery assertions.
+
 - I allow a small clock difference when accepting and restoring Health Connect
   challenges, while retaining their expiry and binding checks. Refs #754.
 

@@ -445,7 +445,8 @@ test('MOEX01: healthy managed owner export preserves both namespace inventories'
       'Export leaves the complete managed SQL history and category policy unchanged');
     assert.ok(fs.readFileSync(policyFile).equals(privateBefore),
       'Export leaves genuine principal and credential custody unchanged');
-    assert.equal(fs.readdirSync(data.home).some(name => name.startsWith('export-staging.')), false);
+    await waitFor(() => !fs.readdirSync(data.home).some(name => name.startsWith('export-staging.')),
+      { what: 'managed export staging cleanup' });
     assert.equal(response.status, 200,
       'A healthy managed owner export must retain both independently fixed namespace inventories');
     assert.match(response.headers['content-type'], /^application\/zip(?:;|$)/);
