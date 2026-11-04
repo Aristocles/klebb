@@ -55,8 +55,22 @@ test('I01 valid saved generation zero deletion keeps positive source sequence an
       assert.equal(F.rows(committed, 'health_projection_outbox').length, 4);
       const next = F.batch(data.alpha, '2', [F.upsert(data.alpha)],
         { id: 'generation-zero-suppressed-upsert' });
-      await F.unchanged(data, () => F.post(data, data.alpha, F.BATCH, next.wire),
-        { status: 409, code: 'deletion-suppressed' });
+      await F.ack(data, data.alpha, next);
+      const after = F.coldRead(data.home);
+      for (const family of ['health_records', 'health_tombstones', 'health_deletion_guards',
+        'health_source_policy_state', 'health_source_policy_sources', 'health_source_policy_categories']) {
+        assert.deepEqual(F.rows(after, family), F.rows(committed, family),
+          'Acknowledging protected-only input preserves raw history and deletion authority');
+      }
+      assert.equal(F.rows(after, 'health_batch_receipts').length, 5);
+      assert.equal(F.rows(after, 'health_projection_outbox').length, 5);
+      const key = F.streamKey(data.alpha);
+      assert.equal(F.rows(after, 'health_streams').find(row => row.stream_key === key)
+        .acknowledged_sequence, '2');
+      for (const family of ['health_batch_receipts', 'health_projection_outbox']) {
+        assert.deepEqual(F.rows(after, family).filter(row =>
+          !(row.stream_key === key && row.sequence === '2')), F.rows(committed, family));
+      }
     } finally { await F.close(data); }
   });
 

@@ -101,14 +101,31 @@ test('U02 original D08 unseen beta Weight is user-suppressed before a real scope
       assert.equal(O.catalogueDigest(data), authority);
       assert.deepEqual(F.copies(data), copies);
 
-      const deniedBefore = F.coldRead(data.home);
+      const ackBefore = F.coldRead(data.home);
       const vector = O.unseenWeight(source);
-      const denied = await F.post(data, source, F.BATCH, vector.wire);
-      F.failure(denied, 409, 'deletion-suppressed', data);
-      assert.deepEqual(denied.json, { version: 1, kind: 'error',
-        code: 'deletion-suppressed', retryable: false });
-      assert.deepEqual(F.coldRead(data.home), deniedBefore,
-        'each valid current Weight refusal preserves complete native/staging/index state');
+      await F.ack(data, source, vector);
+      await O.waitCurrent(data);
+      const ackAfter = F.coldRead(data.home), streamKey = F.streamKey(source, type);
+      assert.equal(F.identityRows(ackAfter, 'health_records', F.identity(source, type, id)).length, 0);
+      for (const table of ['health_records', 'health_tombstones', 'health_deletion_guards',
+        'health_object_staging', 'health_object_parts', 'health_object_receipts']) {
+        assert.deepEqual(F.rows(ackAfter, table), F.rows(ackBefore, table),
+          `${table} retains protected and unrelated state`);
+      }
+      assert.deepEqual(F.rows(ackAfter, 'health_streams').filter(row => row.stream_key === streamKey),
+        [{ stream_key: streamKey, record_type: type, acknowledged_sequence: '1' }]);
+      assert.deepEqual(F.rows(ackAfter, 'health_batch_receipts').filter(row => row.stream_key === streamKey),
+        [{ stream_key: streamKey, sequence: '1', batch_id: vector.receipt.batchId,
+          payload_digest: vector.receipt.payloadDigest, receipt_json: JSON.stringify(vector.receipt) }]);
+      assert.deepEqual(F.rows(ackAfter, 'health_projection_outbox').filter(row => row.stream_key === streamKey),
+        [{ stream_key: streamKey, sequence: '1', batch_id: vector.receipt.batchId,
+          payload_digest: vector.receipt.payloadDigest, state: 'queued' }]);
+      for (const table of ['health_streams', 'health_batch_receipts', 'health_projection_outbox']) {
+        assert.equal(F.rows(ackAfter, table).length, 4);
+        assert.deepEqual(F.rows(ackAfter, table).filter(row => row.stream_key !== streamKey),
+          F.rows(ackBefore, table));
+      }
+      await O.stableReceipt(data, () => F.post(data, source, F.BATCH, vector.wire), vector.receipt);
       assert.equal(O.catalogueDigest(data), authority);
       assert.deepEqual(F.copies(data), copies);
     } finally { await F.close(data); }
@@ -121,25 +138,50 @@ const { fakeAuthState } = require('../helpers/sandbox');
 const ids = O.selected;
 const baselineOptions = { timeout: 60000 };
 
-test('U03 legal same-source same-type mixed batch is wholly suppressed; unchanged next sequence remains usable',
+test('U03 legal same-source same-type mixed batch ACKs eligible rows; the following sequence remains usable',
   baselineOptions, async () => {
     const data = await O.fixture();
     try {
       await O.suppress(data); await O.waitOwnedCurrent(data, data.beta, 0);
+      const before = F.coldRead(data.home), streamKey = F.streamKey(data.beta);
       const mixed = F.batch(data.beta, '2', [F.upsert(data.beta, F.bank.recordInventory[1]),
         F.upsert(data.beta, F.bank.recordInventory[1], 'owner-independent-next')], { id: 'owner-mixed-2' });
-      await O.stableFailure(data, () => F.post(data, data.beta, F.BATCH, mixed.wire),
-        409, 'deletion-suppressed');
-      const eligible = F.batch(data.beta, '2',
+      await F.ack(data, data.beta, mixed);
+      await O.waitOwnedCurrent(data, data.beta, 1);
+      const mixedAfter = F.coldRead(data.home);
+      assert.equal(F.identityRows(mixedAfter, 'health_records', F.identity(data.beta)).length, 0);
+      assert.equal(F.identityRows(mixedAfter, 'health_records',
+        F.identity(data.beta, F.TYPE, 'owner-independent-next')).length, 1);
+      assert.deepEqual(F.rows(mixedAfter, 'health_deletion_guards'), F.rows(before, 'health_deletion_guards'));
+      assert.deepEqual(F.rows(mixedAfter, 'health_streams').find(row => row.stream_key === streamKey),
+        { stream_key: streamKey, record_type: F.TYPE, acknowledged_sequence: '2' });
+      assert.deepEqual(F.rows(mixedAfter, 'health_batch_receipts').find(row =>
+        row.stream_key === streamKey && row.sequence === '2'),
+        { stream_key: streamKey, sequence: '2', batch_id: mixed.receipt.batchId,
+          payload_digest: mixed.receipt.payloadDigest, receipt_json: JSON.stringify(mixed.receipt) });
+      assert.deepEqual(F.rows(mixedAfter, 'health_projection_outbox').find(row =>
+        row.stream_key === streamKey && row.sequence === '2'),
+        { stream_key: streamKey, sequence: '2', batch_id: mixed.receipt.batchId,
+          payload_digest: mixed.receipt.payloadDigest, state: 'queued' });
+      for (const table of ['health_batch_receipts', 'health_projection_outbox']) {
+        assert.equal(F.rows(mixedAfter, table).length, 4);
+        assert.deepEqual(F.rows(mixedAfter, table).filter(row =>
+          !(row.stream_key === streamKey && row.sequence === '2')), F.rows(before, table));
+      }
+      await O.stableReceipt(data, () => F.post(data, data.beta, F.BATCH, mixed.wire), mixed.receipt);
+      const eligible = F.batch(data.beta, '3',
         [F.upsert(data.beta, F.bank.recordInventory[1], 'owner-independent-next')],
-        { id: 'owner-independent-2' });
-      const before = F.coldRead(data.home);
+        { id: 'owner-independent-3' });
       await F.ack(data, data.beta, eligible);
       await O.waitOwnedCurrent(data, data.beta, 1);
       const after = F.coldRead(data.home);
       assert.equal(F.identityRows(after, 'health_records', F.identity(data.beta)).length, 0);
       assert.equal(F.identityRows(after, 'health_records',
         F.identity(data.beta, F.TYPE, 'owner-independent-next')).length, 1);
+      assert.deepEqual(F.rows(after, 'health_deletion_guards'), F.rows(before, 'health_deletion_guards'));
+      assert.equal(F.rows(after, 'health_streams').find(row => row.stream_key === streamKey).acknowledged_sequence, '3');
+      assert.equal(F.rows(after, 'health_batch_receipts').length, 5);
+      assert.equal(F.rows(after, 'health_projection_outbox').length, 5);
       assert.deepEqual(F.identityRows(after, 'health_records', F.identity(data.alpha)),
         F.identityRows(before, 'health_records', F.identity(data.alpha)));
       assert.deepEqual(F.identityRows(after, 'health_records', F.identity(data.alpha, F.TYPES[1])),
@@ -203,12 +245,40 @@ for (const retry of ['ordinary', 'PART', 'FINALISE']) {
         await O.suppress(data, data.beta, ids(), footprints);
         await O.waitOwnedCurrent(data, data.beta, 0);
         await O.stableReceipt(data, () => F.post(data, data.beta, route, frame), receipt);
-        const next = retry === 'ordinary' ? F.batch(data.beta, '2',
-          [F.upsert(data.beta, F.bank.recordInventory[1])], { id: 'new-suppressed-ordinary' }).wire :
-          F.object(data.beta, { sequence: '3', batchId: 'new-suppressed-object',
+        if (retry === 'ordinary') {
+          const before = F.coldRead(data.home), streamKey = F.streamKey(data.beta);
+          const next = F.batch(data.beta, '2',
+            [F.upsert(data.beta, F.bank.recordInventory[1])], { id: 'new-suppressed-ordinary' });
+          await F.ack(data, data.beta, next);
+          await O.waitOwnedCurrent(data, data.beta, 0);
+          const after = F.coldRead(data.home);
+          for (const table of ['health_records', 'health_tombstones', 'health_deletion_guards',
+            'health_object_staging', 'health_object_parts', 'health_object_receipts']) {
+            assert.deepEqual(F.rows(after, table), F.rows(before, table));
+          }
+          assert.equal(F.identityRows(after, 'health_records', F.identity(data.beta)).length, 0);
+          assert.deepEqual(F.rows(after, 'health_streams').find(row => row.stream_key === streamKey),
+            { stream_key: streamKey, record_type: F.TYPE, acknowledged_sequence: '2' });
+          assert.deepEqual(F.rows(after, 'health_batch_receipts').find(row =>
+            row.stream_key === streamKey && row.sequence === '2'),
+            { stream_key: streamKey, sequence: '2', batch_id: next.receipt.batchId,
+              payload_digest: next.receipt.payloadDigest, receipt_json: JSON.stringify(next.receipt) });
+          assert.deepEqual(F.rows(after, 'health_projection_outbox').find(row =>
+            row.stream_key === streamKey && row.sequence === '2'),
+            { stream_key: streamKey, sequence: '2', batch_id: next.receipt.batchId,
+              payload_digest: next.receipt.payloadDigest, state: 'queued' });
+          for (const table of ['health_batch_receipts', 'health_projection_outbox']) {
+            assert.equal(F.rows(after, table).length, 4);
+            assert.deepEqual(F.rows(after, table).filter(row =>
+              !(row.stream_key === streamKey && row.sequence === '2')), F.rows(before, table));
+          }
+          await O.stableReceipt(data, () => F.post(data, data.beta, route, next.wire), next.receipt);
+        } else {
+          const next = F.object(data.beta, { sequence: '3', batchId: 'new-suppressed-object',
             objectId: 'new-suppressed-object' })[retry === 'PART' ? 'partFrames' : 'finalise'];
-        await O.stableFailure(data, () => F.post(data, data.beta, route,
-          retry === 'PART' ? next[0] : next), 409, 'deletion-suppressed');
+          await O.stableFailure(data, () => F.post(data, data.beta, route,
+            retry === 'PART' ? next[0] : next), 409, 'deletion-suppressed');
+        }
         const changed = structuredClone(frame);
         if (retry === 'ordinary') changed.payloadDigest = 'sha256:' + '0'.repeat(64);
         else changed.objectId = 'changed-original-object';
@@ -883,6 +953,111 @@ test('U16 same-final-source existing API dumps and diff retain nonempty35.5 lega
       const after = F.coldRead(data.home);
       O.assertReferences(before, after);
       O.assertUserEffect(before, after, data.beta, F.TYPE, F.ID, known);
+      F.noAuthority(JSON.stringify(after), data);
+    } finally { await F.close(data); }
+  });
+
+
+test('U17 normal Weight re-enable acknowledges a guarded old record and saves an independent new record',
+  { timeout: 60000 }, async () => {
+    const data = await O.fixture();
+    const type = 'WeightRecord';
+    const oldId = 'synthetic-user-deleted-weight';
+    const newId = 'synthetic-new-weight-after-reenable';
+    // Fixed invented values and distinct identities precede any HTTP write.
+    const oldRecord = structuredClone(I.bank.unseenWeightRecord);
+    oldRecord.metadata.id = oldId;
+    oldRecord.time = '2026-01-02T03:04:05.123456789Z';
+    assert.equal(oldRecord.weight.value, '75.25');
+    const newRecord = structuredClone(oldRecord);
+    newRecord.metadata.id = newId;
+    newRecord.time = '2026-01-02T04:05:06.123456789Z';
+    newRecord.weight = { unit: 'kg', value: '80.0', sdkUnitValues: {
+      g: '80000', kg: '80.0', mg: '80000000', ug: '80000000000',
+      oz: '2821.9169559664323', lb: '176.36980974790205',
+    } };
+    const change = record => ({ operation: 'upsert',
+      identity: F.identity(data.beta, type, record.metadata.id), dataFamily: 'ordinary',
+      projection: 'raw-only', serializerId: 'health-connect-record', serializerVersion: 1, record });
+    try {
+      const source = data.beta;
+      assert.equal(F.rows(F.coldRead(data.home), 'health_schema_version')[0].version, '2');
+      const original = F.batch(source, '1', [change(oldRecord)],
+        { type, id: 'normal-weight-original-1' });
+      await F.ack(data, source, original);
+      await O.waitOwnedCurrent(data, source, 2);
+      await O.suppress(data, source, [{ recordType: type, nativeRecordId: oldId }], {
+        [oldId]: { kind: 'instant', time: '2026-01-02T03:04:05.123456789Z', zoneOffset: '+05:45' },
+      });
+      await O.waitOwnedCurrent(data, source, 1);
+      const deleted = F.coldRead(data.home);
+      const oldIdentity = F.identity(source, type, oldId);
+      assert.equal(F.identityRows(deleted, 'health_records', oldIdentity).length, 0);
+      const guard = F.identityRows(deleted, 'health_deletion_guards', oldIdentity);
+      assert.equal(guard.length, 1); assert.equal(guard[0].user_suppressed, '1');
+      assert.equal(guard[0].source_deleted, '0');
+      assert.equal(O.derivedRows(deleted, 'health_source_index').filter(row =>
+        row.source_store_id === source.binding.sourceStoreId &&
+        row.record_type === type && row.native_record_id === oldId).length, 0);
+      await O.stableReceipt(data, () => F.post(data, source, F.BATCH, original.wire), original.receipt);
+
+      // STOP and fresh BEGIN/COMPLETE use the issued credential and actual policy revision.
+      const status = await F.readinessStatus(data, source, type);
+      const stopped = await F.request(data, `${F.BASE}/v2/streams/${type}/readiness`, {
+        method: 'POST', headers: { Authorization: `Bearer ${source.paired.credential}`,
+          'Klebb-Health-Protocol': '2' }, body: { version: 2, kind: 'readiness-stop',
+          recordType: type, binding: status.json.binding, policyRevision: status.json.policyRevision },
+      });
+      assert.equal(stopped.status, 200, stopped.body);
+      assert.equal(stopped.json.sharing, 'stopped');
+      assert.equal(stopped.json.binding.generation, String(BigInt(status.json.binding.generation) + 1n));
+      const enabled = await F.activateReadiness(data, source, type);
+      assert.equal(enabled.sharing, 'enabled');
+      assert.equal(enabled.binding.generation, String(BigInt(stopped.json.binding.generation) + 1n));
+      const before = F.coldRead(data.home);
+      assert.deepEqual(F.rows(before, 'health_records'), F.rows(deleted, 'health_records'));
+      assert.deepEqual(before.native.tables.health_deletion_guards, deleted.native.tables.health_deletion_guards);
+      assert.deepEqual(before.native.tables.health_batch_receipts, deleted.native.tables.health_batch_receipts);
+
+      const mixed = F.batch(source, '1', [change(oldRecord), change(newRecord)],
+        { type, id: 'normal-weight-reenabled-mixed-1' });
+      // The old implementation fails here with deletion-suppressed, before any receipt.
+      const reply = await F.ack(data, source, mixed);
+      assert.deepEqual(reply.json, mixed.receipt);
+      await O.waitOwnedCurrent(data, source, 2);
+      const after = F.coldRead(data.home);
+      assert.equal(F.identityRows(after, 'health_records', oldIdentity).length, 0);
+      assert.deepEqual(after.native.tables.health_deletion_guards, before.native.tables.health_deletion_guards);
+      assert.deepEqual(after.native.tables.health_tombstones, before.native.tables.health_tombstones);
+      const saved = F.identityRows(after, 'health_records', F.identity(source, type, newId));
+      assert.equal(saved.length, 1);
+      const savedRecord = JSON.parse(saved[0].record_json);
+      assert.equal(savedRecord.metadata.id, 'synthetic-new-weight-after-reenable');
+      assert.equal(savedRecord.weight.value, '80.0'); assert.equal(savedRecord.weight.unit, 'kg');
+      assert.equal(savedRecord.time, '2026-01-02T04:05:06.123456789Z');
+      const withoutNew = F.rows(after, 'health_records').filter(row =>
+        !(row.tenant_id === source.binding.tenantId && row.source_store_id === source.binding.sourceStoreId &&
+          row.record_type === type && row.native_record_id === newId));
+      assert.deepEqual(withoutNew, F.rows(before, 'health_records'), 'unrelated committed history is unchanged');
+      for (const table of ['hae_pushes', 'hae_samples', 'cards', 'rows']) {
+        assert.deepEqual(after.native.tables[table], before.native.tables[table], table);
+      }
+      for (const receipt of F.rows(before, 'health_batch_receipts')) {
+        assert.deepEqual(F.rows(after, 'health_batch_receipts').find(row =>
+          row.stream_key === receipt.stream_key && row.sequence === receipt.sequence), receipt);
+      }
+      const key = F.streamKey(source, type);
+      assert.deepEqual(F.rows(after, 'health_streams').find(row => row.stream_key === key), {
+        stream_key: key, record_type: type, acknowledged_sequence: '1',
+      });
+      assert.equal(F.rows(after, 'health_batch_receipts').length,
+        F.rows(before, 'health_batch_receipts').length + 1);
+      assert.equal(F.rows(after, 'health_projection_outbox').length,
+        F.rows(before, 'health_projection_outbox').length + 1);
+      const weightIndex = O.derivedRows(after, 'health_source_index').filter(row =>
+        row.source_store_id === source.binding.sourceStoreId && row.record_type === type);
+      assert.deepEqual(weightIndex.map(row => row.native_record_id), [newId]);
+      await O.stableReceipt(data, () => F.post(data, source, F.BATCH, mixed.wire), mixed.receipt);
       F.noAuthority(JSON.stringify(after), data);
     } finally { await F.close(data); }
   });

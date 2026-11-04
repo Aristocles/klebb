@@ -153,19 +153,34 @@ test('S01 V1 typed known/unseen tombstones stay sticky across controlled saved g
     try {
       const vector = batch(data.alpha, '2', [deletion(data.alpha), deletion(data.alpha, TYPE, 'r0-unseen-id')]);
       await deleteAndCheck(data, data.alpha, vector);
-      for (const id of [ID, 'r0-unseen-id']) {
-        await unchanged(data, () => post(data, data.alpha, BATCH,
-          batch(data.alpha, '3', [upsert(data.alpha, bank.recordInventory[0], id,
-            { metadata: { ...JSON.parse(bank.recordInventory[0].recordJson).metadata,
-              id, clientRecordVersion: '9223372036854775807' } })]).wire));
+      for (const [index, id] of [ID, 'r0-unseen-id'].entries()) {
+        const before = coldRead(data.home);
+        const offered = batch(data.alpha, String(index + 3), [upsert(data.alpha, bank.recordInventory[0], id,
+          { metadata: { ...JSON.parse(bank.recordInventory[0].recordJson).metadata,
+            id, clientRecordVersion: '9223372036854775807' } })]);
+        await ack(data, data.alpha, offered);
+        const after = coldRead(data.home);
+        assert.deepEqual(after.native.tables.health_records, before.native.tables.health_records);
+        assert.deepEqual(after.native.tables.health_tombstones, before.native.tables.health_tombstones);
+        assert.equal(rows(after, 'health_batch_receipts').length, rows(before, 'health_batch_receipts').length + 1);
+        assert.equal(rows(after, 'health_projection_outbox').length, rows(before, 'health_projection_outbox').length + 1);
+        assert.equal(rows(after, 'health_streams').find(row => row.stream_key === streamKey(data.alpha))
+          .acknowledged_sequence, offered.payload.sequence);
       }
       const old = await currentGeneration(data, data.alpha);
       const next = batch(data.alpha, '1', [upsert(data.alpha)]);
       await unchanged(data, () => post(data, data.alpha, BATCH, next.wire,
         { ...headers(data.alpha), 'Klebb-Health-Generation': old.generation }),
       { code: 'binding-mismatch' });
-      await unchanged(data, () => post(data, data.alpha, BATCH, next.wire));
+      const beforeFresh = coldRead(data.home);
+      await ack(data, data.alpha, next);
       const cold = coldRead(data.home);
+      assert.deepEqual(cold.native.tables.health_records, beforeFresh.native.tables.health_records);
+      assert.deepEqual(cold.native.tables.health_tombstones, beforeFresh.native.tables.health_tombstones);
+      assert.equal(rows(cold, 'health_batch_receipts').length, rows(beforeFresh, 'health_batch_receipts').length + 1);
+      assert.equal(rows(cold, 'health_projection_outbox').length, rows(beforeFresh, 'health_projection_outbox').length + 1);
+      assert.equal(rows(cold, 'health_streams').find(row => row.stream_key === streamKey(data.alpha))
+        .acknowledged_sequence, '1');
       assert.equal(cold.native.tables.health_deletion_guards, undefined);
       assert.deepEqual(copies(data), []);
       assert.equal(rows(cold, 'health_records').length, 2);
@@ -178,8 +193,17 @@ test('S02 V2 source deletion writes exact instant guard/provenance and preserves
   try {
     const vector = batch(data.alpha, '2', [deletion(data.alpha)]);
     await deleteAndCheck(data, data.alpha, vector, { [ID]: originalPeriod(0) });
-    await unchanged(data, () => post(data, data.alpha, BATCH,
-      batch(data.alpha, '3', [upsert(data.alpha)]).wire));
+    const before = coldRead(data.home);
+    const offered = batch(data.alpha, '3', [upsert(data.alpha)]);
+    await ack(data, data.alpha, offered);
+    const after = coldRead(data.home);
+    assert.deepEqual(after.native.tables.health_records, before.native.tables.health_records);
+    assert.deepEqual(after.native.tables.health_tombstones, before.native.tables.health_tombstones);
+    assert.deepEqual(after.native.tables.health_deletion_guards, before.native.tables.health_deletion_guards);
+    assert.equal(rows(after, 'health_batch_receipts').length, rows(before, 'health_batch_receipts').length + 1);
+    assert.equal(rows(after, 'health_projection_outbox').length, rows(before, 'health_projection_outbox').length + 1);
+    assert.equal(rows(after, 'health_streams').find(row => row.stream_key === streamKey(data.alpha))
+      .acknowledged_sequence, '3');
   } finally { await close(data); }
 });
 test('S03 exact source footprints retain nanos offsets extended years and an existing user flag', async () => {
@@ -237,7 +261,7 @@ test('S04 unseen footprint is NULL and successful touched historical tombstones 
     assert.ok(rows(cold, 'health_deletion_guards').every(row => row.footprint_json === null));
   } finally { await close(data); }
 });
-test('S05 each tombstone/source/user authority suppresses an entire mixed batch without consuming sequence', async () => {
+test('S05 each tombstone/source/user authority omits protected upserts while acknowledging mixed batches', async () => {
   for (const mode of ['tombstone-only', 'source-only', 'user-only']) {
     const data = await fixture({ v2: true, readinessVersion: 2 });
     try {
@@ -252,20 +276,36 @@ test('S05 each tombstone/source/user authority suppresses an entire mixed batch 
       await capabilities(data);
       const vector = batch(data.alpha, '2', [upsert(data.alpha),
         upsert(data.alpha, bank.recordInventory[0], 'independent-new-id')]);
-      await unchanged(data, () => post(data, data.alpha, BATCH, vector.wire));
-      const accepted = batch(data.alpha, '2', [upsert(data.alpha, bank.recordInventory[0], 'independent-new-id')],
-        { id: 'independent-after-refusal' });
       const before = coldRead(data.home);
+      await ack(data, data.alpha, vector);
+      const mixed = coldRead(data.home);
+      const saved = identityRows(mixed, 'health_records',
+        identity(data.alpha, TYPE, 'independent-new-id'));
+      assert.equal(saved.length, 1);
+      assert.equal(saved[0].record_json, JSON.stringify(vector.payload.changes[1].record));
+      assert.deepEqual(identityRows(mixed, 'health_records', identity(data.alpha)),
+        identityRows(before, 'health_records', identity(data.alpha)));
+      assert.deepEqual(mixed.native.tables.health_tombstones, before.native.tables.health_tombstones);
+      assert.deepEqual(mixed.native.tables.health_deletion_guards, before.native.tables.health_deletion_guards);
+      assert.equal(rows(mixed, 'health_batch_receipts').length, rows(before, 'health_batch_receipts').length + 1);
+      assert.equal(rows(mixed, 'health_projection_outbox').length, rows(before, 'health_projection_outbox').length + 1);
+      assert.equal(rows(mixed, 'health_streams').find(row => row.stream_key === streamKey(data.alpha))
+        .acknowledged_sequence, '2');
+      const accepted = batch(data.alpha, '3', [upsert(data.alpha, bank.recordInventory[0], 'independent-new-id')],
+        { id: 'independent-after-refusal' });
       await ack(data, data.alpha, accepted);
       const after = coldRead(data.home);
       assert.equal(identityRows(after, 'health_records',
         identity(data.alpha, TYPE, 'independent-new-id')).length, 1);
+      sameSet(rows(after, 'health_records'), rows(mixed, 'health_records'));
       assert.deepEqual(identityRows(after, 'health_records', identity(data.alpha)),
         identityRows(before, 'health_records', identity(data.alpha)));
       assert.deepEqual(after.native.tables.health_tombstones, before.native.tables.health_tombstones);
       assert.deepEqual(after.native.tables.health_deletion_guards, before.native.tables.health_deletion_guards);
-      assert.equal(rows(after, 'health_batch_receipts').length, rows(before, 'health_batch_receipts').length + 1);
-      assert.equal(rows(after, 'health_projection_outbox').length, rows(before, 'health_projection_outbox').length + 1);
+      assert.equal(rows(after, 'health_batch_receipts').length, rows(before, 'health_batch_receipts').length + 2);
+      assert.equal(rows(after, 'health_projection_outbox').length, rows(before, 'health_projection_outbox').length + 2);
+      assert.equal(rows(after, 'health_streams').find(row => row.stream_key === streamKey(data.alpha))
+        .acknowledged_sequence, '3');
     } finally { await close(data); }
   }
 });

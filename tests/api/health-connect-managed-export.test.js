@@ -153,7 +153,7 @@ async function assertManagedArchive(data, response, before, catalogue, retainedF
       { controlProfileVersion: 3 });
     assert.deepEqual(envelope, {
       version: 3, counts: { namespaces: 2, sources: 2, categories: 7, records: 5,
-        streams: 6, receipts: 7, projectionOutbox: 7, tombstones: 1,
+        streams: 6, receipts: 8, projectionOutbox: 8, tombstones: 1,
         deletionGuards: 2, suppressions: 0 }, sha256: digest(inputBytes),
     });
     assert.deepEqual(inventory, JSON.parse(inputBytes.toString('utf8')));
@@ -210,11 +210,16 @@ async function assertManagedArchive(data, response, before, catalogue, retainedF
     projectionOutbox.push({ streamKey: controlKey, sequence: CONTROL.sequence,
       batchId: CONTROL.batchId, payloadDigest: controlReceipt.payloadDigest, state: 'queued' });
     const userKey = F.streamKey(data.alpha, USER_CONTROL.type), userReceipt = data.userUpsert.receipt;
-    streams.push({ streamKey: userKey, recordType: USER_CONTROL.type, acknowledgedSequence: '1' });
+    streams.push({ streamKey: userKey, recordType: USER_CONTROL.type, acknowledgedSequence: '2' });
     receipts.push({ streamKey: userKey, sequence: '1', batchId: USER_CONTROL.batchId,
       payloadDigest: userReceipt.payloadDigest, receiptJson: JSON.stringify(userReceipt) });
     projectionOutbox.push({ streamKey: userKey, sequence: '1', batchId: USER_CONTROL.batchId,
       payloadDigest: userReceipt.payloadDigest, state: 'queued' });
+    const userRetryReceipt = data.userSuppressed.receipt;
+    receipts.push({ streamKey: userKey, sequence: '2', batchId: 'managed-roundtrip-Steps-user-retry-2',
+      payloadDigest: userRetryReceipt.payloadDigest, receiptJson: JSON.stringify(userRetryReceipt) });
+    projectionOutbox.push({ streamKey: userKey, sequence: '2', batchId: 'managed-roundtrip-Steps-user-retry-2',
+      payloadDigest: userRetryReceipt.payloadDigest, state: 'queued' });
     // These two fixed native records are additional to the original bank members.
     for (const item of SURVIVORS) {
       const binding = data[item.source].binding;
@@ -392,7 +397,7 @@ test('MOEX01: healthy managed owner export preserves both namespace inventories'
       } else for (const field of expected.readinessFields) assert.equal(category[field], null);
     }
     assert.equal(F.rows(before, 'health_records').length, expected.rawRecordCount);
-    assert.equal(F.rows(before, 'health_batch_receipts').length, expected.receiptCount + 4);
+    assert.equal(F.rows(before, 'health_batch_receipts').length, expected.receiptCount + 5);
     assert.equal(F.rows(before, 'health_streams').length, expected.receiptCount + 3);
     for (const item of expected.records) {
       const source = data[item.source], binding = source.binding;
@@ -424,7 +429,7 @@ test('MOEX01: healthy managed owner export preserves both namespace inventories'
       sources: 2, categories: 7, readinessCycles: 6, rawRecords: 5, seedACKs: 3,
       fixedRawBytes: [380, 357, 557], acceptedControlACKs: 2, survivingNativeACKs: 2,
       survivingNativeRawBytes: [365, 404], streams: 6,
-      receipts: 7, tombstones: 1, deletionGuards: 2 }));
+      receipts: 8, tombstones: 1, deletionGuards: 2 }));
     const response = await downloadExportArchive(data);
     const unsupported = response.status === 500 &&
       response.json?.error === 'export failed: native-history-export-unsupported';
@@ -647,8 +652,8 @@ async function assertFreshManagedRoundtrip(source, exported, originalSQL) {
     }
     assert.equal(F.rows(restored, 'health_records').length, 5);
     assert.equal(F.rows(restored, 'health_streams').length, 6);
-    assert.equal(F.rows(restored, 'health_batch_receipts').length, 7);
-    assert.equal(F.rows(restored, 'health_projection_outbox').length, 7);
+    assert.equal(F.rows(restored, 'health_batch_receipts').length, 8);
+    assert.equal(F.rows(restored, 'health_projection_outbox').length, 8);
     assertSurvivingNativeRows(source, restored);
     assertSourceDeletionRows(source, restored);
     assertUserDeletionRows(source, restored);
@@ -932,7 +937,7 @@ function assertOneHAEStored(snapshot, receivedAt) {
 }
 
 
-function assertUserDeletionRows(data, snapshot) {
+function assertUserDeletionRows(data, snapshot, acknowledgedSequence = '2') {
   const b = data.alpha.binding, key = F.streamKey(data.alpha, USER_CONTROL.type);
   const id = F.identity(data.alpha, USER_CONTROL.type, USER_CONTROL.id);
   assert.equal(F.rows(snapshot, 'health_deletion_guards').length, 2);
@@ -945,18 +950,19 @@ function assertUserDeletionRows(data, snapshot) {
     source_deleted: '0', user_suppressed: '1', source_stream_key: null,
     source_sequence: null, footprint_json: USER_FOOTPRINT_JSON,
   }]);
-  const receipt = data.userUpsert.receipt;
+  assert.ok(acknowledgedSequence === '1' || acknowledgedSequence === '2');
+  const accepted = [data.userUpsert];
+  if (acknowledgedSequence === '2') accepted.push(data.userSuppressed);
   assert.deepEqual(F.rows(snapshot, 'health_streams').filter(row => row.stream_key === key), [{
-    stream_key: key, record_type: USER_CONTROL.type, acknowledged_sequence: '1',
+    stream_key: key, record_type: USER_CONTROL.type, acknowledged_sequence: acknowledgedSequence,
   }]);
-  assert.deepEqual(F.rows(snapshot, 'health_batch_receipts').filter(row => row.stream_key === key), [{
-    stream_key: key, sequence: '1', batch_id: USER_CONTROL.batchId,
-    payload_digest: receipt.payloadDigest, receipt_json: JSON.stringify(receipt),
-  }]);
-  assert.deepEqual(F.rows(snapshot, 'health_projection_outbox').filter(row => row.stream_key === key), [{
-    stream_key: key, sequence: '1', batch_id: USER_CONTROL.batchId,
-    payload_digest: receipt.payloadDigest, state: 'queued',
-  }]);
+  assert.deepEqual(F.rows(snapshot, 'health_batch_receipts').filter(row => row.stream_key === key),
+    accepted.map(vector => ({ stream_key: key, sequence: vector.payload.sequence,
+      batch_id: vector.payload.batchId, payload_digest: vector.receipt.payloadDigest,
+      receipt_json: JSON.stringify(vector.receipt) })));
+  assert.deepEqual(F.rows(snapshot, 'health_projection_outbox').filter(row => row.stream_key === key),
+    accepted.map(vector => ({ stream_key: key, sequence: vector.payload.sequence,
+      batch_id: vector.payload.batchId, payload_digest: vector.receipt.payloadDigest, state: 'queued' })));
 }
 async function seedAndUserDeleteOneSteps(data) {
   const prior = F.coldRead(data.home);
@@ -1014,7 +1020,7 @@ async function seedAndUserDeleteOneSteps(data) {
     effects, projectionQueued: true });
   await F.restart(data); await current(2);
   const deleted = F.coldRead(data.home);
-  assertUserDeletionRows(data, deleted); assertSourceDeletionRows(data, deleted);
+  assertUserDeletionRows(data, deleted, '1'); assertSourceDeletionRows(data, deleted);
   for (const family of ['health_records','health_tombstones','health_batch_receipts',
     'health_projection_outbox','health_streams','health_source_policy_state',
     'health_source_policy_sources','health_source_policy_categories','hae_pushes','hae_samples']) {
@@ -1028,13 +1034,23 @@ async function seedAndUserDeleteOneSteps(data) {
   const files = retainedSourceFiles(data);
   const replay = await F.post(data, data.alpha, F.BATCH, data.userUpsert.wire);
   assert.equal(replay.status, 200); assert.deepEqual(replay.json, data.userUpsert.receipt);
-  const retry = F.batch(data.alpha, '2', [change],
+  assert.deepEqual(F.coldRead(data.home), deleted, 'old sequence-1 retry preserves complete storage');
+  assert.deepEqual(retainedSourceFiles(data), files, 'old sequence-1 retry preserves source files');
+  data.userSuppressed = F.batch(data.alpha, '2', [change],
     { type: USER_CONTROL.type, id: 'managed-roundtrip-Steps-user-retry-2' });
-  const refused = await F.post(data, data.alpha, F.BATCH, retry.wire);
-  F.failure(refused, 409, 'deletion-suppressed', data);
+  await F.ack(data, data.alpha, data.userSuppressed);
   const after = F.coldRead(data.home);
-  assert.deepEqual(after.native, deleted.native);
-  assert.deepEqual(after.physical, deleted.physical);
-  assert.deepEqual(retainedSourceFiles(data), files);
+  for (const family of ['health_records','health_tombstones','health_deletion_guards',
+    'health_source_policy_state','health_source_policy_sources','health_source_policy_categories',
+    'hae_pushes','hae_samples']) {
+    assert.deepEqual(F.rows(after, family), F.rows(deleted, family),
+      'Protected-only ACK retains raw history, guards, source policy and HAE');
+  }
+  for (const family of ['health_batch_receipts','health_projection_outbox']) {
+    assert.deepEqual(F.rows(after, family).filter(row =>
+      !(row.stream_key === F.streamKey(data.alpha, USER_CONTROL.type) && row.sequence === '2')),
+    F.rows(deleted, family), 'previous exact receipt and outbox tuples retained');
+    assert.equal(F.rows(after, family).length, F.rows(deleted, family).length + 1);
+  }
   assertUserDeletionRows(data, after);
 }
