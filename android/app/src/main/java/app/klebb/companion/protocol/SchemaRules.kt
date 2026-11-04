@@ -53,7 +53,8 @@ internal class SchemaRules(schema: JsonObject) {
                     else regex.containsMatchIn(value)
                 if (!matched) return false
             }
-            if (rule === definitions["int64"] && value.toLongOrNull() == null) return false
+            if ((rule === definitions["int64"] || rule === definitions["signedInt64"]) &&
+                value.toLongOrNull() == null) return false
             if (rule === definitions["instant"] && !validInstant(value)) return false
         }
         if (value is Long && (lower("minimum", value) || upper("maximum", value))) return false

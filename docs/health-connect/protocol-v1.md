@@ -102,10 +102,14 @@ claim does not grant ownership or permit installation replacement to relabel
 saved history. The authority slice must deliver that approved value with its
 pairing result and enforce continuity.
 
-Non-negative signed Int64 values use decimal strings with no leading zero and
-maximum `9223372036854775807`. Sequences, generations and SDK
-`metadata.clientRecordVersion` are examples. There is no invented universal
-native record version.
+Sequences, generations and receipt frontiers use non-negative Int64 decimal
+strings with no leading zero and maximum `9223372036854775807`.
+SDK `metadata.clientRecordVersion` instead preserves the signed native Long
+observation, from `-9223372036854775808` through `9223372036854775807`, using a
+separate `signedInt64` rule. Its canonical decimal string has no leading zero,
+plus sign or negative zero. A negative native version is not clamped or omitted.
+This metadata rule does not change sequence, generation or frontier validation.
+There is no invented universal native record version.
 
 Quantities use finite decimal strings, including fractional/exponent spellings.
 Known ordinary quantity wrappers use `{ "value": "75.250", "unit": "kilograms" }`.

@@ -327,3 +327,28 @@ test('unlimited history is explicit null and import-date policy stays a separate
   value.filterDigest = hash(value.queryJson);
   refuses(encode(value), 'invalid-message');
 });
+
+
+test('ordinary client metadata versions preserve signed Int64 while transport counters remain nonnegative', () => {
+  const healthy = message('batch');
+  assert.equal(decodeMessage(encode(healthy), context).payloadJson, healthy.payloadJson);
+  for (const version of ['-1', '-9223372036854775808']) {
+    const expected = JSON.parse(healthy.payloadJson);
+    expected.changes[0].record.metadata.clientRecordVersion = version;
+    const payloadJson = JSON.stringify(expected);
+    const input = { ...healthy, payloadJson, payloadDigest: hash(payloadJson) };
+    const accepted = decodeMessage(encode(input), context);
+    assert.equal(accepted.payloadJson, payloadJson);
+    assert.equal(JSON.parse(accepted.payloadJson).changes[0].record.metadata.clientRecordVersion, version);
+    assert.equal(accepted.payloadDigest, hash(payloadJson));
+    assert.equal(nativeKey(expected.changes[0].identity),
+      nativeKey(JSON.parse(healthy.payloadJson).changes[0].identity));
+  }
+  for (const version of ['-9223372036854775809', '9223372036854775808', '-0', -1]) {
+    refuses(changePayload(payload => {
+      payload.changes[0].record.metadata.clientRecordVersion = version;
+    }), 'invalid-message');
+  }
+  refuses(changePayload(payload => { payload.sequence = '-1'; }), 'invalid-message');
+  refuses(changePayload(payload => { payload.binding.generation = '-1'; }), 'invalid-message');
+});

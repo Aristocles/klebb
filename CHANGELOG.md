@@ -9,6 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I preserve signed native metadata versions through encoding and upload without
+  changing non-negative sequence, generation or receipt-frontier rules. Refs #755.
+
+- I give newly created Health Connect cards generic Weight and Steps labels while
+  retaining existing card labels and history. Refs #759.
+
+- I explain the selected read permissions, encrypted phone queue, approved uploads
+  and sharing-stop behavior in the Health Connect privacy screen. Refs #754.
+
 - I reject source-deletion guards without a tombstone for the same native record and receipt, before filtering saved history by owner.
 
 - I validate imported history before counting target samples, so an incomplete
@@ -789,7 +798,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   any other day. `cardShape` paths now accept a `$today` token,
   resolved at each turn's start to that day's date in the target
   instance's effective timezone (read from `GET /api/diagnostics`,
-  falling back to the runner's `TZ`, then UTC — the same chain a fresh
+  falling back to the runner's `TZ`, then UTC - the same chain a fresh
   sandbox resolves). A corpus sweep found no other run-date-dependent
   assertions.
 
@@ -1329,7 +1338,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 - **Stale-card nudge in the chat peek bar.** When `GET /api/hygiene`
   reports high-confidence staleness, the peek bar gently swaps to a
-  dismissible nudge ("weight hasn't been updated in 34 days — tap to tidy
+  dismissible nudge ("weight hasn't been updated in 34 days - tap to tidy
   up"). Tapping seeds the chat with the finding so Klebbius can help
   update or tidy the card; the ✕ dismisses without opening chat,
   persisting via the existing per-card dismissal endpoint. Deferred from
@@ -1877,7 +1886,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **Add a card from a template, in a tap.** Settings › Cards gains a
   "Browse card templates" button (and the first-run welcome card's "add a
   card" path now opens it too) that brings up a gallery of ready-made cards
-  — weight, blood pressure, mood, sleep, steps and more — mirroring the
+  - weight, blood pressure, mood, sleep, steps and more - mirroring the
   starter-prompts gallery: search, a featured "start here" row, per-row
   Preview of the manifest, and a one-tap **Add card**. Picking one fills
   the template's placeholders (id derived and deduped, label from the
@@ -1892,7 +1901,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   panel: toggle whether the card accepts entries from the app (and for
   which dates), the daily prompt, carry-forward, and the trend/adherence
   sparkline. Each toggle applies immediately and saves back via the
-  existing `PATCH /api/manifests/:id` path — there's no Save button.
+  existing `PATCH /api/manifests/:id` path - there's no Save button.
   Whole-card enable/disable stays in Settings › Cards (it lists every
   card, including ones with no Today presence). Each renderer declares its
   own toggleable options through a static `settingsSchema`, so the panel
@@ -1916,8 +1925,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   (today's survivors plus same-day carry-forward of missed doses) now
   travel through the encrypted payload and are stashed alongside the
   deep-link in IndexedDB. Tapping the notification opens the app and
-  surfaces an `eh-reminder-modal` with two sections — *Due now* and
-  *Missed earlier* — each row tagged with its source card's emoji and
+  surfaces an `eh-reminder-modal` with two sections - *Due now* and
+  *Missed earlier* - each row tagged with its source card's emoji and
   label, with an "Open card" link per row. Daily/weekly notifications
   carry no item structure, so no modal opens. The Settings → Notifications
   test-fire path goes through the same shape so you can verify the modal
@@ -2843,7 +2852,7 @@ gear-icon link.
   (`background: var(--bg-input)`, padding, rounded corners) so it
   reads as a discrete block. The `right thigh middle` value renders
   at 13px font-weight 600 to stand out. The previously-rendered
-  dashed bottom border on the panel is gone — its job (separating
+  dashed bottom border on the panel is gone - its job (separating
   prev-dose content from new-dose fields) is now done by a
   `divider-after-key` rendered inside `eh-input-form` after the last
   previousDoseField. The reactions chips still sit outside the
@@ -2859,7 +2868,7 @@ gear-icon link.
   Recipe 13, and the `docs/CARDS.md` schedule-card per-dose metadata
   example. The chips-multi field allows multi-select, so offering
   `"none"` as an option meant a user could tick `"none"` alongside
-  `"bruised"` — nonsensical. Absence of selection is already the
+  `"bruised"` - nonsensical. Absence of selection is already the
   implicit "no reaction" state. The renderer's defensive
   `'none'`-filter in `_summariseDoseForCard` (#354) stays in place
   so any legacy dose entries that already carry `reactions:
@@ -2875,7 +2884,7 @@ gear-icon link.
     date, between the cycle text and the week dots. Format: current-
     dose values joined with spaces, then ` · ` separator, then any
     previous-dose values joined with `, `. The chips-multi reactions
-    value `"none"` is filtered from the rendered line — it's
+    value `"none"` is filtered from the rendered line - it's
     implicit, either by ticking the chip or leaving the field empty.
     The chip stays available so users can explicitly mark "I checked
     and it was fine"; the renderer just doesn't echo it back.
@@ -2910,7 +2919,7 @@ gear-icon link.
   of hardcoding `{scheduledDate, takenAt}`. Two ordered field lists
   drive the form: `currentDoseFields` (stamped onto the new dose
   entry) and `previousDoseFields` (merged onto the most recent prior
-  dose with `takenAt` set — the retroactive-review channel). Above
+  dose with `takenAt` set - the retroactive-review channel). Above
   the form, a "Last:" context line summarises the previous dose's
   current-dose-field values plus a relative date (e.g. `Last: 3d ago
   · right belly upper`). Hidden when no prior taken dose exists. An
@@ -2923,14 +2932,14 @@ gear-icon link.
   updated so the chat agent's catalogue reflects the new contract.
   Fixes #345.
 
-- **Chip pills as a new input type — `chips` and `chips-multi`.** Two
+- **Chip pills as a new input type - `chips` and `chips-multi`.** Two
   new entries in `meta.writeable.inputs[*].type` for tappable pill
   chips. `chips` is single-select and stores the selected option's
   value (string); tapping the selected chip clears it. `chips-multi`
   is multi-select and stores an array of values; `required: true`
   means at least one chip must be selected. Both share `select`'s
   `options` shape (`["a", "b"]` or `[{value, label}]`). Used in
-  every renderer that already routes through `eh-input-form` —
+  every renderer that already routes through `eh-input-form` -
   generic-card, list-card, combination-card edit, prompt-modal in
   modal mode. Prefer `chips` over `select` for short option lists
   (≤ 8) where all options should be visible at once; stay on `select`
@@ -2968,7 +2977,7 @@ gear-icon link.
   `H:MM` instead of decimal hours (e.g. `8.17` → `8:10`, `8` → `8:00`).
   A matching `{key:hm}` modifier in the display-template engine lets
   atomic generic-cards (e.g. `sleep-hours`) use the same conversion.
-  The on-disk shape is unchanged — manifests still store decimal
+  The on-disk shape is unchanged - manifests still store decimal
   hours. Fixes #312.
 - **Forensic logging on the chat agent loop.** Setting `HEALTH_DEBUG=1`
   now emits structured `[chat:<reqId>]` lines on `/api/chat` covering
@@ -2997,7 +3006,7 @@ gear-icon link.
   reference** in `docs/CARDS.md` before claiming what a built-in
   renderer reads / writes / ignores, and to declare uncertainty
   ("I can't verify this from the docs") when the answer isn't there.
-  Reasoning by analogy across renderers is forbidden — the fact that
+  Reasoning by analogy across renderers is forbidden - the fact that
   one renderer consults `meta.writeable.inputs` is not evidence that
   another does. Closes the failure mode where the agent confidently
   proposed a `meta.writeable.inputs` patch for `schedule-card`'s
@@ -3399,7 +3408,7 @@ gear-icon link.
 - **Agent guidance no longer suggests `fallbackToLatest: true` on
   workout-style cards.** Boolean-shaped HAE cards (workouts,
   meditation, exercise minutes) need to read as "No workout today"
-  on a rest day — not show the most recent prior session as if it
+  on a rest day - not show the most recent prior session as if it
   were today's. The HAE describe block + system prompt now flag
   workouts as the explicit exception and steer the agent toward
   `{trained:check} {type}` instead of bare `{trained}` so a workout
@@ -3459,7 +3468,7 @@ gear-icon link.
   the fallback day.** Cards with `dateContext: "latest"` correctly
   fall back to the most recent prior row for display when today has
   no entry. But clicking the edit button used to open the form
-  pre-filled from that prior row — including its date — so saving
+  pre-filled from that prior row - including its date - so saving
   rewrote the prior day's row instead of creating a new row for
   today. Operators hit this on mood after logging yesterday: editing
   "today" silently clobbered yesterday, and both views kept showing
@@ -3470,12 +3479,12 @@ gear-icon link.
 
 - **`{key:emoji}` template modifier accepts the flat `emojiMap`
   shape.** The calendar marker (#183) and rating input (#193 Part A)
-  both honour both `emojiMap` shapes — flat (`{"1": "😩", ...}`) and
+  both honour both `emojiMap` shapes - flat (`{"1": "😩", ...}`) and
   keyed (`{field: {"1": "😩", ...}}`). The `:emoji` template
   modifier only accepted the keyed shape, so a mood card template
   like `{mood:emoji}` against a flat emojiMap fell through to the
   raw number. The modifier now tries the keyed lookup first, then
-  the flat lookup — one source of truth across all three consumers
+  the flat lookup - one source of truth across all three consumers
   of `display.emojiMap`.
 
 ### Changed
@@ -3510,7 +3519,7 @@ gear-icon link.
   metric in one click, avoiding the per-row tedium on instances
   with 15+ pending metrics. Button sits next to the expand chevron,
   visible without expanding the list. Per-row dismiss buttons
-  removed to simplify — operators can un-hide from Settings if they
+  removed to simplify - operators can un-hide from Settings if they
   want a specific metric back. Fan-out calls the existing
   per-metric dismiss endpoint in parallel, so no new server
   surface. (Fixes #218)
@@ -3530,7 +3539,7 @@ gear-icon link.
   array on `meta.writeable` lists input keys at least one of which
   must be filled for the Save button to enable. Mood uses it for
   `["mood", "note"]` so the user can log a feeling, a journal
-  line, or both — without being blocked by a per-input
+  line, or both - without being blocked by a per-input
   `required: true`. Individual `required` flags still apply for
   fields that must always be present.
   (Fixes #193 Part B)
@@ -3541,7 +3550,7 @@ gear-icon link.
   When a manifest's `view.display.emojiMap` is present, a
   `type: "rating"` input now labels its buttons with the mapped
   emojis (😩 😔 😐 🙂 😄) instead of raw numbers. The underlying
-  saved value stays numeric — the emojis are label-only. Works
+  saved value stays numeric - the emojis are label-only. Works
   with both the flat emojiMap shape (`{"1": "😩", ...}`, used by
   mood) and the keyed shape (`{mood: {"1": "😩", ...}}`, used by
   multi-field cards). Threads `display` through all four
@@ -3575,7 +3584,7 @@ gear-icon link.
 
 - **Settings card list is alphabetical and toggles in place.** The
   previous Enabled/Disabled split meant toggling a card reshuffled
-  the list between groups and scrolled the viewport to the top —
+  the list between groups and scrolled the viewport to the top -
   disorienting when flipping several cards in a row. Cards now sort
   alphabetically by label in one flat list, the toggle flips state
   in place via a keyed Lit `repeat`, and the toggle's post-refresh
@@ -3619,7 +3628,7 @@ gear-icon link.
   metrics remain.** Once every catalogue-supported HAE metric has a
   subscriber (the steady state on a configured instance), the
   discovery card previously suppressed itself whole and took the
-  "received but not supported" footer with it — stranding any
+  "received but not supported" footer with it - stranding any
   pending dismiss actions. The card now renders a compact
   footer-only layout in that case (no headline, no intro, no
   category list), keeping the dismiss UI reachable from Today.
@@ -3640,7 +3649,7 @@ gear-icon link.
   (`foo.json.pre-reingest-*.json`, `.pre-hae-*`, etc.). Previously the
   loader globbed every `*.json` in the data dir, parsed the backups
   as manifests, and either (a) emitted duplicate-id warnings when the
-  canonical sibling loaded too, or (b) — worse — silently created a
+  canonical sibling loaded too, or (b) - worse - silently created a
   card from the backup if no canonical existed, serving stale data
   to the operator. The scan now recognises the shared backup shape
   (two `.json` segments in the filename) and skips it outright.
@@ -3651,7 +3660,7 @@ gear-icon link.
   `display.emojiMap`.** Previously the resolver required `emojiMap`
   on the marker spec itself, so manifests following the existing
   pattern of declaring the map once under `meta.view.display.emojiMap`
-  saw no per-day emoji on the calendar — every date fell back to the
+  saw no per-day emoji on the calendar - every date fell back to the
   card's `meta.emoji` (the same face on every day). The resolver now
   consults `ctx.display.emojiMap` when the spec omits one. Spec-level
   overrides still win when both are present. (Fixes #183)
@@ -3684,7 +3693,7 @@ gear-icon link.
   CC, it wrote `view.slots[]` keyed on `cardId`. Neither shape is
   accepted by the CC renderer (which reads `view.combines[]` with
   `sourceId`), so both cards rendered empty with "no source info".
-  Same failure mode as #164 (HAE field hallucination) — fixed by
+  Same failure mode as #164 (HAE field hallucination) - fixed by
   injecting the CC schema contract into the chat system prompt,
   including an explicit FORBIDDEN list naming the two observed
   hallucinations (`view.slots`, `view.sources`) so the agent learns
@@ -3778,7 +3787,7 @@ gear-icon link.
   by live QA with 10+ scheduled HAE exports: each push re-sends
   running-total samples for the current day, and the replay was
   flattening entries across all pushes into a single list and
-  aggregating once — producing 5× step counts, wrong means for HRV,
+  aggregating once - producing 5× step counts, wrong means for HRV,
   and wrong "last wins" for sleep. Replay now processes each push
   independently (aggregate → mergeByDate against running state),
   matching the live dispatcher's semantics. A new `force: true` opt
@@ -4003,7 +4012,7 @@ gear-icon link.
   README and \`docs/DEPLOY.md\` now document Klebb as LLM-first and
   make setting up a chat gateway part of the Quickstart rather
   than an optional step. \`templates/\`, \`/api/templates\`, and
-  \`CONTRIBUTING-TEMPLATES.md\` all stay — they're useful as
+  \`CONTRIBUTING-TEMPLATES.md\` all stay - they're useful as
   canonical reference manifests for contributors and as future
   chat-agent fodder. (#127)
 
@@ -4076,7 +4085,7 @@ gear-icon link.
   follow-up). The welcome card is a regular manifest: hideable,
   deletable, re-enablable from Settings. It hides itself the first time
   any other card is created (tracked via \`meta.welcome.autoHideApplied\`
-  so the auto-hide fires at most once — a user who later re-enables it
+  so the auto-hide fires at most once - a user who later re-enables it
   in Settings won't have the system fight them on the next Add Card).
   New renderer \`eh-welcome-card\` backs the \`welcome-card\` component
   name; new module \`server/first-boot/\` holds the seed logic and the
@@ -4105,7 +4114,7 @@ gear-icon link.
   writeable renderer (generic-card, list-card, settings toggles, prompt
   modal) hit a non-2xx response from \`/api/manifests/:id/data\`, the UI
   rendered either \`HTTP 403\` or a fixed "Could not save. Try again or
-  dismiss." — hiding the server's actual \`{error: "..."}\` payload. A
+  dismiss." - hiding the server's actual \`{error: "..."}\` payload. A
   timezone mismatch could reject a write as future-dated, while the UI
   showed only the generic message. New
   \`public/js/lib/save-error.js\` helper (\`errorFromResponse\`) reads
@@ -4127,11 +4136,11 @@ gear-icon link.
   content after a resize. (#82)
 - **Chat bubbles render GFM markdown, including tables.** The widget
   was rolling its own ~25-line regex parser that covered bold / italic
-  / inline code / bullets / paragraphs — enough for most replies, but
+  / inline code / bullets / paragraphs - enough for most replies, but
   markdown tables, task lists, strikethrough, and autolinks all
   rendered as literal pipes/dashes. Swapped to \`marked@15\` with GFM
   enabled, matching the server-side config. \`DOMPurify@3\` sanitises
-  the output before it reaches the DOM — scripts, event handlers, and
+  the output before it reaches the DOM - scripts, event handlers, and
   \`javascript:\` / \`data:\` URLs are stripped. Assistant-emitted
   links get \`target="_blank" rel="noopener noreferrer"\` via a
   DOMPurify hook. Both deps load from esm.sh at pinned versions (same
@@ -4165,7 +4174,7 @@ gear-icon link.
 - **Chat agent ships every writeable card with a full \`inputs\`
   array.** Klebbius was creating writeable list-cards with the
   \`writeable\` booleans set but no \`inputs\`. Result: Edit mode on a
-  list-card row showed only the primary-field text box — the
+  list-card row showed only the primary-field text box - the
   per-row three-dot button for secondary fields never appeared
   because there were no secondaries to render. Prompt now demands
   that every manifest with \`meta.writeable.fromWebapp:true\` carry
@@ -4180,7 +4189,7 @@ gear-icon link.
   last rule, matching the CSS / switch-default pattern) produced no
   marker. A blood-pressure card could show its default marker when a
   catch-all rule was ignored. Now a bounds-less rule
-  matches any non-null value at the field — put it last. Applies to
+  matches any non-null value at the field - put it last. Applies to
   both \`display.thresholds\` (Today headline colouring) and
   \`meta.calendar.marker.{type:"threshold"}\` (calendar glyph). The
   old workaround of \`{max:999, emoji:"..."}\` still works. Docs,
@@ -4240,7 +4249,7 @@ gear-icon link.
 - **Cards with empty data no longer get auto-hidden from views.** The
   old rule "empty data hides the card" (to avoid ghost cards) made a
   fresh writeable card invisible to its owner before the first entry
-  — e.g. a brand-new weight card, or anything just created via the
+  - e.g. a brand-new weight card, or anything just created via the
   chat agent's `create_manifest` tool. Visibility is now driven by
   the `enabled` flags only (master `meta.enabled` + per-view
   `enabled`). Renderers handle the empty state themselves
@@ -4253,7 +4262,7 @@ gear-icon link.
 - **Chat agent actually calls the manifest endpoints now.** #61 shipped
   `POST /api/manifests` + `DELETE /api/manifests/:id` and taught the
   system prompt about them, but the in-app agent (Klebbius) had no way
-  to make an HTTP call from inside a chat turn — the chat proxy just
+  to make an HTTP call from inside a chat turn - the chat proxy just
   forwarded `{model, messages}` to the gateway. This PR wires an
   OpenAI-compatible tool-calling agent loop into `/api/chat` so the
   model can call three new tools that dispatch directly into the
@@ -4345,7 +4354,7 @@ gear-icon link.
 - **Chat no longer aborts an in-flight reply on every momentary tab
   switch.** The visibility-change watcher used to abort any pending
   `/api/chat` request the instant the tab became visible again,
-  showing "Connection interrupted — send again" even for a
+  showing "Connection interrupted - send again" even for a
   sub-second flicker. It now records when the tab went hidden and
   only aborts if the tab was actually backgrounded for 3+ seconds
   (long enough for mobile OSes to freeze the TCP socket). Brief
@@ -4404,7 +4413,7 @@ gear-icon link.
   scheme picks http vs https and the path is honoured verbatim, so
   `/v1/chat/completions` is no longer special. Existing deploys using
   `CHAT_GATEWAY_HOST` + `CHAT_GATEWAY_PORT` + `CHAT_GATEWAY_TLS` +
-  `CHAT_GATEWAY_TOKEN` + `CHAT_GATEWAY_MODEL` continue to work — those
+  `CHAT_GATEWAY_TOKEN` + `CHAT_GATEWAY_MODEL` continue to work - those
   vars are composed into the canonical URL internally and a
   deprecation warning is logged at boot. New installs should use the
   canonical names. (#47)
@@ -4435,7 +4444,7 @@ gear-icon link.
   `package.json` (`license: "AGPL-3.0-only"`) and the README licence
   section. No code-level per-file headers in this pass. (#14)
 
-### Added — Phase 9 (card reordering)
+### Added - Phase 9 (card reordering)
 
 - **Card reordering.** New `POST /api/manifests/reorder` endpoint that
   reassigns `meta.order` across cards using sparse numbering (100, 200,
@@ -4451,7 +4460,7 @@ gear-icon link.
   (⋮⋮ Reorder cards + ⚙️ Settings) instead of navigating directly.
   Keeps the nav bar tight on mobile while still exposing both actions.
 
-### Added — Phase 8 (card library)
+### Added - Phase 8 (card library)
 
 - **Card library:** 15 new example manifests in `data.example/`, covering:
   vitals (heart rate resting, SpO₂, body temperature), sleep (hours,
@@ -4497,7 +4506,7 @@ catalog or install flow, AI-agent-friendly HTTP API.
 - **Manifest `$schema`** changed to `klebb.datafile.v1` from its
   previous value. The server only accepts the new value. Migration:
   `npm run migrate-schema` (idempotent, `--dry-run` available).
-- **Mood + notes data shape** — cards that previously stored data as a
+- **Mood + notes data shape** - cards that previously stored data as a
   date-keyed object (`{ "2026-04-21": { ... } }`) now use the array-of-dated-rows
   shape (`[{ date: "2026-04-21", ... }]`) used by every other card.
   Migration: `node scripts/migrate-date-keyed-to-array.js --dir $HEALTH_HOME/data`.
@@ -4510,14 +4519,14 @@ catalog or install flow, AI-agent-friendly HTTP API.
   `/api/settings/cards/:id/archive`, `/api/settings/cards/:id/restore`,
   `/api/calendar/health`. The install flow is gone entirely (files are
   the source of truth).
-- **Session cookie renamed** — `vorhealth_session` → `klebb_session`.
+- **Session cookie renamed** - The current cookie is `klebb_session`.
   Existing browsers will see a one-time re-auth prompt after the upgrade.
 - **Default env values changed:**
   - `CHAT_AGENT_NAME`: was a project-specific string, now `Chat`
   - `CHAT_AGENT_EMOJI`: was a project-specific glyph, now `💬`
   - `HEALTH_RP_ID`: was a real domain, now `localhost`
   - `CHAT_GATEWAY_TOKEN`: was a hardcoded production token (security leak);
-    now empty by default — chat widget disabled unless set
+    now empty by default - chat widget disabled unless set
   - `PORT`: was `10002`, now `8080`
   - `HEALTH_HOME` fallback: was `~/.klebb/data` or `$HEALTH_HOME`,
     now `~/klebb`
@@ -4537,9 +4546,9 @@ catalog or install flow, AI-agent-friendly HTTP API.
   dotted-path access. Pure function, fully tested.
 - **Threshold evaluator** with `min`/`max`/`eq` matchers, first-match-wins.
 - **Trend arrow** comparing current vs previous entry on the same key.
-- **Master `meta.enabled` flag** — single toggle hides a card from every
+- **Master `meta.enabled` flag** - single toggle hides a card from every
   view. Settings UI exposes one switch per card.
-- **`AGENT_API_TOKEN` bearer auth** — documented contract for
+- **`AGENT_API_TOKEN` bearer auth** - documented contract for
   server-to-server writes (for chat agents, cron jobs, mobile shortcuts).
   See [`docs/CHAT-AGENT.md`](docs/CHAT-AGENT.md).
 - **Templated systemd unit** `klebb@<instance>.service` for multi-instance
@@ -4551,7 +4560,7 @@ catalog or install flow, AI-agent-friendly HTTP API.
   `migrate-date-keyed-to-array.js`, `migrate-v1-to-v2.js`.
 - **Test suite:** 182 tests / 31 suites / Node 20+22 matrix CI.
 - **Repo hygiene tests:** `no-personal-refs.test.js`,
-  `no-secrets.test.js` — automated scanners that block personal
+  `no-secrets.test.js` - automated scanners that block personal
   identifiers, hardcoded paths, and leaked tokens from landing.
 - **Docs:** `docs/CARDS.md`, `docs/CHAT-AGENT.md`, `docs/DEPLOY.md`,
   `docs/CI.md`, `MANIFEST-SCHEMA.md`, `README.md`, `CONTRIBUTING.md`.
@@ -4560,7 +4569,7 @@ catalog or install flow, AI-agent-friendly HTTP API.
 
 - **Settings view** rewritten as a flat toggle list with one switch per
   card (was: catalog + install wizard + archive buttons).
-- **Chat system prompt** is now generic — no hardcoded file names,
+- **Chat system prompt** is now generic - no hardcoded file names,
   points agents at `/api/manifests` for discovery instead of enumerating
   specific cards.
 - **Registry** gains `fs.watch` for automatic reload when card files
@@ -4573,7 +4582,7 @@ catalog or install flow, AI-agent-friendly HTTP API.
 
 - Hardcoded production chat gateway bearer token removed from source. If the
   chat widget needs a token, set `CHAT_GATEWAY_TOKEN` in the environment.
-- Chat widget no longer shows an audio play button on typed replies —
+- Chat widget no longer shows an audio play button on typed replies -
   only on voice-mode replies.
 - `scripts/deploy.sh` restart path works against the `klebb@.service`
   template.
@@ -4587,10 +4596,10 @@ catalog or install flow, AI-agent-friendly HTTP API.
 
 ### Removed
 
-- Legacy renderers (`metric-card`, `notes-card`, `quick-action-card`) —
+- Legacy renderers (`metric-card`, `notes-card`, `quick-action-card`) -
   ~870 LOC deleted
 - Setup wizard (`setup/wizard.js`, `eh-setup-wizard.js`, `setup.html`
-  wizard UI) — ~400 LOC deleted
+  wizard UI) - ~400 LOC deleted
 - `/api/calendar/health` endpoint + its Python shell-out
 - `mood-checkin.js` floating widget (superseded by in-card ✏️)
 - Legacy systemd template (replaced by `systemd/klebb@.service`)
@@ -4603,12 +4612,12 @@ catalog or install flow, AI-agent-friendly HTTP API.
 See [`docs/DEPLOY.md`](docs/DEPLOY.md) for the full deploy flow. Quick
 version:
 
-1. `npm run migrate-schema` — rewrite `$schema` strings
+1. `npm run migrate-schema` - rewrite `$schema` strings
 2. `node scripts/migrate-date-keyed-to-array.js --dir $HEALTH_HOME/data`
-   — convert mood + notes data shapes
+   - convert mood + notes data shapes
 3. `node scripts/migrate-cards-to-generic.js --dir $HEALTH_HOME/data`
-   — point weight/bp/mood/notes at `generic-card`
-4. Set the new required env vars — at minimum `HEALTH_RP_ID` and
+   - point weight/bp/mood/notes at `generic-card`
+4. Set the new required env vars - at minimum `HEALTH_RP_ID` and
    `HEALTH_ORIGIN` to match your domain
 5. `systemctl restart klebb@<instance>` (or your own equivalent)
 

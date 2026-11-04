@@ -398,3 +398,47 @@ test('partial native schema and malformed or unreceipted saved frontier fail clo
       } finally { if (writer) writer.close(); await close(data); }
     }
   });
+
+test('a negative client metadata version is durably preserved without changing sequence or native identity', async () => {
+  const data = await fixture();
+  let reader;
+  try {
+    const first = bindVector('initial-raw-only', data.binding);
+    await receipt(data, first);
+    await frontier(data, '1');
+    const signed = bindVector('initial-raw-only', data.binding);
+    signed.payload.sequence = '2';
+    signed.payload.batchId = 'synthetic-signed-client-version';
+    const changed = signed.payload.changes[0];
+    changed.record.metadata.clientRecordVersion = '-1';
+    const expectedRecordJson = JSON.stringify(changed.record);
+    signed.wire.payloadJson = JSON.stringify(signed.payload);
+    signed.wire.payloadDigest = sha(signed.wire.payloadJson);
+    signed.receipt = { ...signed.receipt, sequence: '2', batchId: signed.payload.batchId,
+      payloadDigest: signed.wire.payloadDigest };
+    await receipt(data, signed);
+    await frontier(data, '2');
+    await data.server.kill(); data.server = null;
+    const cold = coldReadNative(data.home);
+    assert.deepEqual(cold.records, signed.payload.changes.slice(0, 2).map(change => ({
+      identity: change.identity, record: change.record,
+    })));
+    assert.deepEqual(cold.receipts, [first.receipt, signed.receipt]);
+    assertLegacy(cold, data);
+    reader = new DatabaseSync(path.join(data.home, 'db', 'klebb.db'), { readOnly: true });
+    const actual = reader.prepare('SELECT record_json FROM health_records '
+      + 'WHERE tenant_id=? AND source_store_id=? AND record_type=? AND native_record_id=?')
+      .get(changed.identity.tenantId, changed.identity.sourceStoreId,
+        changed.identity.recordType, changed.identity.nativeRecordId);
+    assert.equal(actual.record_json, expectedRecordJson);
+    assert.equal(JSON.parse(actual.record_json).metadata.clientRecordVersion, '-1');
+    reader.close(); reader = null;
+    await restart(data);
+    await frontier(data, '2');
+    assert.deepEqual(await receipt(data, signed), signed.receipt);
+    assert.deepEqual(coldReadNative(data.home), cold);
+  } finally {
+    if (reader) reader.close();
+    await close(data);
+  }
+});

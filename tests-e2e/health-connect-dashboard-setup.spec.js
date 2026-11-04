@@ -176,10 +176,11 @@ async function fillChoice(region, spec, cardId) {
   await region.getByLabel('Display timezone', { exact: true }).fill('UTC');
 }
 
-async function readback(fixture, cardId, expected, rows, selectedSources) {
+async function readback(fixture, cardId, expected, rows, selectedSources, expectedLabel) {
   const full = await owner(fixture, `/api/manifests/${encodeURIComponent(cardId)}`);
   expect(full.status).toBe(200);
   expect(full.json.meta.id).toBe(cardId);
+  expect(full.json.meta.label).toBe(expectedLabel);
   expect(Object.hasOwn(full.json, 'id')).toBe(false);
   expect(full.json.meta.healthConnectDisplay).toEqual(expected);
   expect(full.json.data).toEqual(rows);
@@ -229,7 +230,7 @@ test('fresh owner setup creates a Weight card and persists the real saved source
     await region.getByRole('button', { name: 'Save Weight display', exact: true }).click();
     const created = await createdPromise;
     expect(created.status()).toBe(201);
-    expect(created.request().postDataJSON()).toEqual({ templateId: 'body-mass-hae' });
+    expect(created.request().postDataJSON()).toEqual({ templateId: 'body-mass-hae', label: 'Weight' });
     const result = await created.json();
     expect(result.ok).toBe(true);
     expect(typeof result.id).toBe('string');
@@ -244,7 +245,7 @@ test('fresh owner setup creates a Weight card and persists the real saved source
     await expect(region.getByRole('status')).toContainText('Saved data is shown');
     await readback(fixture, result.id, selection(source, spec),
       [{ date: '2040-02-03', kg: 45.359237 }],
-      [{ date: '2040-02-03', source: 'health-connect' }]);
+      [{ date: '2040-02-03', source: 'health-connect' }], 'Weight');
     const after = await owner(fixture, '/api/manifests');
     expect(after.status).toBe(200);
     expect(after.json.entries.length).toBe(before.json.entries.length + 1);
@@ -290,7 +291,7 @@ test('existing Steps owner setup keeps pre-cutover history and excludes overlapp
     });
     await expect(region.getByRole('status')).toContainText('Steps display choice saved.');
     await readback(fixture, spec.cardId, selection(source, spec),
-      spec.initialExpectedRows, spec.initialSelectedSources);
+      spec.initialExpectedRows, spec.initialSelectedSources, 'Existing Steps');
     expect(F.rows(F.coldRead(fixture.home), 'rows')
       .filter(row => row.card_id === spec.cardId)).toEqual(cached);
     expect(fixture.requestPaths.filter(request => request.method === 'POST'

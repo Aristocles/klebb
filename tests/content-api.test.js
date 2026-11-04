@@ -61,6 +61,47 @@ describe('content API', () => {
     assert.equal(newCard.id, create.json.id);
   });
 
+  test('template label override is saved at creation while ordinary defaults are preserved', async () => {
+    const list = await req(server.baseUrl, '/api/templates');
+    assert.equal(list.status, 200);
+    for (const [templateId, originalLabel, genericLabel] of [
+      ['body-mass-hae', 'Weight (Apple Health)', 'Weight'],
+      ['steps', 'Steps (Apple Health)', 'Steps'],
+    ]) {
+      assert.ok(list.json.templates.some(template => template.id === templateId));
+      const ordinary = await req(server.baseUrl, '/api/settings/cards/from-template', {
+        method: 'POST', body: { templateId },
+      });
+      assert.equal(ordinary.status, 201);
+      const original = await req(server.baseUrl, `/api/manifests/${ordinary.json.id}`);
+      assert.equal(original.status, 200);
+      assert.equal(original.json.meta.label, originalLabel);
+      const created = await req(server.baseUrl, '/api/settings/cards/from-template', {
+        method: 'POST', body: { templateId, label: genericLabel },
+      });
+      assert.equal(created.status, 201);
+      assert.notEqual(created.json.id, ordinary.json.id);
+      const actual = await req(server.baseUrl, `/api/manifests/${created.json.id}`);
+      assert.equal(actual.status, 200);
+      assert.equal(actual.json.meta.label, genericLabel);
+      const expected = structuredClone(original.json);
+      expected.meta.id = created.json.id;
+      expected.meta.label = genericLabel;
+      assert.deepEqual(actual.json, expected);
+    }
+    const before = await req(server.baseUrl, '/api/settings/cards');
+    assert.equal(before.status, 200);
+    for (const label of ['', null, 1]) {
+      const refused = await req(server.baseUrl, '/api/settings/cards/from-template', {
+        method: 'POST', body: { templateId: 'steps', label },
+      });
+      assert.equal(refused.status, 400);
+    }
+    const after = await req(server.baseUrl, '/api/settings/cards');
+    assert.equal(after.status, 200);
+    assert.deepEqual(after.json, before.json);
+  });
+
   test('a second create from the same template gets a distinct, deduped id', async () => {
     const first = await req(server.baseUrl, '/api/settings/cards/from-template', {
       method: 'POST', body: { templateId: 'mood' },
