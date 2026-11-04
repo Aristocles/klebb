@@ -29,7 +29,7 @@ function grantPostCount(fixture) {
     request.method === 'POST' && new URL(request.url).pathname === GRANTS).length;
 }
 
-async function createThroughBrowser(fixture, pane) {
+async function createThroughBrowser(fixture, pane, expectedCategories = STEPS) {
   await expect(pane.locator('.hc-destination')).toHaveText(CANONICAL);
   await pane.getByLabel('Phone name', { exact: true }).fill('Test phone');
   await pane.getByLabel('Confirm destination', { exact: true }).check();
@@ -40,13 +40,13 @@ async function createThroughBrowser(fixture, pane) {
   const response = await responsePromise;
   expect(response.status()).toBe(201);
   expect(response.request().postDataJSON()).toEqual({
-    categories: STEPS, name: 'Test phone',
+    categories: expectedCategories, name: 'Test phone',
   });
   const grant = await response.json();
   expect(grant.version).toBe(1);
   expect(grant.kind).toBe('pairing-grant');
   expect(grant.destination).toBe(CANONICAL);
-  expect(grant.categories).toEqual(STEPS);
+  expect([...grant.categories].sort()).toEqual([...expectedCategories].sort());
   expect(grant.grant).toMatch(/^[A-Za-z0-9_-]{43}$/);
   const payload = pane.getByLabel('Health Connect pairing payload', { exact: true });
   await expect(payload).toBeVisible();
@@ -75,7 +75,7 @@ test.describe('#772 authenticated Health Connect browser authority', () => {
     const fixture = await authorityPage(browser);
     try {
       const pane = await openSecurity(fixture);
-      await expect(pane).toContainText('Pairing proof: Steps');
+      await expect(pane).toContainText('Choose Weight and Steps for pairing');
       await expect(pane.locator('.hc-destination')).toHaveText(CANONICAL);
       const button = pane.getByRole('button', { name: 'Create pairing grant', exact: true });
       await expect(button).toBeDisabled();
@@ -285,6 +285,54 @@ test.describe('#772 authenticated Health Connect browser authority', () => {
         name: 'Create pairing grant', exact: true,
       })).toBeDisabled();
       expect(grantPostCount(fixture)).toBe(1);
+      await noAutomaticClipboard(fixture);
+      expect(fixture.bridgeFailures).toEqual([]);
+    } finally { await fixture.close(); }
+  });
+});
+
+
+test.describe('explicit Weight and Steps pairing scope', () => {
+  test('healthy Steps control precedes exactly two explicit choices and a two-type grant', async ({ browser }) => {
+    const fixture = await authorityPage(browser);
+    try {
+      const pane = await openSecurity(fixture);
+      const healthy = await createThroughBrowser(fixture, pane);
+      expect(healthy.categories).toEqual(['StepsRecord']);
+      await pane.getByRole('button', { name: 'Cancel', exact: true }).click();
+      const choices = await pane.locator('input[aria-label="Weight"], input[aria-label="Steps"]')
+        .evaluateAll(inputs => inputs.map(input => input.getAttribute('aria-label')));
+      expect(choices).toEqual(['Weight', 'Steps']);
+      await expect(pane.getByLabel('Weight', { exact: true })).not.toBeChecked();
+      await expect(pane.getByLabel('Steps', { exact: true })).toBeChecked();
+      await pane.getByLabel('Weight', { exact: true }).check();
+      const grant = await createThroughBrowser(fixture, pane, ['WeightRecord', 'StepsRecord']);
+      expect([...grant.categories].sort()).toEqual(['StepsRecord', 'WeightRecord']);
+      expect(grantPostCount(fixture)).toBe(2);
+      await noAutomaticClipboard(fixture);
+      expect(fixture.bridgeFailures).toEqual([]);
+    } finally { await fixture.close(); }
+  });
+
+  test('Weight singleton is exact and an empty selection cannot create a grant', async ({ browser }) => {
+    const fixture = await authorityPage(browser);
+    try {
+      const pane = await openSecurity(fixture);
+      await createThroughBrowser(fixture, pane);
+      await pane.getByRole('button', { name: 'Cancel', exact: true }).click();
+      const choices = await pane.locator('input[aria-label="Weight"], input[aria-label="Steps"]')
+        .evaluateAll(inputs => inputs.map(input => input.getAttribute('aria-label')));
+      expect(choices).toEqual(['Weight', 'Steps']);
+      await pane.getByLabel('Weight', { exact: true }).check();
+      await pane.getByLabel('Steps', { exact: true }).uncheck();
+      const grant = await createThroughBrowser(fixture, pane, ['WeightRecord']);
+      expect(grant.categories).toEqual(['WeightRecord']);
+      expect(grantPostCount(fixture)).toBe(2);
+      await pane.getByLabel('Weight', { exact: true }).uncheck();
+      await expect(pane.getByLabel('Health Connect pairing payload', { exact: true })).toHaveCount(0);
+      await pane.getByLabel('Confirm destination', { exact: true }).check();
+      await expect(pane.getByRole('button', { name: 'Create pairing grant', exact: true })).toBeDisabled();
+      expect(grantPostCount(fixture)).toBe(2);
       await noAutomaticClipboard(fixture);
       expect(fixture.bridgeFailures).toEqual([]);
     } finally { await fixture.close(); }

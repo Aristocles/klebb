@@ -2,9 +2,12 @@
 package app.klebb.companion.sync
 
 import app.klebb.companion.protocol.ApprovedOrigin
+import app.klebb.companion.protocol.ControlJson
+import app.klebb.companion.protocol.JsonObject
 import app.klebb.companion.protocol.PairingTransport
 import app.klebb.companion.protocol.HealthProtocol
 import app.klebb.companion.protocol.InMemoryPairingSession
+import app.klebb.companion.protocol.ProtocolException
 import app.klebb.companion.queue.BlobKind
 import app.klebb.companion.queue.Blocked
 import app.klebb.companion.queue.KeystoreQueueCipher
@@ -469,6 +472,243 @@ class RoomDurableBatchQueueInstrumentedTest {
             assertEquals(before, f.snapshot())
             assertArrayEquals(wire(1), checkNotNull(pending(s, recovered)).copyWire())
             assertEquals(listOf("native-batch-1"), s.ids)
+        }
+    }
+
+    // GREEN regressions for the new stop/purge interfaces; missing symbols are never baseline RED.
+    @Test fun ROOM07_committedCategoryPurgeProofRequiresCurrentRowsAndFreshRemoteAuthority() = runBlocking<Unit> {
+        QueueStorageNativeFixture().use { f ->
+            val s = categorySubject(f)
+            val first = checkNotNull(ok(s.queue.nextPending(s.weight, open)))
+            val firstCommit = checkNotNull(ok(s.queue.committedFirstPage(s.weight, open)))
+            val oldChallenge = checkNotNull(s.session.firstPageChallenge("WeightRecord"))
+            val decoded = s.protocol.decode(first.copyWire())
+            val payload = JSONObject(decoded.fields["payloadJson"] as String)
+            val lateReceipt = JSONObject(vector(1).getString("receipt"))
+                .put("binding", JSONObject(s.weight.binding)).put("recordType", "WeightRecord")
+                .put("sequence", "11").put("batchId", payload.getString("batchId"))
+                .put("payloadDigest", decoded.fields["payloadDigest"])
+            val receiptFrame = s.protocol.decode(lateReceipt.toString().toByteArray(Charsets.UTF_8))
+            val before = f.snapshot()
+            val stepsBefore = before.filter { it.stream == s.steps.localStreamId }
+            val stop = ManualFirstPageCapture.underCommitFence { s.session.stopCategory("WeightRecord") }
+            assertEquals("4", stop.binding["generation"])
+            assertEquals("10", stop.acknowledgedSequence)
+            assertTrue(s.session.isCurrentLocalStop(stop))
+            assertNull(s.session.readinessCompleted("WeightRecord"))
+            assertTrue(s.queue.acknowledge(s.weight, first, receiptFrame, open) is Blocked)
+            assertEquals("A late old-generation ACK cannot mutate the queued batches", before, f.snapshot())
+            val oldCommitAdmission = s.queue.acceptsFirstPageCommit(s.weight, firstCommit, open)
+            assertTrue(oldCommitAdmission is Blocked ||
+                (oldCommitAdmission is Ok && !oldCommitAdmission.value))
+
+            val purge = ok(s.queue.purgeStoppedCategory(stop))
+            assertTrue(ok(s.queue.acceptsCategoryPurge(stop, purge)))
+            assertEquals("Both Weight pending payloads must be logically deleted", 0,
+                f.snapshot().count { it.stream == s.weight.localStreamId && it.kind == BlobKind.PAYLOAD.stored })
+            assertEquals(stepsBefore, f.snapshot().filter { it.stream == s.steps.localStreamId })
+            val purged = f.snapshot()
+            assertTrue(s.queue.acknowledge(s.weight, first, receiptFrame, open) is Blocked)
+            assertEquals(purged, f.snapshot())
+            val marker = f.db.blobs().forStream(s.weight.localStreamId).single()
+            var markerFailure: Throwable? = null
+            try {
+                f.replaceEncrypted(marker.rowId, marker.ciphertextAndTag.copyOf().also {
+                    it[0] = (it[0].toInt() xor 1).toByte()
+                })
+                val changedRows = f.snapshot()
+                assertFalse("An issued receipt cannot outlive its actual encrypted purge marker",
+                    ok(s.queue.acceptsCategoryPurge(stop, purge)))
+                categoryExchange(s.session, emptyList()) { transport ->
+                    expectCategoryRefusal("category-purge-unconfirmed") {
+                        s.session.reenableFirstPage(transport, stop, purge, s.queue, oldChallenge.scope)
+                    }
+                }
+                assertEquals(changedRows, f.snapshot())
+            } catch (caught: Throwable) {
+                markerFailure = caught
+                throw caught
+            } finally {
+                try { f.replaceEncrypted(marker.rowId, marker.ciphertextAndTag) }
+                catch (cleanup: Throwable) {
+                    if (markerFailure != null) markerFailure!!.addSuppressed(cleanup) else throw cleanup
+                }
+            }
+            assertEquals(purged, f.snapshot())
+            assertTrue(ok(s.queue.acceptsCategoryPurge(stop, purge)))
+
+            f.reopen()
+            val reopened = RoomDurableBatchQueue(f.db, KeystoreQueueCipher(f.alias),
+                s.protocol, s.session, 100L, 4_194_304L)
+            assertFalse("A previous queue instance cannot authorize readmission",
+                ok(reopened.acceptsCategoryPurge(stop, purge)))
+            assertEquals(purged, f.snapshot())
+            val currentPurge = ok(reopened.purgeStoppedCategory(stop))
+            assertTrue(ok(reopened.acceptsCategoryPurge(stop, currentPurge)))
+            categoryExchange(s.session, emptyList()) { transport ->
+                expectCategoryRefusal("readiness-unverified") {
+                    s.session.reenableFirstPage(transport, stop, currentPurge, reopened, oldChallenge.scope)
+                }
+            }
+            assertTrue(s.session.isCurrentLocalStop(stop))
+            assertEquals(purged, f.snapshot())
+
+            val stoppedBinding = stop.binding + ("generation" to "5")
+            val freshBinding = stop.binding + ("generation" to "6")
+            val responses = listOf(
+                "readiness-status" to categoryResult(stop.binding, "12", true),
+                "readiness-stop" to categoryResult(stoppedBinding, "13", false),
+                "readiness-status" to categoryResult(stoppedBinding, "13", false),
+                "readiness-begin" to linkedMapOf(
+                    "version" to 2L, "kind" to "readiness-challenge", "recordType" to "WeightRecord",
+                    "binding" to freshBinding, "policyRevision" to "14",
+                    "queryJson" to oldChallenge.queryJson, "filterDigest" to oldChallenge.filterDigest,
+                    "acknowledgedSequence" to "0", "readinessId" to "hc_ready_" + "R".repeat(43),
+                    "expiresAt" to java.time.format.DateTimeFormatterBuilder().appendInstant(3).toFormatter()
+                        .format(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS).plusSeconds(300)))
+            )
+            val fresh = categoryExchange(s.session, responses) { transport ->
+                assertEquals("stopped", s.session.confirmCategoryStop(transport, stop)["sharing"])
+                s.session.reenableFirstPage(transport, stop, currentPurge, reopened, oldChallenge.scope)
+            }
+            assertEquals(freshBinding, fresh.binding)
+            assertEquals("0", fresh.acknowledgedSequence)
+            assertFalse(s.session.isCurrentLocalStop(stop))
+            assertFalse(s.session.isCurrentFirstPage(oldChallenge))
+            assertNull("Fresh BEGIN is not completed native readiness", s.session.readinessCompleted("WeightRecord"))
+            assertFalse(ok(reopened.acceptsCategoryPurge(stop, currentPurge)))
+            categoryExchange(s.session, emptyList()) { transport ->
+                expectCategoryRefusal("category-purge-unconfirmed") {
+                    s.session.reenableFirstPage(transport, stop, currentPurge, reopened, oldChallenge.scope)
+                }
+            }
+            val freshId = "ordinary-first-page:" + s.protocol.payloadDigest(
+                ControlJson.text(listOf(fresh.binding, "WeightRecord"))).removePrefix("sha256:")
+            val freshOwner = ok(reopened.openStream(freshId, "WeightRecord", 6L, fresh.scope, open))
+            assertNotEquals(s.weight.localStreamId, freshOwner.localStreamId)
+            assertNull(ok(reopened.nextPending(freshOwner, open)))
+            assertTrue(reopened.nextPending(s.weight, open) is Blocked)
+            assertNotNull(s.session.readinessCompleted("StepsRecord"))
+            assertEquals(stepsBefore, f.snapshot().filter { it.stream == s.steps.localStreamId })
+        }
+    }
+
+    @Test fun ROOM08_nativePurgeDeleteRefusalRollsBackAndKeepsTheCategoryDisabled() = runBlocking<Unit> {
+        QueueStorageNativeFixture().use { f ->
+            val s = categorySubject(f)
+            val stop = ManualFirstPageCapture.underCommitFence { s.session.stopCategory("WeightRecord") }
+            val before = f.snapshot()
+            val stepsBefore = before.filter { it.stream == s.steps.localStreamId }
+            val firstPayload = before.first {
+                it.stream == s.weight.localStreamId && it.kind == BlobKind.PAYLOAD.stored
+            }
+            f.db.openHelper.writableDatabase.execSQL(
+                "CREATE TRIGGER observer_refuse_category_purge BEFORE DELETE ON queue_blobs " +
+                    "WHEN OLD.local_stream_id = '${s.weight.localStreamId}' AND OLD.kind = 'payload' " +
+                    "BEGIN SELECT RAISE(ABORT, 'invented-category-purge-delete-refusal'); END"
+            )
+            var failure: Throwable? = null
+            try {
+                val controlFailure = runCatching {
+                    f.db.blobs().deleteOwnedRow(firstPayload.id, s.weight.localStreamId, "payload")
+                }.exceptionOrNull()
+                assertTrue("SETUP HOLD: genuine owned DELETE must encounter the installed native refusal",
+                    controlFailure is android.database.sqlite.SQLiteException)
+                assertTrue("SETUP HOLD: actual refusal must carry its exact trigger marker",
+                    controlFailure?.message.orEmpty().contains("invented-category-purge-delete-refusal"))
+                assertEquals(before, f.snapshot())
+                val result = s.queue.purgeStoppedCategory(stop)
+                assertTrue(result is Blocked)
+                assertEquals("storage-failed", (result as Blocked).cause)
+                assertEquals("Marker, payload and cursor writes must all roll back", before, f.snapshot())
+                assertTrue(s.session.isCurrentLocalStop(stop))
+                assertNull(s.session.readinessCompleted("WeightRecord"))
+                expectCategoryRefusal("category-stopped") { s.session.batchScope("WeightRecord") }
+                assertTrue(s.queue.nextPending(s.weight, open) is Blocked)
+                assertNotNull(s.session.readinessCompleted("StepsRecord"))
+                assertEquals(stepsBefore, f.snapshot().filter { it.stream == s.steps.localStreamId })
+            } catch (caught: Throwable) {
+                failure = caught
+                throw caught
+            } finally {
+                try { f.db.openHelper.writableDatabase.execSQL("DROP TRIGGER observer_refuse_category_purge") }
+                catch (cleanup: Throwable) { if (failure != null) failure!!.addSuppressed(cleanup) else throw cleanup }
+            }
+            // Removing only the proven native refusal allows the same real purge to commit.
+            val purge = ok(s.queue.purgeStoppedCategory(stop))
+            assertTrue(ok(s.queue.acceptsCategoryPurge(stop, purge)))
+            assertEquals(0, f.snapshot().count {
+                it.stream == s.weight.localStreamId && it.kind == BlobKind.PAYLOAD.stored
+            })
+            assertTrue("Local purge success alone cannot re-enable sharing", s.session.isCurrentLocalStop(stop))
+            expectCategoryRefusal("category-stopped") { s.session.batchScope("WeightRecord") }
+            assertEquals(stepsBefore, f.snapshot().filter { it.stream == s.steps.localStreamId })
+        }
+    }
+
+    private class CategorySubject(val protocol: HealthProtocol, val session: InMemoryPairingSession,
+        val queue: RoomDurableBatchQueue, val weight: BatchOwner, val steps: BatchOwner)
+
+    private suspend fun categorySubject(f: QueueStorageNativeFixture): CategorySubject {
+        f.createIndependentKey()
+        val protocol = protocol()
+        val session = InMemoryPairingSession(protocol)
+        val controls = CategorySelectionStopInstrumentedTest()
+        controls.installControlledPairing(session)
+        val queue = RoomDurableBatchQueue(f.db, KeystoreQueueCipher(f.alias),
+            protocol, session, 100L, 4_194_304L)
+        val (weight, steps) = controls.stageStopFixture(protocol, session, queue)
+        assertEquals("SETUP HOLD: genuine pending Weight sequences 11/12", 2,
+            f.snapshot().count { it.stream == weight.localStreamId && it.kind == BlobKind.PAYLOAD.stored })
+        assertEquals("SETUP HOLD: genuine pending Steps sequence 4", 1,
+            f.snapshot().count { it.stream == steps.localStreamId && it.kind == BlobKind.PAYLOAD.stored })
+        assertEquals("10", session.batchScope("WeightRecord").acknowledgedSequence)
+        assertEquals("3", session.batchScope("StepsRecord").acknowledgedSequence)
+        return CategorySubject(protocol, session, queue, weight, steps)
+    }
+
+    private fun categoryResult(binding: Map<String, String>, revision: String, enabled: Boolean): JsonObject =
+        linkedMapOf("version" to 2L, "kind" to "readiness-result", "recordType" to "WeightRecord",
+            "binding" to binding, "policyRevision" to revision,
+            "sharing" to if (enabled) "enabled" else "stopped",
+            "verification" to if (enabled) "authenticated-companion-report" else "unverified")
+
+    private fun expectCategoryRefusal(code: String, action: () -> Unit) {
+        val failure = runCatching(action).exceptionOrNull()
+        assertTrue("Expected existing protocol refusal $code, got $failure", failure is ProtocolException)
+        assertEquals(code, (failure as ProtocolException).code)
+    }
+
+    private fun <T> categoryExchange(session: InMemoryPairingSession,
+        responses: List<Pair<String, JsonObject>>, action: (PairingTransport) -> T): T {
+        var requests = 0
+        val transport = PairingTransport(ApprovedOrigin.parse("https://health.example.test")) { url ->
+            assertEquals("/api/connectors/health-connect/v2/streams/WeightRecord/readiness", url.path)
+            assertTrue("Unexpected controlled HTTPS request", requests < responses.size)
+            val (expectedKind, response) = responses[requests++]
+            val responseBytes = ControlJson.text(response).toByteArray(Charsets.UTF_8)
+            object : HttpsURLConnection(url) {
+                private val sent = ByteArrayOutputStream()
+                override fun connect() {}
+                override fun disconnect() {}
+                override fun usingProxy() = false
+                override fun getCipherSuite() = "TLS_TEST"
+                override fun getLocalCertificates(): Array<Certificate>? = null
+                override fun getServerCertificates(): Array<Certificate> = emptyArray()
+                override fun getOutputStream() = sent
+                override fun getResponseCode(): Int {
+                    assertEquals(expectedKind, JSONObject(String(sent.toByteArray(), Charsets.UTF_8)).getString("kind"))
+                    return 200
+                }
+                override fun getInputStream() = java.io.ByteArrayInputStream(responseBytes.copyOf())
+            }
+        }
+        var failure: Throwable? = null
+        try { return action(transport).also { assertEquals(responses.size, requests) } }
+        catch (caught: Throwable) { failure = caught; throw caught }
+        finally {
+            try { session.cancelTransportRequests(transport) }
+            catch (cleanup: Throwable) { if (failure != null) failure!!.addSuppressed(cleanup) else throw cleanup }
         }
     }
 

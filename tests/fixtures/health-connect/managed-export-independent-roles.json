@@ -1,0 +1,109 @@
+{
+  "fixtureVersion": 1,
+  "purpose": "Independent roles for the genuine managed export unsupported baseline, not a publisher profile or authority grant",
+  "namespaceCount": 2,
+  "sourceCount": 2,
+  "categoryCount": 6,
+  "readinessCycles": 3,
+  "rawRecordCount": 3,
+  "receiptCount": 3,
+  "sourceRoles": [
+    {
+      "role": "alpha",
+      "policyRevision": "5",
+      "lifecycle": "active",
+      "knowledge": "COMPLETE",
+      "retainCommittedHistory": "1",
+      "categoryCount": "3"
+    },
+    {
+      "role": "beta",
+      "policyRevision": "3",
+      "lifecycle": "active",
+      "knowledge": "COMPLETE",
+      "retainCommittedHistory": "1",
+      "categoryCount": "3"
+    }
+  ],
+  "categories": [
+    {
+      "source": "alpha",
+      "type": "BodyWaterMassRecord",
+      "sharing": "enabled",
+      "generation": "2"
+    },
+    {
+      "source": "alpha",
+      "type": "CyclingPedalingCadenceRecord",
+      "sharing": "enabled",
+      "generation": "2"
+    },
+    {
+      "source": "alpha",
+      "type": "StepsRecord",
+      "sharing": "stopped",
+      "generation": "1"
+    },
+    {
+      "source": "beta",
+      "type": "BodyWaterMassRecord",
+      "sharing": "enabled",
+      "generation": "2"
+    },
+    {
+      "source": "beta",
+      "type": "CyclingPedalingCadenceRecord",
+      "sharing": "stopped",
+      "generation": "1"
+    },
+    {
+      "source": "beta",
+      "type": "StepsRecord",
+      "sharing": "stopped",
+      "generation": "1"
+    }
+  ],
+  "records": [
+    {
+      "source": "alpha",
+      "type": "BodyWaterMassRecord",
+      "id": "r0-shared-id",
+      "originalIndex": 0,
+      "utf8Bytes": 380,
+      "digest": "sha256:e58adccfff037a420d6634ece28e51cc544f306871f45a7238c6e2e87a28cc3f",
+      "generation": "2",
+      "sequence": "1",
+      "batchId": "sticky-original-0"
+    },
+    {
+      "source": "beta",
+      "type": "BodyWaterMassRecord",
+      "id": "r0-shared-id",
+      "originalIndex": 1,
+      "utf8Bytes": 357,
+      "digest": "sha256:c75f9ec48ec178af6f10bfa22907417e79b0e45bb4cd4ac00e50b16a248d41e1",
+      "generation": "2",
+      "sequence": "1",
+      "batchId": "sticky-original-1"
+    },
+    {
+      "source": "alpha",
+      "type": "CyclingPedalingCadenceRecord",
+      "id": "r0-shared-id",
+      "originalIndex": 2,
+      "utf8Bytes": 557,
+      "digest": "sha256:87bc00ed3b441a2c5626223c2fe28019086bf28a799bdd0594bd284bec6eeec2",
+      "generation": "2",
+      "sequence": "1",
+      "batchId": "sticky-original-2"
+    }
+  ],
+  "readinessFields": [
+    "readiness_epoch",
+    "readiness_installation_id",
+    "readiness_generation",
+    "readiness_query_digest",
+    "readiness_report_digest",
+    "readiness_mac"
+  ]
+}

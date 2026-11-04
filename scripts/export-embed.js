@@ -165,6 +165,7 @@ function copyTree(src, dst, skipDirs, opts = {}) {
       copied += copyTree(from, path.join(dst, ent.name), skipDirs, opts);
     } else if (ent.isFile()) {
       if (ent.name.endsWith('.tmp')) continue;
+      if (opts.skipFiles?.has(from)) continue;
       if (opts.skipReserved && ent.name === MANIFEST_NAME) {
         console.warn(`  ! ${MANIFEST_NAME} is a reserved name, not copied: ${from}`);
         continue;
@@ -203,6 +204,29 @@ function classifyCard(file) {
 // live server's ingest path), so exportTo reads through it and leaves it
 // open; the CLI wrapper closes it before exiting.
 function exportTo(targetDir, opts = {}) {
+  const PATHS = require('../config/paths');
+  const native = require('../lib/export/native-source');
+  const policy = require('../lib/health-connect/source-policy');
+  const legacy = () => exportSnapshotTo(targetDir, opts, native.readExportableSource(
+    PATHS.DB_FILE, path.join(PATHS.CREDENTIALS_DIR, 'health-connect.json')));
+  if (opts.sourcePolicyScope !== undefined) {
+    return exportSnapshotTo(targetDir, opts, policy.exportSnapshot(opts.sourcePolicyScope));
+  }
+  if (opts.importActor !== undefined) {
+    return native.withHistoricalExportSource(PATHS.DB_FILE, opts.importActor, historical => {
+      if (historical) return exportSnapshotTo(targetDir, opts, historical);
+      if (opts.sourcePolicyRequest !== undefined) {
+        const browser = policy.resolveBrowser(opts.sourcePolicyRequest);
+        if (browser.established) return policy.withReadAuthority(browser.actor,
+          scope => exportSnapshotTo(targetDir, opts, policy.exportSnapshot(scope)), { ownerWide: true });
+      }
+      return legacy();
+    });
+  }
+  return legacy();
+}
+
+function exportSnapshotTo(targetDir, opts, ordinarySnapshot) {
   const { includeSecrets = false } = opts;
   const PATHS = require('../config/paths');
   const target = path.resolve(targetDir);
@@ -216,11 +240,6 @@ function exportTo(targetDir, opts = {}) {
   if (!fs.existsSync(PATHS.DATA_DIR)) {
     throw new Error(`no data dir at ${PATHS.DATA_DIR}`);
   }
-
-  // Verify the complete initial native publication in one read-only snapshot
-  // before opening legacy storage or creating any output.
-  const ordinarySnapshot = require('../lib/export/native-source').readExportableSource(
-    PATHS.DB_FILE, path.join(PATHS.CREDENTIALS_DIR, 'health-connect.json'));
 
   // Read-only view of the datastore. A missing DB is a valid state (fresh or
   // pre-migration instance): every card then exports with whatever its file
@@ -254,6 +273,10 @@ function exportTo(targetDir, opts = {}) {
         if (skipDirs.has(from)) continue;
         counts.filesCopied += copyTree(from, path.join(outData, ent.name), skipDirs, {
           skipReserved: true,
+          skipFiles: ordinarySnapshot ? new Set([
+            path.join(PATHS.DATA_DIR, 'health-connect', 'ordinary-history.json'),
+            path.join(PATHS.DATA_DIR, 'health-connect', 'ordinary-history-footer.json'),
+          ]) : undefined,
           onCopy: file => inventory.other.push(fileEntry(file)),
         });
         continue;
@@ -334,11 +357,11 @@ function exportTo(targetDir, opts = {}) {
     //
     // Read through the module singleton and leave it OPEN: closing here would
     // take a live server's own handle down with it. The CLI wrapper closes it.
-    if (!ordinarySnapshot && fs.existsSync(PATHS.DB_FILE)) {
+    if (ordinarySnapshot?.haePushes || (!ordinarySnapshot && fs.existsSync(PATHS.DB_FILE))) {
       const to = path.join(target, 'data', 'auto-export', 'samples.json');
       try {
-        const samples = require('../health-auto-export/samples');
-        const haePushes = writeSamplesFile(to, samples.exportPushesStream());
+        const pushes = ordinarySnapshot?.haePushes || require('../health-auto-export/samples').exportPushesStream();
+        const haePushes = writeSamplesFile(to, pushes);
         if (haePushes) {
           counts.haePushes = haePushes;
           inventory.samples = { file: rel(to), pushes: haePushes, sha256: sha256(to) };

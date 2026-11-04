@@ -12,11 +12,12 @@ const { createSandbox, cleanupSandbox, spawnServer, req, fakeAuthState } =
 const vectors = require(process.env.INDEPENDENT_PRODUCT_ROOT ?
   path.join(__dirname, '../../durable-history-independent-vectors.json') :
   path.join(product, 'tests/fixtures/health-connect/durable-history-independent-vectors.json'));
+const { readyCollection, SESSION_SECRET } = require('../helpers/health-connect-ready-collection-fixture.cjs');
 const BASE = '/api/connectors/health-connect';
 const TYPE = 'BodyWaterMassRecord';
 const ORIGIN = 'https://corruption.example.test';
 const ENV = {
-  HEALTH_ORIGIN: ORIGIN, HEALTH_RP_ID: 'corruption.example.test',
+  HEALTH_ORIGIN: ORIGIN, HEALTH_RP_ID: 'corruption.example.test', SESSION_SECRET,
   AGENT_API_TOKEN: '', KLEBB_ADMIN_TOKEN: '', KLEBB_CLOUD: '', KLEBB_DEMO: '',
   HEALTH_DATA_DIR: '', HEALTH_REPORTS_DIR: '', HEALTH_AUTO_EXPORT_DIR: '',
   HEALTH_SESSIONS_DIR: '', HEALTH_CREDENTIALS_DIR: '', HEALTH_ARCHIVE_DIR: '',
@@ -70,10 +71,12 @@ for (const defect of ['unreceipted-frontier', 'missing-stream', 'zero-with-recei
           categories: [TYPE], grant: granted.json.grant },
       });
       assert.equal(paired.status, 200);
+      const current = await readyCollection({ home, owner, server,
+        markers: [paired.json.credential, granted.json.grant, owner.token, SESSION_SECRET] }, paired.json, [TYPE]);
       const binding = {
-        tenantId: paired.json.tenantId, instanceId: paired.json.instanceId,
-        sourceStoreId: paired.json.sourceStoreId, installationId: paired.json.installationId,
-        generation: paired.json.streams[TYPE].generation, restoreEpoch: paired.json.restoreEpoch,
+        tenantId: current.tenantId, instanceId: current.instanceId,
+        sourceStoreId: current.sourceStoreId, installationId: current.installationId,
+        generation: current.streams[TYPE].generation, restoreEpoch: current.restoreEpoch,
       };
       const headers = { Authorization: `Bearer ${paired.json.credential}`, 'Klebb-Health-Protocol': '1',
         'Klebb-Health-Generation': binding.generation, 'Klebb-Health-Restore-Epoch': binding.restoreEpoch };
@@ -121,7 +124,7 @@ for (const defect of ['unreceipted-frontier', 'missing-stream', 'zero-with-recei
         assert.equal(result.json?.kind, 'error');
         assert.equal(result.json?.code, 'storage-unavailable');
         assert.equal(result.json?.acknowledgedSequence, undefined);
-        for (const marker of [paired.json.credential, granted.json.grant, owner.token]) {
+        for (const marker of [paired.json.credential, granted.json.grant, owner.token, SESSION_SECRET]) {
           assert.equal(typeof marker, 'string');
           assert.ok(marker.length > 20);
           assert.equal(result.body.includes(marker), false);

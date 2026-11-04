@@ -9,6 +9,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I reject source-deletion guards without a tombstone for the same native record and receipt, before filtering saved history by owner.
+
+- I validate imported history before counting target samples, so an incomplete
+  archive cannot initialise the target health datastore before refusal. Refs #762.
+
 - I bind both held-rebuild authority checks to an independent child clock, retaining exact publication timestamps, logout/freeze refusals and unchanged-state assertions. Refs #755.
 
 - I use two independently fixed child-clock inputs for the authenticated origin-refusal check, retaining exact session timestamps and the existing authority and zero-effects assertions.
@@ -33,6 +38,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   and verify released bytes independently of network buffering. Refs #849.
 
 ### Added
+
+- I added Weight and Steps dashboard setup using captured sources, existing cards
+  or empty templates, with effective selection readback after saving. Refs #759.
+
+- I tied category deselection to a committed pending-queue purge and fresh
+  admission before re-enabling, retaining saved history and unrelated streams.
+  Refs #755 and #893.
+
+- I added Weight and Steps views at a saved cutover date, preserving imported
+  history and showing supported corrections and deletions from saved native data.
+  Responses carry source and revision facts. Refs #759.
+
+- I connected Weight/Steps sync to encrypted pairing recovery, the durable queue,
+  continued pages and exact upload receipts. Saved category and network choices
+  also support best-effort hourly background opportunities. Native changes and
+  their next token commit together; failures retain pending data. Refs #755 and #893.
 
 - I added encrypted Room storage for bounded complete-record parts and finalisation,
   retaining immutable bytes until the final exact receipt and registering six

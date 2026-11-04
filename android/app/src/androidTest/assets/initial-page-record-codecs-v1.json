@@ -1,0 +1,71 @@
+{
+  "provenance": "Fixed synthetic SDK observations, specified before adapter implementation; no personal data.",
+  "stepsFull": {
+    "metadata": {
+      "recordingMethod": 2,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {"packageName": "org.example.synthetic.producer"},
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {"type": 1, "manufacturer": "Synthetic maker", "model": "Synthetic model \u0394"}
+    },
+    "startTime": "2001-10-28T00:30:00.123456789Z",
+    "startZoneOffset": "+02:00",
+    "endTime": "2001-10-28T02:30:00.987654321Z",
+    "endZoneOffset": "+01:00",
+    "count": "1234"
+  },
+  "weightFull": {
+    "metadata": {
+      "recordingMethod": 2,
+      "id": "synthetic-provider-id",
+      "dataOrigin": {"packageName": "org.example.synthetic.producer"},
+      "lastModifiedTime": "2001-10-29T03:04:05.987654321Z",
+      "clientRecordId": "synthetic-client-id/\u03b1\n\"quoted\"",
+      "clientRecordVersion": "9007199254740993",
+      "device": {"type": 1, "manufacturer": "Synthetic maker", "model": "Synthetic model \u0394"}
+    },
+    "time": "2001-02-03T04:05:06.123456789Z",
+    "zoneOffset": "+05:45",
+    "weight": {
+      "unit": "kg",
+      "value": "75.25",
+      "sdkUnitValues": {"g": "75250", "kg": "75.25", "mg": "75250000", "ug": "75250000000", "oz": "2654.365929299685", "lb": "165.89785229412038"}
+    }
+  },
+  "weightNullableFields": {
+    "metadata": {
+      "recordingMethod": 3,
+      "id": "synthetic-provider-id-device-null-fields",
+      "dataOrigin": {"packageName": "org.example.synthetic.producer"},
+      "lastModifiedTime": "2001-10-29T03:04:05.000000001Z",
+      "clientRecordId": "",
+      "clientRecordVersion": "9223372036854775807",
+      "device": {"type": 0, "manufacturer": null, "model": null}
+    },
+    "time": "2001-02-03T04:05:06.000000001Z",
+    "zoneOffset": null,
+    "weight": {
+      "unit": "kg",
+      "value": "75.25",
+      "sdkUnitValues": {"g": "75250", "kg": "75.25", "mg": "75250000", "ug": "75250000000", "oz": "2654.365929299685", "lb": "165.89785229412038"}
+    }
+  },
+  "stepsNullableFields": {
+    "metadata": {
+      "recordingMethod": 0,
+      "id": "synthetic-provider-id-nullable",
+      "dataOrigin": {"packageName": "org.example.synthetic.producer"},
+      "lastModifiedTime": "1970-01-01T00:00:00Z",
+      "clientRecordId": null,
+      "clientRecordVersion": "0",
+      "device": null
+    },
+    "startTime": "2001-10-28T00:30:00.000000001Z",
+    "startZoneOffset": null,
+    "endTime": "2001-10-28T00:30:00.000000002Z",
+    "endZoneOffset": null,
+    "count": "1234"
+  }
+}

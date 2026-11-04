@@ -78,8 +78,17 @@ const admissionFamily = [
 const admissionBase = '/api/connectors/health-connect';
 for (const route of ['pairing-grants', 'v1/pairing/exchange']) {
   test(`managed policy appearing across held ${route} body refuses enrollment without changing saved state`, async () => {
+    let original;
+    {
+      const sandboxModule = require.resolve('../helpers/sandbox');
+      const ordinarySandbox = require.cache[sandboxModule];
+      assert.ok(ordinarySandbox, 'Ordinary sandbox must already be loaded');
+      delete require.cache[sandboxModule];
+      try { original = require('../helpers/legacy-health-producer'); }
+      finally { require.cache[sandboxModule] = ordinarySandbox; }
+    }
     const owner = fakeAuthState('synthetic-admission-owner');
-    const home = createSandbox({ credentials: owner.credentials, sessions: owner.sessions });
+    const home = (original ? original.createSandbox : createSandbox)({ credentials: owner.credentials, sessions: owner.sessions });
     const credentialFile = path.join(home, 'credentials', 'health-connect.json');
     const dbFile = path.join(home, 'db', 'klebb.db');
     const latch = path.join(home, 'admission-midbody-latch.json');
@@ -110,14 +119,18 @@ for (const route of ['pairing-grants', 'v1/pairing/exchange']) {
     };
     let server, held;
     try {
-      server = await spawnServer(home, env);
+      server = await (original ? original.spawnProducerServer : spawnServer)(home, env);
       const healthy = await post(server, owner.cookie, Buffer.from(JSON.stringify(grantBody)));
       assert.equal(healthy.status, 201); assert.equal(healthy.json.kind, 'pairing-grant');
-      const paired = await admissionRequest(server.baseUrl, `${admissionBase}/v1/pairing/exchange`, {
-        method: 'POST', body: exchangeBody(healthy.json),
-      });
-      assert.equal(paired.status, 200); assert.equal(paired.json.kind, 'paired');
-      assert.deepEqual(paired.json.categories, ['StepsRecord']);
+      // The adjacent held-grant case retains the successful exchange control.
+      // The held-exchange case needs this genuine grant to remain unconsumed.
+      if (route === 'pairing-grants') {
+        const paired = await admissionRequest(server.baseUrl, `${admissionBase}/v1/pairing/exchange`, {
+          method: 'POST', body: exchangeBody(healthy.json),
+        });
+        assert.equal(paired.status, 200); assert.equal(paired.json.kind, 'paired');
+        assert.deepEqual(paired.json.categories, ['StepsRecord']);
+      }
       const initialized = await initializeOriginalNative({ home }, 'default');
       assert.equal(initialized.code, 0, initialized.stderr);
       assert.deepEqual(initialized.json, { ok: true, result: {
@@ -132,15 +145,11 @@ for (const route of ['pairing-grants', 'v1/pairing/exchange']) {
           assert.equal(emptyNative.prepare(`SELECT COUNT(*) AS count FROM ${name}`).get().count, 0);
         }
       } finally { emptyNative.close(); }
-      let input = grantBody;
-      if (route === 'v1/pairing/exchange') {
-        const fresh = await post(server, owner.cookie, Buffer.from(JSON.stringify(grantBody)));
-        assert.equal(fresh.status, 201); input = exchangeBody(fresh.json);
-      }
+      const input = route === 'v1/pairing/exchange' ? exchangeBody(healthy.json) : grantBody;
       await server.kill(); server = null;
       const preload = path.resolve(__dirname, '../helpers/health-connect-midbody-preload.cjs').replaceAll('\\', '/');
       assert.equal(fs.existsSync(latch), false);
-      server = await spawnServer(home, { ...env, NODE_OPTIONS: `--require "${preload}"`,
+      server = await (original ? original.spawnCandidateServer : spawnServer)(home, { ...env, NODE_OPTIONS: `--require "${preload}"`,
         INDEPENDENT_PRODUCT_ROOT: path.resolve(__dirname, '../..'),
         INDEPENDENT_MID_BODY_LATCH: latch, INDEPENDENT_MID_BODY_ACTION: 'admission-observe' });
       const wire = Buffer.from(JSON.stringify(input));
@@ -185,7 +194,7 @@ for (const route of ['pairing-grants', 'v1/pairing/exchange']) {
     } finally {
       if (held) held.destroy();
       if (server) await server.kill();
-      cleanupSandbox(home);
+      (original ? original.cleanupSandbox : cleanupSandbox)(home);
     }
   });
 }

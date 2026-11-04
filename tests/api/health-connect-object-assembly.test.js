@@ -19,12 +19,13 @@ const { makeObject, verifyOriginalBank, sha, TYPE } = require(
 const BASE = '/api/connectors/health-connect';
 const PART = `${BASE}/v1/object-parts`;
 const FINAL = `${BASE}/v1/object-finalise`;
+const { readyCollection, SESSION_SECRET } = require('../helpers/health-connect-ready-collection-fixture.cjs');
 const ORIGIN = 'https://assembly.example.test';
 const LEGACY = { $schema: 'klebb.datafile.v1',
   meta: { id: 'synthetic-assembly-legacy', label: 'Synthetic assembly legacy' },
   data: [{ date: '2026-10-20', kg: 35.5, note: 'preserve independent legacy row' }] };
 const ENV = {
-  HEALTH_ORIGIN: ORIGIN, HEALTH_RP_ID: 'assembly.example.test',
+  HEALTH_ORIGIN: ORIGIN, HEALTH_RP_ID: 'assembly.example.test', SESSION_SECRET,
   AGENT_API_TOKEN: '', KLEBB_ADMIN_TOKEN: '', KLEBB_CLOUD: '', KLEBB_DEMO: '',
   HEALTH_DATA_DIR: '', HEALTH_REPORTS_DIR: '', HEALTH_AUTO_EXPORT_DIR: '',
   HEALTH_SESSIONS_DIR: '', HEALTH_CREDENTIALS_DIR: '', HEALTH_ARCHIVE_DIR: '',
@@ -54,7 +55,8 @@ async function fixture() {
         categories: [TYPE], grant: grant.json.grant },
     });
     assert.equal(exchange.status, 200);
-    const paired = exchange.json;
+    data.markers = [exchange.json.credential, grant.json.grant, owner.token, SESSION_SECRET];
+    const paired = await readyCollection(data, exchange.json, [TYPE]);
     const binding = { tenantId: paired.tenantId, instanceId: paired.instanceId,
       sourceStoreId: paired.sourceStoreId, installationId: paired.installationId,
       generation: paired.streams[TYPE].generation, restoreEpoch: paired.restoreEpoch };
@@ -67,7 +69,7 @@ async function fixture() {
     assert.equal(rows.length, 1);
     assert.deepEqual(JSON.parse(rows[0].doc), LEGACY.data[0]);
     return Object.assign(data, { binding, headers, paired, baseline,
-      markers: [paired.credential, grant.json.grant, owner.token] });
+      markers: [...data.markers] });
   } catch (error) {
     if (server) await server.kill();
     cleanupSandbox(home);
@@ -257,7 +259,7 @@ test('initial gap and source/precondition/category/revocation refusals precede a
         sourceStoreId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' });
       await refusedWithoutEffects(data, PART, alien.partFrames[0], 400, 'binding-mismatch');
       await refusedWithoutEffects(data, PART, object.partFrames[0], 409, 'binding-mismatch',
-        { ...data.headers, 'Klebb-Health-Generation': '2' });
+        { ...data.headers, 'Klebb-Health-Generation': '1' });
       await refusedWithoutEffects(data, PART, object.partFrames[0], 409, 'binding-mismatch',
         { ...data.headers, 'Klebb-Health-Restore-Epoch': 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' });
       const widened = { ...object.partFrames[0], recordType: 'StepsRecord',

@@ -114,15 +114,60 @@ function assertFence(index, data, sequence, epoch, expectedPublishedAt) {
   }
   noAuthority(JSON.stringify(index), data);
 }
+function managedFenceNative(before, data, epoch) {
+  const result = { ...before, nativeTables: Object.fromEntries(
+    Object.entries(before.nativeTables).map(([table, rows]) => [table,
+      rows.map(row => Object.assign(Object.create(Object.getPrototypeOf(row)), row))])) };
+  const tables = result.nativeTables;
+  const state = tables.health_source_policy_state.filter(row => row.tenant_id === data.binding.tenantId);
+  assert.equal(state.length, 1);
+  state[0].epoch = epoch;
+  state[0].revision = String(BigInt(state[0].revision) + 1n);
+  for (const row of tables.health_source_policy_sources) {
+    if (row.tenant_id === data.binding.tenantId) row.reconciled_epoch = null;
+  }
+  for (const row of tables.health_source_policy_categories) {
+    if (row.tenant_id !== data.binding.tenantId) continue;
+    row.sharing = 'stopped';
+    for (const field of ['readiness_epoch', 'readiness_installation_id', 'readiness_generation',
+      'readiness_query_digest', 'readiness_report_digest', 'readiness_mac']) row[field] = null;
+  }
+  result.logicalNativeDump = JSON.stringify(tables);
+  return result;
+}
 function rotateStoppedCatalogue(data, epoch) {
   assert.equal(data.server, null);
-  const target = file(data, 'credentials', 'health-connect.json');
-  const state = JSON.parse(fs.readFileSync(target, 'utf8'));
+  const target = file(data, 'credentials', 'health-connect-policy.json');
+  const catalogue = JSON.parse(fs.readFileSync(target, 'utf8'));
+  const selected = catalogue.namespaces.filter(namespace => namespace.state.tenantId === data.binding.tenantId &&
+    namespace.state.connectors.some(connector => connector.sourceStoreId === data.binding.sourceStoreId));
+  assert.equal(selected.length, 1);
+  const namespace = selected[0], state = namespace.state;
   assert.equal(state.restoreEpoch, data.binding.restoreEpoch);
   assert.notEqual(state.restoreEpoch, epoch);
   state.restoreEpoch = epoch;
-  // Controlled restore-fence input only, not complete managed restore/R0 proof.
-  fs.writeFileSync(target, JSON.stringify(state), { encoding: 'utf8', mode: 0o600 });
+  for (const grant of state.grants) grant.restoreEpoch = epoch;
+  for (const connector of state.connectors) {
+    connector.restoreEpoch = epoch;
+    connector.revokedAt ||= new Date().toISOString();
+  }
+  const db = new DatabaseSync(file(data, 'db', 'klebb.db'));
+  try {
+    db.exec('PRAGMA busy_timeout=5000; BEGIN IMMEDIATE');
+    assert.equal(db.prepare('UPDATE health_source_policy_state SET epoch=?, '
+      + 'revision=CAST(CAST(revision AS INTEGER)+1 AS TEXT) WHERE tenant_id=? AND owner_id=? AND epoch=?')
+      .run(epoch, state.tenantId, namespace.ownerId, data.binding.restoreEpoch).changes, 1);
+    assert.equal(db.prepare('UPDATE health_source_policy_sources SET reconciled_epoch=NULL WHERE tenant_id=?')
+      .run(state.tenantId).changes, 1);
+    assert.equal(db.prepare("UPDATE health_source_policy_categories SET sharing='stopped', "
+      + 'readiness_epoch=NULL,readiness_installation_id=NULL,readiness_generation=NULL,'
+      + 'readiness_query_digest=NULL,readiness_report_digest=NULL,readiness_mac=NULL WHERE tenant_id=?')
+      .run(state.tenantId).changes, 1);
+    db.exec('COMMIT');
+  } catch (error) { try { db.exec('ROLLBACK'); } catch {} throw error; }
+  finally { db.close(); }
+  // Controlled coherent custody-fence input only, not complete managed restore/R0 proof.
+  fs.writeFileSync(target, JSON.stringify(catalogue), { encoding: 'utf8', mode: 0o600 });
 }
 
 test('changed live restore fence rebuilds the same saved old-binding vector and refuses the pre-restore native credential',
@@ -132,14 +177,15 @@ test('changed live restore fence rebuilds the same saved old-binding vector and 
       const before = await initial(data);
       await stop(data);
       rotateStoppedCatalogue(data, STARTUP_EPOCH);
-      assert.deepEqual(coldReadSourceState(data.home), before);
+      const controlled = { ...before, native: managedFenceNative(before.native, data, STARTUP_EPOCH) };
+      assert.deepEqual(coldReadSourceState(data.home), controlled);
       await restart(data, environment(data));
       const status = await current(data, '1', STARTUP_EPOCH);
       assert.deepEqual(status.json.sources[0].saved.frontiers,
         [{ binding: data.binding, recordType: expectedFrontier(data, '1').record_type,
           acknowledgedSequence: '1' }]);
       const rebuilt = coldReadSourceState(data.home);
-      assert.deepEqual(rebuilt.native, before.native);
+      assert.deepEqual(rebuilt.native, controlled.native);
       assertFence(rebuilt.index, data, '1', STARTUP_EPOCH);
       assert.notEqual(rebuilt.index.stateRows[0].published_at, before.index.stateRows[0].published_at);
       const writes = events(data).filter(row => row.kind === 'successful-derived-write' && row.changes > 0);
@@ -200,6 +246,11 @@ test('actual final live fence change rolls back already-written publisher identi
         row.handleId === rotated.handleId && row.transactionId === rotated.transactionId), false);
       const rolledBack = coldReadSourceState(data.home);
       assertSecondNative(rolledBack.native, data);
+      const controlledNative = managedFenceNative(before.native, data, FINAL_FENCE_EPOCH);
+      for (const table of ['health_source_policy_state', 'health_source_policy_sources',
+        'health_source_policy_categories']) {
+        assert.deepEqual(rolledBack.native.nativeTables[table], controlledNative.nativeTables[table]);
+      }
       assert.deepEqual(publicationOf(rolledBack.index), publicationOf(before.index));
       assert.equal(rolledBack.index.stateRows[0].state, 'queued');
       assert.equal(rolledBack.index.stateRows[0].requested_restore_epoch, data.binding.restoreEpoch);

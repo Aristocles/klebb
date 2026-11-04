@@ -136,14 +136,29 @@ sqlite.DatabaseSync = new Proxy(OriginalDatabase, {
         event('actual-mutation-complete', { table: names[table] || 'other', changes: result.changes });
         if (mode === 'final-fence' && table === 'health_source_index_state' && !fired) {
           prior(); fired = true;
-          const filename = path.join(home, 'credentials', 'health-connect.json');
+          const filename = path.join(home, 'credentials', 'health-connect-policy.json');
           const state = JSON.parse(fs.readFileSync(filename, 'utf8'));
-          assert.notEqual(state.restoreEpoch, 'd8040000-0000-4000-8000-000000000010');
-          state.restoreEpoch = 'd8040000-0000-4000-8000-000000000010';
+          const scope = JSON.parse(process.env.OWNER_DELETE_SELECTED_SCOPE);
+          const namespaces = state.namespaces.filter(row => row.state.tenantId === scope.tenantId &&
+            row.ownerId === scope.ownerId);
+          assert.equal(namespaces.length, 1);
+          const connectors = namespaces[0].state.connectors.filter(row => row.id === scope.connectorId &&
+            row.sourceStoreId === scope.sourceStoreId && row.ownerId === scope.ownerId);
+          assert.equal(connectors.length, 1);
+          const principals = state.principals.filter(row => row.ownerId === scope.ownerId);
+          assert.equal(principals.length, 1);
+          const members = principals[0].members.filter(row => row.userId === scope.member.userId &&
+            row.credentialId === scope.member.credentialId && row.publicKeySha256 === scope.member.publicKeySha256);
+          assert.equal(members.length, 1);
+          const revokedKeyDigest = 'sha256:' + '0'.repeat(64);
+          assert.notEqual(members[0].publicKeySha256, revokedKeyDigest);
+          assert.equal(connectors[0].revokedAt, null);
+          members[0].publicKeySha256 = revokedKeyDigest;
+          connectors[0].revokedAt = '2026-11-04T00:00:00.000Z';
           const temporary = filename + `.owner-fence-${process.pid}.tmp`;
           fs.writeFileSync(temporary, JSON.stringify(state), { flag: 'wx', mode: 0o600 });
           fs.renameSync(temporary, filename);
-          event('actual-retained-fence-rotated');
+          event('actual-managed-actor-revoked');
         }
       }
       if (commit.test(sql)) {

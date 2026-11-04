@@ -4,8 +4,11 @@
   "description": "A file-driven personal health dashboard. Every card is a JSON file.",
   "main": "server.js",
   "scripts": {
+    "pretest": "node scripts/prepare-legacy-health-producer.js",
     "test": "node --test --test-concurrency=6 tests/*.test.js tests/api/*.test.js",
     "test:diag": "node --test --test-concurrency=6 --test-reporter=./tests/helpers/crash-reporter.cjs tests/*.test.js tests/api/*.test.js",
+    "pretest:extended:health-connect": "node scripts/prepare-legacy-health-producer.js",
+    "test:extended:health-connect": "node --test --test-concurrency=1 tests-extended/*.test.js tests-extended/api/*.test.js",
     "test:retry": "node scripts/run-tests.js",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",

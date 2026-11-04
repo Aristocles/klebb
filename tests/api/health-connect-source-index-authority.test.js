@@ -167,6 +167,8 @@ test('a different real browser session sees no other owner source and queues no 
     const data = await fixture();
     try {
       const before = await published(data);
+      const policyFile = sandboxFile(data, 'credentials', 'health-connect-policy.json');
+      const policyBefore = JSON.parse(fs.readFileSync(policyFile, 'utf8'));
       const other = fakeAuthState(OTHER_OWNER);
       data.markers.push(other.token);
       await stopped(data, () => {
@@ -180,20 +182,113 @@ test('a different real browser session sees no other owner source and queues no 
       });
       await restart(data);
       assert.deepEqual(cold(data), before);
+      assert.deepEqual(JSON.parse(fs.readFileSync(policyFile, 'utf8')), policyBefore);
+      const authenticated = await req(data.server.baseUrl, '/auth/status', { cookie: other.cookie });
+      assert.equal(authenticated.status, 200);
+      assert.equal(authenticated.json.authenticated, true);
+
+      // A current session needs genuine stopped enrolment, not a caller-supplied owner label.
+      const grant = await req(data.server.baseUrl, `${BASE}/pairing-grants`, {
+        method: 'POST', cookie: other.cookie, headers: { Origin: ORIGIN },
+        body: { name: 'Synthetic separate stopped source', categories: [TYPE] },
+      });
+      assert.equal(grant.status, 201);
+      assert.equal(grant.json.version, 1);
+      assert.equal(grant.json.kind, 'pairing-grant');
+      assert.deepEqual(grant.json.categories, [TYPE]);
+      const installationId = 'synthetic-source-index-other-installation';
+      const exchange = await req(data.server.baseUrl, `${BASE}/v1/pairing/exchange`, {
+        method: 'POST', body: { version: 1, kind: 'pairing-exchange',
+          tenantId: grant.json.tenantId, instanceId: grant.json.instanceId,
+          sourceStoreId: grant.json.sourceStoreId, installationId,
+          categories: [TYPE], grant: grant.json.grant },
+      });
+      assert.equal(exchange.status, 200);
+      assert.equal(exchange.json.version, 1);
+      assert.equal(exchange.json.kind, 'paired');
+      assert.deepEqual(exchange.json.categories, [TYPE]);
+      for (const key of ['tenantId', 'instanceId', 'sourceStoreId', 'restoreEpoch']) {
+        assert.equal(exchange.json[key], grant.json[key]);
+        assert.notEqual(exchange.json[key], data.binding[key]);
+      }
+      assert.equal(exchange.json.installationId, installationId);
+      assert.deepEqual(exchange.json.streams, {
+        [TYPE]: { generation: '1', acknowledgedSequence: '0' },
+      });
+      data.markers.push(grant.json.grant, exchange.json.credential);
+
+      const policyBytes = fs.readFileSync(policyFile);
+      const policy = JSON.parse(policyBytes.toString('utf8'));
+      assert.equal(policy.version, 2);
+      assert.equal(policy.principals.length, policyBefore.principals.length + 1);
+      assert.equal(policy.namespaces.length, policyBefore.namespaces.length + 1);
+      for (const principal of policyBefore.principals) {
+        assert.deepEqual(policy.principals.find(item => item.ownerId === principal.ownerId), principal);
+      }
+      for (const namespace of policyBefore.namespaces) {
+        assert.deepEqual(policy.namespaces.find(item => item.state.tenantId === namespace.state.tenantId), namespace);
+      }
+      const principal = policy.principals.find(item => !policyBefore.principals.some(old => old.ownerId === item.ownerId));
+      const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+      assert.match(principal.ownerId, uuid);
+      assert.notEqual(principal.ownerId, OTHER_OWNER);
+      assert.deepEqual(principal.members, [{ userId: OTHER_OWNER, credentialId: other.credentialId,
+        publicKeySha256: 'sha256:0536d3e9b18e52fa27c2951938d4d922e3d0970b534e72cad8126d183159c649' }]);
+      const namespace = policy.namespaces.find(item => item.state.tenantId === exchange.json.tenantId);
+      assert.equal(namespace.ownerId, principal.ownerId);
+      assert.equal(namespace.state.instanceId, exchange.json.instanceId);
+      assert.equal(namespace.state.restoreEpoch, exchange.json.restoreEpoch);
+      assert.equal(namespace.state.connectors.length, 1);
+      assert.equal(namespace.state.connectors[0].sourceStoreId, exchange.json.sourceStoreId);
+
+      const enrolled = cold(data);
+      const tables = enrolled.native.nativeTables;
+      const policyNames = ['health_source_policy_state', 'health_source_policy_sources', 'health_source_policy_categories'];
+      for (const name of policyNames) {
+        assert.equal(tables[name].length, before.native.nativeTables[name].length + 1);
+        assert.deepEqual(tables[name].filter(row => row.tenant_id !== exchange.json.tenantId),
+          before.native.nativeTables[name], 'every existing policy row is unchanged');
+      }
+      assert.deepEqual(tables.health_source_policy_state.filter(row => row.tenant_id === exchange.json.tenantId), [{
+        version: 2, tenant_id: exchange.json.tenantId, owner_id: principal.ownerId,
+        epoch: exchange.json.restoreEpoch, revision: '1', knowledge: 'COMPLETE', source_count: 1,
+      }]);
+      const sources = tables.health_source_policy_sources.filter(row => row.tenant_id === exchange.json.tenantId);
+      assert.equal(sources.length, 1);
+      assert.match(sources[0].policy_id, uuid);
+      assert.equal(before.native.nativeTables.health_source_policy_sources.some(row => row.policy_id === sources[0].policy_id), false);
+      assert.deepEqual(sources, [{ tenant_id: exchange.json.tenantId, source_store_id: exchange.json.sourceStoreId,
+        owner_id: principal.ownerId, policy_id: sources[0].policy_id, lifecycle: 'active', knowledge: 'COMPLETE',
+        retain_committed_history: 1, category_count: 1, reconciled_epoch: null }]);
+      assert.deepEqual(tables.health_source_policy_categories.filter(row => row.tenant_id === exchange.json.tenantId), [{
+        tenant_id: exchange.json.tenantId, source_store_id: exchange.json.sourceStoreId, record_type: TYPE,
+        sharing: 'stopped', generation: '1', readiness_epoch: null, readiness_installation_id: null,
+        readiness_generation: null, readiness_query_digest: null, readiness_report_digest: null, readiness_mac: null,
+      }]);
+      const withoutPolicy = snapshot => {
+        const { logicalNativeDump, nativeTables, ...native } = snapshot.native;
+        return { ...snapshot, native: { ...native, nativeTables: Object.fromEntries(
+          Object.entries(nativeTables).filter(([name]) => !policyNames.includes(name))) } };
+      };
+      assert.deepEqual(withoutPolicy(enrolled), withoutPolicy(before), 'all native history, schema and index state is retained');
+      const unchanged = () => {
+        assert.deepEqual(cold(data), enrolled);
+        assert.deepEqual(fs.readFileSync(policyFile), policyBytes);
+      };
       const status = await ownerStatus(data, { cookie: other.cookie });
       diagnostics(status.body, data);
       assert.equal(status.status, 200);
       assert.deepEqual(status.json, { target: TARGET, sources: [] });
       assert.equal(status.body.includes(data.binding.sourceStoreId), false);
-      assert.deepEqual(cold(data), before);
+      unchanged();
       const rebuild = await ownerRebuild(data, {}, { cookie: other.cookie });
       diagnostics(rebuild.body, data);
       assert.equal(rebuild.status, 202);
       assert.deepEqual(rebuild.json, { target: TARGET, queuedSources: 0 });
-      assert.deepEqual(cold(data), before);
+      unchanged();
       const retained = await current(data, '1');
       assert.equal(retained.json.sources[0].sourceStoreId, data.binding.sourceStoreId);
-      assert.deepEqual(cold(data), before);
+      unchanged();
     } finally { await finish(data); }
   });
 
@@ -345,16 +440,19 @@ test('O11 unknown saved catalogue ownership fails closed without changing histor
     try {
       const before = await published(data);
       await stopped(data, () => {
-        const file = sandboxFile(data, 'credentials', 'health-connect.json');
+        const file = sandboxFile(data, 'credentials', 'health-connect-policy.json');
         const authority = JSON.parse(fs.readFileSync(file, 'utf8'));
-        const owned = authority.connectors.filter(connector =>
-          connector.sourceStoreId === data.binding.sourceStoreId);
+        const owned = authority.namespaces.filter(namespace =>
+          namespace.state.tenantId === data.binding.tenantId &&
+          namespace.state.connectors.some(connector => connector.sourceStoreId === data.binding.sourceStoreId));
         assert.equal(owned.length, 1, 'the real owner catalogue binding existed before the fixture');
-        assert.equal(owned[0].ownerId, data.owner.sessions[data.owner.token].userId);
-        authority.connectors = authority.connectors.filter(connector =>
-          connector.sourceStoreId !== data.binding.sourceStoreId);
-        authority.grants = authority.grants.filter(grant =>
-          grant.sourceStoreId !== data.binding.sourceStoreId);
+        const principal = authority.principals.find(item => item.ownerId === owned[0].ownerId);
+        assert.ok(principal?.members.some(member =>
+          member.userId === data.owner.sessions[data.owner.token].userId &&
+          member.credentialId === data.owner.credentialId), 'the genuine current member owns the namespace');
+        const unknownOwner = 'd1000000-0000-4000-8000-000000000072';
+        assert.equal(authority.principals.some(item => item.ownerId === unknownOwner), false);
+        owned[0].ownerId = unknownOwner;
         fs.writeFileSync(file, JSON.stringify(authority));
       });
       assert.deepEqual(cold(data), before);

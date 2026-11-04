@@ -18,6 +18,9 @@ public interface QueueBlobDao {
     @Query("SELECT * FROM queue_blobs ORDER BY row_id")
     List<QueueBlob> all();
 
+    @Query("SELECT * FROM queue_blobs WHERE local_stream_id = :localStreamId ORDER BY row_id")
+    List<QueueBlob> forStream(String localStreamId);
+
     @Query("SELECT EXISTS(SELECT 1 FROM queue_blobs WHERE local_stream_id = :localStreamId)")
     boolean containsStream(String localStreamId);
 

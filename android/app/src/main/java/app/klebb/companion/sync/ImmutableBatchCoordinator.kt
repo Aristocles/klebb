@@ -39,7 +39,7 @@ internal class QueuedBatch(wire: ByteArray) {
 }
 
 /** Issued only after the queue's complete page/checkpoint transaction has committed. */
-internal class StageReceipt(val batch: QueuedBatch?) {
+internal class StageReceipt(val batch: QueuedBatch?, val firstPage: FirstPageCommit? = null) {
     override fun toString() = "StageReceipt"
 }
 
@@ -119,6 +119,37 @@ internal class ImmutableBatchCoordinator(
         }
     }
 
+    fun stageNativeChanges(owner: BatchOwner,
+        checkpoint: PreparedNativeChangesPage): QueueResult<StageReceipt> {
+        gateFailure()?.let { return it }
+        return try {
+            queueStageNativeChanges(owner, checkpoint)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            Blocked("queue-unavailable", "stage-changes-failed")
+        }
+    }
+
+    private fun queueStageNativeChanges(owner: BatchOwner,
+        checkpoint: PreparedNativeChangesPage): QueueResult<StageReceipt> {
+        val concrete = queue as? RoomDurableBatchQueue
+            ?: return Blocked("queue-unavailable", "native-changes-queue-unavailable")
+        return concrete.stageNativeChanges(owner, checkpoint, currentGate) { sequence, batchId ->
+            val number = sequence.toLongOrNull()
+            if (number == null || number <= 0L || number.toString() != sequence || batchId.isEmpty()) {
+                throw ProtocolException("invalid-message")
+            }
+            val payload = nativeChangesPayload(owner, checkpoint.page.changes, sequence, batchId)
+            val bytes = ControlJson.text(linkedMapOf(
+                "version" to 1L, "kind" to "batch", "payloadJson" to payload,
+                "payloadDigest" to protocol.payloadDigest(payload)
+            )).toByteArray(Charsets.UTF_8)
+            protocol.decode(bytes, context(owner))
+            bytes
+        }
+    }
+
     fun uploadNext(owner: BatchOwner, transport: PairingTransport): QueueResult<Boolean> {
         gateFailure()?.let { return it }
         val pending = try {
@@ -171,7 +202,9 @@ internal class ImmutableBatchCoordinator(
                 return Blocked("upload-unconfirmed", "receipt-mismatch")
             }
             gateFailure()?.let { return it }
-            return when (val saved = queue.acknowledge(owner, batch, receipt, currentGate)) {
+            return when (val saved = ManualFirstPageCapture.underCommitFence {
+                gateFailure() ?: queue.acknowledge(owner, batch, receipt, currentGate)
+            }) {
                 is Blocked -> saved
                 is Ok -> Ok(true)
             }
@@ -245,6 +278,41 @@ internal class ImmutableBatchCoordinator(
     } catch (_: Exception) {
         Blocked("permission-unknown", "gate-unavailable")
     }
+}
+
+/** Encodes a newly observed complete changes list once; queued retries never call it. */
+internal fun nativeChangesPayload(owner: BatchOwner, changes: List<NativeRecordChange>,
+    sequence: String, batchId: String): String {
+    val encoded = changes.joinToString(",", "[", "]") { change ->
+        val nativeId = when (change) {
+            is NativeRecordChange.Upsert -> {
+                if (change.record.recordType != owner.recordType) throw ProtocolException("binding-mismatch")
+                change.record.nativeRecordId
+            }
+            is NativeRecordChange.Delete -> change.nativeRecordId
+        }
+        if (nativeId.isEmpty()) throw ProtocolException("invalid-message")
+        val identity = linkedMapOf(
+            "tenantId" to owner.binding.getValue("tenantId"),
+            "sourceStoreId" to owner.binding.getValue("sourceStoreId"),
+            "recordType" to owner.recordType, "nativeRecordId" to nativeId)
+        when (change) {
+            is NativeRecordChange.Delete ->
+                "{\"operation\":\"delete\",\"identity\":" + ControlJson.text(identity) + "}"
+            is NativeRecordChange.Upsert -> {
+                val record = change.record
+                "{\"operation\":\"upsert\",\"identity\":" + ControlJson.text(identity) +
+                    ",\"dataFamily\":" + ControlJson.text(record.dataFamily) +
+                    ",\"projection\":\"raw-only\",\"record\":" + record.recordJson +
+                    ",\"serializerId\":" + ControlJson.text(record.serializerId) +
+                    ",\"serializerVersion\":" + record.serializerVersion.toString() + "}"
+            }
+        }
+    }
+    return "{\"binding\":" + ControlJson.text(owner.binding) +
+        ",\"recordType\":" + ControlJson.text(owner.recordType) +
+        ",\"sequence\":" + ControlJson.text(sequence) +
+        ",\"batchId\":" + ControlJson.text(batchId) + ",\"changes\":" + encoded + "}"
 }
 
 

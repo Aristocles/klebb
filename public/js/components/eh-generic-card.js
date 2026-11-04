@@ -120,6 +120,23 @@ export class EhGenericCard extends EhBaseCard {
     this._formError = null;
   }
 
+  connectedCallback() {
+    this._saving = false;
+    super.connectedCallback();
+  }
+
+  updated(changed) {
+    const previous = changed.get('card');
+    if (changed.has('card') && previous
+        && (previous.id !== this.card?.id
+          || JSON.stringify(previous.meta?.healthConnectDisplay || null)
+            !== JSON.stringify(this.card?.meta?.healthConnectDisplay || null))) {
+      this._saving = false;
+      this._closeEdit();
+    }
+    super.updated(changed);
+  }
+
   _maxReadingsPerDay() {
     return this._m()?.writeable?.maxReadingsPerDay ?? 1;
   }
@@ -254,6 +271,8 @@ export class EhGenericCard extends EhBaseCard {
     // past/future date the card resolves by exact date match so
     // navigation actually means what it says. See #182.
     const isToday = this.dateMode === 'today' || !this.dateMode;
+    const switchDate = this._m().healthConnectDisplay?.switchDate;
+    if (switchDate && this.date >= switchDate) return entries.find(e => e.date === this.date) || null;
     if (isToday && this._fallbackToLatest()) {
       return [...entries].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
     }
@@ -261,6 +280,7 @@ export class EhGenericCard extends EhBaseCard {
   }
 
   _openEdit(index = null) {
+    if (this._m().healthConnectDisplay) return;
     this._editing = true;
     this._editingIndex = (typeof index === 'number') ? index : null;
     this._formError = null;
@@ -272,28 +292,48 @@ export class EhGenericCard extends EhBaseCard {
   }
 
   async _onDeleteRow(index) {
+    if (this._m().healthConnectDisplay) {
+      this._closeEdit();
+      return;
+    }
+    const id = this.card.id;
+    const request = this._dataRequest;
+    const current = () => this.isConnected && request === this._dataRequest
+      && id === this.card?.id && !this._m().healthConnectDisplay;
     const existing = this._entries();
     if (index < 0 || index >= existing.length) return;
     this._saving = true;
     this._formError = null;
     try {
       const updated = existing.filter((_, i) => i !== index);
-      const r = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
+      const r = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: updated }),
       });
       if (!r.ok) throw await errorFromResponse(r);
-      invalidateManifestCache(this.card.id);
+      invalidateManifestCache(id);
+      if (!current()) {
+        if (this.isConnected && id === this.card?.id) this._fetchData();
+        return;
+      }
       this.data = updated;
     } catch (err) {
-      this._formError = err.message;
+      if (current()) this._formError = err.message;
     } finally {
-      this._saving = false;
+      if (current()) this._saving = false;
     }
   }
 
   async _onSubmit(e) {
+    if (this._m().healthConnectDisplay) {
+      this._closeEdit();
+      return;
+    }
+    const id = this.card.id;
+    const request = this._dataRequest;
+    const current = () => this.isConnected && request === this._dataRequest
+      && id === this.card?.id && !this._m().healthConnectDisplay;
     const payload = e.detail;
     const meta = this._m();
     this._saving = true;
@@ -323,21 +363,25 @@ export class EhGenericCard extends EhBaseCard {
       }
       updated.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-      const r = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
+      const r = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: updated }),
       });
       if (!r.ok) throw await errorFromResponse(r);
+      invalidateManifestCache(id);
+      if (!current()) {
+        if (this.isConnected && id === this.card?.id) this._fetchData();
+        return;
+      }
 
-      invalidateManifestCache(this.card.id);
       this.data = updated;
       this._editing = false;
       this._editingIndex = null;
     } catch (err) {
-      this._formError = err.message;
+      if (current()) this._formError = err.message;
     } finally {
-      this._saving = false;
+      if (current()) this._saving = false;
     }
   }
 
@@ -614,6 +658,7 @@ export class EhGenericCard extends EhBaseCard {
   renderCard() {
     const meta = this._m();
     const display = this._display();
+    if (meta.healthConnectDisplay && this._editing) this._closeEdit();
     // When the manifest opts into multiple readings per day, render a
     // per-day list with per-row edit/delete + an Add action. The single-
     // entry path below is left untouched. fallbackToLatest is suppressed
@@ -784,6 +829,7 @@ export class EhGenericCard extends EhBaseCard {
   _renderMultiEntry() {
     const meta = this._m();
     const display = this._display();
+    if (meta.healthConnectDisplay && this._editing) this._closeEdit();
     const entries = this._entries();
     const sameDay = this._rowsForExactDate();
     const canWrite = this._canWrite

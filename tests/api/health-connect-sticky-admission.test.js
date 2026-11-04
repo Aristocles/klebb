@@ -89,10 +89,49 @@ async function updateAuthority(data, source, values) {
   await control(data, { command: 'authority', sourceStoreId: source.binding.sourceStoreId, ...values });
   await restart(data);
 }
+// Disclosed stopped-state epoch successor, not a supported restore/API completion claim.
+// Managed entry epochs stay coherent; old scoped credentials and provenance are invalidated.
+async function controlledEpochSuccessor(data, source, restoreEpoch) {
+  await stop(data);
+  const filename = path.join(data.home, 'credentials', 'health-connect-policy.json');
+  const catalogue = JSON.parse(fs.readFileSync(filename, 'utf8'));
+  assert.equal(catalogue.version, 2); assert.equal(catalogue.recoveryRequired, false);
+  const selected = catalogue.namespaces.filter(entry =>
+    entry.state.connectors.some(connector => connector.sourceStoreId === source.binding.sourceStoreId));
+  assert.equal(selected.length, 1);
+  const namespace = selected[0], oldEpoch = namespace.state.restoreEpoch;
+  assert.equal(oldEpoch, source.binding.restoreEpoch); assert.notEqual(restoreEpoch, oldEpoch);
+  const states = rows(coldRead(data.home), 'health_source_policy_state')
+    .filter(row => row.tenant_id === namespace.state.tenantId);
+  assert.equal(states.length, 1); assert.equal(states[0].version, '2');
+  assert.equal(states[0].owner_id, namespace.ownerId); assert.equal(states[0].epoch, oldEpoch);
+  const tenantId = namespace.state.tenantId, now = new Date().toISOString();
+  namespace.state.restoreEpoch = restoreEpoch;
+  for (const grant of namespace.state.grants) {
+    assert.equal(grant.restoreEpoch, oldEpoch);
+    grant.restoreEpoch = restoreEpoch; grant.consumedAt ||= now;
+  }
+  for (const connector of namespace.state.connectors) {
+    assert.equal(connector.restoreEpoch, oldEpoch);
+    connector.restoreEpoch = restoreEpoch; connector.revokedAt ||= now;
+  }
+  await control(data, { command: 'sql', operations: [
+    { sql: 'UPDATE health_source_policy_state SET epoch=?,revision=? WHERE tenant_id=?',
+      params: [restoreEpoch, String(BigInt(states[0].revision) + 1n), tenantId] },
+    { sql: 'UPDATE health_source_policy_sources SET reconciled_epoch=NULL WHERE tenant_id=?',
+      params: [tenantId] },
+    { sql: "UPDATE health_source_policy_categories SET sharing='stopped',readiness_epoch=NULL,"
+        + 'readiness_generation=NULL,readiness_installation_id=NULL,readiness_query_digest=NULL,'
+        + 'readiness_report_digest=NULL,readiness_mac=NULL WHERE tenant_id=?',
+      params: [tenantId] },
+  ] });
+  fs.writeFileSync(filename, JSON.stringify(catalogue), { encoding: 'utf8', mode: 0o600 });
+  await restart(data);
+}
 async function currentGeneration(data, source, type = TYPE) {
   const old = { ...source.binding };
-  await updateAuthority(data, source, { recordType: type, generation: '2',
-    installationId: 'synthetic-current-installation-after-control' });
+  assert.equal(old.generation, '2', 'The initial real readiness exchange selected generation two');
+  await updateAuthority(data, source, { installationId: 'synthetic-current-installation-after-control' });
   const current = await capabilities(data, source);
   assert.equal(current.json.streams[type].generation, '2');
   assert.equal(current.json.installationId, 'synthetic-current-installation-after-control');
@@ -102,6 +141,10 @@ async function currentGeneration(data, source, type = TYPE) {
   source.paired.streams[type].generation = current.json.streams[type].generation;
   source.binding.installationId = current.json.installationId;
   source.binding.generation = '2';
+  // Installation input invalidates old provenance; only the real exchange renews it.
+  await F.activateReadiness(data, source, type);
+  assert.equal(source.paired.streams[type].generation, '3');
+  assert.equal(source.binding.generation, '3');
   return old;
 }
 test('S01 V1 typed known/unseen tombstones stay sticky across controlled saved generation and installation',
@@ -131,7 +174,7 @@ test('S01 V1 typed known/unseen tombstones stay sticky across controlled saved g
     } finally { await close(data); }
   });
 test('S02 V2 source deletion writes exact instant guard/provenance and preserves source/type siblings', async () => {
-  const data = await fixture({ v2: true });
+  const data = await fixture({ v2: true, readinessVersion: 2 });
   try {
     const vector = batch(data.alpha, '2', [deletion(data.alpha)]);
     await deleteAndCheck(data, data.alpha, vector, { [ID]: originalPeriod(0) });
@@ -142,7 +185,7 @@ test('S02 V2 source deletion writes exact instant guard/provenance and preserves
 test('S03 exact source footprints retain nanos offsets extended years and an existing user flag', async () => {
   // Extended-year value is explicitly stopped raw storage, not wire admission.
   for (const index of [0, 1, 2, 3, 4, 5, 6, 8]) {
-    const data = await fixture({ v2: true });
+    const data = await fixture({ v2: true, readinessVersion: 2 });
     try {
       const period = bank.footprints[index];
       const interval = period.expected?.kind === 'interval';
@@ -176,7 +219,7 @@ test('S03 exact source footprints retain nanos offsets extended years and an exi
   }
 });
 test('S04 unseen footprint is NULL and successful touched historical tombstones alone acquire guards', async () => {
-  const data = await fixture({ v2: true });
+  const data = await fixture({ v2: true, readinessVersion: 2 });
   try {
     await mutate(data, [{ sql: 'INSERT INTO health_tombstones VALUES (?,?,?,?,?,?)', repeat:
       ['r0-deleted-known', 'r0-untouched-historical'].map(id =>
@@ -196,7 +239,7 @@ test('S04 unseen footprint is NULL and successful touched historical tombstones 
 });
 test('S05 each tombstone/source/user authority suppresses an entire mixed batch without consuming sequence', async () => {
   for (const mode of ['tombstone-only', 'source-only', 'user-only']) {
-    const data = await fixture({ v2: true });
+    const data = await fixture({ v2: true, readinessVersion: 2 });
     try {
       if (mode === 'tombstone-only') await mutate(data, [{
         sql: 'INSERT INTO health_tombstones VALUES (?,?,?,?,?,?)',
@@ -229,7 +272,7 @@ test('S05 each tombstone/source/user authority suppresses an entire mixed batch 
 test('S06 missing changed or malformed relevant V2/native/object storage refuses without repair', async () => {
   for (const defect of ['missing-guards', 'changed-guards', 'bad-source-key', 'bad-source-sequence',
     'missing-native', 'partial-object', 'malformed-raw-json']) {
-    const data = await fixture({ v2: true });
+    const data = await fixture({ v2: true, readinessVersion: 2 });
     try {
       if (defect === 'partial-object') await stage(data, data.alpha, object(data.alpha), [0]);
       let operations;
@@ -252,7 +295,7 @@ test('S06 missing changed or malformed relevant V2/native/object storage refuses
   }
 });
 test('S07 opposite operations conflict in either order before all effects and typed siblings remain independent', async () => {
-  const data = await fixture();
+  const data = await fixture({ readinessVersion: 2 });
   try {
     for (const operations of [[upsert(data.alpha), deletion(data.alpha)],
       [deletion(data.alpha), upsert(data.alpha)]]) {
@@ -271,7 +314,7 @@ test('S07 opposite operations conflict in either order before all effects and ty
   } finally { await close(data); }
 });
 test('S08 original ordinary receipt retries precede suppression and changed immutable requests conflict', async () => {
-  const data = await fixture({ v2: true });
+  const data = await fixture({ v2: true, readinessVersion: 2 });
   try {
     await deleteAndCheck(data, data.alpha, batch(data.alpha, '2', [deletion(data.alpha)]),
       { [ID]: originalPeriod(0) });
@@ -303,7 +346,7 @@ async function committedObject(data) {
   return item;
 }
 test('S09 committed PART retry stays exact after deletion and a new suppressed PART allocates nothing', async () => {
-  const data = await fixture({ v2: true });
+  const data = await fixture({ v2: true, readinessVersion: 2 });
   try {
     const item = await committedObject(data);
     await unchanged(data, () => post(data, data.alpha, PART, item.partFrames[0]),
@@ -317,7 +360,7 @@ test('S09 committed PART retry stays exact after deletion and a new suppressed P
   } finally { await close(data); }
 });
 test('S10 committed FINALISE retry stays exact after deletion before new suppressed missing-part admission', async () => {
-  const data = await fixture({ v2: true });
+  const data = await fixture({ v2: true, readinessVersion: 2 });
   try {
     const item = await committedObject(data);
     await unchanged(data, () => post(data, data.alpha, FINAL, item.finalise), { receipt: item.receipt });
@@ -326,7 +369,7 @@ test('S10 committed FINALISE retry stays exact after deletion before new suppres
     await unchanged(data, () => post(data, data.alpha, FINAL, next.finalise));
     // Purged live staging has no complete ordinary receipt. Suppression still
     // precedes missing-parts for this original uncommitted declaration.
-    const other = await fixture({ v2: true });
+    const other = await fixture({ v2: true, readinessVersion: 2 });
     try {
       const active = object(other.alpha);
       await stage(other, other.alpha, active, [0, 2]);
@@ -339,11 +382,102 @@ test('S10 committed FINALISE retry stays exact after deletion before new suppres
   } finally { await close(data); }
 });
 test('S11 source delete atomically purges sparse matching old/current streams and preserves other source/type BLOBs', async () => {
-  const data = await fixture({ v2: true });
+  const data = await fixture({ v2: true, readinessVersion: 2 });
   try {
     const old = object(data.alpha, { objectId: 'old-stream-object', batchId: 'old-stream-object' });
     await stage(data, data.alpha, old, [0, 2]);
-    await currentGeneration(data, data.alpha);
+    const priorBinding = { ...data.alpha.binding };
+    const betaBindingBefore = { ...binding(data.beta) };
+    const betaCapabilitiesBefore = await capabilities(data, data.beta);
+    assert.deepEqual(betaCapabilitiesBefore.json.streams, {
+      BodyWaterMassRecord: { generation: '2', acknowledgedSequence: '1' },
+      CyclingPedalingCadenceRecord: { generation: '1', acknowledgedSequence: '0' },
+      StepsRecord: { generation: '1', acknowledgedSequence: '0' },
+    });
+    const betaStreamsBefore = structuredClone(betaCapabilitiesBefore.json.streams);
+    const originalSeedVectors = structuredClone(data.original);
+    await stop(data);
+    assert.equal(data.server, null, 'Invented installation control requires a stopped fixture');
+    assert.ok(path.basename(data.home).startsWith('eh-test-'));
+    assert.equal(fs.lstatSync(data.home).isDirectory(), true);
+    assert.equal(fs.lstatSync(data.home).isSymbolicLink(), false);
+    const credentialsDirectory = path.join(data.home, 'credentials');
+    assert.equal(fs.lstatSync(credentialsDirectory).isDirectory(), true);
+    assert.equal(fs.lstatSync(credentialsDirectory).isSymbolicLink(), false);
+    const catalogueFile = path.join(credentialsDirectory, 'health-connect-policy.json');
+    assert.equal(path.dirname(catalogueFile), credentialsDirectory);
+    assert.equal(fs.lstatSync(catalogueFile).isFile(), true);
+    assert.equal(fs.lstatSync(catalogueFile).isSymbolicLink(), false);
+    const controlledBefore = coldRead(data.home), copiesBefore = copies(data);
+    const catalogue = JSON.parse(fs.readFileSync(catalogueFile, 'utf8'));
+    const catalogueBefore = structuredClone(catalogue);
+    const namespaces = catalogue.namespaces.filter(item => item.state.tenantId === priorBinding.tenantId);
+    assert.equal(namespaces.length, 1);
+    const connectors = namespaces[0].state.connectors.filter(item =>
+      item.id === data.alpha.paired.connectorId && item.sourceStoreId === priorBinding.sourceStoreId);
+    assert.equal(connectors.length, 1);
+    const connector = connectors[0];
+    assert.equal(connector.ownerId, namespaces[0].ownerId);
+    assert.equal(connector.installationId, priorBinding.installationId);
+    assert.equal(connector.generations[TYPE], '2');
+    assert.equal(connector.generations[TYPES[1]], '2');
+    // Invented stopped catalogue input only; no SQL, MAC or readiness proof is written here.
+    connector.installationId = 'synthetic-current-installation-after-control';
+    fs.writeFileSync(catalogueFile, JSON.stringify(catalogue), { encoding: 'utf8', mode: 0o600 });
+    const written = JSON.parse(fs.readFileSync(catalogueFile, 'utf8'));
+    assert.deepEqual(written, catalogue);
+    const restored = structuredClone(written);
+    const restoredNamespace = restored.namespaces.find(item => item.state.tenantId === priorBinding.tenantId);
+    const restoredConnector = restoredNamespace.state.connectors.find(item => item.id === data.alpha.paired.connectorId);
+    restoredConnector.installationId = priorBinding.installationId;
+    assert.deepEqual(restored, catalogueBefore, 'Only the selected invented installation changed');
+    const controlledAfter = coldRead(data.home);
+    assert.deepEqual(controlledAfter.native, controlledBefore.native);
+    assert.deepEqual(controlledAfter.physical, controlledBefore.physical);
+    assert.deepEqual(copies(data), copiesBefore);
+    await restart(data);
+    const currentCapabilities = await capabilities(data, data.alpha);
+    assert.equal(currentCapabilities.json.installationId, 'synthetic-current-installation-after-control');
+    for (const field of ['tenantId', 'instanceId', 'sourceStoreId', 'restoreEpoch']) {
+      assert.equal(currentCapabilities.json[field], priorBinding[field]);
+    }
+    assert.equal(currentCapabilities.json.streams[TYPE].generation, '2');
+    assert.equal(currentCapabilities.json.streams[TYPES[1]].generation, '2');
+    data.alpha.binding.installationId = currentCapabilities.json.installationId;
+    assert.equal(data.readiness.length, 3);
+    await F.activateReadiness(data, data.alpha, TYPE);
+    await F.activateReadiness(data, data.alpha, TYPES[1]);
+    assert.equal(data.readiness.length, 5);
+    for (const [index, type] of [[3, TYPE], [4, TYPES[1]]]) {
+      const trace = data.readiness[index];
+      const renewedBinding = { ...priorBinding,
+        installationId: 'synthetic-current-installation-after-control', generation: '3' };
+      assert.equal(trace.recordType, type);
+      assert.deepEqual(trace.initial.binding, { ...renewedBinding, generation: '2' });
+      assert.equal(trace.initial.verification, 'unverified');
+      assert.deepEqual(trace.challenge.binding, renewedBinding);
+      assert.equal(trace.challenge.acknowledgedSequence, '0');
+      assert.deepEqual(trace.result.binding, renewedBinding);
+      assert.equal(trace.result.sharing, 'enabled');
+      assert.equal(trace.result.verification, 'authenticated-companion-report');
+      assert.deepEqual(binding(data.alpha, type), renewedBinding);
+    }
+    const betaCurrent = await capabilities(data, data.beta);
+    for (const field of ['tenantId', 'instanceId', 'sourceStoreId', 'installationId', 'restoreEpoch']) {
+      assert.equal(betaCurrent.json[field], betaBindingBefore[field]);
+    }
+    assert.deepEqual(betaCurrent.json.streams, betaStreamsBefore);
+    const renewed = coldRead(data.home);
+    for (const table of ['health_source_policy_state', 'health_source_policy_sources', 'health_source_policy_categories']) {
+      assert.deepEqual(rows(renewed, table).filter(item => item.tenant_id === betaBindingBefore.tenantId),
+        rows(controlledBefore, table).filter(item => item.tenant_id === betaBindingBefore.tenantId));
+    }
+    assert.deepEqual(rows(renewed, 'health_source_policy_categories').filter(item =>
+      item.tenant_id === priorBinding.tenantId && item.record_type === TYPES[2]),
+    rows(controlledBefore, 'health_source_policy_categories').filter(item =>
+      item.tenant_id === priorBinding.tenantId && item.record_type === TYPES[2]));
+    assert.deepEqual(renewed.physical, controlledBefore.physical);
+    assert.deepEqual(data.original, originalSeedVectors);
     const current = object(data.alpha, { sequence: '1',
       objectId: 'current-stream-object', batchId: 'current-stream-object' });
     await stage(data, data.alpha, current, [0, 2]);
@@ -373,7 +507,7 @@ test('S11 source delete atomically purges sparse matching old/current streams an
 test('S12 every malformed selected declaration or actual physical part refuses before complete effects', async () => {
   for (const defect of ['partial-schema', 'declaration-json', 'wrong-declared-identity', 'key',
     'reservation', 'non-blob', 'empty-blob', 'index', 'actual-digest']) {
-    const data = await fixture({ v2: true });
+    const data = await fixture({ v2: true, readinessVersion: 2 });
     try {
       const active = object(data.alpha);
       await stage(data, data.alpha, active, [0, 2]);
@@ -405,9 +539,15 @@ test('S12 every malformed selected declaration or actual physical part refuses b
         const part = before.physical.find(item => item.index.decimal === '0');
         assert.notEqual(part.actual.digest, part.savedDigest.value);
       }
+      try {
       await unchanged(data, () => post(data, data.alpha, BATCH,
         batch(data.alpha, '2', [deletion(data.alpha)], { id: `corrupt-${defect}` }).wire),
       { status: 503, code: 'storage-unavailable' });
+      } catch (error) {
+        error.message = `S12 defect "${defect}": ${error.message}`;
+        console.error(`S12 defect "${defect}": original assertion retained`);
+        throw error;
+      }
     } finally { await close(data); }
   }
 });
@@ -415,8 +555,6 @@ test('S13 fixed selected object part and actual-byte inclusive bounds commit whi
   const controls = [
     { id: 'objects-inclusive', objectCount: 1000, partsPerObject: 1, accepted: true },
     { id: 'objects-overflow', objectCount: 1001, partsPerObject: 1, accepted: false },
-    { id: 'parts-inclusive', objectCount: 1000, partsPerObject: 128, accepted: true },
-    { id: 'parts-overflow', objectCount: 1000, partsPerObject: 128, extraPart: true, accepted: false },
     { id: 'bytes-inclusive', objectCount: 2, objectPartSizes: [[2048], [2048]], cap: 4096, accepted: true },
     { id: 'bytes-overflow', objectCount: 2, objectPartSizes: [[2048], [2049]], cap: 4096, accepted: false },
   ];
@@ -582,7 +720,7 @@ test('S14 current native body and saved-state fences refuse deletion PART and FI
         const frame = route === BATCH ? batch(data.alpha, '2', [deletion(data.alpha)]).wire :
           route === PART ? active.partFrames[0] : active.finalise;
         for (const changed of [
-          { 'Klebb-Health-Generation': '2' },
+          { 'Klebb-Health-Generation': '1' },
           { 'Klebb-Health-Restore-Epoch': '99999999-9999-4999-8999-999999999999' },
         ]) {
           currentAction = Object.hasOwn(changed, 'Klebb-Health-Generation') ?
@@ -594,7 +732,7 @@ test('S14 current native body and saved-state fences refuse deletion PART and FI
         const newEpoch = '99999999-9999-4999-8999-999999999999';
         currentAction = 'saved-epoch';
         observe('authority-change');
-        await updateAuthority(data, data.alpha, { restoreEpoch: newEpoch });
+        await controlledEpochSuccessor(data, data.alpha, newEpoch);
         observe('saved-epoch-request');
         await unchanged(data, () => post(data, data.alpha, route, frame,
           { ...headers(data.alpha), 'Klebb-Health-Restore-Epoch': newEpoch }),

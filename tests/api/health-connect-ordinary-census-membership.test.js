@@ -8,6 +8,7 @@ const { DatabaseSync } = require('node:sqlite');
 const sourceIndex = require('../../lib/health-connect/source-index');
 const { fixture, close, first, postBatch, TYPE } =
   require('../helpers/health-connect-source-index-test-fixture.cjs');
+const { readyCollection } = require('../helpers/health-connect-ready-collection-fixture.cjs');
 const digest = text => 'sha256:' + crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 function durable(db) {
   const names = db.prepare("SELECT name FROM sqlite_schema WHERE type='table' "
@@ -133,8 +134,23 @@ async function categoriesPair(data, categories, installationId) {
       sourceStoreId: grant.json.sourceStoreId, installationId,
       categories, grant: grant.json.grant } });
   assert.equal(response.status, 200);
-  const paired = response.json;
-  data.markers.push(grant.json.grant, paired.credential);
+  assert.deepEqual(grant.json.categories, categories);
+  assert.deepEqual(response.json.categories, categories);
+  assert.deepEqual(Object.keys(response.json.streams).sort(), [...categories].sort());
+  for (const type of categories) {
+    assert.equal(response.json.streams[type].generation, '1');
+    assert.equal(response.json.streams[type].acknowledgedSequence, '0');
+  }
+  data.markers.push(grant.json.grant, response.json.credential);
+  // The invented companion report exercises authenticated custody, not a native scan.
+  const paired = await readyCollection(data, response.json, categories);
+  for (const field of ['tenantId', 'instanceId', 'sourceStoreId', 'installationId', 'restoreEpoch', 'credential']) {
+    assert.equal(paired[field], response.json[field]);
+  }
+  for (const type of categories) {
+    assert.equal(paired.streams[type].generation, '2');
+    assert.equal(paired.streams[type].acknowledgedSequence, '0');
+  }
   function forType(type) {
     const binding = { tenantId: paired.tenantId, instanceId: paired.instanceId,
       sourceStoreId: paired.sourceStoreId, installationId: paired.installationId,

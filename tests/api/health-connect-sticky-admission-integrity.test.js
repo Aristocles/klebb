@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use strict';
-// Two fixed changed-boundary controls; not real generation/restore endpoints.
+// Two stopped storage controls; generation zero uses actual legacy history.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const F = require('../helpers/health-connect-sticky-admission-fixture.cjs');
 
 test('I01 valid saved generation zero deletion keeps positive source sequence and sticky identity',
   async () => {
-    const data = await F.fixture({ v2: true });
+    const data = await F.fixture({ v2: true, legacyProducer: true, readinessVersion: null });
     try {
       const originalBinding = { ...data.alpha.binding };
       const before = F.coldRead(data.home);
       await F.stop(data);
-      await F.control(data, { command: 'authority',
+      await F.control(data, { command: 'legacy-authority',
         sourceStoreId: originalBinding.sourceStoreId, recordType: F.TYPE, generation: '0' });
       await F.restart(data);
       const current = await F.capabilities(data);
@@ -21,8 +21,9 @@ test('I01 valid saved generation zero deletion keeps positive source sequence an
       for (const name of ['tenantId', 'instanceId', 'sourceStoreId', 'installationId', 'restoreEpoch']) {
         assert.equal(current.json[name], originalBinding[name], name);
       }
-      // Only the disclosed saved generation changes. Actual returned capability
-      // and current native headers validate this controlled source boundary.
+      // Only the disclosed saved legacy generation changes after three genuine
+      // producer ACKs and V2 migration; this does not claim managed readiness.
+      // Actual capabilities and native headers validate the legacy boundary.
       data.alpha.paired.streams[F.TYPE].generation = '0';
       data.alpha.binding.generation = '0';
       const vector = F.batch(data.alpha, '1', [F.deletion(data.alpha)],
@@ -61,7 +62,7 @@ test('I01 valid saved generation zero deletion keeps positive source sequence an
 
 test('I02 two distinct valid stored time members refuse ambiguous footprint without any deletion effects',
   async () => {
-    const data = await F.fixture({ v2: true });
+    const data = await F.fixture({ v2: true, readinessVersion: 2 });
     try {
       const original = F.bank.recordInventory[0].recordJson;
       const firstTime = '2026-01-02T03:04:05.123456789Z';

@@ -174,8 +174,10 @@ async function handleExport(req, res) {
   };
 
   try {
-    exportTo(stagingDir);
+    const actor = importActor(req);
+    exportTo(stagingDir, { importActor: actor, sourcePolicyRequest: req });
     await writeZip(zipFile, listZipEntries(stagingDir));
+    actor.check();
     const { size } = fs.statSync(zipFile);
     res.writeHead(200, {
       'Content-Type': 'application/zip',
@@ -450,4 +452,4 @@ async function handle(req, res, parts, options = {}) {
 
 const ROUTE_PREFIXES = ['export', 'import'];
 
-module.exports = { handle, ROUTE_PREFIXES, adoptWizard };
+module.exports = { handle, ROUTE_PREFIXES, adoptWizard, importActor };

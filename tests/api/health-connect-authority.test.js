@@ -9,7 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const {
-  createSandbox, cleanupSandbox, spawnServer: spawnActualServer, req, fakeAuthState,
+  createSandbox, cleanupSandbox, spawnServer: spawnActualServer, req, fakeAuthState, waitFor,
 } = require('../helpers/sandbox');
 const { openZip } = require('../../lib/zip/read');
 
@@ -55,6 +55,31 @@ const nativeHeaders = value => ({
   ...bearer(value), 'Klebb-Health-Protocol': '1',
 });
 const authorityPath = home => path.join(home, 'credentials', 'health-connect.json');
+const managedAuthorityPath = home => path.join(home, 'credentials', 'health-connect-policy.json');
+function managedNamespace(home, tenantId, owner) {
+  const catalogue = JSON.parse(fs.readFileSync(managedAuthorityPath(home), 'utf8'));
+  assert.equal(catalogue.version, 2);
+  assert.equal(catalogue.recoveryRequired, false);
+  const entries = catalogue.namespaces.filter(entry => entry.state.tenantId === tenantId);
+  assert.equal(entries.length, 1, 'the independently issued tenant selects exactly one saved namespace');
+  const namespace = entries[0];
+  const principals = catalogue.principals.filter(principal => principal.ownerId === namespace.ownerId);
+  assert.equal(principals.length, 1);
+  const principal = principals[0];
+  assert.match(principal.ownerId, UUID);
+  assert.notEqual(principal.ownerId, 'owner-a');
+  assert.notEqual(principal.ownerId, 'owner-b');
+  assert.equal(owner.credentials.users['owner-a'].credentials[0].publicKey, 'fake');
+  assert.equal(owner.sessions[owner.token].userId, 'owner-a');
+  assert.deepEqual(principal.members, [{
+    userId: 'owner-a', credentialId: owner.credentialId,
+    // Independent digest of the fixture's base64 key "fake" (bytes 7d a9 1e).
+    publicKeySha256: 'sha256:0536d3e9b18e52fa27c2951938d4d922e3d0970b534e72cad8126d183159c649',
+  }]);
+  assert.equal(namespace.state.version, 1);
+  assert.equal(namespace.state.tenantId, tenantId);
+  return { catalogue, namespace, principal, state: namespace.state };
+}
 const fixedClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json');
 const fixedClockPreload = path.resolve(__dirname, '../helpers/health-connect-fixed-child-clock-preload.cjs');
 
@@ -114,12 +139,23 @@ function assertFailure(response, status, code) {
 
 function assertEmptyAuthority(home) {
   const file = authorityPath(home);
-  if (!fs.existsSync(file)) return;
-  const store = JSON.parse(fs.readFileSync(file, 'utf8'));
   // Instance identity/epoch initialisation is allowed. Refusal must issue
-  // zero grants/connectors, rather than happen to avoid creating a file.
-  assert.deepEqual(store.grants, []);
-  assert.deepEqual(store.connectors, []);
+  // zero grants/connectors in both retained authority carriers.
+  if (fs.existsSync(file)) {
+    const store = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.deepEqual(store.grants, []);
+    assert.deepEqual(store.connectors, []);
+  }
+  const managed = managedAuthorityPath(home);
+  if (fs.existsSync(managed)) {
+    const catalogue = JSON.parse(fs.readFileSync(managed, 'utf8'));
+    assert.equal(catalogue.version, 2);
+    assert.equal(catalogue.recoveryRequired, false);
+    for (const namespace of catalogue.namespaces) {
+      assert.deepEqual(namespace.state.grants, []);
+      assert.deepEqual(namespace.state.connectors, []);
+    }
+  }
 }
 
 function exchangeFrame(grant, changes = {}) {
@@ -348,19 +384,70 @@ describe('#772 session management and native authority over actual routes', () =
 
   test('client userId and ownerId cannot change session-derived ownership', async () => {
     const ownership = fixtureHome();
+    const expectedMember = {
+      userId: 'owner-a', credentialId: ownership.owner.credentialId,
+      // Controlled base64 key "fake" is bytes 7d a9 1e; this literal is not read from policy.
+      publicKeySha256: 'sha256:0536d3e9b18e52fa27c2951938d4d922e3d0970b534e72cad8126d183159c649',
+    };
+    assert.equal(ownership.owner.credentials.users['owner-a'].credentials[0].id,
+      expectedMember.credentialId);
+    assert.equal(ownership.owner.credentials.users['owner-a'].credentials[0].publicKey, 'fake');
+    assert.equal(ownership.owner.sessions[ownership.owner.token].userId, 'owner-a');
+    assert.equal(ownership.owner.sessions[ownership.owner.token].credentialId, expectedMember.credentialId);
+    assert.notEqual(ownership.other.credentialId, expectedMember.credentialId);
     let child;
     try {
       child = await spawnServer(ownership.home, ENV);
-      const { paired } = await pair(child, ownership.owner);
+      const { grant, paired } = await pair(child, ownership.owner);
       const beforeList = await listing(child, ownership.owner);
       assert.deepEqual((await listing(child, ownership.other)).connectors, []);
       await child.kill();
       child = null;
-      const beforeState = JSON.parse(fs.readFileSync(authorityPath(ownership.home), 'utf8'));
+      const beforeLegacyBytes = fs.readFileSync(authorityPath(ownership.home));
+      assert.deepEqual(JSON.parse(beforeLegacyBytes).grants, []);
+      assert.deepEqual(JSON.parse(beforeLegacyBytes).connectors, []);
+      const managedFile = path.join(ownership.home, 'credentials', 'health-connect-policy.json');
+      const beforeManagedBytes = fs.readFileSync(managedFile);
+      const beforeCatalogue = JSON.parse(beforeManagedBytes);
+      assert.equal(beforeCatalogue.version, 2);
+      assert.equal(beforeCatalogue.recoveryRequired, false);
+      assert.equal(beforeCatalogue.principals.length, 1);
+      assert.equal(beforeCatalogue.namespaces.length, 1);
+      const principal = beforeCatalogue.principals[0];
+      assert.match(principal.ownerId, UUID);
+      assert.notEqual(principal.ownerId, 'owner-a');
+      assert.notEqual(principal.ownerId, 'owner-b');
+      assert.deepEqual(principal.members, [expectedMember]);
+      assert.equal(paired.restoreEpoch, grant.restoreEpoch);
+      assert.equal(grant.expiresAt, fixedClock.base.grantExpiresAt);
+      const beforeState = beforeCatalogue.namespaces[0].state;
+      assert.deepEqual(beforeCatalogue, {
+        version: 2, recoveryRequired: false,
+        principals: [{ ownerId: principal.ownerId, members: [expectedMember] }],
+        namespaces: [{ ownerId: principal.ownerId, state: {
+          version: 1, tenantId: paired.tenantId, instanceId: paired.instanceId,
+          restoreEpoch: paired.restoreEpoch,
+          grants: [{
+            verifier: `sha256:${crypto.createHash('sha256').update(grant.grant, 'utf8').digest('hex')}`,
+            ownerId: principal.ownerId, instanceId: grant.instanceId,
+            sourceStoreId: grant.sourceStoreId, restoreEpoch: grant.restoreEpoch,
+            categories: STEPS, name: 'Test phone', expiresAt: fixedClock.base.grantExpiresAt,
+            consumedAt: fixedClock.base.instant,
+          }],
+          connectors: [{
+            id: paired.connectorId,
+            credentialVerifier: `sha256:${crypto.createHash('sha256').update(paired.credential, 'utf8').digest('hex')}`,
+            ownerId: principal.ownerId, installationId: 'synthetic-installation-a',
+            sourceStoreId: paired.sourceStoreId, restoreEpoch: paired.restoreEpoch,
+            categories: STEPS, generations: { StepsRecord: '1' }, name: 'Test phone',
+            createdAt: fixedClock.base.instant, revokedAt: null,
+          }],
+        } }],
+      });
       assert.equal(beforeState.grants.length, 1);
       assert.equal(beforeState.connectors.length, 1);
-      assert.equal(beforeState.grants[0].ownerId, 'owner-a');
-      assert.equal(beforeState.connectors[0].ownerId, 'owner-a');
+      assert.equal(beforeState.grants[0].ownerId, principal.ownerId);
+      assert.equal(beforeState.connectors[0].ownerId, principal.ownerId);
       child = await spawnServer(ownership.home, ENV);
       for (const suppliedOwner of [
         { userId: 'owner-b' },
@@ -383,7 +470,12 @@ describe('#772 session management and native authority over actual routes', () =
       assert.ok(afterList.connectors.some(item => item.id === paired.connectorId));
       await child.kill();
       child = null;
-      const afterState = JSON.parse(fs.readFileSync(authorityPath(ownership.home), 'utf8'));
+      assert.deepEqual(fs.readFileSync(authorityPath(ownership.home)), beforeLegacyBytes,
+        'rejected client ownership fields keep the V1 placeholder byte exact');
+      const afterManagedBytes = fs.readFileSync(managedFile);
+      assert.deepEqual(afterManagedBytes, beforeManagedBytes,
+        'rejected client ownership fields keep the complete managed catalogue byte exact');
+      const afterState = JSON.parse(afterManagedBytes).namespaces[0].state;
       assert.deepEqual(afterState.grants, beforeState.grants,
         'rejected client ownership fields created or changed no grant');
       assert.deepEqual(afterState.connectors, beforeState.connectors,
@@ -495,7 +587,7 @@ describe('#772 session management and native authority over actual routes', () =
       assert.equal((await listing(child, concurrent.owner)).connectors.length, 1);
       await child.kill();
       child = null;
-      const state = JSON.parse(fs.readFileSync(authorityPath(concurrent.home), 'utf8'));
+      const { state } = managedNamespace(concurrent.home, grant.tenantId, concurrent.owner);
       assert.equal(state.version, 1);
       assert.equal(state.grants.length, 1);
       assert.equal(state.connectors.length, 1);
@@ -612,19 +704,43 @@ describe('#772 persisted authority, export and cold-start fences', () => {
       assertNoSecrets(rejectedCursor.body, [CURSOR]);
       const list = await listing(server, fixture.owner);
       const authorityBefore = fs.readFileSync(authorityPath(fixture.home));
-      const refused = await binaryGet(server, '/api/export', fixture.owner.cookie);
-      assert.equal(refused.status, 500);
-      assert.deepEqual(JSON.parse(refused.body.toString('utf8')), {
-        error: 'export failed: native-history-export-unsupported',
-      });
+      const managedBefore = fs.readFileSync(managedAuthorityPath(fixture.home));
+      const exportOwner = managedNamespace(fixture.home, paired.tenantId, fixture.owner).principal.ownerId;
+      const { DatabaseSync } = require('node:sqlite');
+      const sourceDb = new DatabaseSync(path.join(fixture.home, 'db', 'klebb.db'), { readOnly: true });
+      let policyIdentities;
+      try {
+        sourceDb.exec('BEGIN');
+        policyIdentities = sourceDb.prepare('SELECT tenant_id, owner_id, source_store_id, policy_id '
+          + 'FROM health_source_policy_sources ORDER BY tenant_id, source_store_id').all();
+      } finally {
+        try { sourceDb.exec('ROLLBACK'); } finally { sourceDb.close(); }
+      }
+      assert.deepEqual(policyIdentities.map(row => [row.tenant_id, row.source_store_id]),
+        [[grant.tenantId, grant.sourceStoreId], [cursorGrant.tenantId, cursorGrant.sourceStoreId]]
+          .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+      for (const row of policyIdentities) {
+        assert.equal(row.owner_id, exportOwner); assert.match(row.policy_id, UUID);
+      }
+      const exportStagingName = `export-staging.${server.fixedClockInput.milliseconds}`;
+      const managedDownload = await binaryGet(server, '/api/export', fixture.owner.cookie);
+      assert.equal(managedDownload.status, 200);
       assert.equal(fs.readFileSync(authorityPath(fixture.home)).equals(authorityBefore), true,
-        'refused export changed retained native authority');
-      assert.equal(fs.readdirSync(fixture.home).some(name =>
-        name.startsWith('export-staging.') || name.endsWith('.zip')
-          || name === 'klebb-export.json'), false, 'refused export left success output');
+        'export changed retained native authority');
+      assert.equal(fs.readFileSync(managedAuthorityPath(fixture.home)).equals(managedBefore), true,
+        'export changed the complete managed catalogue');
+      await waitFor(() => {
+        const artifacts = fs.readdirSync(fixture.home).filter(name =>
+          name.startsWith('export-staging.') || name.endsWith('.zip')
+            || name === 'klebb-export.json');
+        assert.deepEqual(artifacts.filter(name => name !== exportStagingName &&
+          name !== exportStagingName + '.zip'), [],
+          'completed export created an unexpected root archive artifact');
+        return artifacts.length === 0;
+      }, { what: 'completed export response-close cleanup' });
       assert.equal((await req(server.baseUrl, CAPABILITIES, {
         headers: nativeHeaders(paired.credential),
-      })).status, 200, 'export refusal revoked native authority');
+      })).status, 200, 'export revoked native authority');
       const saved = await req(server.baseUrl, '/api/manifests/authority-sentinel/data', {
         cookie: fixture.owner.cookie,
       });
@@ -632,8 +748,8 @@ describe('#772 persisted authority, export and cold-start fences', () => {
       assert.deepEqual(saved.json.data, ROWS);
       await server.kill();
       server = null;
-      const persisted = fs.readFileSync(authorityPath(fixture.home), 'utf8');
-      const state = JSON.parse(persisted);
+      const persisted = fs.readFileSync(managedAuthorityPath(fixture.home), 'utf8');
+      const { state, principal } = managedNamespace(fixture.home, paired.tenantId, fixture.owner);
       const verifier = 'sha256:' + crypto.createHash('sha256')
         .update(paired.credential, 'utf8').digest('hex');
       const grantVerifier = 'sha256:' + crypto.createHash('sha256')
@@ -643,7 +759,7 @@ describe('#772 persisted authority, export and cold-start fences', () => {
       assert.equal(state.instanceId, paired.instanceId);
       assert.equal(state.restoreEpoch, paired.restoreEpoch);
       assert.equal(state.connectors.length, 1);
-      assert.equal(state.connectors[0].ownerId, 'owner-a');
+      assert.equal(state.connectors[0].ownerId, principal.ownerId);
       assert.equal(state.connectors[0].installationId, 'synthetic-installation-a');
       assert.equal(state.connectors[0].sourceStoreId, grant.sourceStoreId);
       assert.deepEqual(state.connectors[0].categories, STEPS);
@@ -653,7 +769,7 @@ describe('#772 persisted authority, export and cold-start fences', () => {
       assert.equal(state.connectors[0].revokedAt, null);
       const consumed = state.grants.find(item => item.verifier === grantVerifier);
       assert.ok(consumed, 'the independently hashed grant verifier is stored');
-      assert.equal(consumed.ownerId, 'owner-a');
+      assert.equal(consumed.ownerId, principal.ownerId);
       assert.equal(consumed.instanceId, paired.instanceId);
       assert.equal(consumed.sourceStoreId, paired.sourceStoreId);
       assert.equal(consumed.restoreEpoch, paired.restoreEpoch);
@@ -663,8 +779,65 @@ describe('#772 persisted authority, export and cold-start fences', () => {
       assertNoSecrets(persisted, [paired.credential, grant.grant]);
       legacyFixture = fixtureHome();
       assert.notEqual(legacyFixture.home, fixture.home);
+      const cursorGrantVerifier = 'sha256:' + crypto.createHash('sha256')
+        .update(cursorGrant.grant, 'utf8').digest('hex');
       const markers = [paired.credential, grant.grant, cursorGrant.grant, verifier,
-        grantVerifier, ADMIN, CHAT, CURSOR];
+        grantVerifier, cursorGrantVerifier, ADMIN, CHAT, CURSOR];
+      const managedArchive = path.join(legacyFixture.home, 'authority-managed-test-export.zip');
+      const managedTarget = path.join(legacyFixture.home, 'authority-managed-test-expanded');
+      fs.writeFileSync(managedArchive, managedDownload.body);
+      const managedZip = await openZip(managedArchive, {
+        maxEntries: 100, maxEntryBytes: 1024 * 1024, maxTotalBytes: 4 * 1024 * 1024,
+      });
+      try {
+        const names = managedZip.entries().map(entry => entry.name);
+        assert.equal(new Set(names).size, names.length);
+        assert.equal(names.some(name => /^(credentials|sessions|keys|db)(?:\/|$)/.test(name)), false);
+        for (const file of ['klebb-export.json', 'data/authority-sentinel.json',
+          'data/health-connect/ordinary-history.json', 'data/health-connect/ordinary-history-footer.json']) {
+          assert.equal(names.filter(name => name === file).length, 1);
+        }
+        await managedZip.extractTo(managedTarget);
+      } finally { await managedZip.close(); }
+      const managedExpanded = filesUnder(managedTarget).map(file =>
+        path.relative(managedTarget, file) + '\n' + fs.readFileSync(file, 'utf8')).join('\n');
+      assertNoSecrets(managedExpanded, markers);
+      const managedManifest = JSON.parse(fs.readFileSync(path.join(managedTarget, 'klebb-export.json'), 'utf8'));
+      assert.equal(managedManifest.format, 'klebb.export.v1');
+      assert.equal(managedManifest.formatVersion, 2);
+      const inputFile = 'data/health-connect/ordinary-history.json';
+      const footerFile = 'data/health-connect/ordinary-history-footer.json';
+      const inputBytes = fs.readFileSync(path.join(managedTarget, inputFile));
+      const footerBytes = fs.readFileSync(path.join(managedTarget, footerFile));
+      const checksum = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+      assert.deepEqual(managedManifest.inventory.ordinaryHistory, {
+        version: 1, controlProfileVersion: 3,
+        payload: { file: inputFile, bytes: inputBytes.length, sha256: checksum(inputBytes) },
+        footer: { file: footerFile, bytes: footerBytes.length, sha256: checksum(footerBytes) },
+      });
+      const decoded = require('../../lib/import/native-publication')
+        .decodeOrdinaryHistory(inputBytes, footerBytes, { controlProfileVersion: 3 });
+      assert.deepEqual(decoded.envelope, { version: 3,
+        counts: { namespaces: 2, sources: 2, categories: 2, records: 0, streams: 0,
+          receipts: 0, projectionOutbox: 0, tombstones: 0, deletionGuards: 0, suppressions: 0 },
+        sha256: 'sha256:' + checksum(inputBytes) });
+      assert.deepEqual(decoded.inventory, {
+        catalog: { version: 3, ownerRef: exportOwner, namespaces: policyIdentities.map(row => ({
+          tenantId: row.tenant_id, ownerRef: exportOwner, sourceCount: 1,
+          sources: [{ sourceStoreId: row.source_store_id, provider: 'health-connect-native',
+            policyRef: row.policy_id }],
+        })) },
+        records: [], sourcePolicies: policyIdentities.map(row => ({
+          tenantId: row.tenant_id, ownerRef: exportOwner, revision: '1', sourceCount: 1,
+          sources: [{ sourceStoreId: row.source_store_id, policyId: row.policy_id, lifecycle: 'active',
+            retainCommittedHistory: true, categoryCount: 1,
+            categories: [{ recordType: 'StepsRecord', sharing: 'stopped', generation: '1' }] }],
+        })),
+        streams: [], receipts: [], projectionOutbox: [], tombstones: [], deletionGuards: [], suppressions: [],
+      });
+      const managedCard = JSON.parse(fs.readFileSync(path.join(managedTarget, 'data',
+        'authority-sentinel.json'), 'utf8'));
+      assert.deepEqual(managedCard.data, ROWS, 'managed archive retains the original nonempty legacy history');
       const markerFile = path.join(legacyFixture.home, 'credentials',
         'export-exclusion-sentinel.json');
       fs.writeFileSync(markerFile, JSON.stringify({ markers }));
@@ -723,10 +896,10 @@ describe('#772 persisted authority, export and cold-start fences', () => {
       const exported = filesUnder(target).map(file =>
         path.relative(target, file) + '\n' + fs.readFileSync(file, 'utf8')).join('\n');
       assertNoSecrets(exported + JSON.stringify(list) + logs(), [
-        paired.credential, grant.grant, cursorGrant.grant, verifier, grantVerifier,
+        paired.credential, grant.grant, cursorGrant.grant, verifier, grantVerifier, cursorGrantVerifier,
         ADMIN, CHAT, CURSOR,
       ]);
-      assertNoSecrets(refused.body.toString('utf8') + legacyLogs.map(read => read()).join(''), markers);
+      assertNoSecrets(managedDownload.body.toString('utf8') + legacyLogs.map(read => read()).join(''), markers);
       const provenance = JSON.parse(fs.readFileSync(path.join(target, 'klebb-export.json'), 'utf8'));
       assert.equal(provenance.format, 'klebb.export.v1');
       assert.equal(provenance.formatVersion, 1);
@@ -752,21 +925,29 @@ describe('#772 persisted authority, export and cold-start fences', () => {
       const grant = await makeGrant(server, fixture.owner);
       await server.kill();
       server = null;
-      const file = authorityPath(fixture.home);
-      const store = JSON.parse(fs.readFileSync(file, 'utf8'));
-      // This cold fixture follows the reviewed pending #772 persisted schema.
+      const file = managedAuthorityPath(fixture.home);
+      const { catalogue, state: store, principal } =
+        managedNamespace(fixture.home, grant.tenantId, fixture.owner);
+      const beforeCatalogue = structuredClone(catalogue);
+      // Change the one approved grant in its current authoritative namespace.
       assert.ok(Array.isArray(store.grants) && store.grants.length === 1,
         'reviewed authority store must expose the one cold-start grant fixture');
       assert.equal(store.version, 1);
       assert.deepEqual(store.connectors, []);
-      assert.equal(store.grants[0].ownerId, 'owner-a');
+      assert.equal(store.grants[0].ownerId, principal.ownerId);
       assert.equal(store.grants[0].instanceId, grant.instanceId);
       assert.equal(store.grants[0].sourceStoreId, grant.sourceStoreId);
       assert.equal(store.grants[0].consumedAt, null);
       assert.equal(store.grants[0].verifier, 'sha256:' + crypto.createHash('sha256')
         .update(grant.grant, 'utf8').digest('hex'));
+      assert.equal(store.grants[0].expiresAt, fixedClock.base.grantExpiresAt);
       store.grants[0].expiresAt = '2000-01-01T00:00:00.000Z';
-      fs.writeFileSync(file, JSON.stringify(store), { mode: 0o600 });
+      fs.writeFileSync(file, JSON.stringify(catalogue), { mode: 0o600 });
+      const written = JSON.parse(fs.readFileSync(file, 'utf8'));
+      assert.deepEqual(written, catalogue);
+      written.namespaces.find(entry => entry.state.tenantId === grant.tenantId)
+        .state.grants[0].expiresAt = fixedClock.base.grantExpiresAt;
+      assert.deepEqual(written, beforeCatalogue, 'cold expiry changes no unrelated catalogue field');
       server = await spawnServer(fixture.home, ENV);
       assertFailure(await req(server.baseUrl, EXCHANGE, {
         method: 'POST', body: exchangeFrame(grant),
@@ -786,8 +967,10 @@ describe('#772 persisted authority, export and cold-start fences', () => {
       const { paired } = await pair(server, fixture.owner);
       await server.kill();
       server = null;
-      fs.writeFileSync(path.join(fixture.home, 'credentials', 'webauthn.json'),
-        JSON.stringify({ users: {} }));
+      // Retain the actual member: this control needs a live native credential.
+      assert.deepEqual(JSON.parse(fs.readFileSync(path.join(fixture.home, 'credentials',
+        'webauthn.json'), 'utf8')).users['owner-a'].credentials,
+      fixture.owner.credentials.users['owner-a'].credentials);
       server = await spawnServer(fixture.home, {
         ...ENV, AGENT_API_TOKEN: paired.credential,
       });

@@ -262,6 +262,11 @@ async function handleAuthRoutes(req, res, pathname) {
     res.end(JSON.stringify(data));
   };
 
+  const rejectRegistrationActor = error => {
+    const status = [401, 403, 503].includes(error?.status) ? error.status : 503;
+    return sendJSON(res, { error: 'Registration authorization changed' }, status);
+  };
+
   const readBody = (req) => new Promise((resolve) => {
     let body = '';
     req.on('data', c => body += c);
@@ -342,6 +347,7 @@ async function handleAuthRoutes(req, res, pathname) {
 
     let label = (body.label || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 32);
     let usedInvite = null;
+    let registrationActor = null;
 
     // Path A: invite code supplied
     if (body.code) {
@@ -365,6 +371,12 @@ async function handleAuthRoutes(req, res, pathname) {
     else if (getSessionRecord(req)) {
       const session = getSessionRecord(req);
       label = session.userId || Object.keys(loadCredentials().users || {})[0] || 'user';
+      try {
+        registrationActor = require('../lib/health-connect/source-policy').captureRegistrationActor(req);
+        if (!registrationActor) return sendJSON(res, { error: 'Unauthorized' }, 401);
+      } catch (error) {
+        return rejectRegistrationActor(error);
+      }
     }
     else {
       // No code, no session, already set up → reject
@@ -390,11 +402,19 @@ async function handleAuthRoutes(req, res, pathname) {
       },
     });
 
+    if (registrationActor) {
+      try {
+        require('../lib/health-connect/source-policy').verifyRegistrationActor(registrationActor, req);
+      } catch (error) {
+        return rejectRegistrationActor(error);
+      }
+    }
     pendingChallenges.set(label, {
       challenge: options.challenge,
       code: body.code || null,
       label,
       expires: Date.now() + 120000,
+      ...(registrationActor ? { registrationActor } : {}),
     });
     setTimeout(() => pendingChallenges.delete(label), 120000);
 
@@ -419,6 +439,15 @@ async function handleAuthRoutes(req, res, pathname) {
     }
 
     try {
+      let registrationPolicy = null;
+      if (pending.registrationActor) {
+        try {
+          registrationPolicy = require('../lib/health-connect/source-policy');
+          registrationPolicy.verifyRegistrationActor(pending.registrationActor, req);
+        } catch (error) {
+          return rejectRegistrationActor(error);
+        }
+      }
       const verification = await verifyRegistrationResponse({
         response: body,
         expectedChallenge: pending.challenge,
@@ -427,6 +456,13 @@ async function handleAuthRoutes(req, res, pathname) {
       });
 
       if (verification.verified && verification.registrationInfo) {
+        if (registrationPolicy) {
+          try {
+            registrationPolicy.verifyRegistrationActor(pending.registrationActor, req);
+          } catch (error) {
+            return rejectRegistrationActor(error);
+          }
+        }
         const { credential } = verification.registrationInfo;
         const creds = loadCredentials();
         const userId = pending.label || label || 'user';
@@ -446,6 +482,13 @@ async function handleAuthRoutes(req, res, pathname) {
         });
         saveCredentials(creds);
         pendingChallenges.delete(key);
+        if (registrationPolicy) {
+          try {
+            registrationPolicy.bindRegisteredCredential(pending.registrationActor, req, credential);
+          } catch (error) {
+            return rejectRegistrationActor(error);
+          }
+        }
 
         // Consume the invite if one was used
         if (pending.code) {
@@ -534,14 +577,24 @@ async function handleAuthRoutes(req, res, pathname) {
       });
 
       if (verification.verified) {
-        // Update counter + last-used stamp
-        credential.counter = verification.authenticationInfo.newCounter;
-        credential.lastUsedAt = new Date().toISOString();
-        saveCredentials(creds);
+        // Verification used the selected credential before an async boundary.
+        // Require that same member and verifier state in the current store.
+        const currentCreds = loadCredentials();
+        const currentCredential = (currentCreds.users[matchedUser]?.credentials || [])
+          .find(item => item.id === credential.id);
+        if (!currentCredential || currentCredential.publicKey !== credential.publicKey ||
+            currentCredential.counter !== credential.counter) {
+          invites.recordAuthEvent({ kind: 'login.unknown-credential', id: body.id, ip: req.socket?.remoteAddress });
+          return sendJSON(res, { error: 'Unknown credential' }, 400);
+        }
+        // Preserve concurrent changes to other saved credentials.
+        currentCredential.counter = verification.authenticationInfo.newCounter;
+        currentCredential.lastUsedAt = new Date().toISOString();
+        saveCredentials(currentCreds);
         pendingChallenges.delete('__login');
         invites.recordAuthEvent({ kind: 'login.success', label: matchedUser });
 
-        const token = createSession(matchedUser, credential.id);
+        const token = createSession(matchedUser, currentCredential.id);
         setSessionCookie(res, token);
         return sendJSON(res, { verified: true, label: matchedUser });
       }

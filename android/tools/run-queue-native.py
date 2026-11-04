@@ -50,7 +50,9 @@ room_methods = [
     "ROOM03_nativeStateCasZeroRollsBackAllPayloadAndCursorWrites",
     "ROOM04_exactContiguousReceiptReleasesOnlyItsOwnPendingPayload",
     "ROOM05_emptyStringAndTerminalNullStayLocalWithoutAnEmptyBatch",
-    "ROOM06_controlledLostReplyRetainsRealRoomBytesForFreshSameBindingRetry"
+    "ROOM06_controlledLostReplyRetainsRealRoomBytesForFreshSameBindingRetry",
+    "ROOM07_committedCategoryPurgeProofRequiresCurrentRowsAndFreshRemoteAuthority",
+    "ROOM08_nativePurgeDeleteRefusalRollsBackAndKeepsTheCategoryDisabled",
 ]
 room_object_methods = [
     "ROOMO01_realBoundedPartRowsReopenImmutableAndOnlyFinalReceiptDeletesParts",
@@ -60,7 +62,8 @@ room_object_methods = [
     "ROOMO05_missingOrTamperedPartBlocksReadWithoutMutation",
     "ROOMO06_unpartitionedMixedPageRefusesAllRecordsAndCheckpoint",
 ]
-selected = methods[:1] if phase == "baseline-f21" else methods + purge_methods + pair_methods + room_methods + room_object_methods
+stop_methods = ["STOP01_actualWeightCheckboxPurgesItsTwoPendingBatchesAndKeepsSteps"]
+selected = methods[:1] if phase == "baseline-f21" else methods + purge_methods + pair_methods + room_methods + room_object_methods + stop_methods
 unit_methods = {"SW01_original_exact_encrypt_output", "SW02_original_exact_decrypt_output",
                 "SW03_all_original_five_authentication_mutations_refuse"}
 class_name = "app.klebb.companion.queue.QueueStorageInstrumentedTest"
@@ -68,11 +71,13 @@ purge_class_name = "app.klebb.companion.queue.QueueStreamPurgeInstrumentedTest"
 pair_class_name = "app.klebb.companion.queue.QueueAtomicPairInstrumentedTest"
 room_class_name = "app.klebb.companion.sync.RoomDurableBatchQueueInstrumentedTest"
 room_object_class_name = "app.klebb.companion.sync.RoomCompleteRecordObjectInstrumentedTest"
+stop_class_name = "app.klebb.companion.sync.CategorySelectionStopInstrumentedTest"
 expected_classes = {method: class_name for method in methods}
 expected_classes.update({method: purge_class_name for method in purge_methods})
 expected_classes.update({method: pair_class_name for method in pair_methods})
 expected_classes.update({method: room_class_name for method in room_methods})
 expected_classes.update({method: room_object_class_name for method in room_object_methods})
+expected_classes.update({method: stop_class_name for method in stop_methods})
 paths = [repo / "android/app/build.gradle.kts", repo / "android/app/gradle.lockfile",
          repo / ".github/workflows/android-queue-native.yml", repo / "android/tools/run-queue-native.py"]
 paths += sorted((repo / "android/app/src/main/java/app/klebb/companion/queue").glob("*"))
@@ -86,6 +91,14 @@ if phase == "final-seven":
         "android/app/src/androidTest/java/app/klebb/companion/queue/QueueAtomicPairInstrumentedTest.kt",
         "android/app/src/androidTest/java/app/klebb/companion/sync/RoomDurableBatchQueueInstrumentedTest.kt",
         "android/app/src/androidTest/java/app/klebb/companion/sync/RoomCompleteRecordObjectInstrumentedTest.kt",
+        "android/app/src/androidTest/java/app/klebb/companion/sync/CategorySelectionStopInstrumentedTest.kt",
+        "android/app/src/main/java/app/klebb/companion/PairingProofActivity.kt",
+        "android/app/src/main/java/app/klebb/companion/sync/CategorySharingStop.kt",
+        "android/app/src/main/java/app/klebb/companion/sync/ManualFirstPageCapture.kt",
+        "android/app/src/main/java/app/klebb/companion/sync/WeightStepsFirstPageCapture.kt",
+        "android/app/src/main/java/app/klebb/companion/sync/OrdinarySyncSettings.kt",
+        "android/app/src/main/java/app/klebb/companion/sync/OrdinarySyncRunner.kt",
+        "android/app/src/main/java/app/klebb/companion/protocol/DurablePairingStore.kt",
         "android/app/src/androidTest/assets/room-complete-record-object-inputs-v1.json",
         "tests/fixtures/health-connect/room-complete-record-object-inputs-v1.json",
         "android/app/src/main/java/app/klebb/companion/queue/GcmEnvelope.kt",
@@ -213,7 +226,7 @@ try:
     (evidence / "apk-hashes.json").write_text(json.dumps({"app": sha(app), "test": sha(test_app)}) + "\n")
     targeted("install-app", "install", str(app), timeout=180)
     targeted("install-tests", "install", str(test_app), timeout=180)
-    selector = class_name + "#" + methods[0] if phase == "baseline-f21" else class_name + "," + purge_class_name + "," + pair_class_name + "," + room_class_name + "," + room_object_class_name
+    selector = class_name + "#" + methods[0] if phase == "baseline-f21" else class_name + "," + purge_class_name + "," + pair_class_name + "," + room_class_name + "," + room_object_class_name + "," + stop_class_name
     native, raw = targeted("instrumentation", "shell", "am", "instrument", "-w", "-r", "-e", "class", selector,
         "app.klebb.companion.test/androidx.test.runner.AndroidJUnitRunner", timeout=600, allow_failure=True)
     # Android's adb client exit can be zero even when JUnit failed; retain raw status bundles and parse actual results.

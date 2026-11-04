@@ -6,6 +6,7 @@ import app.klebb.companion.protocol.HealthFrame
 import app.klebb.companion.protocol.HealthProtocol
 import app.klebb.companion.protocol.InMemoryPairingSession
 import app.klebb.companion.protocol.JsonObject
+import app.klebb.companion.protocol.LocalCategoryStopReceipt
 import app.klebb.companion.protocol.PairedBatchScope
 import app.klebb.companion.protocol.StrictJson
 import app.klebb.companion.protocol.ValidationContext
@@ -18,8 +19,11 @@ import app.klebb.companion.queue.QueueBlob
 import app.klebb.companion.queue.QueueCipher
 import app.klebb.companion.queue.QueueDatabase
 import app.klebb.companion.queue.QueueResult
+import app.klebb.companion.queue.QueueStreamPurger
+import app.klebb.companion.records.EncodedRecord
 import java.time.Instant
 import java.util.UUID
+import java.util.Collections
 import java.util.concurrent.Callable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
@@ -33,15 +37,88 @@ internal class PreparedOrdinaryPage private constructor(
     internal val query: WeightReadScope,
     internal val requestedToken: String?,
     internal val revision: Long,
-    val page: OrdinaryRecordPage
+    val page: OrdinaryRecordPage,
+    internal val initialChangesToken: String? = null
 ) {
     internal fun issuedBy(candidate: Any): Boolean = issuer === candidate
     internal companion object {
         fun issue(issuer: Any, owner: BatchOwner, query: WeightReadScope,
-            requestedToken: String?, revision: Long, page: OrdinaryRecordPage) =
-            PreparedOrdinaryPage(issuer, owner, query, requestedToken, revision, page)
+            requestedToken: String?, revision: Long, page: OrdinaryRecordPage,
+            initialChangesToken: String? = null) =
+            PreparedOrdinaryPage(issuer, owner, query, requestedToken, revision, page, initialChangesToken)
     }
     override fun toString() = "PreparedOrdinaryPage"
+}
+
+/** Local commit facts, admitted only by the private issuer of the actual Room queue. */
+internal class FirstPageCommit private constructor(
+    private val issuer: Any,
+    internal val owner: BatchOwner,
+    val query: WeightReadScope,
+    val initialChangesToken: String,
+    val recordCount: Long,
+    val nextPageToken: String?
+) {
+    val terminalPage: Boolean get() = nextPageToken == null
+    internal fun issuedBy(candidate: Any): Boolean = issuer === candidate
+    internal fun sameFacts(other: FirstPageCommit): Boolean =
+        owner.localStreamId == other.owner.localStreamId && owner.recordType == other.owner.recordType &&
+            owner.binding == other.owner.binding && owner.localFenceEpoch == other.owner.localFenceEpoch &&
+            query.start == other.query.start && query.end == other.query.end && query.pageSize == other.query.pageSize &&
+            initialChangesToken == other.initialChangesToken && recordCount == other.recordCount &&
+            nextPageToken == other.nextPageToken
+    internal companion object {
+        fun issue(issuer: Any, owner: BatchOwner, query: WeightReadScope, token: String,
+            count: Long, next: String?) = FirstPageCommit(issuer, owner, query, token, count, next)
+    }
+    override fun toString() = "FirstPageCommit"
+}
+
+internal class OrdinaryPageProgress(val query: WeightReadScope, val terminal: Boolean)
+
+/** Issued only after this queue observes the stopped category's committed local purge. */
+internal class CategoryPurgeReceipt private constructor(
+    private val issuer: Any,
+    internal val stop: LocalCategoryStopReceipt,
+    internal val localStreamId: String,
+    internal val markerRowId: String?,
+    internal val markerNonce: ByteArray?,
+    internal val markerCiphertext: ByteArray?
+) {
+    internal fun issuedBy(candidate: Any): Boolean = issuer === candidate
+    internal companion object {
+        fun issue(issuer: Any, stop: LocalCategoryStopReceipt, localStreamId: String,
+            marker: QueueBlob?) = CategoryPurgeReceipt(issuer, stop, localStreamId,
+            marker?.rowId, marker?.nonce?.copyOf(), marker?.ciphertextAndTag?.copyOf())
+    }
+    override fun toString() = "CategoryPurgeReceipt"
+}
+
+/** A complete native changes response; never an already queued retry body. */
+internal sealed class NativeRecordChange {
+    class Upsert(val record: EncodedRecord) : NativeRecordChange()
+    class Delete(val nativeRecordId: String) : NativeRecordChange()
+}
+
+internal class NativeChangesPage(changes: List<NativeRecordChange>,
+    val nextChangesToken: String, val hasMore: Boolean) {
+    val changes: List<NativeRecordChange> = Collections.unmodifiableList(ArrayList(changes))
+    init { require(nextChangesToken.isNotEmpty()) }
+}
+
+internal class NativeChangesProgress(val query: WeightReadScope, val token: String,
+    internal val revision: Long, val hasMore: Boolean)
+
+/** Only this actual queue can issue and later admit the observed complete page. */
+internal class PreparedNativeChangesPage private constructor(
+    private val issuer: Any, internal val owner: BatchOwner,
+    internal val progress: NativeChangesProgress, val page: NativeChangesPage
+) {
+    internal fun issuedBy(candidate: Any): Boolean = issuer === candidate
+    internal companion object {
+        fun issue(issuer: Any, owner: BatchOwner, progress: NativeChangesProgress,
+            page: NativeChangesPage) = PreparedNativeChangesPage(issuer, owner, progress, page)
+    }
 }
 
 /**
@@ -60,6 +137,7 @@ internal class RoomDurableBatchQueue(
 ) : DurableBatchQueue {
     private val store = EncryptedBlobStore(db, cipher)
     private val pageIssuer = Any()
+    private val purgeIssuer = Any()
     private data class Ack(val sequence: Long, val batchId: String, val digest: String)
     private data class Head(val query: WeightReadScope, val allocated: Long, val ack: Long,
         val revision: Long, val nextToken: String?, val terminal: Boolean,
@@ -68,6 +146,139 @@ internal class RoomDurableBatchQueue(
     private data class Wire(val bytes: ByteArray, val frame: HealthFrame, val payload: JsonObject,
         val sequence: Long, val batchId: String, val digest: String)
     private class Refused(val result: Blocked) : RuntimeException()
+
+    /**
+     * Stop is Session-issued and durable before this transaction. Only the exact old
+     * category namespace is inspected; its remaining payloads must be locally pending.
+     * Server records and sibling streams are outside this deletion.
+     */
+    fun purgeStoppedCategory(stop: LocalCategoryStopReceipt): QueueResult<CategoryPurgeReceipt> = tx {
+        if (!session.isCurrentLocalStop(stop)) reject("stale-sharing-stop")
+        val owner = stoppedOwner(stop)
+        val markerId = prefix(owner) + ":sharing-stop"
+        val rows = db.blobs().forStream(owner.localStreamId)
+        val marker = if (rows.isEmpty()) {
+            null
+        } else if (rows.size == 1 && rows.single().rowId == markerId) {
+            requirePurgeMarker(owner, rows.single())
+            rows.single()
+        } else {
+            if (rows.size.toLong() > maximumRows || rows.any { it.rowId == markerId }) {
+                reject("corrupt-stopped-stream")
+            }
+            checkBounds(owner)
+            val head = load(owner, stop.pairedScope).head
+            if (head.allocated - head.ack > maximumRows) reject("corrupt-stopped-stream")
+            val expectedPayloads = linkedSetOf<String>()
+            var sequence = head.ack
+            while (sequence < head.allocated) {
+                sequence = increment(sequence)
+                val wire = wire(owner, stop.pairedScope,
+                    readOwned(owner, payloadId(owner, sequence), BlobKind.PAYLOAD))
+                val cursor = checkedCursor(owner, cursorId(owner, sequence))
+                if (wire.sequence != sequence || cursor["query"] != queryObject(head.query) ||
+                    decimal(cursor["revision"] as String) > head.revision ||
+                    cursor["sequence"] != sequence.toString() || cursor["batchId"] != wire.batchId ||
+                    cursor["payloadDigest"] != wire.digest || cursor["uploadEligible"] != true) {
+                    reject("corrupt-stopped-stream")
+                }
+                expectedPayloads.add(payloadId(owner, sequence))
+                if (wire.frame.kind == "object-finalise") {
+                    val parts = readParts(owner, wire)
+                    try {
+                        CompleteRecordObject.validateParts(protocol, context(owner, stop.pairedScope),
+                            wire.frame, parts)
+                        for (index in parts.indices) expectedPayloads.add(partId(owner, sequence, index))
+                    } finally { parts.forEach { it.fill(0) } }
+                }
+            }
+            if (rows.filter { it.kind == BlobKind.PAYLOAD.stored }.map { it.rowId }.toSet() !=
+                expectedPayloads) reject("corrupt-stopped-stream")
+            for (row in rows) {
+                when {
+                    row.rowId == headId(owner) && row.kind == BlobKind.STATE.stored -> Unit
+                    row.rowId in expectedPayloads && row.kind == BlobKind.PAYLOAD.stored -> Unit
+                    row.kind == BlobKind.CURSOR.stored && row.rowId == firstTokenId(owner) -> {
+                        val value = StrictJson.parse(readOwned(owner, row.rowId, BlobKind.CURSOR)).objectValue()
+                        if (value.keys != FIRST_TOKEN_KEYS || value["format"] != "initial-ordinary-token-v1" ||
+                            value["binding"] != owner.binding || value["localStreamId"] != owner.localStreamId ||
+                            value["recordType"] != owner.recordType ||
+                            value["localFenceEpoch"] != owner.localFenceEpoch.toString() ||
+                            value["query"] != queryObject(head.query) || value["revision"] != "1" ||
+                            (value["initialChangesToken"] as? String).isNullOrEmpty() ||
+                            value["terminalPage"] != (nullableString(value["nextPageToken"]) == null)) {
+                            reject("corrupt-stopped-stream")
+                        }
+                        decimal(value["recordCount"] as String)
+                    }
+                    row.kind == BlobKind.CURSOR.stored && row.rowId == changesTokenId(owner) -> {
+                        val value = StrictJson.parse(readOwned(owner, row.rowId, BlobKind.CURSOR)).objectValue()
+                        if (value.keys != CHANGES_TOKEN_KEYS || value["format"] != "native-changes-token-v1" ||
+                            value["binding"] != owner.binding || value["localStreamId"] != owner.localStreamId ||
+                            value["recordType"] != owner.recordType ||
+                            value["localFenceEpoch"] != owner.localFenceEpoch.toString() ||
+                            value["query"] != queryObject(head.query) ||
+                            value["revision"] != head.revision.toString() ||
+                            (value["changesToken"] as? String).isNullOrEmpty() ||
+                            value["hasMore"] !is Boolean) reject("corrupt-stopped-stream")
+                    }
+                    row.kind == BlobKind.CURSOR.stored -> {
+                        val value = checkedCursor(owner, row.rowId)
+                        if (value["query"] != queryObject(head.query) ||
+                            decimal(value["revision"] as String) > head.revision ||
+                            (row.rowId != head.cursor && (value["uploadEligible"] != true ||
+                                payloadId(owner, decimal(value["sequence"] as String)) !in expectedPayloads))) {
+                            reject("corrupt-stopped-stream")
+                        }
+                    }
+                    else -> reject("foreign-stopped-row")
+                }
+            }
+            if (!session.isCurrentLocalStop(stop)) reject("stale-sharing-stop")
+            requireOk(QueueStreamPurger(db, cipher)
+                .purgeConfirmedUnacknowledgedStream(owner.localStreamId, markerId))
+            val remaining = db.blobs().forStream(owner.localStreamId)
+            if (remaining.size != 1 || remaining.single().rowId != markerId) reject("purge-unconfirmed")
+            requirePurgeMarker(owner, remaining.single())
+            remaining.single()
+        }
+        if (!session.isCurrentLocalStop(stop)) reject("stale-sharing-stop")
+        CategoryPurgeReceipt.issue(purgeIssuer, stop, owner.localStreamId, marker)
+    }
+
+    /** Fresh admission requires the same private issuer and the actual still-purged rows. */
+    fun acceptsCategoryPurge(stop: LocalCategoryStopReceipt,
+        receipt: CategoryPurgeReceipt): QueueResult<Boolean> = tx {
+        if (!receipt.issuedBy(purgeIssuer) || receipt.stop !== stop ||
+            !session.isCurrentLocalStop(stop)) return@tx false
+        val owner = stoppedOwner(stop)
+        if (receipt.localStreamId != owner.localStreamId) return@tx false
+        val rows = db.blobs().forStream(owner.localStreamId)
+        if (receipt.markerRowId == null) return@tx rows.isEmpty()
+        if (rows.size != 1) return@tx false
+        val row = rows.single()
+        if (row.rowId != receipt.markerRowId ||
+            !row.nonce.contentEquals(receipt.markerNonce) ||
+            !row.ciphertextAndTag.contentEquals(receipt.markerCiphertext)) return@tx false
+        requirePurgeMarker(owner, row)
+        session.isCurrentLocalStop(stop)
+    }
+
+    private fun stoppedOwner(stop: LocalCategoryStopReceipt): BatchOwner {
+        if (stop.pairedScope.recordType != stop.recordType ||
+            stop.pairedScope.binding != stop.binding) reject("stale-sharing-stop")
+        val localId = "ordinary-first-page:" + protocol.payloadDigest(
+            ControlJson.text(listOf(stop.binding, stop.recordType))).removePrefix("sha256:")
+        return BatchOwner(localId, stop.recordType, binding(stop.binding),
+            decimal(stop.binding.getValue("generation")))
+    }
+
+    private fun requirePurgeMarker(owner: BatchOwner, row: QueueBlob) {
+        if (row.rowId != prefix(owner) + ":sharing-stop" || row.kind != BlobKind.STATE.stored ||
+            !readOwned(owner, row.rowId, BlobKind.STATE).contentEquals(PURGE_MARKER)) {
+            reject("purge-unconfirmed")
+        }
+    }
 
     /** Only an entirely absent stream may be seeded from its actual paired ACK frontier. */
     fun openStream(localStreamId: String, recordType: String, localFenceEpoch: Long,
@@ -92,6 +303,26 @@ internal class RoomDurableBatchQueue(
             ensureCurrent(owner, paired, currentGate)
         }
         owner
+    }
+
+    /** Recovery never seeds a replacement stream or changes its saved query/generation. */
+    fun resumeStream(localStreamId: String, recordType: String, localFenceEpoch: Long,
+        scope: WeightReadScope, currentGate: () -> ReadGate): QueueResult<BatchOwner> = tx {
+        val paired = session.batchScope(recordType)
+        val owner = BatchOwner(localStreamId, recordType, binding(paired.binding), localFenceEpoch)
+        val h = load(owner).head
+        if (!sameQuery(h.query, scope)) reject("query-mismatch")
+        if (requireOk(committedFirstPage(owner, currentGate)) == null) reject("first-page-unconfirmed")
+        ensureCurrent(owner, paired, currentGate)
+        owner
+    }
+
+    fun ordinaryPageProgress(owner: BatchOwner,
+        currentGate: () -> ReadGate): QueueResult<OrdinaryPageProgress> = tx {
+        val paired = current(owner, currentGate)
+        val h = load(owner).head
+        ensureCurrent(owner, paired, currentGate)
+        OrdinaryPageProgress(h.query, h.terminal)
     }
 
     /** No Room transaction is held across a suspend point or provider call. */
@@ -124,6 +355,158 @@ internal class RoomDurableBatchQueue(
         }
     }
 
+    /** Opt-in first page only. The production caller supplies its actual SDK token operation. */
+    suspend fun prepareFirstOrdinaryPage(owner: BatchOwner, reader: OrdinaryRecordReader,
+        initialChangesToken: suspend () -> String, currentGate: () -> ReadGate): QueueResult<PreparedOrdinaryPage> {
+        val first = tx {
+            val paired = current(owner, currentGate)
+            val h = load(owner).head
+            if (h.revision != 0L || h.nextToken != null || h.cursor != null || h.allocated != h.ack ||
+                db.blobs().find(firstTokenId(owner)) != null) reject("first-page-already-prepared")
+            if (reader.recordType != owner.recordType) reject("wrong-record-type")
+            ensureCurrent(owner, paired, currentGate)
+            h.query
+        }
+        val query = when (first) { is Blocked -> return first; is Ok -> first.value }
+        val token = try { initialChangesToken().also { require(it.isNotEmpty()) } }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { return Blocked("token-unconfirmed", "initial-token-unavailable") }
+        val guarded = object : OrdinaryRecordReader {
+            override val recordType = reader.recordType
+            override suspend fun readPage(scope: WeightReadScope, pageToken: String?): OrdinaryRecordPage {
+                check(pageToken == null && sameQuery(scope, query)) { "First page changed" }
+                return reader.readPage(scope, pageToken)
+            }
+        }
+        val prepared = when (val result = prepareOrdinaryPage(owner, guarded, currentGate)) {
+            is Blocked -> return result
+            is Ok -> result.value
+        }
+        if (prepared.revision != 0L || prepared.requestedToken != null ||
+            !sameQuery(prepared.query, query)) return Blocked("queue-unavailable", "stale-first-page")
+        return Ok(PreparedOrdinaryPage.issue(pageIssuer, owner, query, null, 0L, prepared.page, token))
+    }
+
+    /** Reconstruct only verified local storage facts; this is not an SDK/BEGIN attestation. */
+    fun committedFirstPage(owner: BatchOwner, currentGate: () -> ReadGate): QueueResult<FirstPageCommit?> = tx {
+        val paired = current(owner, currentGate)
+        val head = load(owner).head
+        val row = db.blobs().find(firstTokenId(owner)) ?: return@tx null
+        val value = StrictJson.parse(readOwned(owner, row.rowId, BlobKind.CURSOR)).objectValue()
+        if (head.revision < 1L || value.keys != FIRST_TOKEN_KEYS || value["format"] != "initial-ordinary-token-v1" ||
+            value["binding"] != owner.binding || value["localStreamId"] != owner.localStreamId ||
+            value["recordType"] != owner.recordType || value["localFenceEpoch"] != owner.localFenceEpoch.toString() ||
+            value["query"] != queryObject(head.query) || value["revision"] != "1") reject("corrupt-first-token")
+        val token = value["initialChangesToken"] as? String ?: reject("corrupt-first-token")
+        if (token.isEmpty()) reject("corrupt-first-token")
+        val count = decimal(value["recordCount"] as String)
+        val next = nullableString(value["nextPageToken"])
+        val terminal = value["terminalPage"] as? Boolean ?: reject("corrupt-first-token")
+        if (terminal != (next == null)) reject("corrupt-first-token")
+        ensureCurrent(owner, paired, currentGate)
+        FirstPageCommit.issue(pageIssuer, owner, head.query, token, count, next)
+    }
+
+    fun acceptsFirstPageCommit(owner: BatchOwner, receipt: FirstPageCommit,
+        currentGate: () -> ReadGate): QueueResult<Boolean> {
+        if (!receipt.issuedBy(pageIssuer) || !sameOwner(receipt.owner, owner)) {
+            return Blocked("queue-unavailable", "foreign-first-page-receipt")
+        }
+        return when (val saved = committedFirstPage(owner, currentGate)) {
+            is Blocked -> saved
+            is Ok -> Ok(saved.value?.sameFacts(receipt) == true)
+        }
+    }
+
+    fun nativeChangesProgress(owner: BatchOwner,
+        currentGate: () -> ReadGate): QueueResult<NativeChangesProgress> = tx {
+        val paired = current(owner, currentGate)
+        val h = load(owner).head
+        if (!h.terminal) reject("ordinary-pages-incomplete")
+        val first = requireOk(committedFirstPage(owner, currentGate))
+            ?: reject("first-page-unconfirmed")
+        val progress = changesProgress(owner, h, first.initialChangesToken)
+        ensureCurrent(owner, paired, currentGate)
+        progress
+    }
+
+    suspend fun prepareNativeChanges(owner: BatchOwner,
+        readNative: suspend (String) -> NativeChangesPage,
+        currentGate: () -> ReadGate): QueueResult<PreparedNativeChangesPage> {
+        currentCoroutineContext().ensureActive()
+        val progress = when (val result = nativeChangesProgress(owner, currentGate)) {
+            is Blocked -> return result
+            is Ok -> result.value
+        }
+        val page = try { readNative(progress.token) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { return Blocked("changes-unconfirmed", "native-changes-unconfirmed") }
+        currentCoroutineContext().ensureActive()
+        if (page.nextChangesToken == progress.token && (page.hasMore || page.changes.isNotEmpty())) {
+            return Blocked("changes-unconfirmed", "changes-token-cycle")
+        }
+        if (page.changes.any {
+                when (it) {
+                    is NativeRecordChange.Upsert -> it.record.recordType != owner.recordType
+                    is NativeRecordChange.Delete -> it.nativeRecordId.isEmpty()
+                }
+            }) return Blocked("changes-unconfirmed", "wrong-native-change")
+        return tx {
+            val paired = current(owner, currentGate)
+            val current = requireOk(nativeChangesProgress(owner, currentGate))
+            if (current.revision != progress.revision || current.token != progress.token ||
+                !sameQuery(current.query, progress.query)) reject("stale-changes")
+            ensureCurrent(owner, paired, currentGate)
+            PreparedNativeChangesPage.issue(pageIssuer, owner, progress, page)
+        }
+    }
+
+    /** One transaction commits every native upsert/delete and the returned progress token. */
+    fun stageNativeChanges(owner: BatchOwner, checkpoint: PreparedNativeChangesPage,
+        currentGate: () -> ReadGate,
+        makeBatch: (sequence: String, batchId: String) -> ByteArray): QueueResult<StageReceipt> = tx {
+        val paired = current(owner, currentGate)
+        val loaded = load(owner)
+        val h = loaded.head
+        val progress = requireOk(nativeChangesProgress(owner, currentGate))
+        if (!checkpoint.issuedBy(pageIssuer) || !sameOwner(checkpoint.owner, owner) ||
+            checkpoint.progress.revision != h.revision || checkpoint.progress.token != progress.token ||
+            !sameQuery(checkpoint.progress.query, h.query) || !h.terminal) reject("stale-changes")
+        val page = checkpoint.page
+        if (page.nextChangesToken == progress.token && (page.hasMore || page.changes.isNotEmpty())) {
+            reject("changes-token-cycle")
+        }
+        val revision = increment(h.revision)
+        val wire = if (page.changes.isNotEmpty()) {
+            val sequence = increment(h.allocated)
+            val batchId = nextBatchId()
+            val parsed = wire(owner, paired, makeBatch(sequence.toString(), batchId).copyOf())
+            if (parsed.sequence != sequence || parsed.batchId != batchId ||
+                parsed.payload != StrictJson.parse(nativeChangesPayload(owner, page.changes,
+                    sequence.toString(), batchId).toByteArray(Charsets.UTF_8)).objectValue()) {
+                reject("incomplete-changes")
+            }
+            parsed
+        } else null
+        val cursorId = if (wire == null) prefix(owner) + ":empty:" + revision else cursorId(owner, wire.sequence)
+        val next = h.copy(allocated = wire?.sequence ?: h.allocated, revision = revision, cursor = cursorId)
+        val cursor = nativeChangesCursorBytes(owner, next, wire)
+        ensureCurrent(owner, paired, currentGate)
+        if (wire == null) requireOk(store.put(cursorId, owner.localStreamId, BlobKind.CURSOR, cursor))
+        else requireOk(store.putPayloadAndCursor(payloadId(owner, wire.sequence), cursorId,
+            owner.localStreamId, wire.bytes, cursor, maximumEncryptedBytes))
+        if (db.blobs().find(changesTokenId(owner)) != null) {
+            delete(owner, changesTokenId(owner), BlobKind.CURSOR)
+        }
+        requireOk(store.put(changesTokenId(owner), owner.localStreamId, BlobKind.CURSOR,
+            changesTokenBytes(owner, next, page)))
+        replaceHead(owner, loaded.row, next)
+        discardUnneededCursor(owner, h, cursorId)
+        checkBounds(owner)
+        ensureCurrent(owner, paired, currentGate)
+        StageReceipt(wire?.let { QueuedBatch(it.bytes) })
+    }
+
     override fun stagePage(owner: BatchOwner, checkpoint: PreparedOrdinaryPage,
         hasRecords: Boolean, currentGate: () -> ReadGate,
         makeBatch: (sequence: String, batchId: String) -> ByteArray): QueueResult<StageReceipt> = tx {
@@ -135,6 +518,9 @@ internal class RoomDurableBatchQueue(
             !sameQuery(checkpoint.query, h.query) || h.terminal ||
             hasRecords != checkpoint.page.records.isNotEmpty()) reject("stale-page")
         val page = checkpoint.page
+        val initialToken = checkpoint.initialChangesToken
+        if (initialToken != null && (initialToken.isEmpty() || h.revision != 0L || h.nextToken != null ||
+                db.blobs().find(firstTokenId(owner)) != null)) reject("stale-first-page")
         if (page.records.any { it.recordType != owner.recordType }) reject("wrong-record-type")
         val revision = increment(h.revision)
         val wire = if (hasRecords) {
@@ -186,11 +572,17 @@ internal class RoomDurableBatchQueue(
             requireOk(store.putPayloadAndCursor(payloadId(owner, wire.sequence), cursorId,
                 owner.localStreamId, wire.bytes, cursor, maximumEncryptedBytes))
         }
+        if (initialToken != null) {
+            requireOk(store.put(firstTokenId(owner), owner.localStreamId, BlobKind.CURSOR,
+                firstTokenBytes(owner, h.query, initialToken, page)))
+        }
         replaceHead(owner, loaded.row, next)
         discardUnneededCursor(owner, h, cursorId)
         checkBounds(owner)
         ensureCurrent(owner, paired, currentGate)
-        StageReceipt(wire?.let { QueuedBatch(it.bytes) })
+        StageReceipt(wire?.let { QueuedBatch(it.bytes) }, initialToken?.let {
+            FirstPageCommit.issue(pageIssuer, owner, h.query, it, page.records.size.toLong(), page.nextPageToken)
+        })
     }
 
     override fun nextPending(owner: BatchOwner, currentGate: () -> ReadGate): QueueResult<QueuedBatch?> = tx {
@@ -325,7 +717,7 @@ internal class RoomDurableBatchQueue(
             ",\"batchId\":" + ControlJson.text(batchId) + ",\"changes\":" + changes + "}"
     }
 
-    private fun load(owner: BatchOwner): Loaded {
+    private fun load(owner: BatchOwner, stoppedScope: PairedBatchScope? = null): Loaded {
         val row = db.blobs().find(headId(owner)) ?: reject("fresh-scan-required")
         val fields = StrictJson.parse(readOwned(owner, row.rowId, BlobKind.STATE)).objectValue()
         if (fields.keys != HEAD_KEYS || fields["format"] != "immutable-batch-head-v1" ||
@@ -357,7 +749,7 @@ internal class RoomDurableBatchQueue(
             }
             if (saved["uploadEligible"] == true) {
                 if (allocated > ack) {
-                    val paired = session.batchScope(owner.recordType)
+                    val paired = stoppedScope ?: session.batchScope(owner.recordType)
                     if (paired.binding != owner.binding) reject("stale-binding")
                     val latest = wire(owner, paired, readOwned(owner, payloadId(owner, allocated), BlobKind.PAYLOAD))
                     if (latest.sequence != allocated || saved["batchId"] != latest.batchId ||
@@ -388,12 +780,60 @@ internal class RoomDurableBatchQueue(
             "sequence" to wire?.sequence?.toString(), "batchId" to wire?.batchId,
             "payloadDigest" to wire?.digest))
 
+    private fun firstTokenBytes(owner: BatchOwner, scope: WeightReadScope, token: String,
+        page: OrdinaryRecordPage): ByteArray = localBytes(linkedMapOf(
+        "format" to "initial-ordinary-token-v1", "binding" to owner.binding,
+        "localStreamId" to owner.localStreamId, "recordType" to owner.recordType,
+        "localFenceEpoch" to owner.localFenceEpoch.toString(), "query" to queryObject(scope),
+        "revision" to "1", "initialChangesToken" to token, "recordCount" to page.records.size.toString(),
+        "nextPageToken" to page.nextPageToken, "terminalPage" to (page.nextPageToken == null)
+    ))
+
+    private fun changesProgress(owner: BatchOwner, head: Head, initialToken: String): NativeChangesProgress {
+        val row = db.blobs().find(changesTokenId(owner))
+        if (row == null) {
+            val cursor = head.cursor ?: reject("corrupt-queue")
+            if (checkedCursor(owner, cursor)["format"] == "immutable-native-changes-cursor-v1") {
+                reject("missing-changes-token")
+            }
+            return NativeChangesProgress(head.query, initialToken, head.revision, false)
+        }
+        val fields = StrictJson.parse(readOwned(owner, row.rowId, BlobKind.CURSOR)).objectValue()
+        if (fields.keys != CHANGES_TOKEN_KEYS || fields["format"] != "native-changes-token-v1" ||
+            fields["binding"] != owner.binding || fields["recordType"] != owner.recordType ||
+            fields["localStreamId"] != owner.localStreamId ||
+            fields["localFenceEpoch"] != owner.localFenceEpoch.toString() ||
+            fields["query"] != queryObject(head.query) ||
+            fields["revision"] != head.revision.toString()) reject("corrupt-changes-token")
+        val token = fields["changesToken"] as? String ?: reject("corrupt-changes-token")
+        val more = fields["hasMore"] as? Boolean ?: reject("corrupt-changes-token")
+        if (token.isEmpty()) reject("corrupt-changes-token")
+        return NativeChangesProgress(head.query, token, head.revision, more)
+    }
+
+    private fun changesTokenBytes(owner: BatchOwner, head: Head, page: NativeChangesPage): ByteArray =
+        localBytes(linkedMapOf("format" to "native-changes-token-v1", "binding" to owner.binding,
+            "localStreamId" to owner.localStreamId, "recordType" to owner.recordType,
+            "localFenceEpoch" to owner.localFenceEpoch.toString(), "query" to queryObject(head.query),
+            "revision" to head.revision.toString(), "changesToken" to page.nextChangesToken,
+            "hasMore" to page.hasMore))
+
+    private fun nativeChangesCursorBytes(owner: BatchOwner, h: Head, wire: Wire?): ByteArray =
+        localBytes(linkedMapOf("format" to "immutable-native-changes-cursor-v1", "binding" to owner.binding,
+            "localStreamId" to owner.localStreamId, "recordType" to owner.recordType,
+            "localFenceEpoch" to owner.localFenceEpoch.toString(), "query" to queryObject(h.query),
+            "revision" to h.revision.toString(), "requestedToken" to null, "nextToken" to h.nextToken,
+            "terminal" to h.terminal, "uploadEligible" to (wire != null),
+            "sequence" to wire?.sequence?.toString(), "batchId" to wire?.batchId,
+            "payloadDigest" to wire?.digest))
+
     private fun localBytes(fields: JsonObject): ByteArray =
         ControlJson.text(fields).toByteArray(Charsets.UTF_8).also { StrictJson.parse(it) }
 
     private fun checkedCursor(owner: BatchOwner, rowId: String): JsonObject {
         val value = StrictJson.parse(readOwned(owner, rowId, BlobKind.CURSOR)).objectValue()
-        if (value.keys != CURSOR_KEYS || value["format"] != "immutable-page-cursor-v1" ||
+        if (value.keys != CURSOR_KEYS || value["format"] !in
+                setOf("immutable-page-cursor-v1", "immutable-native-changes-cursor-v1") ||
             value["binding"] != owner.binding || value["localStreamId"] != owner.localStreamId ||
             value["recordType"] != owner.recordType || value["localFenceEpoch"] != owner.localFenceEpoch.toString()) {
             reject("corrupt-queue")
@@ -480,6 +920,8 @@ internal class RoomDurableBatchQueue(
     }
     private fun prefix(owner: BatchOwner): String = "immutable-queue-v1:" + protocol.payloadDigest(
         ControlJson.text(listOf(binding(owner.binding), owner.recordType))).removePrefix("sha256:")
+    private fun firstTokenId(owner: BatchOwner) = prefix(owner) + ":first-token"
+    private fun changesTokenId(owner: BatchOwner) = prefix(owner) + ":changes-token"
     private fun headId(owner: BatchOwner) = prefix(owner) + ":head"
     private fun payloadId(owner: BatchOwner, sequence: Long) = prefix(owner) + ":payload:" + sequence
     private fun cursorId(owner: BatchOwner, sequence: Long) = prefix(owner) + ":cursor:" + sequence
@@ -511,13 +953,22 @@ internal class RoomDurableBatchQueue(
         is Ok -> result.value
         is Blocked -> throw Refused(result)
     }
-    private fun <T> tx(operation: () -> T): QueueResult<T> = try {
-        db.runInTransaction(Callable<QueueResult<T>> { Ok(operation()) })
-    } catch (cancelled: CancellationException) { throw cancelled }
-    catch (refused: Refused) { refused.result }
-    catch (_: Exception) { Blocked("queue-unavailable", "storage-or-control-failed") }
+    private fun <T> tx(operation: () -> T): QueueResult<T> =
+        ManualFirstPageCapture.underCommitFence {
+            try {
+                db.runInTransaction(Callable<QueueResult<T>> { Ok(operation()) })
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (refused: Refused) { refused.result }
+            catch (_: Exception) { Blocked("queue-unavailable", "storage-or-control-failed") }
+        }
 
     private companion object {
+        val PURGE_MARKER = "[\"klebb-queue-reconciliation-v1\",1,\"fresh-scan-required\"]"
+            .toByteArray(Charsets.UTF_8)
+        val CHANGES_TOKEN_KEYS = setOf("format", "binding", "localStreamId", "recordType",
+            "localFenceEpoch", "query", "revision", "changesToken", "hasMore")
+        val FIRST_TOKEN_KEYS = setOf("format", "binding", "localStreamId", "recordType", "localFenceEpoch",
+            "query", "revision", "initialChangesToken", "recordCount", "nextPageToken", "terminalPage")
         val BINDING_KEYS = listOf("tenantId", "instanceId", "sourceStoreId", "installationId", "generation", "restoreEpoch")
         val CURSOR_KEYS = setOf("format", "binding", "localStreamId", "recordType", "localFenceEpoch", "query",
             "revision", "requestedToken", "nextToken", "terminal", "uploadEligible", "sequence", "batchId", "payloadDigest")

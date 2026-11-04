@@ -34,7 +34,7 @@ function assertReady(data, snapshot, response) {
     assert.equal(Buffer.byteLength(original.recordJson), original.expectedUtf8Bytes);
     assert.equal(I.sha(Buffer.from(original.recordJson)), original.expectedRecordDigest);
     const binding = { ...source.binding, generation: source.paired.streams[type].generation };
-    assert.equal(binding.generation, '1');
+    assert.equal(binding.generation, '2');
     assert.deepEqual(vector.payload.binding, binding);
     assert.equal(vector.payload.recordType, type);
     assert.equal(vector.payload.sequence, '1');
@@ -82,36 +82,53 @@ function assertReady(data, snapshot, response) {
   assert.ok(F.rows(snapshot, 'rows').some(row => row.card_id === O.LEGACY.meta.id &&
     row.doc === JSON.stringify(O.LEGACY.data[0])));
   const catalogue = JSON.parse(fs.readFileSync(path.join(data.home,
-    'credentials', 'health-connect.json'), 'utf8'));
-  assert.equal(catalogue.version, 1);
-  assert.equal(catalogue.grants.length, 2);
-  assert.equal(catalogue.connectors.length, 2);
-  assert.equal(data.markers.length, 5);
+    'credentials', 'health-connect-policy.json'), 'utf8'));
+  assert.equal(catalogue.version, 2);
+  assert.equal(catalogue.recoveryRequired, false);
+  assert.equal(catalogue.namespaces.length, 2);
+  assert.equal(catalogue.principals.length, 1);
+  const ownerId = catalogue.principals[0].ownerId;
+  assert.match(ownerId, /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);
+  assert.deepEqual(catalogue.principals[0].members, [{
+    userId: data.owner.sessions[data.owner.token].userId,
+    credentialId: data.owner.credentialId,
+    publicKeySha256: 'sha256:0536d3e9b18e52fa27c2951938d4d922e3d0970b534e72cad8126d183159c649',
+  }]);
+  assert.equal(data.markers.length, 6);
   assert.notEqual(data.alpha.binding.sourceStoreId, data.beta.binding.sourceStoreId);
-  const ownerId = data.owner.sessions[data.owner.token].userId;
+  assert.notEqual(data.alpha.binding.tenantId, data.beta.binding.tenantId);
+  assert.notEqual(data.alpha.binding.restoreEpoch, data.beta.binding.restoreEpoch);
   for (const [role, source, grantMarkerIndex, categories] of [
-    ['alpha', data.alpha, 1, F.TYPES],
-    ['beta', data.beta, 3, [...F.TYPES, 'WeightRecord']],
+    ['alpha', data.alpha, 2, F.TYPES],
+    ['beta', data.beta, 4, [...F.TYPES, 'WeightRecord']],
   ]) {
+    const namespaces = catalogue.namespaces.filter(entry =>
+      entry.state.tenantId === source.binding.tenantId);
+    assert.equal(namespaces.length, 1);
+    const namespace = namespaces[0], state = namespace.state;
+    assert.equal(namespace.ownerId, ownerId);
+    assert.equal(state.version, 1);
+    assert.equal(state.grants.length, 1);
+    assert.equal(state.connectors.length, 1);
     assert.equal(source.paired.version, 1);
     assert.equal(source.paired.kind, 'paired');
-    assert.equal(source.binding.tenantId, catalogue.tenantId);
-    assert.equal(source.binding.instanceId, catalogue.instanceId);
-    assert.equal(source.binding.restoreEpoch, catalogue.restoreEpoch);
+    assert.equal(source.binding.tenantId, state.tenantId);
+    assert.equal(source.binding.instanceId, state.instanceId);
+    assert.equal(source.binding.restoreEpoch, state.restoreEpoch);
     assert.equal(source.binding.sourceStoreId, source.paired.sourceStoreId);
     assert.equal(source.binding.installationId, `synthetic-owner-deletion-${role}`);
     assert.deepEqual(source.paired.categories, categories);
     assert.deepEqual(Object.keys(source.paired.streams).sort(I.ordinal),
       [...categories].sort(I.ordinal));
-    const grants = catalogue.grants.filter(row => row.sourceStoreId === source.binding.sourceStoreId);
-    const connectors = catalogue.connectors.filter(row => row.sourceStoreId === source.binding.sourceStoreId);
+    const grants = state.grants.filter(row => row.sourceStoreId === source.binding.sourceStoreId);
+    const connectors = state.connectors.filter(row => row.sourceStoreId === source.binding.sourceStoreId);
     assert.equal(grants.length, 1);
     assert.equal(connectors.length, 1);
     const grant = grants[0], connector = connectors[0];
     assert.equal(grant.verifier, I.sha(Buffer.from(data.markers[grantMarkerIndex])));
     assert.equal(grant.ownerId, ownerId);
-    assert.equal(grant.instanceId, catalogue.instanceId);
-    assert.equal(grant.restoreEpoch, catalogue.restoreEpoch);
+    assert.equal(grant.instanceId, state.instanceId);
+    assert.equal(grant.restoreEpoch, state.restoreEpoch);
     assert.deepEqual(grant.categories, categories);
     assert.equal(grant.name, `Synthetic owner deletion ${role}`);
     assert.ok(Number.isFinite(Date.parse(grant.consumedAt)));
@@ -122,7 +139,7 @@ function assertReady(data, snapshot, response) {
     assert.equal(connector.installationId, source.binding.installationId);
     assert.equal(connector.restoreEpoch, source.binding.restoreEpoch);
     assert.deepEqual(connector.categories, categories);
-    assert.deepEqual(connector.generations, Object.fromEntries(categories.map(type => [type, '1'])));
+    assert.deepEqual(connector.generations, Object.fromEntries(categories.map(type => [type, '2'])));
     assert.equal(connector.credentialVerifier, I.sha(Buffer.from(source.paired.credential)));
     assert.equal(connector.revokedAt, null);
     assert.equal(connector.name, grant.name);
@@ -241,6 +258,7 @@ async function defaultOwnerLifecycleChild(mode, ownerPath) {
   const callerEnv = Object.freeze(mode === 'L02' ? {
     NODE_OPTIONS: '  --no-warnings  ',
     OWNER_LIFECYCLE_CALLER_SENTINEL: 'synthetic-default-owner-v2',
+    SESSION_SECRET: F.ENV.SESSION_SECRET,
   } : { NODE_OPTIONS: '', OWNER_LIFECYCLE_CALLER_SENTINEL: `synthetic-${mode}` });
   const callerCopy = { ...callerEnv };
   const globalClockKeys = ['NODE_OPTIONS', 'OWNER_INITIAL_PUBLICATION_CLOCK_DIRECTORY'];
@@ -440,14 +458,28 @@ async function defaultOwnerLifecycleChild(mode, ownerPath) {
         assert.equal(JSON.stringify(data.original[index].payload.changes[0].record), original.recordJson);
       }
       const catalogue = JSON.parse(fs.readFileSync(path.join(data.home,
-        'credentials', 'health-connect.json'), 'utf8'));
-      assert.equal(catalogue.grants.length, 2);
-      assert.equal(catalogue.connectors.length, 2);
-      for (const grant of catalogue.grants) {
+        'credentials', 'health-connect-policy.json'), 'utf8'));
+      assert.equal(catalogue.version, 2);
+      assert.equal(catalogue.recoveryRequired, false);
+      assert.equal(catalogue.namespaces.length, 2);
+      assert.equal(catalogue.principals.length, 1);
+      for (const source of [data.alpha, data.beta]) {
+        const namespaces = catalogue.namespaces.filter(entry =>
+          entry.state.tenantId === source.binding.tenantId);
+        assert.equal(namespaces.length, 1);
+        const namespace = namespaces[0], state = namespace.state;
+        assert.equal(namespace.ownerId, catalogue.principals[0].ownerId);
+        assert.equal(state.version, 1);
+        assert.equal(state.instanceId, source.binding.instanceId);
+        assert.equal(state.restoreEpoch, source.binding.restoreEpoch);
+        assert.equal(state.grants.length, 1);
+        assert.equal(state.connectors.length, 1);
+        const grant = state.grants[0];
+        assert.equal(grant.sourceStoreId, source.binding.sourceStoreId);
         assert.equal(grant.consumedAt, INSTANT);
         assert.equal(grant.expiresAt, EXPIRES);
         assert.equal(Date.parse(grant.expiresAt) - Date.parse(grant.consumedAt), 300000);
-        const connector = catalogue.connectors.filter(row => row.sourceStoreId === grant.sourceStoreId);
+        const connector = state.connectors.filter(row => row.sourceStoreId === grant.sourceStoreId);
         assert.equal(connector.length, 1);
         assert.equal(connector[0].createdAt, INSTANT);
       }
@@ -534,8 +566,12 @@ async function defaultOwnerLifecycleChild(mode, ownerPath) {
         assert.equal(source.length, 1);
         assert.equal(state.state, 'current');
         assert.equal(state.target_id, 'source-index-v1');
-        assert.equal(state.requested_restore_epoch, data.alpha.binding.restoreEpoch);
-        assert.equal(state.published_restore_epoch, data.alpha.binding.restoreEpoch);
+        const captured = [data.alpha, data.beta].filter(item =>
+          item.binding.sourceStoreId === state.source_store_id &&
+          item.binding.tenantId === state.tenant_id);
+        assert.equal(captured.length, 1);
+        assert.equal(state.requested_restore_epoch, captured[0].binding.restoreEpoch);
+        assert.equal(state.published_restore_epoch, captured[0].binding.restoreEpoch);
         const components = expectedFrontiers.filter(row => row.source_store_id === state.source_store_id)
           .map(row => [row.stream_key, row.acknowledged_sequence])
           .sort((a, b) => I.ordinal(a[0], b[0]));

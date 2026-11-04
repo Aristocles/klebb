@@ -7,7 +7,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 const { fixture, close, req, BASE, TYPE, noAuthority, coldReadSourceState } =
-  require('../helpers/health-connect-source-index-test-fixture.cjs');
+  require('../../tests/helpers/health-connect-source-index-test-fixture.cjs');
 const sha = text => 'sha256:' + crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 function claim(binding) {
   const window = { start: '2026-01-02T00:00:00Z', end: '2026-01-03T00:00:00Z' };
