@@ -31,15 +31,49 @@ try {
         metadata,
       }), { deletionSchema: true, ...(process.platform === 'win32' ?
         { windowsDevelopment: true } : {}) });
-  } else if (input.command === 'authority') {
+  } else if (input.command === 'legacy-authority') {
+    // I01's disclosed stopped legacy boundary. Never rewrites a current
+    // managed generation or a readiness MAC, and never falls back on absence.
+    assert.deepEqual(Object.keys(input).sort(),
+      ['command', 'generation', 'recordType', 'sourceStoreId']);
+    assert.equal(input.recordType, 'BodyWaterMassRecord');
+    assert.equal(input.generation, '0');
+    assert.equal(fs.existsSync(path.join(home, 'credentials', 'health-connect-policy.json')), false);
+    db = new DatabaseSync(database, { readOnly: true });
+    db.exec('PRAGMA busy_timeout=5000; BEGIN');
+    assert.deepEqual(db.prepare('SELECT version FROM health_schema_version').all()
+      .map(row => ({ ...row })), [{ version: 2 }]);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM sqlite_schema "
+      + "WHERE name GLOB 'health_source_policy_*'").get().n, 0);
+    db.exec('COMMIT');
     const filename = path.join(home, 'credentials', 'health-connect.json');
-    const state = JSON.parse(fs.readFileSync(filename, 'utf8'));
-    const connector = state.connectors.find(item => item.sourceStoreId === input.sourceStoreId);
-    assert.ok(connector);
+    const catalogue = JSON.parse(fs.readFileSync(filename, 'utf8'));
+    assert.equal(catalogue.version, 1);
+    const connectors = catalogue.connectors.filter(item => item.sourceStoreId === input.sourceStoreId);
+    assert.equal(connectors.length, 1, 'Controlled legacy source selects exactly one real connector');
+    const connector = connectors[0];
+    assert.ok(connector.categories.includes(input.recordType));
+    assert.equal(connector.generations[input.recordType], '1');
+    connector.generations[input.recordType] = input.generation;
+    fs.writeFileSync(filename, JSON.stringify(catalogue), { encoding: 'utf8', mode: 0o600 });
+    result = { controlled: true };
+  } else if (input.command === 'authority') {
+    const filename = path.join(home, 'credentials', 'health-connect-policy.json');
+    const catalogue = JSON.parse(fs.readFileSync(filename, 'utf8'));
+    assert.equal(catalogue.version, 2);
+    assert.equal(catalogue.recoveryRequired, false);
+    const namespaces = catalogue.namespaces.filter(entry =>
+      entry.state.connectors.some(item => item.sourceStoreId === input.sourceStoreId));
+    assert.equal(namespaces.length, 1, 'Controlled source selects exactly one retained namespace');
+    const state = namespaces[0].state;
+    const connectors = state.connectors.filter(item => item.sourceStoreId === input.sourceStoreId);
+    assert.equal(connectors.length, 1);
+    const connector = connectors[0];
+    assert.equal(connector.ownerId, namespaces[0].ownerId);
     if (input.generation !== undefined) connector.generations[input.recordType] = input.generation;
     if (input.installationId !== undefined) connector.installationId = input.installationId;
     if (input.restoreEpoch !== undefined) state.restoreEpoch = input.restoreEpoch;
-    fs.writeFileSync(filename, JSON.stringify(state), { encoding: 'utf8', mode: 0o600 });
+    fs.writeFileSync(filename, JSON.stringify(catalogue), { encoding: 'utf8', mode: 0o600 });
     result = { controlled: true };
   } else if (input.command === 'bulk-stage') {
     // Fixed stopped-storage boundary inventory, not real upload/ACK/capacity.

@@ -5,7 +5,7 @@
 [![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org/)
 
 <p align="center">
-  <img src="docs/media/mobile/nav-tour.webp" alt="Klebb on iPhone, navigating between Today, Calendar, Trends, and Reports" width="320">
+  <img src="docs/media/mobile/nav-tour.webp" alt="Klebb mobile demo, navigating between Today, Calendar, Trends, and Reports" width="320">
 </p>
 
 <p align="center">
@@ -99,11 +99,13 @@ a minimal weight card to get you started.
 
 ### Screenshots
 
+I use invented demo data for the screenshots below. The mobile images illustrate the browser layout; physical-device verification remains separate.
+
 <details open>
 <summary><b>Mobile</b></summary>
 
 <p align="center">
-  <img src="docs/media/mobile/today-bezel.png" alt="Today view on iPhone" width="320">
+  <img src="docs/media/mobile/today-bezel.png" alt="Today view in the mobile demo" width="320">
 </p>
 
 <table>
@@ -117,7 +119,7 @@ a minimal weight card to get you started.
 <table>
   <tr>
     <td width="50%" valign="top" align="center"><img src="docs/media/mobile/nav-tour.webp" alt="Navigation tour" width="100%"><br><sub><b>Navigation</b> — tap through every view.</sub></td>
-    <td width="50%" valign="top" align="center"><img src="docs/media/mobile/today-scroll.webp" alt="Scrolling Today" width="100%"><br><sub><b>Today</b> — touch-scroll through the day's cards.</sub></td>
+    <td width="50%" valign="top" align="center"><img src="docs/media/mobile/today-scroll.webp" alt="Scrolling Today" width="100%"><br><sub><b>Today</b> — scroll through the day's cards.</sub></td>
   </tr>
   <tr>
     <td width="50%" valign="top" align="center"><img src="docs/media/mobile/chat-open.webp" alt="Opening the chat" width="100%"><br><sub><b>Chat</b> — the same agent on a phone-sized canvas.</sub></td>
@@ -145,15 +147,15 @@ a minimal weight card to get you started.
 <table>
   <tr>
     <td width="50%" valign="top"><img src="docs/media/desktop/nav-tour.webp" alt="Navigating between views"><br><sub><b>Navigation</b> — Today, Calendar, Trends, Reports.</sub></td>
-    <td width="50%" valign="top"><img src="docs/media/desktop/theme-toggle.webp" alt="Theme toggle"><br><sub><b>Theme toggle</b> — click the logo to switch dark / light.</sub></td>
+    <td width="50%" valign="top"><img src="docs/media/desktop/theme-toggle.webp" alt="Theme toggle"><br><sub><b>Theme toggle</b> — switch dark / light in Settings.</sub></td>
   </tr>
   <tr>
     <td width="50%" valign="top"><img src="docs/media/desktop/today-scroll.webp" alt="Scrolling through Today"><br><sub><b>Today</b> — every card on disk shows up here, in the order their manifest specifies.</sub></td>
     <td width="50%" valign="top"><img src="docs/media/desktop/date-scrub.webp" alt="Scrubbing dates backwards"><br><sub><b>Date scrub</b> — the entire dashboard re-renders for any past day.</sub></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><img src="docs/media/desktop/chat-open.webp" alt="Opening the chat"><br><sub><b>Chat</b> — the agent can suggest new cards from a natural-language prompt.</sub></td>
-    <td width="50%" valign="top"><img src="docs/media/desktop/settings-toggle.webp" alt="Toggling a card off in settings"><br><sub><b>Settings</b> — toggle any card off to hide it without touching the JSON.</sub></td>
+    <td width="50%" valign="top"><img src="docs/media/desktop/chat-open.webp" alt="Opening the chat"><br><sub><b>Chat</b> — open the demo chat and read its limits.</sub></td>
+    <td width="50%" valign="top"><img src="docs/media/desktop/settings-toggle.webp" alt="Browsing card controls in settings"><br><sub><b>Settings</b> — browse General and Cards; visibility changes are disabled in the demo.</sub></td>
   </tr>
 </table>
 

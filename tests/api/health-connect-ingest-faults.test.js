@@ -14,6 +14,7 @@ const { coldReadNative } = require('../helpers/health-connect-cold-readback.cjs'
 const vectors = require(process.env.INDEPENDENT_PRODUCT_ROOT ?
   path.join(__dirname, '../../durable-history-independent-vectors.json') :
   path.join(product, 'tests/fixtures/health-connect/durable-history-independent-vectors.json'));
+const { readyCollection, SESSION_SECRET } = require('../helpers/health-connect-ready-collection-fixture.cjs');
 const preload = path.join(__dirname, '../helpers/health-connect-ingest-fault-preload.cjs');
 const ORIGIN = 'https://faults.example.test';
 const BASE = '/api/connectors/health-connect';
@@ -22,7 +23,7 @@ const LEGACY = { $schema: 'klebb.datafile.v1',
   meta: { id: 'synthetic-fault-legacy', label: 'Synthetic fault legacy' },
   data: [{ date: '2026-10-20', kg: 35.5, note: 'preserve synthetic legacy reading' }] };
 const ENV = {
-  HEALTH_ORIGIN: ORIGIN, HEALTH_RP_ID: 'faults.example.test',
+  HEALTH_ORIGIN: ORIGIN, HEALTH_RP_ID: 'faults.example.test', SESSION_SECRET,
   AGENT_API_TOKEN: '', KLEBB_ADMIN_TOKEN: '', KLEBB_CLOUD: '', KLEBB_DEMO: '',
   HEALTH_DATA_DIR: '', HEALTH_REPORTS_DIR: '', HEALTH_AUTO_EXPORT_DIR: '',
   HEALTH_SESSIONS_DIR: '', HEALTH_CREDENTIALS_DIR: '', HEALTH_ARCHIVE_DIR: '',
@@ -52,10 +53,13 @@ async function fixture() {
         categories: [TYPE], grant: approved.json.grant },
     });
     assert.equal(paired.status, 200);
+    const setup = { home, owner, server,
+      markers: [paired.json.credential, approved.json.grant, owner.token, SESSION_SECRET] };
+    const current = await readyCollection(setup, paired.json, [TYPE]);
     const binding = {
-      tenantId: paired.json.tenantId, instanceId: paired.json.instanceId,
-      sourceStoreId: paired.json.sourceStoreId, installationId: paired.json.installationId,
-      generation: paired.json.streams[TYPE].generation, restoreEpoch: paired.json.restoreEpoch,
+      tenantId: current.tenantId, instanceId: current.instanceId,
+      sourceStoreId: current.sourceStoreId, installationId: current.installationId,
+      generation: current.streams[TYPE].generation, restoreEpoch: current.restoreEpoch,
     };
     const headers = { Authorization: `Bearer ${paired.json.credential}`, 'Klebb-Health-Protocol': '1',
       'Klebb-Health-Generation': binding.generation, 'Klebb-Health-Restore-Epoch': binding.restoreEpoch };
@@ -65,7 +69,7 @@ async function fixture() {
     assert.deepEqual(JSON.parse(legacyRows[0].doc), LEGACY.data[0]);
     await server.kill(); server = null;
     return { home, owner, server, binding, headers,
-      secrets: [paired.json.credential, approved.json.grant, owner.token],
+      secrets: [...setup.markers],
       legacyBefore: { cards: before.legacyCards, rows: before.legacyRows } };
   } catch (error) {
     if (server) await server.kill();

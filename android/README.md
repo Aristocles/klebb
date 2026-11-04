@@ -1,23 +1,39 @@
-# Android foreground proofs
+# Android Weight and Steps client
 
-The launcher is the CORE-01 foreground pairing proof. The user confirms the
+The launcher connects the phone to the approved instance. The user confirms the
 same canonical HTTPS destination displayed by their authenticated browser,
-enters that instance's single-use grant, and can then check connector
-capabilities and authorised stream status. Grants and connector credentials
-remain in memory. Leaving the screen clears the connection and cancels active
-requests. This view does not call Health Connect or store readings, credentials
-or an upload queue.
+enters that instance's single-use grant, selects Weight and Steps, and grants
+their actual read permissions. The paired connection is stored in an encrypted
+phone vault. Leaving the screen cancels its foreground requests; it does not
+clear the saved connection or pending encrypted pages.
+
+**Sync now** reads selected categories through the actual Health Connect SDK.
+Each complete page, immutable upload batch and local checkpoint commit together
+in the bounded Room queue. Upload removes a payload only after its confirmed
+durable receipt. Offline opportunities retain the same bytes for retry.
+Optional background sync is subject to actual permissions, connectivity and
+Android scheduling; it does not establish an hourly cadence or complete history.
+
+Deselecting a category durably fences its capture and upload before its owned
+local purge runs. The purge checks that exact category namespace and replaces
+its pending encrypted rows with a non-payload fresh-scan marker. Sibling queues
+and committed server history are retained. A paired stop-only readiness action
+retires the server challenge. Failed or offline confirmation remains pending.
+Re-enabling requires a confirmed stop, a fresh server BEGIN and the initial
+changes token before the first SDK page, followed by genuine local commit and
+COMPLETE. Logical deletion does not claim erasure of SQLite/WAL remnants.
 
 The retained AND-01 platform harness reads selected, invented steps and weight
 written by Google's Health Connect Toolbox in an explicit UTC interval of at
 most two hours, filtered to the Toolbox producer. It is no longer an exported
 launcher activity. Its native install, controlled read and same-key update
-evidence belongs to AND-01; the pairing proof needs its own actual-phone and
-browser exchange, capability, status and revocation evidence. Unit tests or a
-compiled feature flag cannot establish those native gates. Other categories,
-queues, serializers, routes and medical ingestion belong to later tickets.
+evidence belongs to AND-01; the production client needs its own actual-phone
+capture, queue, stop, update and browser exchange evidence. Unit tests or a
+compiled feature flag cannot establish those native gates. Ordinary serializers
+outside the selected Weight/Steps flow do not establish capture support.
+Routes, medical ingestion and personal-history approval remain separate.
 
-Open **Capture dates** from the foreground pairing proof to enter the historical
+Open **Set capture dates** to enter the historical
 import start and display switch separately in `YYYY-MM-DD` format. **Save dates**
 stores both choices on this phone; **Cancel** leaves the saved choices unchanged.
 Saving does not begin an import or change the dashboard's source policy yet.
@@ -56,9 +72,10 @@ framework dependency is required.
 Pairing exchange is `POST /api/connectors/health-connect/v1/pairing/exchange`.
 The two controlled checks use `GET /api/connectors/health-connect/v1/capabilities`
 and `GET /api/connectors/health-connect/v1/streams/:recordType/status`.
-Their authority and namespace are server issued. This proof implements no
-health ingestion endpoint and cannot establish durability, reconciliation or
-release readiness.
+Their authority and namespace are server issued. First-page BEGIN, COMPLETE and
+stop use the existing V2 stream readiness route; immutable batch uploads use the
+paired ingestion route. Source or mock results alone do not establish native
+durability, complete reconciliation or release readiness.
 
 The internal paired upload transport also supports the existing fixed object-part
 and object-finalise routes. It checks every part receipt against the original

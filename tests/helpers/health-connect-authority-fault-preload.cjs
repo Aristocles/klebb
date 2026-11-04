@@ -4,6 +4,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const authority = path.resolve(process.env.INDEPENDENT_AUTHORITY_FILE);
+const freezeFile = process.env.INDEPENDENT_FREEZE_FILE
+  ? path.resolve(process.env.INDEPENDENT_FREEZE_FILE) : authority;
 const marker = process.env.INDEPENDENT_FAULT_MARKER;
 const operation = process.env.INDEPENDENT_FAULT;
 const original = {
@@ -21,7 +23,8 @@ function record() {
   original.write.call(fs, marker, operation, 'utf8');
 }
 fs.readFileSync = function (file, ...args) {
-  if (!fired && operation === 'freeze-after-entry' && samePath(file)) {
+  if (!fired && operation === 'freeze-after-entry' &&
+      typeof file === 'string' && path.resolve(file) === freezeFile) {
     record();
     require(process.env.INDEPENDENT_FREEZE_MODULE).engage('independent-inflight-freeze');
   }

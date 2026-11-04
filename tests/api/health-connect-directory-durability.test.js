@@ -20,8 +20,30 @@ const ENV = {
   HEALTH_KEYS_DIR: '', HEALTH_VAPID_FILE: '', HEALTH_PUSH_SUBSCRIPTIONS_FILE: '',
   HEALTH_AUTO_EXPORT_TOKEN: '', NODE_OPTIONS: '',
 };
-const stateFile = home => path.join(home, 'credentials', 'health-connect.json');
-const state = home => JSON.parse(fs.readFileSync(stateFile(home), 'utf8'));
+const stateFile = home => path.join(home, 'credentials', 'health-connect-policy.json');
+const catalogue = home => JSON.parse(fs.readFileSync(stateFile(home), 'utf8'));
+const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+function state(home, tenantId, owner) {
+  const saved = catalogue(home);
+  assert.equal(saved.version, 2);
+  assert.equal(saved.recoveryRequired, false);
+  const entries = saved.namespaces.filter(entry => entry.state.tenantId === tenantId);
+  assert.equal(entries.length, 1);
+  const namespace = entries[0];
+  const principals = saved.principals.filter(principal => principal.ownerId === namespace.ownerId);
+  assert.equal(principals.length, 1);
+  assert.match(namespace.ownerId, UUID);
+  assert.notEqual(namespace.ownerId, 'owner-a');
+  assert.equal(owner.credentials.users['owner-a'].credentials[0].publicKey, 'fake');
+  assert.deepEqual(principals[0].members, [{
+    userId: 'owner-a', credentialId: owner.credentialId,
+    // Independent digest of the fixture's base64 key "fake" (bytes 7d a9 1e).
+    publicKeySha256: 'sha256:0536d3e9b18e52fa27c2951938d4d922e3d0970b534e72cad8126d183159c649',
+  }]);
+  assert.equal(namespace.state.version, 1);
+  assert.equal(namespace.state.tenantId, tenantId);
+  return namespace.state;
+}
 const digest = value => 'sha256:' + crypto.createHash('sha256').update(value, 'utf8').digest('hex');
 test('POSIX directory flush failure discloses no credential while preserving committed single use', {
   skip: process.platform === 'win32' ? 'Windows Node cannot open the required directory descriptor' : false,
@@ -38,7 +60,8 @@ test('POSIX directory flush failure discloses no credential while preserving com
     assert.equal(issued.status, 201);
     const approved = issued.json;
     await server.kill(); server = null;
-    const before = state(home);
+    const beforeCatalogue = catalogue(home);
+    const before = state(home, approved.tenantId, owner);
     assert.equal(before.grants.length, 1);
     assert.equal(before.grants[0].verifier, digest(approved.grant));
     assert.equal(before.grants[0].consumedAt, null);
@@ -68,13 +91,14 @@ test('POSIX directory flush failure discloses no credential while preserving com
     assert.equal(refused.json.grant, undefined);
     assert.equal(refused.body.includes(approved.grant), false);
     await server.kill(); server = null;
-    const committed = state(home);
+    const committedCatalogue = catalogue(home);
+    const committed = state(home, approved.tenantId, owner);
     assert.equal(committed.grants.length, 1);
     assert.equal(typeof committed.grants[0].consumedAt, 'string');
     assert.deepEqual({ ...committed.grants[0], consumedAt: null }, before.grants[0]);
     assert.equal(committed.connectors.length, 1);
     const connector = committed.connectors[0];
-    assert.equal(connector.ownerId, 'owner-a');
+    assert.equal(connector.ownerId, before.grants[0].ownerId);
     assert.equal(connector.sourceStoreId, approved.sourceStoreId);
     assert.equal(connector.restoreEpoch, approved.restoreEpoch);
     assert.equal(connector.installationId, 'directory-flush-installation');
@@ -82,7 +106,10 @@ test('POSIX directory flush failure discloses no credential while preserving com
     assert.deepEqual(connector.generations, { StepsRecord: '1' });
     assert.equal(connector.revokedAt, null);
     assert.equal(fs.readdirSync(path.dirname(stateFile(home)))
-      .filter(name => name.startsWith('health-connect.json.') && name.endsWith('.tmp')).length, 0);
+      .filter(name => name.startsWith('health-connect-policy.json.') && name.endsWith('.tmp')).length, 0);
+    const unchangedCatalogue = structuredClone(committedCatalogue);
+    unchangedCatalogue.namespaces.find(entry => entry.state.tenantId === approved.tenantId).state = before;
+    assert.deepEqual(unchangedCatalogue, beforeCatalogue, 'directory fault changes no other namespace or member');
     server = await spawnServer(home, ENV);
     const replay = await req(server.baseUrl, `${BASE}/v1/pairing/exchange`, {
       method: 'POST', body: exchange,
@@ -90,7 +117,9 @@ test('POSIX directory flush failure discloses no credential while preserving com
     assert.equal(replay.status, 409);
     assert.equal(replay.json.code, 'conflict');
     assert.equal(replay.json.credential, undefined);
-    assert.deepEqual(state(home), committed, 'the indeterminate first response cannot mint a second authority');
+    assert.deepEqual(state(home, approved.tenantId, owner), committed,
+      'the indeterminate first response cannot mint a second authority');
+    assert.deepEqual(catalogue(home), committedCatalogue, 'replay preserves every retained namespace');
     const listed = await req(server.baseUrl, BASE, { cookie: owner.cookie });
     assert.equal(listed.status, 200);
     assert.deepEqual(listed.json.connectors.map(item => item.id), [connector.id]);
@@ -99,7 +128,8 @@ test('POSIX directory flush failure discloses no credential while preserving com
     });
     assert.equal(revoked.status, 200);
     assert.deepEqual(revoked.json, { revoked: true });
-    assert.ok(state(home).connectors[0].revokedAt, 'owner can retire undisclosed orphan authority');
+    assert.ok(state(home, approved.tenantId, owner).connectors[0].revokedAt,
+      'owner can retire undisclosed orphan authority');
   } finally {
     if (server) await server.kill();
     cleanupSandbox(home);

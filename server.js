@@ -10,7 +10,7 @@ const { performance } = require('node:perf_hooks');
 const { marked } = require('marked');
 const { isAuthenticated, isAgentRequest, isPublicPath, handleAuthRoutes, isSetup, listCredentialsForUser, deleteCredentialForUser, getSessionRecord } = require('./auth/webauthn');
 const { handleAdminRoutes } = require('./auth/admin-api');
-const { handleHealthConnect, sourceBoundary } = require('./lib/health-connect/authority');
+const { handleHealthConnect, sourceBoundary, bindBrowserRead } = require('./lib/health-connect/authority');
 const { startObjectCleanup, stopObjectCleanup } = require('./lib/health-connect/objects');
 const { startSourceIndex, stopSourceIndex } = require('./lib/health-connect/source-index-worker');
 const { isHealthConnectorBearer } = require('./auth/bearer-scope');
@@ -18,6 +18,7 @@ const invites = require('./auth/invites');
 const PATHS = require('./config/paths');
 const ENV = require('./config/env');
 const registry = require('./manifests/registry');
+const dashboard = require('./lib/health-metrics/health-connect-dashboard');
 const { convertDateKeyedToArray } = require('./scripts/migrate-date-keyed-to-array');
 const { runFirstBoot } = require('./server/first-boot');
 const activity = require('./lib/activity-state');
@@ -62,6 +63,42 @@ const notificationsScheduler = require('./lib/notifications-scheduler');
 const webPushSend = require('./lib/web-push-send');
 const notificationRoutes = require('./routes/notifications');
 const dataRoutes = require('./routes/data');
+
+function withDashboardRead(req, normalRead, historicalRead) {
+  const authority = require('./lib/health-connect/authority');
+  const policy = require('./lib/health-connect/source-policy');
+  authority.checkPolicyLifecycle(req);
+  if (!originAllowed(req)) throw new dashboard.DashboardError(403, 'origin-not-allowed');
+  const browser = policy.resolveBrowser(req);
+  const check = () => {
+    authority.checkPolicyLifecycle(req);
+    if (!originAllowed(req)) throw new dashboard.DashboardError(403, 'origin-not-allowed');
+    browser.check();
+  };
+  check();
+  if (browser.established) {
+    const result = normalRead(browser.actor);
+    check();
+    return result;
+  }
+  const approvedImportActor = dataRoutes.importActor(req);
+  return require('./lib/health-connect/history').readHistorySnapshot(db => {
+    try {
+      check();
+      const result = historicalRead(db, approvedImportActor);
+      require('./lib/import/owner-approval').assertImportActor(approvedImportActor);
+      check();
+      return result;
+    } catch (error) {
+      // Preserve typed admission errors across the historical transaction.
+      if (Number.isInteger(error.status) && error.status >= 400 && error.status <= 599
+          && typeof error.code === 'string') {
+        throw new dashboard.DashboardError(error.status, error.code);
+      }
+      throw error;
+    }
+  });
+}
 const importFreeze = require('./lib/import/freeze');
 const { recoverAtBoot } = require('./lib/import/recover');
 const { CATEGORIES: MANIFEST_CATEGORIES } = require('./config/categories');
@@ -809,7 +846,7 @@ const server = http.createServer(async (req, res) => {
   // consumer (the app shell, the Settings pane) already holds a session.
   // Native authority remains behind both import gates and cannot reach the
   // broader session, bootstrap or control-plane dispatch paths.
-  if (await handleHealthConnect(req, res, pathname, () => {
+  const healthConnectUnavailable = () => {
     if (importFreeze.frozen() !== null) {
       return { error: 'import in progress', code: 'IMPORT_FROZEN' };
     }
@@ -820,7 +857,20 @@ const server = http.createServer(async (req, res) => {
       };
     }
     return null;
-  })) return;
+  };
+  if (pathname === '/api/connectors/health-connect/dashboard-sources' && req.method === 'GET') {
+    bindBrowserRead(req, res, healthConnectUnavailable);
+    try {
+      const result = withDashboardRead(req, actor => dashboard.availableSources(actor),
+        () => { throw new dashboard.DashboardError(403, 'scope-mismatch'); });
+      return sendJSON(res, result);
+    } catch (error) {
+      if (Number.isInteger(error.status) && error.status >= 400 && error.status <= 599
+          && typeof error.code === 'string') return sendJSON(res, { code: error.code }, error.status);
+      return sendJSON(res, { code: 'storage-unavailable' }, 503);
+    }
+  }
+  if (await handleHealthConnect(req, res, pathname, healthConnectUnavailable)) return;
   if (isHealthConnectorBearer(req)) {
     sendJSON(res, { error: 'Unauthorized' }, 401);
     req.resume();
@@ -907,6 +957,12 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(302, { 'Location': '/login.html' });
     res.end();
     return;
+  }
+
+  if ((req.method === 'GET' && (pathname === '/api/export' || pathname === '/api/manifests' ||
+       pathname.startsWith('/api/manifests/'))) ||
+      (req.method === 'PATCH' && /^\/api\/manifests\/[^/]+$/.test(pathname))) {
+    bindBrowserRead(req, res, healthConnectUnavailable);
   }
 
   // API routes
@@ -1014,9 +1070,20 @@ const server = http.createServer(async (req, res) => {
           return sendJSON(res, { error: 'demo mode: cards cannot be hidden' }, 403);
         }
         try {
+          const current = registry.get(id);
+          const selectedPatch = current?.meta?.healthConnectDisplay
+            || (patch.meta && Object.hasOwn(patch.meta, 'healthConnectDisplay'));
+          if (current && selectedPatch) {
+            withDashboardRead(req,
+              actor => dashboard.validatePatch(actor, current, patch),
+              (db, approvedImportActor) => dashboard.validateHistoricalPatch(db, approvedImportActor, current, patch));
+          }
           const result = registry.patchManifest(id, patch);
           return sendJSON(res, { ok: true, id: result.id });
         } catch (e) {
+          if (Number.isInteger(e.status) && e.status >= 400 && e.status <= 599 && typeof e.code === 'string') {
+            return sendJSON(res, { code: e.code }, e.status);
+          }
           const msg = e.message || 'patch failed';
           // Typed codes first: the message-regex fallbacks below can be
           // spoofed by client-controlled text interpolated into an error
@@ -1051,14 +1118,40 @@ const server = http.createServer(async (req, res) => {
     if (parts[0] === 'manifests' && parts.length === 2 && req.method === 'GET') {
       const entry = registry.get(parts[1]);
       if (!entry) return send404(res, 'manifest not found');
-      return sendJSON(res, entry);
+      try {
+        if (!dashboard.selection(entry)) return sendJSON(res, entry);
+        const selected = withDashboardRead(req,
+          actor => dashboard.view(actor, entry, { expectedRevision: req.headers['x-projection-revision'] }),
+          (db, approvedImportActor) => dashboard.viewHistorical(db, approvedImportActor, entry,
+            { expectedRevision: req.headers['x-projection-revision'] }));
+        return sendJSON(res, { ...entry, data: selected.data, projection: selected.projection });
+      } catch (error) {
+        if (Number.isInteger(error.status) && error.status >= 400 && error.status <= 599
+            && typeof error.code === 'string') {
+          return sendJSON(res, { code: error.code }, error.status);
+        }
+        return sendJSON(res, { code: 'storage-unavailable' }, 503);
+      }
     }
 
     // GET /api/manifests/:id/data — data block only
     if (parts[0] === 'manifests' && parts.length === 3 && parts[2] === 'data' && req.method === 'GET') {
       const entry = registry.get(parts[1]);
       if (!entry) return send404(res, 'manifest not found');
-      return sendJSON(res, { data: entry.data });
+      try {
+        if (!dashboard.selection(entry)) return sendJSON(res, { data: entry.data });
+        const selected = withDashboardRead(req,
+          actor => dashboard.view(actor, entry, { expectedRevision: req.headers['x-projection-revision'] }),
+          (db, approvedImportActor) => dashboard.viewHistorical(db, approvedImportActor, entry,
+            { expectedRevision: req.headers['x-projection-revision'] }));
+        return sendJSON(res, { data: selected.data, projection: selected.projection });
+      } catch (error) {
+        if (Number.isInteger(error.status) && error.status >= 400 && error.status <= 599
+            && typeof error.code === 'string') {
+          return sendJSON(res, { code: error.code }, error.status);
+        }
+        return sendJSON(res, { code: 'storage-unavailable' }, 503);
+      }
     }
 
     // GET /api/manifests/:id/orphans — stored row keys nothing in the
@@ -1073,6 +1166,9 @@ const server = http.createServer(async (req, res) => {
     if (parts[0] === 'manifests' && parts.length === 3 && parts[2] === 'data' && req.method === 'POST') {
       const entry = registry.get(parts[1]);
       if (!entry) return send404(res, 'manifest not found');
+      if (entry.meta.healthConnectDisplay) {
+        return sendJSON(res, { code: 'read-only-native-display' }, 403);
+      }
       const w = entry.meta.writeable;
       if (!w || !w.fromWebapp) return sendJSON(res, { error: 'not writeable from webapp' }, 403);
       const fromAgent = isAgentRequest(req);
@@ -2340,7 +2436,7 @@ Original system prompt follows:
 
     // === Export download + import routes (#617) ===
     if (dataRoutes.ROUTE_PREFIXES.includes(parts[0])) {
-      const handled = await dataRoutes.handle(req, res, parts);
+      const handled = await dataRoutes.handle(req, res, parts, { ownerBound: Boolean(getSessionRecord(req)) });
       if (handled) return;
     }
 

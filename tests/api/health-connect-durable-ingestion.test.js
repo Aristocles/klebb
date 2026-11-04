@@ -10,6 +10,7 @@ const { DatabaseSync } = require('node:sqlite');
 const { createSandbox, cleanupSandbox, spawnServer, req, fakeAuthState } = require('../helpers/sandbox');
 const { coldReadNative } = require('../helpers/health-connect-cold-readback.cjs');
 const vectors = require('../fixtures/health-connect/durable-history-independent-vectors.json');
+const { readyCollection, SESSION_SECRET } = require('../helpers/health-connect-ready-collection-fixture.cjs');
 const ORIGIN = 'https://durable.example.test';
 const BASE = '/api/connectors/health-connect';
 const BATCHES = `${BASE}/v1/batches`;
@@ -20,7 +21,7 @@ const LEGACY_CARD = {
   data: [{ date: '2026-10-20', kg: 35.5, note: 'preserve synthetic legacy reading' }],
 };
 const ENV = {
-  HEALTH_ORIGIN: ORIGIN, HEALTH_RP_ID: 'durable.example.test',
+  HEALTH_ORIGIN: ORIGIN, HEALTH_RP_ID: 'durable.example.test', SESSION_SECRET,
   AGENT_API_TOKEN: '', KLEBB_ADMIN_TOKEN: '', KLEBB_CLOUD: '', KLEBB_DEMO: '',
   HEALTH_DATA_DIR: '', HEALTH_REPORTS_DIR: '', HEALTH_AUTO_EXPORT_DIR: '',
   HEALTH_SESSIONS_DIR: '', HEALTH_CREDENTIALS_DIR: '', HEALTH_ARCHIVE_DIR: '',
@@ -69,7 +70,8 @@ async function fixture() {
         categories: [TYPE], grant: grant.json.grant },
     });
     assert.equal(paired.status, 200);
-    const fields = paired.json;
+    data.markers = [paired.json.credential, grant.json.grant, owner.token, SESSION_SECRET];
+    const fields = await readyCollection(data, paired.json, [TYPE]);
     const binding = {
       tenantId: fields.tenantId, instanceId: fields.instanceId,
       sourceStoreId: fields.sourceStoreId, installationId: fields.installationId,
@@ -86,7 +88,7 @@ async function fixture() {
     assert.equal(sentinelRows.length, 1);
     assert.deepEqual(JSON.parse(sentinelRows[0].doc), LEGACY_CARD.data[0]);
     return Object.assign(data, { binding, headers, credential: fields.credential,
-      authorityMarkers: [fields.credential, grant.json.grant, owner.token],
+      authorityMarkers: [...data.markers],
       legacyBefore: { cards: coldBefore.legacyCards, rows: coldBefore.legacyRows } });
   } catch (error) {
     if (server) await server.kill();
@@ -291,7 +293,7 @@ test('upload authority rejects another namespace, stale headers, category wideni
       failure(browserOnly, 401, 'unauthorised', data);
       const alienBinding = { ...data.binding, sourceStoreId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' };
       failure(await post(data, bindVector('initial-raw-only', alienBinding)), 400, 'binding-mismatch', data);
-      const staleHeaders = { ...data.headers, 'Klebb-Health-Generation': '2' };
+      const staleHeaders = { ...data.headers, 'Klebb-Health-Generation': '1' };
       failure(await req(data.server.baseUrl, BATCHES, {
         method: 'POST', headers: staleHeaders, body: first.wire,
       }), 409, 'binding-mismatch', data);

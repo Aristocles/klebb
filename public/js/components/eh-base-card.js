@@ -22,31 +22,59 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 // TTL: 20 seconds. Cuts duplicate fetches when the same card gets
 // re-mounted during navigation (date switches, tab switches).
 const _dataCache = new Map();
+const _cacheRevisions = new Map();
 const DATA_TTL_MS = 20000;
 
-async function fetchManifestData(id) {
+async function fetchManifestData(id, current) {
   const now = Date.now();
   const cached = _dataCache.get(id);
   if (cached && now - cached.fetchedAt < DATA_TTL_MS && !cached.inflight) {
     return cached.data;
   }
-  if (cached && cached.inflight) {
-    // Another caller is already fetching; wait on that promise
-    return cached.inflight;
-  }
+  if (cached && cached.inflight) return cached.inflight;
+  const entry = { data: cached?.data ?? null, fetchedAt: cached?.fetchedAt ?? 0, inflight: null };
   const p = (async () => {
-    const res = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const body = await res.json();
-    _dataCache.set(id, { data: body.data, fetchedAt: Date.now(), inflight: null });
-    return body.data;
+    try {
+      const res = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = await res.json();
+      if (Object.hasOwn(body, 'projection')) {
+        if (_dataCache.get(id) === entry) _dataCache.delete(id);
+        throw new Error('Saved source changed; refresh the card');
+      }
+      if (_dataCache.get(id) === entry) {
+        if (current()) {
+          entry.data = body.data;
+          entry.fetchedAt = Date.now();
+          entry.inflight = null;
+        } else _dataCache.delete(id);
+      }
+      return body.data;
+    } catch (error) {
+      if (_dataCache.get(id) === entry) _dataCache.delete(id);
+      throw error;
+    }
   })();
-  _dataCache.set(id, { data: cached?.data ?? null, fetchedAt: cached?.fetchedAt ?? 0, inflight: p });
+  entry.inflight = p;
+  _dataCache.set(id, entry);
   return p;
 }
 
 // Exported for writes — after a card POSTs data, invalidate its cache entry
+async function fetchSelectedManifestData(id) {
+  const res = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const body = await res.json();
+  if (!Array.isArray(body.data) || !body.projection
+      || !['saved', 'pending'].includes(body.projection.state)
+      || !/^sha256:[a-f0-9]{64}$/.test(body.projection.revision)) {
+    throw new Error('Saved data status is unavailable');
+  }
+  return body;
+}
+
 export function invalidateManifestCache(id) {
+  _cacheRevisions.set(id, (_cacheRevisions.get(id) || 0) + 1);
   _dataCache.delete(id);
 }
 
@@ -60,6 +88,7 @@ export class EhBaseCard extends LitElement {
   static properties = {
     card: { type: Object },          // { id, meta, viewConfig }
     data: { state: true },
+    projection: { state: true },
     date: { type: String },
     dateMode: { type: String },      // today | past | future
     expanded: { state: true },
@@ -75,6 +104,17 @@ export class EhBaseCard extends LitElement {
     super();
     this.card = null;
     this.data = null;
+    this.projection = null;
+    this._dataRequest = 0;
+    this._selectedRefreshTimer = null;
+    this._onManifestDataChanged = event => {
+      const id = event?.detail?.cardId || event?.detail?.id;
+      if (this.isConnected && this.card?.meta?.healthConnectDisplay
+          && (!id || id === this.card?.id)) {
+        invalidateManifestCache(this.card.id);
+        this._fetchData();
+      }
+    };
     this.date = null;
     this.dateMode = 'today';
     this.headerless = false;
@@ -85,19 +125,80 @@ export class EhBaseCard extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    window.addEventListener('manifest-data-changed', this._onManifestDataChanged);
     this._fetchData();
+  }
+
+  disconnectedCallback() {
+    this._dataRequest++;
+    if (this.card?.id) invalidateManifestCache(this.card.id);
+    clearTimeout(this._selectedRefreshTimer);
+    this._selectedRefreshTimer = null;
+    window.removeEventListener('manifest-data-changed', this._onManifestDataChanged);
+    super.disconnectedCallback();
+  }
+
+  _scheduleSelectedRefresh() {
+    clearTimeout(this._selectedRefreshTimer);
+    this._selectedRefreshTimer = null;
+    if (!this.isConnected || !this.card?.meta?.healthConnectDisplay) return;
+    this._selectedRefreshTimer = setTimeout(() => {
+      this._selectedRefreshTimer = null;
+      if (this.isConnected) this._fetchData();
+    }, DATA_TTL_MS);
+  }
+
+  updated(changed) {
+    if (changed.has('card') && changed.get('card') !== undefined) {
+      const previous = changed.get('card');
+      if (previous?.id !== this.card?.id
+          || JSON.stringify(previous?.meta?.healthConnectDisplay || null)
+            !== JSON.stringify(this.card?.meta?.healthConnectDisplay || null)
+          || this.card?.meta?.healthConnectDisplay) {
+        if (previous?.id) invalidateManifestCache(previous.id);
+        if (this.card?.id) invalidateManifestCache(this.card.id);
+        this._fetchData();
+        return;
+      }
+    }
+    if (this.card?.meta?.healthConnectDisplay && changed.has('date')
+        && changed.get('date') !== undefined) this._fetchData();
   }
 
   async _fetchData() {
     if (!this.card?.id) return;
+    clearTimeout(this._selectedRefreshTimer);
+    this._selectedRefreshTimer = null;
+    const card = this.card;
+    const id = card.id;
+    const selected = card.meta?.healthConnectDisplay || null;
+    const selection = JSON.stringify(selected);
+    const request = ++this._dataRequest;
+    if (selected) invalidateManifestCache(id);
+    const cacheRevision = _cacheRevisions.get(id) || 0;
+    const current = () => this.isConnected && request === this._dataRequest
+      && (selected || cacheRevision === (_cacheRevisions.get(id) || 0))
+      && id === this.card?.id && (!selected || card === this.card)
+      && selection === JSON.stringify(this.card?.meta?.healthConnectDisplay || null);
     this.loading = true;
     this.error = null;
+    this.projection = null;
     try {
-      this.data = await fetchManifestData(this.card.id);
+      const result = selected ? await fetchSelectedManifestData(id)
+        : { data: await fetchManifestData(id, current), projection: null };
+      if (!current()) return;
+      this.data = result.data;
+      this.projection = result.projection;
     } catch (e) {
-      this.error = e.message || 'fetch failed';
+      if (current()) this.error = e.message || 'fetch failed';
     } finally {
-      this.loading = false;
+      if (current()) this.loading = false;
+      if (this.isConnected && request === this._dataRequest && id === this.card?.id
+          && (!selected || card === this.card)
+          && selection === JSON.stringify(this.card?.meta?.healthConnectDisplay || null)) {
+        if (!selected && cacheRevision !== (_cacheRevisions.get(id) || 0)) this._fetchData();
+        else this._scheduleSelectedRefresh();
+      }
     }
   }
 
@@ -134,6 +235,7 @@ export class EhBaseCard extends LitElement {
   // Can we edit on this date?
   get _canWrite() {
     const w = this._meta.writeable;
+    if (this._meta.healthConnectDisplay) return false;
     if (!w || !w.fromWebapp) return false;
     if (this.dateMode === 'today')  return w.todayAllowed !== false;
     if (this.dateMode === 'past')   return w.pastAllowed === true;
@@ -281,6 +383,7 @@ export class EhBaseCard extends LitElement {
         <div class="title">
           ${m.emoji ? html`<span class="emoji">${m.emoji}</span>` : ''}
           <span>${m.label || m.id || ''}</span>
+          ${this.projection ? html`<span class="past-badge">${this.projection.state === 'saved' ? 'Saved' : 'Pending'}</span>` : ''}
           ${this.dateMode === 'future' ? html`<span class="future-badge">🔮 Planned</span>` : ''}
           ${this.dateMode === 'past'   ? html`<span class="past-badge">Past</span>` : ''}
         </div>

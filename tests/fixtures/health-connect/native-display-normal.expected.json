@@ -1,0 +1,210 @@
+{
+  "weight": {
+    "title": "authenticated saved Weight reaches the existing kg card and refuses an older correction publication",
+    "cardId": "weight",
+    "metric": "body_mass",
+    "sourceType": "WeightRecord",
+    "switchDate": "2040-02-03",
+    "HAEBeforeRows": [
+      {
+        "date": "2040-02-02",
+        "kg": 80
+      },
+      {
+        "date": "2040-02-03",
+        "kg": 81
+      }
+    ],
+    "nativeInitial": {
+      "recordType": "WeightRecord",
+      "record": {
+        "time": "2040-02-03T09:00:00Z",
+        "zoneOffset": "+00:00",
+        "weight": {
+          "unit": "kg",
+          "value": "45.359237"
+        },
+        "metadata": {
+          "id": "synthetic-weight-normal",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2040-02-03T09:01:00Z",
+          "clientRecordId": null,
+          "clientRecordVersion": "1",
+          "recordingMethod": 0,
+          "device": {
+            "manufacturer": null,
+            "model": null,
+            "type": 0
+          }
+        }
+      },
+      "recordJson": "{\"time\":\"2040-02-03T09:00:00Z\",\"zoneOffset\":\"+00:00\",\"weight\":{\"unit\":\"kg\",\"value\":\"45.359237\"},\"metadata\":{\"id\":\"synthetic-weight-normal\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2040-02-03T09:01:00Z\",\"clientRecordId\":null,\"clientRecordVersion\":\"1\",\"recordingMethod\":0,\"device\":{\"manufacturer\":null,\"model\":null,\"type\":0}}}",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "projection": "raw-only"
+    },
+    "initialBatch": {
+      "sequence": "1",
+      "batchId": "synthetic-weight-normal-1"
+    },
+    "initialExpectedRows": [
+      {
+        "date": "2040-02-02",
+        "kg": 80
+      },
+      {
+        "date": "2040-02-03",
+        "kg": 45.359237
+      }
+    ],
+    "initialSelectedSources": [
+      {
+        "date": "2040-02-02",
+        "source": "hae"
+      },
+      {
+        "date": "2040-02-03",
+        "source": "health-connect"
+      }
+    ],
+    "nativeCorrection": {
+      "recordType": "WeightRecord",
+      "record": {
+        "time": "2040-02-03T09:00:00Z",
+        "zoneOffset": "+00:00",
+        "weight": {
+          "unit": "kg",
+          "value": "46.5"
+        },
+        "metadata": {
+          "id": "synthetic-weight-normal",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2040-02-03T09:02:00Z",
+          "clientRecordId": null,
+          "clientRecordVersion": "1",
+          "recordingMethod": 0,
+          "device": {
+            "manufacturer": null,
+            "model": null,
+            "type": 0
+          }
+        }
+      },
+      "recordJson": "{\"time\":\"2040-02-03T09:00:00Z\",\"zoneOffset\":\"+00:00\",\"weight\":{\"unit\":\"kg\",\"value\":\"46.5\"},\"metadata\":{\"id\":\"synthetic-weight-normal\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2040-02-03T09:02:00Z\",\"clientRecordId\":null,\"clientRecordVersion\":\"1\",\"recordingMethod\":0,\"device\":{\"manufacturer\":null,\"model\":null,\"type\":0}}}",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "projection": "raw-only"
+    },
+    "correctionBatch": {
+      "sequence": "2",
+      "batchId": "synthetic-weight-normal-2"
+    },
+    "correctedExpectedRows": [
+      {
+        "date": "2040-02-02",
+        "kg": 80
+      },
+      {
+        "date": "2040-02-03",
+        "kg": 46.5
+      }
+    ]
+  },
+  "steps": {
+    "title": "authenticated saved Steps uses persisted cutover and deletion cannot restore overlapping HAE or stale native rows",
+    "cardId": "steps",
+    "metric": "step_count",
+    "sourceType": "StepsRecord",
+    "switchDate": "2040-02-03",
+    "HAEBeforeRows": [
+      {
+        "date": "2040-02-02",
+        "count": 4400
+      },
+      {
+        "date": "2040-02-03",
+        "count": 9000
+      },
+      {
+        "date": "2040-02-04",
+        "count": 8000
+      }
+    ],
+    "nativeInitial": {
+      "recordType": "StepsRecord",
+      "record": {
+        "startTime": "2040-02-03T09:00:00Z",
+        "endTime": "2040-02-03T10:00:00Z",
+        "startZoneOffset": "+00:00",
+        "endZoneOffset": "+00:00",
+        "count": "1234",
+        "metadata": {
+          "id": "synthetic-steps-normal",
+          "dataOrigin": {
+            "packageName": "org.example.synthetic.producer"
+          },
+          "lastModifiedTime": "2040-02-03T10:01:00Z",
+          "clientRecordId": null,
+          "clientRecordVersion": "1",
+          "recordingMethod": 0,
+          "device": {
+            "manufacturer": null,
+            "model": null,
+            "type": 0
+          }
+        }
+      },
+      "recordJson": "{\"startTime\":\"2040-02-03T09:00:00Z\",\"endTime\":\"2040-02-03T10:00:00Z\",\"startZoneOffset\":\"+00:00\",\"endZoneOffset\":\"+00:00\",\"count\":\"1234\",\"metadata\":{\"id\":\"synthetic-steps-normal\",\"dataOrigin\":{\"packageName\":\"org.example.synthetic.producer\"},\"lastModifiedTime\":\"2040-02-03T10:01:00Z\",\"clientRecordId\":null,\"clientRecordVersion\":\"1\",\"recordingMethod\":0,\"device\":{\"manufacturer\":null,\"model\":null,\"type\":0}}}",
+      "serializerId": "health-connect-record",
+      "serializerVersion": 1,
+      "dataFamily": "ordinary",
+      "projection": "raw-only"
+    },
+    "initialBatch": {
+      "sequence": "1",
+      "batchId": "synthetic-steps-normal-1"
+    },
+    "initialExpectedRows": [
+      {
+        "date": "2040-02-02",
+        "count": 4400
+      },
+      {
+        "date": "2040-02-03",
+        "count": 1234
+      }
+    ],
+    "initialSelectedSources": [
+      {
+        "date": "2040-02-02",
+        "source": "hae"
+      },
+      {
+        "date": "2040-02-03",
+        "source": "health-connect"
+      }
+    ],
+    "basicDeletion": {
+      "kind": "Existing authenticated source delete batch, identity same synthetic-steps-normal, no invented owner suppression route",
+      "operation": "delete",
+      "sequence": "2",
+      "batchId": "synthetic-steps-normal-2"
+    },
+    "deletedExpectedRows": [
+      {
+        "date": "2040-02-02",
+        "count": 4400
+      }
+    ]
+  },
+  "unrelated": {
+    "date": "2040-02-03",
+    "bpm": 62
+  }
+}

@@ -13,6 +13,7 @@ const { fixture, restart, close, first, second, postBatch, ownerStatus,
   expectedIndex, expectedFrontier, vectorDigest, TYPE, TARGET, BASE, req, sha } =
   require(path.join(product, 'tests/helpers/health-connect-source-index-test-fixture.cjs'));
 const { waitFor } = require(path.join(product, 'tests/helpers/sandbox'));
+const { readyCollection } = require('../helpers/health-connect-ready-collection-fixture.cjs');
 const faultPreload = path.join(__dirname, '../helpers/health-connect-source-index-fault-preload.cjs');
 
 // Transparent child-only observations. No clock, timer, SQLite return value
@@ -238,7 +239,7 @@ test('three actual late publication failures obey 1s/5s durable retry times, sur
     } finally { await close(data); }
   });
 
-test('actual generation1 sequence2 and generation2 sequence1 uploads publish two complete bound vector components, never a shared counter',
+test('actual generation2 sequence2 and generation3 sequence1 uploads publish two complete bound vector components, never a shared counter',
   { timeout: 25000 }, async () => {
     const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json').base;
     const clockEnv = {
@@ -265,27 +266,25 @@ test('actual generation1 sequence2 and generation2 sequence1 uploads publish two
         data.fixtureStartedAt > healthyClock.milliseconds,
       'controlled publication requires a later parent fixture start');
       assertSecondIndex(before.index, data);
-      await stop(data);
-      // Explicit synthetic generation control: the server-issued source and
-      // credential remain unchanged. Both streams below are actual routed
-      // uploads and actual returned durable receipts, not seeded history ACKs.
-      const authorityFile = path.join(data.home, 'credentials/health-connect.json');
-      const state = JSON.parse(fs.readFileSync(authorityFile, 'utf8'));
-      const connector = state.connectors.find(item => item.id === data.paired.connectorId);
-      assert.ok(connector);
-      assert.equal(connector.generations[TYPE], '1');
-      connector.generations[TYPE] = '2';
-      fs.writeFileSync(authorityFile, JSON.stringify(state), { mode: 0o600 });
-      await restart(data);
-      const binding2 = { ...data.binding, generation: '2' };
+      // Rotate through actual authenticated readiness. The original binding,
+      // headers and receipts retain generation 2; only the new stream uses 3.
+      assert.equal(data.binding.generation, '2');
+      const ready = await readyCollection(data, data.paired, [TYPE]);
+      assert.deepEqual(ready.streams, {
+        [TYPE]: { generation: '3', acknowledgedSequence: '0' },
+      });
+      assert.equal(ready.connectorId, data.paired.connectorId);
+      assert.equal(ready.sourceStoreId, data.paired.sourceStoreId);
+      assert.equal(ready.credential, data.paired.credential);
+      const binding2 = { ...data.binding, generation: '3' };
       const deletion = structuredClone(first(data).payload.changes[2]);
       const payload = { binding: binding2, recordType: TYPE, sequence: '1',
-        batchId: 'synthetic-generation-2-batch-1', changes: [deletion] };
+        batchId: 'synthetic-generation-3-batch-1', changes: [deletion] };
       const payloadJson = JSON.stringify(payload), payloadDigest = sha(payloadJson);
       const receipt = { version: 1, kind: 'durable-receipt', binding: binding2,
         recordType: TYPE, sequence: '1', batchId: payload.batchId, payloadDigest };
       await save(data, { wire: { version: 1, kind: 'batch', payloadJson, payloadDigest }, receipt },
-        { ...data.headers, 'Klebb-Health-Generation': '2' });
+        { ...data.headers, 'Klebb-Health-Generation': '3' });
       const expected = [
         { binding: data.binding, recordType: TYPE, acknowledgedSequence: '2' },
         { binding: binding2, recordType: TYPE, acknowledgedSequence: '1' },

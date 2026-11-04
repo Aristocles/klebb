@@ -13,7 +13,7 @@ assert.ok(path.basename(home).startsWith('eh-test-'));
 const product = path.resolve(process.env.INDEPENDENT_PRODUCT_ROOT || '');
 const source = path.join(product, 'lib/health-connect/source-index.js').replaceAll('\\', '/');
 const database = path.join(home, 'db', 'klebb.db');
-const catalogue = path.join(home, 'credentials', 'health-connect.json');
+const catalogue = path.join(home, 'credentials', 'health-connect-policy.json');
 const observations = path.resolve(process.env.INDEPENDENT_INDEX_LIFECYCLE_OBSERVATIONS || '');
 const enabled = path.resolve(process.env.INDEPENDENT_INDEX_LIFECYCLE_ENABLED || '');
 assert.equal(path.dirname(observations), home);
@@ -23,7 +23,7 @@ assert.ok(['observe', 'rotate'].includes(action));
 const newEpoch = process.env.INDEPENDENT_INDEX_LIFECYCLE_NEW_EPOCH;
 if (action === 'rotate') assert.match(newEpoch, /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/);
 const Original = sqlite.DatabaseSync;
-let nextHandle = 0, nextTransaction = 0, rotated = false;
+let nextHandle = 0, nextTransaction = 0, rotated = false, pendingCustody = null;
 const begin = /^\s*BEGIN(?:\s|;|$)/i;
 const commit = /^\s*(?:COMMIT|END)(?:\s|;|$)/i;
 const rollback = /^\s*ROLLBACK(?:\s|;|$)/i;
@@ -69,14 +69,28 @@ sqlite.DatabaseSync = new Proxy(Original, {
         if (table === 'health_source_index_state' && /\bcurrent\b/i.test(sql) &&
             action === 'rotate' && !rotated && fs.existsSync(enabled)) {
           assert.ok(active && identitiesWritten > 0 && frontiersWritten > 0 && changes > 0);
-          const pending = prepare('SELECT state,published_restore_epoch FROM health_source_index_state').all();
+          const pending = prepare('SELECT tenant_id,source_store_id,state,published_restore_epoch FROM health_source_index_state').all();
           assert.equal(pending.length, 1);
           assert.equal(pending[0].state, 'current', 'actual pending SQL current row was written');
-          const state = JSON.parse(fs.readFileSync(catalogue, 'utf8'));
+          const current = JSON.parse(fs.readFileSync(catalogue, 'utf8'));
+          const selected = current.namespaces.filter(namespace => namespace.state.tenantId === pending[0].tenant_id &&
+            namespace.state.connectors.some(connector => connector.sourceStoreId === pending[0].source_store_id));
+          assert.equal(selected.length, 1);
+          const namespace = selected[0], state = namespace.state;
+          const custody = prepare('SELECT owner_id,epoch FROM health_source_policy_state WHERE tenant_id=?')
+            .get(state.tenantId);
+          assert.equal(custody.owner_id, namespace.ownerId);
           const oldEpoch = state.restoreEpoch;
+          assert.equal(custody.epoch, oldEpoch);
           assert.notEqual(oldEpoch, newEpoch);
           state.restoreEpoch = newEpoch;
-          fs.writeFileSync(catalogue, JSON.stringify(state), { encoding: 'utf8', mode: 0o600 });
+          for (const grant of state.grants) grant.restoreEpoch = newEpoch;
+          for (const connector of state.connectors) {
+            connector.restoreEpoch = newEpoch;
+            connector.revokedAt ||= new Date().toISOString();
+          }
+          fs.writeFileSync(catalogue, JSON.stringify(current), { encoding: 'utf8', mode: 0o600 });
+          pendingCustody = { tenantId: state.tenantId, ownerId: namespace.ownerId, oldEpoch };
           rotated = true;
           record({ kind: 'actual-catalogue-fence-rotated-after-publication-writes',
             handleId, transactionId, oldEpoch, newEpoch, identitiesWritten, frontiersWritten,
@@ -90,6 +104,25 @@ sqlite.DatabaseSync = new Proxy(Original, {
       }
       if (rollback.test(sql)) {
         active = false;
+        if (pendingCustody) {
+          const custody = pendingCustody;
+          exec('BEGIN IMMEDIATE');
+          try {
+            assert.equal(prepare('UPDATE health_source_policy_state SET epoch=?, '
+              + 'revision=CAST(CAST(revision AS INTEGER)+1 AS TEXT) WHERE tenant_id=? AND owner_id=? AND epoch=?')
+              .run(newEpoch, custody.tenantId, custody.ownerId, custody.oldEpoch).changes, 1);
+            assert.equal(prepare('UPDATE health_source_policy_sources SET reconciled_epoch=NULL WHERE tenant_id=?')
+              .run(custody.tenantId).changes, 1);
+            assert.equal(prepare("UPDATE health_source_policy_categories SET sharing='stopped', "
+              + 'readiness_epoch=NULL,readiness_installation_id=NULL,readiness_generation=NULL,'
+              + 'readiness_query_digest=NULL,readiness_report_digest=NULL,readiness_mac=NULL WHERE tenant_id=?')
+              .run(custody.tenantId).changes, 1);
+            exec('COMMIT');
+          } catch (error) { try { exec('ROLLBACK'); } catch {} throw error; }
+          pendingCustody = null;
+          record({ kind: 'actual-managed-custody-control-complete-after-publisher-rollback',
+            handleId, transactionId, tenantId: custody.tenantId, oldEpoch: custody.oldEpoch, newEpoch });
+        }
         record({ kind: 'publisher-rollback-complete', handleId, transactionId });
       }
       return result;

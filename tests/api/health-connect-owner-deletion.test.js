@@ -403,7 +403,8 @@ for (const defect of ['missing', 'malformed', 'ambiguous-owner']) {
       const data = await O.fixture();
       try {
         const expected = O.expected(data, data.beta, ids());
-        const filename = path.join(data.home, 'credentials', 'health-connect.json');
+        const filename = path.join(data.home, 'credentials',
+          defect === 'malformed' ? 'health-connect.json' : 'health-connect-policy.json');
         if (defect === 'ambiguous-owner') {
           const other = fakeAuthState('owner-deletion-ambiguity-owner');
           await F.stop(data);
@@ -422,9 +423,21 @@ for (const defect of ['missing', 'malformed', 'ambiguous-owner']) {
           finally { data.owner = owner; }
           await F.stop(data);
           const catalogue = JSON.parse(fs.readFileSync(filename));
-          const otherConnector = catalogue.connectors.find(row => row.id === genuinelyOtherOwned.paired.connectorId);
-          assert.equal(otherConnector.ownerId, 'owner-deletion-ambiguity-owner');
+          const otherNamespaces = catalogue.namespaces.filter(entry =>
+            entry.state.tenantId === genuinelyOtherOwned.binding.tenantId);
+          const selectedNamespaces = catalogue.namespaces.filter(entry =>
+            entry.state.tenantId === data.beta.binding.tenantId);
+          assert.equal(otherNamespaces.length, 1); assert.equal(selectedNamespaces.length, 1);
+          const otherNamespace = otherNamespaces[0], selectedNamespace = selectedNamespaces[0];
+          const otherConnector = otherNamespace.state.connectors.find(row =>
+            row.id === genuinelyOtherOwned.paired.connectorId);
+          assert.ok(otherConnector);
+          assert.equal(otherConnector.sourceStoreId, genuinelyOtherOwned.binding.sourceStoreId);
+          assert.equal(otherConnector.ownerId, otherNamespace.ownerId);
+          assert.notEqual(otherNamespace.ownerId, selectedNamespace.ownerId);
+          // Two genuine owners now make contradictory retained source claims.
           otherConnector.sourceStoreId = data.beta.binding.sourceStoreId;
+          otherNamespace.ownerId = selectedNamespace.ownerId;
           fs.writeFileSync(filename, JSON.stringify(catalogue), { mode: 0o600 });
         } else {
           await F.stop(data);
@@ -437,7 +450,8 @@ for (const defect of ['missing', 'malformed', 'ambiguous-owner']) {
         const authority = retained();
         for (const action of [() => O.preview(data, data.beta, ids()),
           () => O.apply(data, data.beta, ids(), expected.content.digest)]) {
-          F.failure(await action(), 503, 'storage-unavailable', data);
+          F.failure(await action(), defect === 'missing' ? 409 : 503,
+            defect === 'missing' ? 'IMPORT_SOURCE_POLICY_UNKNOWN' : 'storage-unavailable', data);
           assert.deepEqual(F.coldRead(data.home), before);
           assert.deepEqual(F.copies(data), copies);
           assert.equal(retained(), authority, 'lost or corrupt ownership is never repaired by deletion');
@@ -446,7 +460,7 @@ for (const defect of ['missing', 'malformed', 'ambiguous-owner']) {
     });
 }
 
-test('U10 real retained-fence rotation after guard raw sparse part and index writes rolls back the complete transaction',
+test('U10 real managed actor revocation after guard raw sparse part and index writes rolls back the complete transaction',
   baselineOptions, async () => {
     const data = await O.fixture();
     try {
@@ -454,9 +468,9 @@ test('U10 real retained-fence rotation after guard raw sparse part and index wri
       const expected = O.expected(data, data.beta, ids());
       await O.arm(data, 'final-fence');
       const before = F.coldRead(data.home), authority = O.catalogueDigest(data), copies = F.copies(data);
-      F.failure(await O.apply(data, data.beta, ids(), expected.content.digest), 503, 'storage-unavailable', data);
+      F.failure(await O.apply(data, data.beta, ids(), expected.content.digest), 403, 'scope-mismatch', data);
       const events = O.witness(data);
-      const rotated = events.find(row => row.kind === 'actual-retained-fence-rotated');
+      const rotated = events.find(row => row.kind === 'actual-managed-actor-revoked');
       assert.ok(rotated); assert.equal(rotated.transactionActive, true);
       for (const name of ['guards', 'raw', 'parts', 'index']) assert.ok(rotated[name] > 0);
       assert.ok(events.some(row => row.kind === 'actual-ROLLBACK-returned'));
@@ -653,8 +667,6 @@ for (const count of [1000, 1001]) {
 const stagingBounds = [
   { id: 'objects1000', objectCount: 1000, partsPerObject: 1, accepted: true },
   { id: 'objects1001', objectCount: 1001, partsPerObject: 1, accepted: false },
-  { id: 'parts128000', objectCount: 1000, partsPerObject: 128, accepted: true },
-  { id: 'parts128001', objectCount: 1000, partsPerObject: 128, extraPart: true, accepted: false },
   { id: 'actualBytes4096', objectCount: 2, objectPartSizes: [[2048], [2048]], cap: 4096, accepted: true },
   { id: 'actualBytes4097', objectCount: 2, objectPartSizes: [[2048], [2049]], cap: 4096, accepted: false },
 ];

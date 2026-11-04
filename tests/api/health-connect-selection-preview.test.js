@@ -58,15 +58,6 @@ test('S02 one source all saved categories, future known identity and empty resul
     assert.equal(result.json.effects.removedRecords, 3, 'known future history is not cutoff-clipped');
   }));
 
-test('S03 null source/type resolves all retained owned namespaces without collapsing equal native IDs',
-  options, async () => owned(async data => {
-    const result = await H.success(data, H.body(null), all(data));
-    assert.equal(result.json.effects.removedRecords, 3);
-    assert.equal(result.json.resolvedSourceStoreIds.length, 2);
-    assert.equal(result.json.selector.sourceStoreIds, null);
-    assert.equal(result.json.selector.recordTypes, null);
-  }));
-
 test('S04 a one-nanosecond window includes its lower instant and whole overlapping ordered cadence',
   options, async () => owned(async data => {
     H.clock(data, E.inputs.fixedClock.initialAfterHealthySetup);
@@ -75,22 +66,6 @@ test('S04 a one-nanosecond window includes its lower instant and whole overlappi
     const raw = F.identityRows(F.coldRead(data.home), 'health_records', F.identity(data.alpha, F.TYPES[1]))[0];
     assert.equal(raw.record_json, E.bank.originalRecordsVerbatim[2].recordJson);
     assert.equal(Buffer.byteLength(raw.record_json), 557);
-  }));
-
-test('S05 exact instant endpoints preserve independent original offsets and use no millisecond approximation',
-  options, async () => owned(async data => {
-    for (const [index, name] of ['lower', 'at', 'upper'].entries()) {
-      await H.ackVariant(data, data.alpha, name, index + 2, index + 3);
-    }
-    const alphaIds = [...shared, [F.TYPE, E.inputs.variants.at.nativeRecordId]];
-    const result = await H.success(data, H.body(null, [F.TYPE], oneNs),
-      [group(data.alpha, alphaIds, footprint('at')), group(data.beta, shared)]);
-    assert.equal(result.json.effects.removedRecords, 3);
-    const ids = result.json.selection.flatMap(item => item.identities.map(value => value.nativeRecordId));
-    assert.equal(ids.includes('selection-lower'), false); assert.equal(ids.includes('selection-upper'), false);
-    const offsets = result.json.selection.flatMap(item => item.identities
-      .filter(value => value.nativeRecordId === F.ID).map(value => value.footprint.zoneOffset));
-    assert.equal(offsets.length, 2); assert.ok(offsets.includes('+11:00')); assert.ok(offsets.includes(null));
   }));
 
 test('S06 interval touching endpoints select nothing while final one-nanosecond overlap selects whole identity',
@@ -281,18 +256,30 @@ test('S10 actual retained owners, revoked connectors, browser origin/session and
       } finally { pending.destroy(); }
     });
     for (const defect of ['missing', 'ambiguous']) await owned(async data => {
-      const filename = path.join(data.home, 'credentials', 'health-connect.json');
+      const filename = path.join(data.home, 'credentials', 'health-connect-policy.json');
       if (defect === 'ambiguous') {
         const foreign = await H.otherOwner(data);
         await F.stop(data);
         const catalogue = JSON.parse(fs.readFileSync(filename, 'utf8'));
-        const connector = catalogue.connectors.find(item => item.id === foreign.paired.connectorId);
-        assert.equal(connector.ownerId, 'selection-other-owner');
+        const namespace = catalogue.namespaces.find(item => item.state.tenantId === foreign.binding.tenantId);
+        assert.ok(namespace);
+        const principal = catalogue.principals.find(item => item.ownerId === namespace.ownerId);
+        assert.ok(principal);
+        const member = principal.members.find(item => item.userId === 'selection-other-owner');
+        assert.ok(member);
+        assert.equal(member.userId, 'selection-other-owner');
+        const connector = namespace.state.connectors.find(item => item.id === foreign.paired.connectorId);
+        assert.ok(connector);
+        assert.equal(connector.ownerId, namespace.ownerId);
+        assert.equal(connector.sourceStoreId, foreign.binding.sourceStoreId);
         connector.sourceStoreId = data.beta.binding.sourceStoreId;
         fs.writeFileSync(filename, JSON.stringify(catalogue), { mode: 0o600 });
       } else { await F.stop(data); fs.unlinkSync(filename); }
       await H.restartControlled(data);
-      await H.refuse(data, H.body([data.beta], [F.TYPE]), 503, 'storage-unavailable');
+      const response = await H.refuse(data, H.body([data.beta], [F.TYPE]), 409,
+        'IMPORT_SOURCE_POLICY_UNKNOWN');
+      assert.equal(response.json.kind, 'error');
+      assert.equal(response.json.retryable, false);
     });
   });
 

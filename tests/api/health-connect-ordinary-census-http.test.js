@@ -32,7 +32,7 @@ test('authenticated HTTP census keeps membership provisional and preserves nativ
       assert.equal(admitted.status, 200, 'healthy existing ingestion precedes census assertions');
       assert.deepEqual(admitted.json, initial.receipt);
       const before = coldReadSourceNative(data.home);
-      const authorityFile = path.join(data.home, 'credentials', 'health-connect.json');
+      const authorityFile = path.join(data.home, 'credentials', 'health-connect-policy.json');
       const beforeAuthority = fs.readFileSync(authorityFile);
       const startBody = { coverageJson: coverage(data.binding, 'partial') };
       const anonymous = await req(data.server.baseUrl, `${BASE}/v1/censuses/begin`,
@@ -77,7 +77,7 @@ test('authenticated HTTP census refuses non-object coverage as malformed protoco
       assert.equal(admitted.status, 200, 'healthy existing ingestion precedes malformed input assertions');
       assert.deepEqual(admitted.json, initial.receipt);
       const before = coldReadSourceNative(data.home);
-      const authorityFile = path.join(data.home, 'credentials', 'health-connect.json');
+      const authorityFile = path.join(data.home, 'credentials', 'health-connect-policy.json');
       const beforeAuthority = fs.readFileSync(authorityFile);
       for (const coverageJson of ['null', '[]', '"synthetic"', '7', 'true']) {
         const response = await req(data.server.baseUrl, `${BASE}/v1/censuses/begin`,

@@ -2,6 +2,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const { readyCollection, SESSION_SECRET } = require('./health-connect-ready-collection-fixture.cjs');
 const product = process.env.INDEPENDENT_PRODUCT_ROOT || path.resolve(__dirname, '../..');
 const { createSandbox, cleanupSandbox, spawnServer, req, fakeAuthState } =
   require(path.join(product, 'tests/helpers/sandbox'));
@@ -20,7 +21,7 @@ const LEGACY = { $schema: 'klebb.datafile.v1',
   meta: { id: 'synthetic-object-fault-legacy', label: 'Synthetic object fault legacy' },
   data: [{ date: '2026-10-20', kg: 35.5, note: 'preserve fixed native fault sentinel' }] };
 const ENV = {
-  HEALTH_ORIGIN: ORIGIN, HEALTH_RP_ID: 'object-fault.example.test',
+  HEALTH_ORIGIN: ORIGIN, HEALTH_RP_ID: 'object-fault.example.test', SESSION_SECRET,
   AGENT_API_TOKEN: '', KLEBB_ADMIN_TOKEN: '', KLEBB_CLOUD: '', KLEBB_DEMO: '',
   HEALTH_DATA_DIR: '', HEALTH_REPORTS_DIR: '', HEALTH_AUTO_EXPORT_DIR: '',
   HEALTH_SESSIONS_DIR: '', HEALTH_CREDENTIALS_DIR: '', HEALTH_ARCHIVE_DIR: '',
@@ -29,6 +30,7 @@ const ENV = {
   HEALTH_KEYS_DIR: '', HEALTH_VAPID_FILE: '', HEALTH_PUSH_SUBSCRIPTIONS_FILE: '',
   HEALTH_AUTO_EXPORT_TOKEN: '', HEALTH_CONNECT_STAGING_MAX_BYTES: '', NODE_OPTIONS: '',
 };
+const fixtureFactories = new WeakMap();
 function watch(data) {
   for (const stream of [data.server.proc.stdout, data.server.proc.stderr]) {
     stream.on('data', bytes => { data.requestLogs += bytes.toString('utf8'); });
@@ -41,7 +43,7 @@ function noAuthority(text, data) {
     assert.equal(text.includes(marker), false);
   }
 }
-async function pair(data, installationId = 'synthetic-durable-installation') {
+async function pair(data, installationId = 'synthetic-durable-installation', { legacyProducer = false } = {}) {
   const grant = await req(data.server.baseUrl, `${BASE}/pairing-grants`, {
     method: 'POST', cookie: data.owner.cookie, headers: { Origin: ORIGIN },
     body: { name: 'Synthetic object fault phone', categories: [TYPE] },
@@ -54,8 +56,9 @@ async function pair(data, installationId = 'synthetic-durable-installation') {
       categories: [TYPE], grant: grant.json.grant },
   });
   assert.equal(response.status, 200);
-  const paired = response.json;
-  data.markers.push(grant.json.grant, paired.credential);
+  data.markers.push(grant.json.grant, response.json.credential);
+  // The pinned historical producer predates managed readiness. Current pairing still requires it.
+  const paired = legacyProducer ? response.json : await readyCollection(data, response.json, [TYPE]);
   const binding = { tenantId: paired.tenantId, instanceId: paired.instanceId,
     sourceStoreId: paired.sourceStoreId, installationId: paired.installationId,
     generation: paired.streams[TYPE].generation, restoreEpoch: paired.restoreEpoch };
@@ -63,16 +66,21 @@ async function pair(data, installationId = 'synthetic-durable-installation') {
     'Klebb-Health-Protocol': '1', 'Klebb-Health-Generation': binding.generation,
     'Klebb-Health-Restore-Epoch': binding.restoreEpoch } };
 }
-async function fixture(extraEnv = {}) {
+async function fixture(extraEnv = {}, factory, { legacyProducer = false } = {}) {
+  assert.equal(typeof legacyProducer, 'boolean');
+  if (legacyProducer) assert.equal(typeof factory?.spawnProducerServer, 'function',
+    'Explicit legacy setup requires its producer factory');
   const owner = fakeAuthState('object-fault-owner');
-  const home = createSandbox({ credentials: owner.credentials, sessions: owner.sessions,
+  const home = (factory?.createSandbox || createSandbox)({ credentials: owner.credentials, sessions: owner.sessions,
     seed: { 'synthetic-object-fault-legacy.json': LEGACY } });
-  const data = { home, owner, server: null, requestLogs: '', markers: [owner.token],
+  const data = { home, owner, server: null, requestLogs: '',
+    markers: [owner.token, extraEnv.SESSION_SECRET ?? SESSION_SECRET],
     extraEnv: { ...extraEnv } };
+  if (factory) fixtureFactories.set(data, factory);
   try {
-    data.server = await spawnServer(home, { ...ENV, ...data.extraEnv });
+    data.server = await (factory?.spawnProducerServer || spawnServer)(home, { ...ENV, ...data.extraEnv });
     watch(data);
-    Object.assign(data, await pair(data));
+    Object.assign(data, await pair(data, undefined, { legacyProducer }));
     data.before = coldReadNative(home);
     const rows = data.before.legacyRows.filter(row => row.card_id === LEGACY.meta.id);
     assert.ok(data.before.legacyCards.some(row => row.card_id === LEGACY.meta.id));
@@ -81,19 +89,23 @@ async function fixture(extraEnv = {}) {
     return data;
   } catch (error) {
     if (data.server) await data.server.kill();
-    cleanupSandbox(home);
+    (factory?.cleanupSandbox || cleanupSandbox)(home);
+    fixtureFactories.delete(data);
     throw error;
   }
 }
 async function restart(data, extraEnv = data.extraEnv) {
   if (data.server) await data.server.kill();
   data.extraEnv = { ...extraEnv };
-  data.server = await spawnServer(data.home, { ...ENV, ...data.extraEnv });
+  data.server = await (fixtureFactories.get(data)?.spawnCandidateServer || spawnServer)(data.home, { ...ENV, ...data.extraEnv });
   watch(data);
 }
 async function close(data) {
   if (data.server) await data.server.kill();
-  try { noAuthority(data.requestLogs, data); } finally { cleanupSandbox(data.home); }
+  try { noAuthority(data.requestLogs, data); } finally {
+    (fixtureFactories.get(data)?.cleanupSandbox || cleanupSandbox)(data.home);
+    fixtureFactories.delete(data);
+  }
 }
 const post = (data, route, body, headers = data.headers) =>
   req(data.server.baseUrl, route, { method: 'POST', headers, body });

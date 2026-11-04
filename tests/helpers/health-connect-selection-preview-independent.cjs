@@ -2,6 +2,8 @@
 'use strict';
 // Fixed membership is supplied by tests. No product selector or date-filter import.
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const I = require('./health-connect-owner-deletion-independent.cjs');
 const bank = require('../fixtures/health-connect/selection-preview-independent-vectors.json');
 const inputs = require('../fixtures/health-connect/selection-preview-scenario-inputs.json');
@@ -67,7 +69,32 @@ function expected(data, requested, membership, snapshot, F, O) {
     for (const key of Object.keys(effects)) effects[key] += counts[key];
   }
   const boundary = O.context(data, groups[0].source);
-  const owner = data.owner.sessions[data.owner.token].userId;
+  const catalogue = JSON.parse(fs.readFileSync(path.join(data.home,
+    'credentials', 'health-connect-policy.json'), 'utf8'));
+  assert.equal(catalogue.version, 2);
+  assert.equal(catalogue.recoveryRequired, false);
+  const namespaces = catalogue.namespaces.filter(entry => entry.state.tenantId === boundary.tenantId);
+  assert.equal(namespaces.length, 1, 'issued tenant has exactly one managed namespace');
+  const owner = namespaces[0].ownerId;
+  assert.match(owner, /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);
+  const principals = catalogue.principals.filter(entry => entry.ownerId === owner);
+  assert.equal(principals.length, 1, 'namespace owner has exactly one registered principal');
+  const sessions = JSON.parse(fs.readFileSync(path.join(data.home,
+    'sessions', 'webauthn.json'), 'utf8'));
+  const session = sessions[data.owner.token];
+  assert.equal(session.userId, data.owner.sessions[data.owner.token].userId);
+  assert.equal(session.credentialId, data.owner.credentialId);
+  const credentials = JSON.parse(fs.readFileSync(path.join(data.home,
+    'credentials', 'webauthn.json'), 'utf8'));
+  const registered = credentials.users[session.userId].credentials.filter(entry => entry.id === session.credentialId);
+  assert.equal(registered.length, 1, 'current session selects exactly one saved fixture credential');
+  assert.equal(registered[0].publicKey, 'fake', 'independently fixed synthetic key stays current');
+  const member = { userId: session.userId,
+    credentialId: data.owner.credentialId,
+    publicKeySha256: 'sha256:0536d3e9b18e52fa27c2951938d4d922e3d0970b534e72cad8126d183159c649' };
+  assert.deepEqual(principals[0].members.filter(entry => entry.userId === member.userId &&
+    entry.credentialId === member.credentialId), [member], 'current issued member owns the namespace');
+  assert.notEqual(owner, member.userId, 'a browser account label is not a managed owner UUID');
   const array = ['health-connect-user-delete-selection', 1, boundary.tenantId, owner,
     boundary.restoreEpoch, boundary.nativeSchemaVersion,
     [selector.sourceStoreIds, selector.recordTypes, selector.period === null ? null :

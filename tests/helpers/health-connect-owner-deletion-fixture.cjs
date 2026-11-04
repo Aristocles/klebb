@@ -8,6 +8,7 @@ const { spawnSync } = require('node:child_process');
 const { setTimeout: delay } = require('node:timers/promises');
 const { fakeAuthState } = require('./sandbox');
 const F = require('./health-connect-sticky-admission-fixture.cjs');
+const { readyCollection } = require('./health-connect-ready-collection-fixture.cjs');
 const { registerMarkers } = require('./health-connect-sticky-admission-cold-readback.cjs');
 const I = require('./health-connect-owner-deletion-independent.cjs');
 const PREVIEW = `${F.BASE}/deletions/preview`, APPLY = `${F.BASE}/deletions/apply`;
@@ -85,7 +86,7 @@ function secureEmptyHome() {
 
 const derivedRows = (snapshot, table) => F.rows({ native: snapshot.derived }, table);
 function catalogueDigest(data) {
-  return I.sha(fs.readFileSync(path.join(data.home, 'credentials', 'health-connect.json')));
+  return I.sha(fs.readFileSync(path.join(data.home, 'credentials', 'health-connect-policy.json')));
 }
 async function pair(data, name, categories) {
   const grant = await F.request(data, `${F.BASE}/pairing-grants`, {
@@ -100,8 +101,8 @@ async function pair(data, name, categories) {
       installationId: `synthetic-owner-deletion-${name}`, categories, grant: grant.json.grant },
   });
   assert.equal(response.status, 200, 'real scoped native exchange');
-  const paired = response.json;
-  data.markers.push(grant.json.grant, paired.credential);
+  data.markers.push(grant.json.grant, response.json.credential);
+  const paired = await readyCollection(data, response.json, categories);
   return { paired, binding: { tenantId: paired.tenantId, instanceId: paired.instanceId,
     sourceStoreId: paired.sourceStoreId, installationId: paired.installationId,
     generation: paired.streams[F.TYPE].generation, restoreEpoch: paired.restoreEpoch } };
@@ -197,9 +198,12 @@ function assertBase(data, snapshot) {
   const states = derivedRows(snapshot, 'health_source_index_state');
   assert.equal(states.length, 2);
   for (const state of states) {
+    const source = [data.alpha, data.beta].find(item =>
+      item.binding.sourceStoreId === state.source_store_id);
+    assert.ok(source, 'index state belongs to a source established by the fixture');
     assert.equal(state.state, 'current');
     assert.equal(state.target_id, 'source-index-v1');
-    assert.equal(state.requested_restore_epoch, data.alpha.binding.restoreEpoch);
+    assert.equal(state.requested_restore_epoch, source.binding.restoreEpoch);
     const components = expectedStreams.filter(row => row.source_store_id === state.source_store_id)
       .map(row => [row.stream_key, row.acknowledged_sequence])
       .sort((a, b) => I.ordinal(a[0], b[0]));
@@ -207,7 +211,7 @@ function assertBase(data, snapshot) {
     assert.equal(state.attempt_count, '1');
     assert.equal(state.next_attempt_at, null);
     assert.equal(state.error_code, null);
-    assert.equal(state.published_restore_epoch, data.alpha.binding.restoreEpoch);
+    assert.equal(state.published_restore_epoch, source.binding.restoreEpoch);
     if (data.expectedPublishedAt === undefined) {
       assert.ok(Number(state.published_at) >= data.startedAt && Number(state.published_at) <= Date.now());
     } else {
@@ -250,7 +254,8 @@ async function defaultFixture({ v2, extraEnv }) {
   }
   const owner = fakeAuthState('owner-deletion-fixture-owner'), startedAt = Date.now();
   const home = secureEmptyHome();
-  const data = { home, owner, server: null, markers: [owner.token], logs: '',
+  const data = { home, owner, server: null,
+    markers: [owner.token, originalExtraEnv.SESSION_SECRET ?? F.ENV.SESSION_SECRET], logs: '',
     extraEnv: { ...originalExtraEnv }, original: [], startedAt,
     expectedPublishedAt: inputs.base.milliseconds };
   try {
@@ -339,9 +344,13 @@ async function defaultFixture({ v2, extraEnv }) {
         assert.equal(Number(state.published_at), inputs.base.milliseconds,
           'actual publication uses the independently supplied child clock');
     }
-    const catalogue = JSON.parse(fs.readFileSync(path.join(home, 'credentials', 'health-connect.json'), 'utf8'));
+    const catalogue = JSON.parse(fs.readFileSync(path.join(home, 'credentials', 'health-connect-policy.json'), 'utf8'));
+    assert.equal(catalogue.version, 2);
+    assert.equal(catalogue.recoveryRequired, false);
     for (const source of [data.alpha, data.beta]) {
-      const grants = catalogue.grants.filter(row => row.sourceStoreId === source.binding.sourceStoreId);
+      const namespaces = catalogue.namespaces.filter(entry => entry.state.tenantId === source.binding.tenantId);
+      assert.equal(namespaces.length, 1, 'The issued tenant selects exactly one authoritative namespace');
+      const grants = namespaces[0].state.grants.filter(row => row.sourceStoreId === source.binding.sourceStoreId);
       assert.equal(grants.length, 1);
       assert.ok(Number.isFinite(Date.parse(grants[0].consumedAt)));
     }
@@ -374,7 +383,8 @@ async function fixture({ v2 = true, extraEnv = {}, expectedPublishedAt = null } 
     { mode: 0o600 });
   fs.writeFileSync(path.join(home, 'data', 'synthetic-sticky-legacy.json'), JSON.stringify(LEGACY),
     { mode: 0o600 });
-  const data = { home, owner, server: null, markers: [owner.token], logs: '', extraEnv,
+  const data = { home, owner, server: null,
+    markers: [owner.token, extraEnv.SESSION_SECRET ?? F.ENV.SESSION_SECRET], logs: '', extraEnv,
     original: [], startedAt: Date.now() };
   if (expectedPublishedAt !== null) {
     assert.ok(Number.isSafeInteger(expectedPublishedAt));
@@ -604,7 +614,26 @@ async function arm(data, mode) {
   const directory = path.join(data.home, 'owner-delete-observations');
   fs.mkdirSync(directory, { mode: 0o700 });
   const enabled = path.join(data.home, 'owner-delete-enabled');
+  let selectedScope;
+  if (mode === 'final-fence') {
+    const catalogue = JSON.parse(fs.readFileSync(path.join(data.home, 'credentials', 'health-connect-policy.json')));
+    const namespaces = catalogue.namespaces.filter(row => row.state.tenantId === data.beta.binding.tenantId);
+    assert.equal(namespaces.length, 1);
+    const namespace = namespaces[0];
+    const connectors = namespace.state.connectors.filter(row => row.id === data.beta.paired.connectorId &&
+      row.sourceStoreId === data.beta.binding.sourceStoreId);
+    assert.equal(connectors.length, 1);
+    const principals = catalogue.principals.filter(row => row.ownerId === namespace.ownerId);
+    assert.equal(principals.length, 1);
+    const session = data.owner.sessions[data.owner.token];
+    const members = principals[0].members.filter(row => row.userId === session.userId &&
+      row.credentialId === session.credentialId);
+    assert.equal(members.length, 1);
+    selectedScope = JSON.stringify({ tenantId: namespace.state.tenantId, ownerId: namespace.ownerId,
+      sourceStoreId: connectors[0].sourceStoreId, connectorId: connectors[0].id, member: members[0] });
+  }
   await F.restart(data, { ...data.extraEnv,
+    ...(selectedScope ? { OWNER_DELETE_SELECTED_SCOPE: selectedScope } : {}),
     NODE_OPTIONS: `--require="${path.join(__dirname, 'health-connect-owner-deletion-preload.cjs').replaceAll('\\', '/')}"`,
     OWNER_DELETE_OBSERVATIONS: directory, OWNER_DELETE_ENABLED: enabled, OWNER_DELETE_MODE: mode });
   await F.capabilities(data);

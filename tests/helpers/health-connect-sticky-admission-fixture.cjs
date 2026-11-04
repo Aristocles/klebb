@@ -12,6 +12,7 @@ const { makeObject } = require('./health-connect-independent-object-fixtures.cjs
 const { coldRead, rows, identityRows, sha, registerMarkers } = require('./health-connect-sticky-admission-cold-readback.cjs');
 const bank = require('../fixtures/health-connect/sticky-admission-independent-vectors.json');
 const product = path.resolve(__dirname, '../..');
+const legacyProducers = new WeakMap();
 const BASE = '/api/connectors/health-connect';
 const BATCH = `${BASE}/v1/batches`, PART = `${BASE}/v1/object-parts`;
 const FINAL = `${BASE}/v1/object-finalise`;
@@ -135,14 +136,14 @@ function headers(source, type = TYPE) {
     'Klebb-Health-Protocol': '1', 'Klebb-Health-Generation': binding(source, type).generation,
     'Klebb-Health-Restore-Epoch': source.binding.restoreEpoch };
 }
-async function pair(data, name) {
+async function pair(data, name, categories = TYPES) {
   const grant = await request(data, `${BASE}/pairing-grants`, { method: 'POST', browser: true,
-    body: { name: `Synthetic sticky ${name}`, categories: TYPES } });
+    body: { name: `Synthetic sticky ${name}`, categories } });
   assert.equal(grant.status, 201);
   const exchanged = await request(data, `${BASE}/v1/pairing/exchange`, { method: 'POST',
     body: { version: 1, kind: 'pairing-exchange', tenantId: grant.json.tenantId,
       instanceId: grant.json.instanceId, sourceStoreId: grant.json.sourceStoreId,
-      installationId: `synthetic-sticky-${name}`, categories: TYPES, grant: grant.json.grant } });
+      installationId: `synthetic-sticky-${name}`, categories, grant: grant.json.grant } });
   assert.equal(exchanged.status, 200);
   const paired = exchanged.json;
   data.markers.push(grant.json.grant, paired.credential);
@@ -181,8 +182,18 @@ const post = (data, source, route, body, customHeaders) =>
   request(data, route, { method: 'POST', body, headers: customHeaders || headers(source,
     body.recordType || (body.kind === 'batch' ? JSON.parse(body.payloadJson).recordType : TYPE)) });
 async function ack(data, source, vector) {
+  const before = data.readinessVersion === 2 ? {
+    native: coldRead(data.home).native,
+    private: fs.readFileSync(path.join(data.home, 'credentials', 'health-connect-policy.json')),
+  } : null;
   const result = await post(data, source, BATCH, vector.wire);
-  assert.equal(result.status, 200); assert.deepEqual(result.json, vector.receipt);
+  if (before && result.status === 409 && result.json.code === 'IMPORT_SOURCE_POLICY_UNKNOWN') {
+    assert.deepEqual(coldRead(data.home).native, before.native,
+      'The declared stopped baseline cannot create an ACK or native history');
+    assert.ok(fs.readFileSync(path.join(data.home, 'credentials', 'health-connect-policy.json'))
+      .equals(before.private));
+  }
+  assert.equal(result.status, 200, result.body); assert.deepEqual(result.json, vector.receipt);
   noAuthority(result.body, data); return result;
 }
 async function stop(data) {
@@ -190,12 +201,16 @@ async function stop(data) {
 }
 async function restart(data, extraEnv = data.extraEnv) {
   await stop(data);
-  data.extraEnv = { ...extraEnv };
-  data.server = await spawnServer(data.home, { ...ENV, ...data.extraEnv });
+  const sessionSecret = data.extraEnv.SESSION_SECRET ?? ENV.SESSION_SECRET;
+  data.extraEnv = { SESSION_SECRET: sessionSecret, ...extraEnv };
+  const legacy = legacyProducers.get(data);
+  data.server = legacy
+    ? await legacy.spawnCandidateServer(data.home, { ...ENV, ...data.extraEnv })
+    : await spawnServer(data.home, { ...ENV, ...data.extraEnv });
   watch(data);
 }
-async function capabilities(data, source = data.alpha, expectedStatus = 200) {
-  const response = await request(data, `${BASE}/v1/capabilities`, { headers: headers(source) });
+async function capabilities(data, source = data.alpha, expectedStatus = 200, type = TYPE) {
+  const response = await request(data, `${BASE}/v1/capabilities`, { headers: headers(source, type) });
   assert.equal(response.status, expectedStatus);
   noAuthority(response.body, data);
   return response;
@@ -251,7 +266,105 @@ async function migrate(data) {
   assert.deepEqual(copy.schema, reunited.schema, 'actual safety copy preserves complete schema');
   await restart(data); await capabilities(data);
 }
-async function fixture({ v2 = false, extraEnv = {} } = {}) {
+const READINESS_KEY = 'invented-sticky-readiness-key-for-isolated-tests';
+const READINESS_FP = 'sha256:db4912372cd0190c42ec800c11d08841050322e2529813b8d6edaddac9a7b911';
+const readinessQuery = type => JSON.stringify({ recordType: type,
+  window: { start: '2026-01-02T00:00:00.000Z', end: '2026-01-03T00:00:00.000Z' }, pageSize: 2 });
+const readinessRequest = (data, source, type, body) => request(data,
+  `${BASE}/v2/streams/${type}/readiness`, { method: 'POST', body,
+    headers: { Authorization: `Bearer ${source.paired.credential}`, 'Klebb-Health-Protocol': '2' } });
+async function readinessStatus(data, source, type = TYPE) {
+  assert.equal(data.readinessVersion, 2, 'The version selects genuine API test setup, never readiness');
+  assert.ok(data.markers.includes(source.paired.credential), 'Use an actually issued scoped fixture credential');
+  assert.equal(typeof type, 'string');
+  assert.ok(Object.hasOwn(source.paired.streams, type), 'Readiness stays inside the issued category set');
+  const before = coldRead(data.home);
+  const privateFile = path.join(data.home, 'credentials', 'health-connect-policy.json');
+  const privateBefore = fs.readFileSync(privateFile);
+  const current = await capabilities(data, source, 200, type);
+  assert.equal(current.json.kind, 'capabilities');
+  assert.deepEqual(current.json.supportedVersions, [1]);
+  assert.ok(current.json.categories.includes(type));
+  for (const field of ['tenantId', 'instanceId', 'sourceStoreId', 'installationId', 'restoreEpoch']) {
+    assert.equal(current.json[field], source.binding[field], `Current scoped capability ${field}`);
+  }
+  const bound = { tenantId: current.json.tenantId, instanceId: current.json.instanceId,
+    sourceStoreId: current.json.sourceStoreId, installationId: current.json.installationId,
+    generation: current.json.streams[type].generation, restoreEpoch: current.json.restoreEpoch };
+  const observed = await readinessRequest(data, source, type,
+    { version: 2, kind: 'readiness-status', recordType: type, binding: bound });
+  assert.equal(observed.status, 200, observed.body);
+  assert.equal(observed.json.kind, 'readiness-result'); assert.equal(observed.json.recordType, type);
+  assert.deepEqual(observed.json.binding, bound);
+  assert.deepEqual(coldRead(data.home).native, before.native, 'Authenticated status has no native mutation');
+  assert.ok(fs.readFileSync(privateFile).equals(privateBefore), 'Status cannot rewrite private policy');
+  noAuthority(observed.body, data);
+  return observed;
+}
+async function activateReadiness(data, source, type = TYPE) {
+  const auth = await request(data, '/auth/status', { browser: true });
+  assert.equal(auth.status, 200); assert.equal(auth.json.authenticated, true);
+  const observed = await readinessStatus(data, source, type);
+  const queryJson = readinessQuery(type), filterDigest = sha(Buffer.from(queryJson));
+  const begun = await readinessRequest(data, source, type, { version: 2, kind: 'readiness-begin',
+    recordType: type, binding: observed.json.binding, policyRevision: observed.json.policyRevision,
+    queryJson, filterDigest });
+  assert.equal(begun.status, 200, begun.body);
+  const challenge = begun.json;
+  assert.equal(challenge.kind, 'readiness-challenge'); assert.equal(challenge.recordType, type);
+  assert.deepEqual(challenge.binding, { ...observed.json.binding,
+    generation: String(BigInt(observed.json.binding.generation) + 1n) });
+  assert.equal(challenge.policyRevision, String(BigInt(observed.json.policyRevision) + 1n));
+  assert.equal(challenge.queryJson, queryJson); assert.equal(challenge.filterDigest, filterDigest);
+  assert.equal(challenge.acknowledgedSequence, '0');
+  noAuthority(begun.body, data);
+  // Invented companion report exercises authenticated server custody only; it is not an SDK receipt.
+  const completed = await readinessRequest(data, source, type, {
+    version: 2, kind: 'readiness-complete', recordType: type, readinessId: challenge.readinessId,
+    binding: challenge.binding, policyRevision: challenge.policyRevision, filterDigest,
+    firstPage: { localReadRevision: '1', recordCount: '1', terminalPage: false,
+      permissionFingerprintStart: READINESS_FP, permissionFingerprintEnd: READINESS_FP,
+      tokenValid: true, historyWindowLimited: true, interveningChangeCount: '1', changesHaveMore: true } });
+  assert.equal(completed.status, 200, completed.body);
+  assert.deepEqual(completed.json, { version: 2, kind: 'readiness-result', recordType: type,
+    binding: challenge.binding, policyRevision: String(BigInt(challenge.policyRevision) + 1n),
+    sharing: 'enabled', verification: 'authenticated-companion-report' });
+  noAuthority(completed.body, data);
+  const refreshed = await capabilities(data, source, 200, type);
+  for (const field of ['tenantId', 'instanceId', 'sourceStoreId', 'installationId', 'restoreEpoch']) {
+    assert.equal(refreshed.json[field], challenge.binding[field]);
+  }
+  assert.equal(refreshed.json.streams[type].generation, challenge.binding.generation);
+  assert.equal(refreshed.json.streams[type].acknowledgedSequence, challenge.acknowledgedSequence);
+  // Replace only the live response cache. Earlier batches/receipts and their bindings remain untouched.
+  source.paired = { ...source.paired, streams: structuredClone(refreshed.json.streams) };
+  if (type === TYPE) source.binding = { ...challenge.binding };
+  const verified = await readinessStatus(data, source, type);
+  assert.equal(verified.json.sharing, 'enabled');
+  assert.equal(verified.json.verification, 'authenticated-companion-report');
+  assert.equal(verified.json.policyRevision, completed.json.policyRevision);
+  data.readiness.push({ recordType: type, initial: observed.json, challenge, result: completed.json });
+  return completed.json;
+}
+
+async function fixture({ v2 = false, extraEnv = {}, readinessVersion = 2,
+  legacyProducer = false, alphaCategories = TYPES } = {}) {
+  assert.ok(readinessVersion === null || readinessVersion === 2);
+  assert.equal(typeof legacyProducer, 'boolean');
+  let producer = null;
+  if (legacyProducer) {
+    assert.equal(v2, true, 'Legacy generation-zero setup requires actual V2 guard migration');
+    assert.equal(readinessVersion, null, 'Historical producer setup cannot claim managed readiness');
+    // The ordinary transport keeps its captured spawn. Only the existing legacy
+    // adapter imports a fresh sandbox to observe its real warm/cold children.
+    const sandboxModule = require.resolve('./sandbox');
+    const ordinarySandbox = require.cache[sandboxModule];
+    assert.ok(ordinarySandbox, 'Ordinary sandbox must already be loaded');
+    delete require.cache[sandboxModule];
+    try { producer = require('./legacy-health-producer'); }
+    finally { require.cache[sandboxModule] = ordinarySandbox; }
+    producer.admitProducer();
+  }
   for (const item of bank.recordInventory) {
     assert.equal(Buffer.byteLength(item.recordJson), item.expectedUtf8Bytes);
     assert.equal(sha(Buffer.from(item.recordJson)), item.expectedRecordDigest);
@@ -264,12 +377,26 @@ async function fixture({ v2 = false, extraEnv = {} } = {}) {
   fs.writeFileSync(path.join(home, 'data', 'synthetic-sticky-legacy.json'), JSON.stringify(LEGACY),
     { mode: 0o600 });
   const data = { home, owner, server: null, markers: [owner.token], logs: '', extraEnv, original: [] };
+  if (readinessVersion === 2) {
+    data.readinessVersion = 2; data.readiness = [];
+    const key = extraEnv.SESSION_SECRET ?? READINESS_KEY;
+    assert.equal(typeof key, 'string'); assert.ok(key.length > 20);
+    data.extraEnv = { ...extraEnv, SESSION_SECRET: key };
+    data.markers.push(key);
+  }
   registerMarkers(home, data.markers);
+  if (producer) legacyProducers.set(data, producer);
   try {
-    await restart(data);
-    data.alpha = await pair(data, 'alpha'); data.beta = await pair(data, 'beta');
+    if (producer) {
+      data.extraEnv = { SESSION_SECRET: data.extraEnv.SESSION_SECRET ?? ENV.SESSION_SECRET,
+        ...data.extraEnv };
+      data.server = await producer.spawnProducerServer(home, { ...ENV, ...data.extraEnv });
+      watch(data);
+    } else await restart(data);
+    data.alpha = await pair(data, 'alpha', alphaCategories); data.beta = await pair(data, 'beta');
     for (const [index, source] of [[0, data.alpha], [1, data.beta], [2, data.alpha]]) {
       const item = bank.recordInventory[index];
+      if (readinessVersion === 2) await activateReadiness(data, source, item.identity[2]);
       const vector = batch(source, '1', [upsert(source, item)],
         { type: item.identity[2], id: `sticky-original-${index}` });
       await ack(data, source, vector); data.original.push(vector);
@@ -286,7 +413,26 @@ async function fixture({ v2 = false, extraEnv = {} } = {}) {
     assert.ok(rows(data.initial, 'rows').some(row => row.card_id === LEGACY.meta.id &&
       row.doc === JSON.stringify(LEGACY.data[0])));
     noAuthority(JSON.stringify(data.initial), data);
+    const assertLegacyHistory = version => {
+      assert.ok(producer, 'Only the explicitly admitted historical producer selects this setup');
+      const catalogue = JSON.parse(fs.readFileSync(path.join(home,
+        'credentials', 'health-connect.json'), 'utf8'));
+      assert.equal(catalogue.version, 1);
+      assert.equal(catalogue.tenantId, data.alpha.binding.tenantId);
+      assert.equal(fs.existsSync(path.join(home, 'credentials', 'health-connect-policy.json')), false,
+        'A genuine legacy home has no managed policy carrier');
+      const native = coldRead(home);
+      assert.equal(native.native.schema.some(row => row.name.startsWith('health_source_policy_')), false,
+        'A genuine legacy home has no managed SQL family');
+      assert.deepEqual(rows(native, 'health_schema_version'), [{ version: String(version) }]);
+      assert.equal(rows(native, 'health_records').length, 3);
+      assert.equal(rows(native, 'health_batch_receipts').length, 3);
+      assert.equal(rows(native, 'health_projection_outbox').length, 3);
+      assert.deepEqual(rows(native, 'health_deletion_guards'), []);
+    };
+    if (producer) assertLegacyHistory(1);
     if (v2) await migrate(data);
+    if (producer) assertLegacyHistory(2);
     return data;
   } catch (error) { await close(data); throw error; }
 }
@@ -295,7 +441,12 @@ async function close(data) {
   try { noAuthority(data.logs, data); }
   finally {
     registerMarkers(data.home, []);
-    owned(data.home); fs.rmSync(data.home, { recursive: true, force: true });
+    owned(data.home);
+    const legacy = legacyProducers.get(data);
+    if (legacy) {
+      legacy.cleanupSandbox(data.home);
+      legacyProducers.delete(data);
+    } else fs.rmSync(data.home, { recursive: true, force: true });
   }
 }
 function failure(response, status, code, data) {
@@ -345,6 +496,7 @@ async function stage(data, source, item, indices = item.manifest.map(part => par
   }
 }
 module.exports = { fixture, close, stop, restart, capabilities, control, mutate, migrate, copies,
-  request, post, ack, unchanged, failure, noAuthority, batch, upsert, deletion, identity,
+  request, post, ack, readinessStatus, activateReadiness, unchanged, failure, noAuthority,
+  batch, upsert, deletion, identity,
   binding, headers, streamKey, object, stage, coldRead, rows, identityRows, sha,
   bank, product, ENV, BASE, BATCH, PART, FINAL, TYPE, TYPES, ID };
