@@ -79,6 +79,15 @@ async function cleanup(request, baseUrl, id) {
 }
 
 test.describe('#336: generic-card with maxReadingsPerDay > 1 renders every row for the day', () => {
+  // Keep the unrelated daily mood prompt from intercepting entry clicks.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      try { localStorage.setItem(`klebb-prompt-shown-mood-${today}`, '1'); } catch {}
+    });
+  });
+
   test('shows both seeded rows, with edit + delete + add affordances', async ({ page, sandboxState }) => {
     const today = todayISO();
     await seed(page.request, sandboxState.baseUrl, stoolLogManifest(today));

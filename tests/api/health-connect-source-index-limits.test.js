@@ -10,6 +10,12 @@ const {
   queued, failedLimit, seedInventory, expectedInventoryHash, seedStreams,
   expectedFrontierHash, expectedEncodedStatusBytes, coldCurrent, sandboxFile, database,
 } = require('../helpers/health-connect-source-index-limits-fixture.cjs');
+const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json');
+const fixedPreload = path.resolve(__dirname, '../helpers/health-connect-fixed-child-clock-preload.cjs');
+const clockEnv = {
+  NODE_OPTIONS: `--require=${JSON.stringify(fixedPreload)}`,
+  INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.base.milliseconds),
+};
 
 test('fresh paired instance with no saved native history returns empty status without derived initialisation',
   { timeout: 20000 }, async () => {
@@ -30,7 +36,7 @@ for (const defect of ['absent-retained-catalogue', 'partial-derived-schema',
   'partial-native-schema']) {
   test(`${defect} returns unavailable without creating or repairing saved state`,
     { timeout: 25000 }, async () => {
-      const data = await fixture();
+      const data = await fixture(clockEnv, healthyClock.base.milliseconds);
       try {
         await initialPublished(data);
         await stop(data);
@@ -44,7 +50,7 @@ for (const defect of ['absent-retained-catalogue', 'partial-derived-schema',
             'DROP TABLE health_source_index_frontiers' : 'DROP TABLE health_projection_outbox'));
         }
         const before = snapshot(data);
-        await restart(data);
+        await restart(data, clockEnv);
         assert.deepEqual(snapshot(data), before);
         for (const request of [() => ownerStatus(data), () => ownerRebuild(data)]) {
           const response = await request();

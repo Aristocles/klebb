@@ -31,6 +31,15 @@ function historyWithChips() {
 }
 
 test.describe('#191: chat embellishment chips persist across reload', () => {
+  // Keep the unrelated daily mood prompt from intercepting chat clicks.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      try { localStorage.setItem(`klebb-prompt-shown-mood-${today}`, '1'); } catch {}
+    });
+  });
+
   test('chips round-trip through server PUT and render after reload', async ({ page, sandboxState }) => {
     // Post the history through the real /api/chat/history endpoint so
     // the server-side PUT filter runs. This is the surface that used

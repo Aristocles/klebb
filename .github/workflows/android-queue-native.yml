@@ -83,6 +83,37 @@ jobs:
           "$cli" --sdk="$ANDROID_HOME" sdk --ignore-outdated-xmls install system-images/android-35/default/x86_64@2.0.0
       - name: Require Linux KVM and create one fresh credential-free AOSP target
         run: |
+          # Reclaim only the unused hosted SDK; retain the isolated pinned toolchain.
+          test "${RUNNER_ENVIRONMENT:-}" = github-hosted
+          test "$ANDROID_HOME" = "$RUNNER_TEMP/queue-android-sdk"
+          test ! -L "$ANDROID_HOME"
+          sdk_real="$(realpath -e -- "$ANDROID_HOME")"
+          runner_temp_real="$(realpath -e -- "$RUNNER_TEMP")"
+          test "$sdk_real" = "$runner_temp_real/queue-android-sdk"
+          cli="$sdk_real/cmdline-tools/16111833/bin/android"
+          stock_sdk=/usr/local/lib/android/sdk
+          test -d "$stock_sdk"
+          test ! -L "$stock_sdk"
+          test "$(realpath -e -- "$stock_sdk")" = "$stock_sdk"
+          test "$ANDROID_SDK_ROOT" = "$ANDROID_HOME"
+          test "$(realpath -e -- "$ANDROID_HOME")" = "$sdk_real"
+          test -x "$cli"
+          test -x "$sdk_real/platform-tools/adb"
+          test -x "$QUEUE_EMULATOR_ROOT/emulator"
+          test ! -e android/local.properties
+          test ! -L android/local.properties
+          for selected in "$sdk_real" "$cli" "$sdk_real/platform-tools/adb" "$QUEUE_EMULATOR_ROOT/emulator" "$ANDROID_USER_HOME" "$ANDROID_AVD_HOME" "$GITHUB_WORKSPACE" "$JAVA_HOME"; do
+            resolved="$(realpath -m -- "$selected")"
+            case "$resolved/" in "$stock_sdk/"*) exit 1 ;; esac
+            case "$stock_sdk/" in "$resolved/"*) exit 1 ;; esac
+          done
+          test "$(realpath -e -- "$(command -v java)")" = "$(realpath -e -- "$JAVA_HOME/bin/java")"
+          test "$(stat -c %d -- "$stock_sdk")" = "$(stat -c %d -- "$runner_temp_real")"
+          df -Pm -- "$runner_temp_real"
+          sudo rm -rf --one-file-system -- /usr/local/lib/android/sdk
+          test ! -e /usr/local/lib/android/sdk
+          test ! -L /usr/local/lib/android/sdk
+          df -Pm -- "$runner_temp_real"
           test -c /dev/kvm
           sudo chown "$(id -u):$(id -g)" /dev/kvm
           test -r /dev/kvm

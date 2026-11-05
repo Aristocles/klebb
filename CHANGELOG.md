@@ -9,8 +9,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
-- I use monotonic elapsed time and fixed publication clocks in import and
-  source-index checks, retaining their data and recovery assertions.
+- I keep unrelated daily prompts from intercepting browser regression checks.
+  I also reclaim the unused hosted SDK for the CI emulator and allow the browser
+  job to finish without changing individual test limits.
+
+- I identify the request and response state in synthetic request timeout errors,
+  retaining the same deadline and assertions.
+
+- I use monotonic elapsed time and fixed request/publication clocks in import,
+  selection and source-index checks, retaining their data and recovery assertions.
 
 - I wait for the export response cleanup before checking that its temporary
   staging files are gone, retaining the archive and recovery assertions.

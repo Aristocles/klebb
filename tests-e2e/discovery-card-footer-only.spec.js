@@ -14,6 +14,15 @@
 const { test, expect } = require('./helpers/auth-fixture');
 
 test.describe('#192: discovery card surfaces footer-only when only unsupported metrics are pending', () => {
+  // Keep the unrelated daily mood prompt from intercepting footer clicks.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      try { localStorage.setItem(`klebb-prompt-shown-mood-${today}`, '1'); } catch {}
+    });
+  });
+
   test('footer renders on Today view when supportedCount === 0', async ({ page }) => {
     await page.goto('/');
 
