@@ -113,7 +113,8 @@ function request(data, route, { method = 'GET', body, headers = {}, browser = fa
       });
     });
     outgoing.on('error', error => { agent.destroy(); reject(error); });
-    outgoing.setTimeout(10000, () => outgoing.destroy(new Error('bounded synthetic request timeout')));
+    outgoing.setTimeout(10000, () => outgoing.destroy(new Error(
+      `bounded synthetic request timeout: ${method} ${route}; response started: ${Boolean(outgoing.res)}`)));
     outgoing.end(bytes);
   });
 }

@@ -172,21 +172,33 @@ function rotateStoppedCatalogue(data, epoch) {
 
 test('changed live restore fence rebuilds the same saved old-binding vector and refuses the pre-restore native credential',
   { timeout: 25000 }, async () => {
-    const data = await fixture();
+    const healthyClock = require('../fixtures/health-connect/fixed-child-clock-inputs-v1.json');
+    const fixedPreload = path.resolve(__dirname, '../helpers/health-connect-fixed-child-clock-preload.cjs');
+    const clockEnv = {
+      NODE_OPTIONS: `--require=${JSON.stringify(fixedPreload)}`,
+      INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.base.milliseconds),
+    };
+    const data = await fixture(clockEnv, healthyClock.base.milliseconds);
     try {
-      const before = await initial(data);
+      const before = await initial(data, clockEnv);
       await stop(data);
       rotateStoppedCatalogue(data, STARTUP_EPOCH);
       const controlled = { ...before, native: managedFenceNative(before.native, data, STARTUP_EPOCH) };
       assert.deepEqual(coldReadSourceState(data.home), controlled);
-      await restart(data, environment(data));
+      const lifecycleEnv = environment(data);
+      data.expectedPublishedAt = healthyClock.advanced.milliseconds;
+      await restart(data, {
+        ...clockEnv, ...lifecycleEnv,
+        NODE_OPTIONS: `${clockEnv.NODE_OPTIONS} ${lifecycleEnv.NODE_OPTIONS}`,
+        INDEPENDENT_FIXED_CHILD_CLOCK: String(healthyClock.advanced.milliseconds),
+      });
       const status = await current(data, '1', STARTUP_EPOCH);
       assert.deepEqual(status.json.sources[0].saved.frontiers,
         [{ binding: data.binding, recordType: expectedFrontier(data, '1').record_type,
           acknowledgedSequence: '1' }]);
       const rebuilt = coldReadSourceState(data.home);
       assert.deepEqual(rebuilt.native, controlled.native);
-      assertFence(rebuilt.index, data, '1', STARTUP_EPOCH);
+      assertFence(rebuilt.index, data, '1', STARTUP_EPOCH, healthyClock.advanced.milliseconds);
       assert.notEqual(rebuilt.index.stateRows[0].published_at, before.index.stateRows[0].published_at);
       const writes = events(data).filter(row => row.kind === 'successful-derived-write' && row.changes > 0);
       assert.ok(writes.length > 0, 'startup executed the actual production publisher');

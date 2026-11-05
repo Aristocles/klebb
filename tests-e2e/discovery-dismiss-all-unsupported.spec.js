@@ -4,12 +4,21 @@
 // Regression for #218: the discovery card's unsupported-metrics
 // footer has a "Dismiss all" button that flips every listed metric
 // to dismissed in one click. Per-row Dismiss buttons are removed
-// as part of the simplification — the operator can un-hide from
+// as part of the simplification - the operator can un-hide from
 // Settings if they want a specific metric back.
 
 const { test, expect } = require('./helpers/auth-fixture');
 
 test.describe('#218: discovery card supports dismiss-all for unsupported metrics', () => {
+  // Keep the unrelated daily mood prompt from intercepting footer clicks.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      try { localStorage.setItem(`klebb-prompt-shown-mood-${today}`, '1'); } catch {}
+    });
+  });
+
   test('clicking Dismiss all hides the footer and flips every metric on the server', async ({ page, sandboxState }) => {
     await page.goto('/');
     await expect(page.locator('eh-date-view')).toBeVisible();

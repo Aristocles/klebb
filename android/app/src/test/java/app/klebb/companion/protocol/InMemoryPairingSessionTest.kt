@@ -143,6 +143,25 @@ class InMemoryPairingSessionTest {
     }
 
     @Test
+    fun fiveMinuteFirstPageChallengeAcceptsClientOneSecondBehindServer() {
+        val serverNow = Instant.parse("2026-10-28T03:55:00Z")
+        val clientNow = Instant.parse("2026-10-28T03:54:59Z")
+        assertEquals(serverNow, clientNow.plusSeconds(1))
+        assertEquals(Instant.parse("2026-10-28T04:00:00Z"), serverNow.plusSeconds(300))
+        val client = InMemoryPairingSession(SharedWire.protocol(), { clientNow }, { "install-a" }).also {
+            it.approveDestination("https://health.example.test")
+        }
+        val saved = MemoryPairingPersistence()
+        client.attachPersistence(saved)
+        firstPageHappyPath("WeightRecord", "1", false, client)
+        val restored = InMemoryPairingSession(SharedWire.protocol(), { clientNow }, { "install-a" })
+        restored.restoreDurableState(checkNotNull(saved.saved))
+        assertEquals("enabled", checkNotNull(restored.readinessCompleted("WeightRecord"))["sharing"])
+        assertEquals("5", restored.batchScope("WeightRecord").binding["generation"])
+        assertEquals("7", restored.batchScope("StepsRecord").binding["generation"])
+    }
+
+    @Test
     fun selectedStopRetiresPendingBeginAndOnlyItsOwnedRequests() {
         val session = pairedForStop()
         val challenge = beginWeightForStop(session)
@@ -476,8 +495,9 @@ class InMemoryPairingSessionTest {
     }
 
     /** Session wire only: these invented report facts do not attest an SDK read or Room commit. */
-    private fun firstPageHappyPath(type: String, count: String, terminal: Boolean) {
-        val session = session()
+    private fun firstPageHappyPath(type: String, count: String, terminal: Boolean,
+        selectedSession: InMemoryPairingSession = session()) {
+        val session = selectedSession
         val types = listOf("WeightRecord", "StepsRecord")
         val grant = StrictJson.parse(wire("approved-grant")).objectValue() + ("categories" to types)
         val paired = StrictJson.parse(wire("paired")).objectValue() + mapOf(

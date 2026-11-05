@@ -70,6 +70,15 @@ async function cleanup(request, baseUrl, id) {
 }
 
 test.describe('#344: chips and chips-multi input types', () => {
+  // Keep the unrelated daily mood prompt from intercepting form clicks.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      try { localStorage.setItem(`klebb-prompt-shown-mood-${today}`, '1'); } catch {}
+    });
+  });
+
   test('selecting chips and chips-multi values round-trips to disk', async ({ page, sandboxState }) => {
     await seed(page.request, sandboxState.baseUrl, chipsManifest());
 
@@ -99,7 +108,7 @@ test.describe('#344: chips and chips-multi input types', () => {
 
     // Apply to merge into the draft row, then Done to persist.
     await form.getByRole('button', { name: /^apply$/i }).click();
-    await card.locator('button[aria-label="Done — save changes"]').click();
+    await card.locator('button[aria-label="Done \u2014 save changes"]').click();
 
     // Round-trip: read the data file back and assert the shape.
     const res = await page.request.get(`${sandboxState.baseUrl}/api/manifests/${CARD_ID}/data`);
@@ -130,7 +139,7 @@ test.describe('#344: chips and chips-multi input types', () => {
     await categoryGroup.locator('.chip', { hasText: 'lunch' }).click();
     await expect(categoryGroup.locator('.chip.selected', { hasText: 'lunch' })).toBeVisible();
 
-    // Tap the same chip again — should clear.
+    // Tap the same chip again - should clear.
     await categoryGroup.locator('.chip.selected', { hasText: 'lunch' }).click();
     await expect(categoryGroup.locator('.chip.selected')).toHaveCount(0);
 

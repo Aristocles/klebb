@@ -181,6 +181,7 @@ test('S08 malformed present time, duplicate members, reversed intervals, streams
 test('S09 fixed selected/candidate/raw/request bounds refuse whole scope rather than truncate or materialize overflow',
   options, async () => {
     for (const count of [100, 101]) await owned(async data => {
+      H.clock(data, E.inputs.fixedClock.initialAfterHealthySetup);
       const ids = await H.capacity(data, count);
       const footprints = Object.fromEntries(ids.map(([type, id]) => [`${type}\0${id}`,
         E.original('alpha')[`${F.TYPE}\0${F.ID}`]]));
@@ -190,6 +191,7 @@ test('S09 fixed selected/candidate/raw/request bounds refuse whole scope rather 
       } else await H.refuse(data, H.body([data.alpha], [F.TYPE]), 413, 'limit-exceeded');
     });
     await owned(async data => {
+      H.clock(data, E.inputs.fixedClock.initialAfterHealthySetup);
       await H.capacity(data, 1001, { splitWindow: true });
       const rows = F.rows(F.coldRead(data.home), 'health_records')
         .filter(row => row.source_store_id === data.alpha.binding.sourceStoreId);
@@ -197,6 +199,7 @@ test('S09 fixed selected/candidate/raw/request bounds refuse whole scope rather 
       await H.refuse(data, H.body([data.alpha], [F.TYPE], oneNs), 413, 'limit-exceeded');
     });
     await owned(async data => {
+      H.clock(data, E.inputs.fixedClock.initialAfterHealthySetup);
       const ids = Array.from({ length: 100 }, (_, index) => ({ recordType: F.TYPE,
         nativeRecordId: `selection-raw-${String(index).padStart(3, '0')}` }));
       await F.stop(data);
@@ -212,6 +215,7 @@ test('S09 fixed selected/candidate/raw/request bounds refuse whole scope rather 
       await H.refuse(data, H.body([data.beta], [F.TYPE]), 413, 'limit-exceeded');
     });
     await owned(async data => {
+      H.clock(data, E.inputs.fixedClock.initialAfterHealthySetup);
       const wire = ' '.repeat(65537); assert.equal(Buffer.byteLength(wire), 65537);
       await H.refuse(data, wire, 413, 'limit-exceeded');
     });

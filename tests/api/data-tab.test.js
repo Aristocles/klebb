@@ -12,6 +12,7 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
+const { performance } = require('node:perf_hooks');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -763,11 +764,11 @@ describe('detached apply: 202 mid-pipeline, widened freeze gate over HTTP', { sk
   });
 
   test('202 answers mid-pipeline; /api reads 503 IMPORT_FROZEN while applying; done reopens everything', async () => {
-    const t0 = Date.now();
+    const t0 = performance.now();
     const applied = await req(server.baseUrl, '/api/import/apply', {
       method: 'POST', cookie: auth.cookie, body: {},
     });
-    const elapsed202 = Date.now() - t0;
+    const elapsed202 = performance.now() - t0;
     assert.strictEqual(applied.status, 202, applied.body);
     assert.strictEqual(applied.json.state, 'applying');
 
@@ -811,7 +812,7 @@ describe('detached apply: 202 mid-pipeline, widened freeze gate over HTTP', { sk
       'the pipeline settled before the probes finished; grow the fixture');
 
     const st = await pollUntilSettled(server.baseUrl, auth.cookie);
-    const settledMs = Date.now() - t0;
+    const settledMs = performance.now() - t0;
     assert.strictEqual(st.state, 'done', JSON.stringify(st.findings));
     assert.deepStrictEqual(st.verified, { cards: 1, pushes: 400, reports: 0 });
     assert.ok(elapsed202 < settledMs / 2,
