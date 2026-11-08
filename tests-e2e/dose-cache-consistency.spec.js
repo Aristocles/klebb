@@ -381,8 +381,11 @@ for (const component of ['schedule-card', 'checklist-card']) {
         };
         await page.route(pattern, handler);
         try {
-          // Reconnecting exercises the reader's ordinary load lifecycle.
-          await reader.evaluate(element => {
+          // Navigation now preserves the shared cache. Explicitly expire
+          // this history before reconnecting to establish the delayed GET.
+          await reader.evaluate(async element => {
+            const { invalidateManifestCache } = await import('/js/components/eh-base-card.js');
+            invalidateManifestCache(element.card.id);
             element.remove();
             document.body.append(element);
           });

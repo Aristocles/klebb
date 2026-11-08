@@ -4,7 +4,7 @@
 // Regression for #457: a list-card whose manifest sets
 // writeable.fromWebapp:true but declares NO writeable.inputs (e.g. the
 // Appointments card) rendered an Add button that appended a blank,
-// read-only row — nothing to type into. _primaryInput() returned null,
+// read-only row - nothing to type into. _primaryInput() returned null,
 // so _renderEditMode fell back to a <span> instead of an <input>.
 //
 // A minimal manifest must still be fillable: Add should yield a typeable
@@ -69,7 +69,7 @@ test.describe('#457: inputs-less list-card is still editable', () => {
     await expect(input).toBeVisible();
 
     await input.fill('Dentist 9am Tuesday');
-    await card.locator('button[aria-label="Done — save changes"]').click();
+    await card.locator('button[aria-label="Done - save changes"]').click();
 
     // Back in view mode the row is persisted and shown.
     await expect(card.locator('.rows .primary')).toContainText('Dentist 9am Tuesday');

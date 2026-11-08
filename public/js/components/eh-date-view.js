@@ -137,8 +137,11 @@ export class EhDateView extends LitElement {
     window.removeEventListener('keydown', this._onKeydown);
   }
 
-  updated(changed) {
-    if (changed.has('date')) this._updateMode();
+  willUpdate(changed) {
+    if (changed.has('date') || changed.has('_today')) {
+      this._today = todayStr();
+      this._updateMode();
+    }
   }
 
   _updateMode() {
@@ -168,6 +171,7 @@ export class EhDateView extends LitElement {
   }
 
   _shift(delta) {
+    this._today = todayStr();
     const next = shiftDate(this.date, delta);
     // Forward-swipe cap: max 30 days from today
     if (delta > 0 && next > this._today && dayDiff(next, this._today) > 30) {
@@ -177,6 +181,7 @@ export class EhDateView extends LitElement {
   }
 
   _navigate(dateStr) {
+    this._today = todayStr();
     // Push new URL
     const path = (dateStr === this._today) ? '/' : `/day/${dateStr}`;
     window.dispatchEvent(new CustomEvent('navigate', { detail: { path } }));
@@ -185,6 +190,7 @@ export class EhDateView extends LitElement {
   _onDatePick(e) {
     const v = e.target.value;
     if (!v) return;
+    this._today = todayStr();
     // Cap 2 years future via picker
     const maxDate = shiftDate(this._today, 365 * 2);
     const minDate = '1970-01-01';
@@ -227,7 +233,7 @@ export class EhDateView extends LitElement {
           aria-label="next day"
         >›</button>
         ${this._dateMode !== 'today' ? html`
-          <button class="today-btn" @click=${() => this._navigate(this._today)}>Today</button>
+          <button class="today-btn" @click=${() => this._navigate(todayStr())}>Today</button>
         ` : ''}
       </div>
       <eh-view-renderer

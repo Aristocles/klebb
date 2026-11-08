@@ -3,12 +3,12 @@
 // public/js/app.js
 // Klebb v2 app shell. Manifest-driven throughout. Legacy v1 views
 // (today-view, day-detail, calendar-view, trends-view, widget-view) have
-// been retired — they were hardcoded for a specific Apple Watch data
+// been retired - they were hardcoded for a specific Apple Watch data
 // shape and couldn't render arbitrary manifest data.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 
-// v2 views — all manifest-driven
+// v2 views - all manifest-driven
 import './components/eh-date-view.js';        // / and /day/:date
 import './components/eh-calendar-view.js';    // /calendar
 import './components/eh-trends-view.js';      // /trends
@@ -288,7 +288,7 @@ class HealthApp extends LitElement {
 
   async _loadPrompts() {
     // Evaluate which cards opt into meta.prompt and should fire today.
-    // Quiet-fails — prompts are an enhancement, never block app startup.
+    // Quiet-fails - prompts are an enhancement, never block app startup.
     try {
       const queue = await checkPromptsForToday();
       if (queue.length) this._promptQueue = queue;
@@ -298,8 +298,8 @@ class HealthApp extends LitElement {
   }
 
   _onPromptDone(e) {
-    const { cardId, action } = e.detail || {};
-    // Mark shown-today regardless of saved/dismissed — per spec, once shown
+    const { cardId } = e.detail || {};
+    // Mark shown-today regardless of saved/dismissed - per spec, once shown
     // never reshow the same day even on cancel.
     try {
       const today = localToday();
@@ -307,13 +307,6 @@ class HealthApp extends LitElement {
     } catch {}
     // Advance the queue.
     this._promptQueue = this._promptQueue.slice(1);
-    // If that card was saved, nudge a refresh on any rendered cards of
-    // the same id (so the Today view reflects the new entry).
-    if (action === 'saved') {
-      window.dispatchEvent(new CustomEvent('manifest-data-changed', {
-        detail: { cardId },
-      }));
-    }
   }
 
   _handleRoute() {
@@ -336,7 +329,7 @@ class HealthApp extends LitElement {
       this.dayDate = this.routeParam;
       this.showNav = true;
     } else if (path === '/widget') {
-      // Widget route retained for backward compatibility — routes to date-view today
+      // Widget route retained for backward compatibility - routes to date-view today
       this.route = 'today';
       this.showNav = false;
     } else if (path === '/settings') {
@@ -346,6 +339,8 @@ class HealthApp extends LitElement {
       this.route = 'today';
       this.showNav = true;
     }
+    // Selecting an already-active Today route must project the current day.
+    this.requestUpdate();
   }
 
   _navigate(path) {
@@ -362,7 +357,7 @@ class HealthApp extends LitElement {
     :host {
       display: block;
       max-width: 100%;
-      /* NOTE: don't put overflow-x:hidden here — it can break the
+      /* NOTE: don't put overflow-x:hidden here - it can break the
          sticky <nav> child on iOS Safari. Per-container overflow is
          applied further down on <main> and the schedule-card week row. */
     }
@@ -500,7 +495,7 @@ class HealthApp extends LitElement {
       padding: 20px;
       /* Leave room for the peek-bar chat widget pinned to the bottom */
       padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
-      /* Hard guard against any child overflowing horizontally — we'd
+      /* Hard guard against any child overflowing horizontally - we'd
          rather clip a stray wide element than have the whole page
          shrink-to-fit on mobile. */
       overflow-x: hidden;
@@ -594,8 +589,9 @@ class HealthApp extends LitElement {
         </nav>
       ` : ''}
       <main>
-        ${this.route === 'today' ? html`<eh-date-view></eh-date-view>` : ''}
-        ${this.route === 'day' ? html`<eh-date-view .date=${this.routeParam}></eh-date-view>` : ''}
+        ${this.route === 'today' || this.route === 'day' ? html`
+          <eh-date-view .date=${this.route === 'day' ? this.routeParam : localToday()}></eh-date-view>
+        ` : ''}
         ${this.route === 'calendar' ? html`<eh-calendar-view></eh-calendar-view>` : ''}
         ${this.route === 'trends' ? html`<eh-trends-view></eh-trends-view>` : ''}
         ${this.route === 'reports' ? html`<eh-reports-view></eh-reports-view>` : ''}

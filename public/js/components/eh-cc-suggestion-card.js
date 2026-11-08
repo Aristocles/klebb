@@ -13,6 +13,7 @@
 // only renders + drives dismissal; no heuristic lives in the client.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { readJSON, invalidateRead, scheduleReadRetry } from '../lib/manifest-reads.js';
 
 const CATEGORY_META = {
   sleep:       { label: 'Sleep',        emoji: '😴' },
@@ -29,7 +30,7 @@ const CATEGORY_META = {
 function buildPrompt(category, cards) {
   const label = CATEGORY_META[category]?.label || category;
   const names = cards.map(c => `"${c.label || c.id}"`).join(', ');
-  return `I'd like to combine my ${label.toLowerCase()} cards into a single combination card. I have ${cards.length} relevant cards: ${names}. Which combination-card layout would work best (rings, stack, etc.), which card should be the primary, and what embellishments could we add? Please propose a plan before writing the manifest. After writing the card, also suggest 2-3 specific embellishments I could layer on — like switching to a rings layout with goals, setting a primary donor, or colour coding segments.`;
+  return `I'd like to combine my ${label.toLowerCase()} cards into a single combination card. I have ${cards.length} relevant cards: ${names}. Which combination-card layout would work best (rings, stack, etc.), which card should be the primary, and what embellishments could we add? Please propose a plan before writing the manifest. After writing the card, also suggest 2-3 specific embellishments I could layer on - like switching to a rings layout with goals, setting a primary donor, or colour coding segments.`;
 }
 
 export class EhCcSuggestionCard extends LitElement {
@@ -46,19 +47,22 @@ export class EhCcSuggestionCard extends LitElement {
     this._loading = true;
     this._busyKey = null;
     this._cardLabels = {};
+    this._readRequest = 0;
+    this._retryCancel = null;
     this._onManifestChanged = this._onManifestChanged.bind(this);
   }
 
   connectedCallback() {
     super.connectedCallback();
     this._loadAll();
-    window.addEventListener('manifest-data-changed', this._onManifestChanged);
     window.addEventListener('klebb-cards-changed', this._onManifestChanged);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    window.removeEventListener('manifest-data-changed', this._onManifestChanged);
+    this._readRequest++;
+    this._retryCancel?.();
+    this._retryCancel = null;
     window.removeEventListener('klebb-cards-changed', this._onManifestChanged);
   }
 
@@ -66,29 +70,39 @@ export class EhCcSuggestionCard extends LitElement {
     this._loadAll();
   }
 
-  async _loadAll() {
-    this._loading = true;
+  async _loadAll(retry = false) {
+    this._retryCancel?.();
+    this._retryCancel = null;
+    const request = ++this._readRequest;
+    const current = () => this.isConnected && request === this._readRequest;
+    this._loading = this._suggestions.length === 0;
     try {
-      const [suggRes, cardsRes] = await Promise.all([
-        fetch('/api/cc-suggestions'),
-        fetch('/api/settings/cards'),
+      const [suggBody, cardsBody] = await Promise.all([
+        readJSON('/api/cc-suggestions'),
+        readJSON('/api/settings/cards'),
       ]);
-      if (!suggRes.ok) { this._suggestions = []; return; }
-      const suggBody = await suggRes.json();
+      if (!current()) return;
       this._suggestions = Array.isArray(suggBody.suggestions) ? suggBody.suggestions : [];
 
       const labels = {};
-      if (cardsRes.ok) {
-        const cardsBody = await cardsRes.json();
-        for (const c of (cardsBody.cards || [])) {
-          labels[c.id] = { label: c.label || c.id, emoji: c.emoji || '' };
-        }
+      for (const c of (cardsBody.cards || [])) {
+        labels[c.id] = { label: c.label || c.id, emoji: c.emoji || '' };
       }
       this._cardLabels = labels;
-    } catch {
-      this._suggestions = [];
+    } catch (error) {
+      // Keep loaded suggestions until a later compatible read succeeds.
+      if (current() && !error.transient) {
+        this._suggestions = [];
+        this._cardLabels = {};
+      }
+      if (current() && error.status === 429 && (!retry || error.blocked)) {
+        this._retryCancel = scheduleReadRetry(error.retryAt, () => {
+          this._retryCancel = null;
+          if (current()) this._loadAll(true);
+        });
+      }
     } finally {
-      this._loading = false;
+      if (current()) this._loading = false;
     }
   }
 
@@ -123,6 +137,7 @@ export class EhCcSuggestionCard extends LitElement {
           body: JSON.stringify({ cardIds: suggestion.cardIds }),
         });
       if (r.ok) {
+        invalidateRead('/api/cc-suggestions');
         this._suggestions = this._suggestions.filter(s => this._keyFor(s) !== key);
       }
     } finally {

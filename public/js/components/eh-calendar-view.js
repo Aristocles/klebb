@@ -14,6 +14,7 @@
 // Click a day -> navigate to /day/YYYY-MM-DD.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { readJSON, fetchManifestData, fetchSelectedManifestData, peekManifestData, scheduleReadRetry } from '../lib/manifest-reads.js';
 import { extractDatedRows, resolveMarker } from '../lib/calendar-marker.esm.js';
 import { renderTemplate } from '../lib/display-template.esm.js';
 
@@ -30,6 +31,7 @@ export class EhCalendarView extends LitElement {
     _month: { state: true },           // 0-based
     _markers: { state: true },          // date -> [{id, marker, tooltip}]
     _loading: { state: true },
+    _readStatus: { state: true },
   };
 
   constructor() {
@@ -39,29 +41,82 @@ export class EhCalendarView extends LitElement {
     this._month = d.getMonth();
     this._markers = new Map();
     this._loading = true;
+    this._readStatus = null;
+    this._request = 0;
+    this._nativeIds = new Set();
+    this._retryCancel = null;
+    this._retryAttempted = false;
+    this._onDataChanged = () => this._refreshMarkers();
+    this._onCardsChanged = () => {
+      this._markers = new Map();
+      this._refreshMarkers();
+    };
+    this._onVisible = () => {
+      if (document.visibilityState === 'visible') this._refreshMarkers();
+    };
   }
 
   connectedCallback() {
     super.connectedCallback();
+    window.addEventListener('manifest-data-changed', this._onDataChanged);
+    window.addEventListener('klebb-cards-changed', this._onCardsChanged);
+    document.addEventListener('visibilitychange', this._onVisible);
     this._loadMarkers();
   }
 
+  disconnectedCallback() {
+    this._request++;
+    this._retryCancel?.();
+    this._retryCancel = null;
+    window.removeEventListener('manifest-data-changed', this._onDataChanged);
+    window.removeEventListener('klebb-cards-changed', this._onCardsChanged);
+    document.removeEventListener('visibilitychange', this._onVisible);
+    super.disconnectedCallback();
+  }
+
+  _refreshMarkers() {
+    this._retryAttempted = false;
+    this._loadMarkers();
+  }
+
+  _temporaryFailure(error) {
+    this._readStatus = error.status === 429 ? error.message : 'Unable to refresh the calendar. Please try again.';
+    if (error.status === 429 && !this._retryCancel && (!this._retryAttempted || error.blocked)) {
+      this._retryCancel = scheduleReadRetry(error.retryAt, () => {
+        this._retryCancel = null;
+        this._retryAttempted = true;
+        if (this.isConnected) this._loadMarkers();
+      });
+    }
+  }
+
   async _loadMarkers() {
-    this._loading = true;
+    const request = ++this._request;
+    const current = () => this.isConnected && request === this._request;
+    this._loading = this._markers.size === 0;
+    this._readStatus = null;
     try {
-      const r = await fetch('/api/manifests');
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const { entries } = await r.json();
+      const { entries } = await readJSON('/api/manifests');
+      if (!current()) return;
       const calendarEntries = (entries || []).filter(e => e.meta?.calendar?.enabled);
+      const previousNative = this._nativeIds;
+      this._nativeIds = new Set(calendarEntries.filter(e => e.meta?.healthConnectDisplay).map(e => e.id));
+      // A fresh selected read must establish the projection for this scope.
+      this._markers = new Map([...this._markers].map(([date, markers]) =>
+        [date, markers.filter(marker => !this._nativeIds.has(marker.id) && !previousNative.has(marker.id))]));
       // Fetch data for each in parallel
       const fetched = await Promise.all(calendarEntries.map(async e => {
         try {
-          const dr = await fetch(`/api/manifests/${encodeURIComponent(e.id)}/data`);
-          if (!dr.ok) return null;
-          const { data } = await dr.json();
+          const data = e.meta?.healthConnectDisplay
+            ? (await fetchSelectedManifestData(e.id)).data : await fetchManifestData(e.id);
           return { ...e, data };
-        } catch { return null; }
+        } catch (error) {
+          if (current()) this._temporaryFailure(error);
+          const data = error.transient && !e.meta?.healthConnectDisplay ? peekManifestData(e.id) : undefined;
+          return data === undefined ? null : { ...e, data };
+        }
       }));
+      if (!current()) return;
       // Build the markers map
       const markers = new Map();
       for (const entry of fetched) {
@@ -71,7 +126,7 @@ export class EhCalendarView extends LitElement {
         const fallback = entry.meta.emoji || '•';
         const display = entry.meta?.view?.display || null;
         const dated = extractDatedRows(entry.data);
-        // Sorted ascending — trend-arrow needs this to find the previous row.
+        // Sorted ascending - trend-arrow needs this to find the previous row.
         const sortedRows = Array.from(dated.values())
           .filter(r => r && r.date)
           .sort((a, b) => String(a.date).localeCompare(String(b.date)));
@@ -86,10 +141,16 @@ export class EhCalendarView extends LitElement {
         }
       }
       this._markers = markers;
-    } catch (e) {
-      console.warn('[calendar] load failed', e);
+    } catch (error) {
+      if (current()) {
+        this._temporaryFailure(error);
+        // A selected source's failed read cannot display an older projection.
+        this._markers = new Map([...this._markers].map(([date, markers]) =>
+          [date, markers.filter(marker => error.transient && !this._nativeIds.has(marker.id)
+            && peekManifestData(marker.id) !== undefined)]));
+      }
     } finally {
-      this._loading = false;
+      if (current()) this._loading = false;
     }
   }
 
@@ -253,6 +314,7 @@ export class EhCalendarView extends LitElement {
       <div class="weekday-row">
         ${DAY_NAMES.map(d => html`<div class="weekday">${d}</div>`)}
       </div>
+      ${this._readStatus ? html`<div role="status">${this._readStatus}</div>` : ''}
       ${this._loading ? html`<div class="loading">Loading…</div>` : html`
         <div class="grid">
           ${cells.map(c => {
