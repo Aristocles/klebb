@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
 // public/js/components/eh-list-card.js
 // List of persistent items card. Unlike generic-card (which shows one dated
-// entry), list-card shows the ENTIRE data array as a roster — every row,
+// entry), list-card shows the ENTIRE data array as a roster - every row,
 // every day. Rows persist until explicitly deleted. Useful for:
 //   - symptoms you're tracking (add one, it shows until removed)
 //   - appointments (upcoming list)
@@ -31,8 +31,8 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { renderTemplate } from '../lib/display-template.esm.js';
 import { registerRenderer } from '../renderer-registry.js';
-import { EhBaseCard, invalidateManifestCache } from './eh-base-card.js';
-import { errorFromResponse } from '../lib/save-error.js';
+import { EhBaseCard } from './eh-base-card.js';
+import { saveManifestData } from '../lib/manifest-reads.js';
 import './eh-input-form.js';
 
 export class EhListCard extends EhBaseCard {
@@ -223,6 +223,8 @@ export class EhListCard extends EhBaseCard {
   }
 
   async _saveEdit() {
+    if (!this._canWrite || this._saving) return;
+    const id = this.card.id;
     this._saving = true;
     this._formError = null;
     try {
@@ -235,14 +237,8 @@ export class EhListCard extends EhBaseCard {
           return v !== null && v !== undefined && String(v).trim() !== '';
         });
 
-      const r = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: surviving }),
-      });
-      if (!r.ok) throw await errorFromResponse(r);
-
-      invalidateManifestCache(this.card.id);
+      await saveManifestData(id, surviving);
+      if (!this.isConnected || id !== this.card?.id || this.card.meta?.healthConnectDisplay) return;
       this.data = surviving;
       this._editing = false;
       this._draft = [];
@@ -501,14 +497,14 @@ export class EhListCard extends EhBaseCard {
                 class="tool-btn"
                 @click=${this._cancelEdit}
                 ?disabled=${this._saving}
-                aria-label="Cancel — discard changes"
+                aria-label="Cancel - discard changes"
                 title="Cancel"
               >\u2715</button>
               <button
                 class="tool-btn primary"
                 @click=${this._saveEdit}
                 ?disabled=${this._saving}
-                aria-label="Done — save changes"
+                aria-label="Done - save changes"
                 title="${this._saving ? 'Saving…' : 'Done'}"
               >${this._saving ? html`<span style="font-size: 11px;">…</span>` : '\u2713'}</button>
             ` : html`
@@ -552,7 +548,7 @@ export class EhListCard extends EhBaseCard {
             ? renderTemplate(display.secondaryTemplate, row, display)
             : '';
 
-          // A row is always expandable — tapping reveals the full detail
+          // A row is always expandable - tapping reveals the full detail
           // view with every non-primary field rendered as a read-only
           // label + value.
           return html`
@@ -582,7 +578,7 @@ export class EhListCard extends EhBaseCard {
                           const hasValue = v !== null && v !== undefined && v !== '';
                           return html`
                             <dt>${input.label || input.key}</dt>
-                            <dd>${hasValue ? String(v) : html`<span class="detail-empty">—</span>`}</dd>
+                            <dd>${hasValue ? String(v) : html`<span class="detail-empty">-</span>`}</dd>
                           `;
                         })}
                       </dl>
@@ -602,7 +598,7 @@ export class EhListCard extends EhBaseCard {
     const payload = e.detail || {};
     const next = [...this._draft];
     next[idx] = { ...next[idx], ...payload };
-    // Remove the `date` field that eh-input-form auto-fills — list-card
+    // Remove the `date` field that eh-input-form auto-fills - list-card
     // rows don't carry a per-entry date.
     if (next[idx].date && !this._inputs().find(i => i.key === 'date')) {
       delete next[idx].date;

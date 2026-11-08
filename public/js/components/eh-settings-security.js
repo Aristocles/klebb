@@ -9,6 +9,7 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { unsafeSVG } from 'https://esm.sh/lit@3/directives/unsafe-svg.js';
 import { errorFromResponse } from '../lib/save-error.js';
+import { invalidateRead } from '../lib/manifest-reads.js';
 import { registerCredential } from '../lib/webauthn-ceremony.js';
 import { qrSvg } from '../lib/qr.js';
 import './eh-settings-health-connect.js';
@@ -319,6 +320,7 @@ export class EhSettingsSecurity extends LitElement {
         `/api/health-auto-export/discoveries/${encodeURIComponent(metric)}/unhide`,
         { method: 'POST' });
       if (r.ok) {
+        invalidateRead('/api/health-auto-export/discoveries');
         this._hiddenDiscoveries = this._hiddenDiscoveries.filter(d => d.metric !== metric);
       }
     } finally {
@@ -1052,7 +1054,7 @@ export class EhSettingsSecurity extends LitElement {
   }
 
   _formatBytes(n) {
-    if (!Number.isFinite(n)) return '—';
+    if (!Number.isFinite(n)) return '-';
     if (n < 1024) return `${n} B`;
     if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
     return `${(n / (1024 * 1024)).toFixed(2)} MB`;

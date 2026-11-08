@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
-// eh-prompt-modal.js — Full-screen "log this now" modal.
+// eh-prompt-modal.js - Full-screen "log this now" modal.
 //
 // A card with meta.prompt.enabled = true triggers this modal on app load
 // (once per day per card). The modal renders one of two shapes based on
@@ -37,7 +37,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { localToday } from '../lib/date-util.js';
-import { errorFromResponse } from '../lib/save-error.js';
+import { fetchManifestData, invalidateManifestCache, saveManifestData } from '../lib/manifest-reads.js';
 import { isScheduledOnDate } from '../../../lib/schedule.mjs';
 import './eh-input-form.js';
 
@@ -102,7 +102,7 @@ export class EhPromptModal extends LitElement {
       /* Some platform-native controls (date/time pickers, number
          spinners) render oversized at default padding and push the
          panel wider than 100%, producing a rogue horizontal scrollbar.
-         Clip horizontally — inner form fields take the available
+         Clip horizontally - inner form fields take the available
          width via box-sizing:border-box and width:100% below. */
       overflow-x: hidden;
       background: var(--bg-card, #1a1a1a);
@@ -265,7 +265,7 @@ export class EhPromptModal extends LitElement {
       try { dlg.showModal(); }
       catch { dlg.setAttribute('open', ''); }
     }
-    // Native <dialog> fires a 'cancel' event on Escape — treat as dismiss.
+    // Native <dialog> fires a 'cancel' event on Escape - treat as dismiss.
     if (dlg) {
       dlg.addEventListener('cancel', (e) => {
         e.preventDefault();
@@ -339,10 +339,8 @@ export class EhPromptModal extends LitElement {
     this._pendingItem = item.id || item.name;
     this._error = null;
     try {
-      const current = await fetch(`/api/manifests/${encodeURIComponent(meta.id)}/data`, {
-        credentials: 'same-origin',
-      }).then(r => r.json());
-      const data = current?.data ?? current ?? {};
+      invalidateManifestCache(meta.id);
+      const data = await fetchManifestData(meta.id) ?? {};
       const items = Array.isArray(data.items) ? data.items : [];
       const matchKey = item.id ? 'id' : 'name';
       const matchVal = item[matchKey];
@@ -362,13 +360,7 @@ export class EhPromptModal extends LitElement {
         return { ...it, doses };
       });
       const updated = { ...data, items: updatedItems };
-      const r = await fetch(`/api/manifests/${encodeURIComponent(meta.id)}/data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ data: updated }),
-      });
-      if (!r.ok) throw await errorFromResponse(r);
+      await saveManifestData(meta.id, updated);
       this._checklistData = updated;
       // Auto-close once every scheduled item is taken.
       const remaining = this._checklistItems().some(it => !this._isItemTaken(it));
@@ -382,7 +374,7 @@ export class EhPromptModal extends LitElement {
   }
 
   async _onSubmit(e) {
-    if (!this.card) return;
+    if (!this.card || this._busy) return;
     const values = e.detail;
     const meta = this.card.meta || {};
     this._busy = true;
@@ -394,12 +386,11 @@ export class EhPromptModal extends LitElement {
       const entry = { ...values };
       if (!entry.date) entry.date = this.date || localToday();
 
-      // Fetch the current manifest (fresh — avoid stale writes if another
+      // Fetch the current manifest (fresh - avoid stale writes if another
       // tab just wrote something).
-      const current = await fetch(`/api/manifests/${encodeURIComponent(meta.id)}`, {
-        credentials: 'same-origin',
-      }).then(r => r.json());
-      const currentData = Array.isArray(current?.data) ? current.data : [];
+      invalidateManifestCache(meta.id);
+      const current = await fetchManifestData(meta.id);
+      const currentData = Array.isArray(current) ? current : [];
       const max = meta?.writeable?.maxReadingsPerDay ?? 1;
       const sameDay = currentData.filter(d => d.date === entry.date);
       const others = currentData.filter(d => d.date !== entry.date);
@@ -413,13 +404,7 @@ export class EhPromptModal extends LitElement {
       }
       updated.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-      const r = await fetch(`/api/manifests/${encodeURIComponent(meta.id)}/data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ data: updated }),
-      });
-      if (!r.ok) throw await errorFromResponse(r);
+      await saveManifestData(meta.id, updated);
       this._finish('saved', entry);
     } catch (err) {
       console.warn('[prompt-modal] save failed', err);

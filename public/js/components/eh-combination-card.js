@@ -17,6 +17,11 @@ import { registerRenderer } from '../renderer-registry.js';
 import { resolveCombines, canEditDonor } from '../lib/combines-resolver.esm.js';
 import { hoursToHM } from '../lib/format-hours.esm.js';
 import { loadECharts, chartTheme } from './eh-chart-base.js';
+import {
+  fetchManifestData, fetchManifestMeta, fetchSelectedManifestData,
+  peekManifestData, isManifestDataFresh, hasPendingManifestWrite,
+  saveManifestData, scheduleReadRetry,
+} from '../lib/manifest-reads.js';
 import './eh-input-form.js';
 
 export class EhCombinationCard extends LitElement {
@@ -43,18 +48,39 @@ export class EhCombinationCard extends LitElement {
     this._editingDonor = null;
     this._saving = false;
     this._saveError = null;
+    this._sourceRequests = new Map();
+    this._sourceEpoch = 0;
+    this._retryCancel = null;
+    this._retryAttempted = false;
+    this._selectedTimer = null;
     this._onDataChanged = this._onDataChanged.bind(this);
+    this._onCardsChanged = () => {
+      this._sources = {};
+      this._refreshSources();
+    };
+    this._onVisible = () => {
+      if (document.visibilityState === 'visible') this._refreshSources();
+    };
   }
 
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener('manifest-data-changed', this._onDataChanged);
+    window.addEventListener('klebb-cards-changed', this._onCardsChanged);
+    document.addEventListener('visibilitychange', this._onVisible);
     this._fetchAll();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this._sourceEpoch++;
     window.removeEventListener('manifest-data-changed', this._onDataChanged);
+    window.removeEventListener('klebb-cards-changed', this._onCardsChanged);
+    document.removeEventListener('visibilitychange', this._onVisible);
+    this._retryCancel?.();
+    this._retryCancel = null;
+    clearTimeout(this._selectedTimer);
+    this._sourceRequests.clear();
     if (this._chart) { try { this._chart.dispose(); } catch {} this._chart = null; }
     if (this._themeObserver) { this._themeObserver.disconnect(); this._themeObserver = null; }
     if (this._resizeObserver) { this._resizeObserver.disconnect(); this._resizeObserver = null; }
@@ -64,9 +90,18 @@ export class EhCombinationCard extends LitElement {
     // app.js fires this with detail.cardId; the combo-card's own save
     // fires it with detail.id. Accept either so both paths work.
     const changedId = e?.detail?.cardId || e?.detail?.id;
-    if (!changedId) return;
-    const combines = this._combines();
-    if (combines.some(c => c.sourceId === changedId)) this._fetchAll();
+    const ids = this._sourceIds();
+    if (changedId && !ids.includes(changedId)) return;
+    const confirmed = changedId && e?.detail?.cacheUpdated ? peekManifestData(changedId) : undefined;
+    if (confirmed !== undefined && this._sources[changedId]?.meta && !this._sources[changedId].meta.healthConnectDisplay) {
+      this._sourceRequests.set(changedId, (this._sourceRequests.get(changedId) || 0) + 1);
+      this._sources = {
+        ...this._sources,
+        [changedId]: { ...this._sources[changedId], data: confirmed, loaded: true, readError: false },
+      };
+      return;
+    }
+    this._refreshSources(changedId ? [changedId] : ids);
   }
 
   _combines() {
@@ -81,36 +116,91 @@ export class EhCombinationCard extends LitElement {
     return 'stack';
   }
 
-  async _fetchAll() {
-    this._loading = true;
+  _sourceIds() {
+    return [...new Set(this._combines().map(c => c.sourceId).filter(Boolean))];
+  }
+
+  _refreshSources(ids = this._sourceIds()) {
+    this._retryAttempted = false;
+    this._fetchAll(ids);
+  }
+
+  async _fetchAll(ids = this._sourceIds()) {
+    const epoch = this._sourceEpoch;
+    clearTimeout(this._selectedTimer);
+    for (const id of ids) {
+      if (this._sources[id]) {
+        const previous = this._sources[id];
+        this._sources = { ...this._sources, [id]: {
+          ...previous, readError: true,
+          ...(previous.meta?.healthConnectDisplay ? { data: null, loaded: false } : {}),
+        } };
+      }
+    }
+    this._loading = Object.keys(this._sources).length === 0;
     this._error = null;
-    const ids = [...new Set(this._combines().map(c => c.sourceId).filter(Boolean))];
-    const entries = await Promise.all(ids.map(id => this._fetchOne(id)));
-    const next = {};
-    for (const { id, loaded, data, meta } of entries) {
-      next[id] = { loaded, data, meta };
+    const requests = new Map(ids.map(id => {
+      const next = (this._sourceRequests.get(id) || 0) + 1;
+      this._sourceRequests.set(id, next);
+      return [id, next];
+    }));
+    const entries = await Promise.all(ids.map(id => this._fetchOne(id, () =>
+      this.isConnected && epoch === this._sourceEpoch
+        && requests.get(id) === this._sourceRequests.get(id))));
+    if (!this.isConnected || epoch !== this._sourceEpoch) return;
+    const liveIds = this._sourceIds();
+    const next = Object.fromEntries(Object.entries(this._sources).filter(([id]) => liveIds.includes(id)));
+    for (const entry of entries) {
+      if (!liveIds.includes(entry.id) || requests.get(entry.id) !== this._sourceRequests.get(entry.id)) continue;
+      const { id, error, ...source } = entry;
+      next[id] = source;
+      if (error) {
+        this._error = error.status === 429 ? error.message : 'Unable to refresh some values. Please try again.';
+        if (error.status === 429 && (!this._retryAttempted || error.blocked) && !this._retryCancel) {
+          this._retryCancel = scheduleReadRetry(error.retryAt, () => {
+            this._retryCancel = null;
+            this._retryAttempted = true;
+            if (this.isConnected) this._fetchAll();
+          });
+        }
+      }
     }
     this._sources = next;
     this._loading = false;
+    const selected = Object.keys(next).filter(id => next[id].meta?.healthConnectDisplay);
+    if (selected.length && document.visibilityState !== 'hidden') {
+      this._selectedTimer = setTimeout(() => {
+        if (this.isConnected) this._refreshSources(selected);
+      }, 20000);
+    }
   }
 
-  async _fetchOne(id) {
+  async _fetchOne(id, current) {
+    let meta = null;
     try {
-      const [dataRes, metaRes] = await Promise.all([
-        fetch(`/api/manifests/${encodeURIComponent(id)}/data`),
-        fetch(`/api/manifests/${encodeURIComponent(id)}`),
-      ]);
-      if (!dataRes.ok) return { id, loaded: false, data: null, meta: null };
-      const dataBody = await dataRes.json();
-      const metaBody = metaRes.ok ? await metaRes.json() : null;
+      meta = await fetchManifestMeta(id);
+      if (!current()) return { id, loaded: false };
+      if (meta?.healthConnectDisplay && this._sources[id]) {
+        this._sources = { ...this._sources, [id]: {
+          ...this._sources[id], meta, data: null, loaded: false, readError: true,
+        } };
+      }
+      const data = meta?.healthConnectDisplay
+        ? (await fetchSelectedManifestData(id)).data : await fetchManifestData(id);
       return {
         id,
         loaded: true,
-        data: dataBody.data,
-        meta: metaBody?.meta || null,
+        data,
+        meta,
+        readError: false,
       };
-    } catch {
-      return { id, loaded: false, data: null, meta: null };
+    } catch (error) {
+      const previous = this._sources[id];
+      const ordinaryMeta = meta || previous?.meta;
+      const confirmed = peekManifestData(id);
+      const retained = error.transient && previous?.loaded && ordinaryMeta && !ordinaryMeta.healthConnectDisplay
+        && confirmed !== undefined;
+      return { id, loaded: !!retained, data: retained ? confirmed : null, meta: ordinaryMeta, readError: true, error };
     }
   }
 
@@ -122,7 +212,8 @@ export class EhCombinationCard extends LitElement {
 
   _canEditDonor(sourceId) {
     const src = this._sources?.[sourceId];
-    if (!src || !src.loaded) return false;
+    if (!src || !src.loaded || src.meta?.healthConnectDisplay || src.readError
+        || this._saving || hasPendingManifestWrite(sourceId)) return false;
     return canEditDonor(src.meta, this.dateMode);
   }
 
@@ -151,6 +242,7 @@ export class EhCombinationCard extends LitElement {
   // maxReadingsPerDay=1 means the new row replaces any existing row for
   // the same date; >1 appends and caps to the N most recent.
   async _onDonorSubmit(sourceId, e) {
+    if (!this._canEditDonor(sourceId)) return;
     const payload = e.detail;
     const src = this._sources?.[sourceId];
     const donorMeta = src?.meta;
@@ -176,27 +268,10 @@ export class EhCombinationCard extends LitElement {
       }
       updated.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-      const r = await fetch(`/api/manifests/${encodeURIComponent(sourceId)}/data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: updated }),
-      });
-      if (!r.ok) {
-        let msg = `HTTP ${r.status}`;
-        try { const j = await r.json(); if (j?.error) msg = j.error; } catch {}
-        throw new Error(msg);
-      }
+      await saveManifestData(sourceId, updated);
 
-      // Reflect locally + tell other listeners (atomic card renderer
-      // instances, etc.) that this donor's data changed.
-      this._sources = {
-        ...this._sources,
-        [sourceId]: { ...src, data: updated },
-      };
-      window.dispatchEvent(new CustomEvent('manifest-data-changed', {
-        detail: { cardId: sourceId, id: sourceId },
-      }));
-
+      // The acknowledged save event updates every current ordinary reader.
+      // Avoid restoring an older source after its selection changed mid-save.
       this._editingDonor = null;
     } catch (err) {
       this._saveError = err.message || 'save failed';
@@ -311,6 +386,7 @@ export class EhCombinationCard extends LitElement {
           ${this.dateMode === 'past'   ? html`<span class="badge past">Past</span>` : ''}
         </div>
         <div class="body layout-${layout}">
+          ${this._error ? html`<div class="err" role="status">${this._error}</div>` : ''}
           ${combines.length === 0 ? html`
             <div class="empty">No sources configured.</div>
           ` : layout === 'rings'
@@ -498,8 +574,26 @@ export class EhCombinationCard extends LitElement {
   updated(changed) {
     // Trigger _fetchAll when `card` changes (existing behaviour) AND refresh
     // the chart when inputs that affect it change.
-    if (changed.has('card')) {
-      this._fetchAll();
+    if (changed.has('card') && changed.get('card') !== undefined) {
+      const previous = changed.get('card');
+      if (previous?.id !== this.card?.id
+          || JSON.stringify(previous?.viewConfig?.combines) !== JSON.stringify(this.card?.viewConfig?.combines)) {
+        this._refreshSources();
+      }
+    }
+    if (changed.has('date') && changed.get('date') !== undefined) {
+      this._closeEdit();
+      this._sources = Object.fromEntries(Object.entries(this._sources).map(([id, source]) => {
+        const confirmed = !source.meta?.healthConnectDisplay && isManifestDataFresh(id)
+          ? peekManifestData(id) : undefined;
+        if (confirmed !== undefined && confirmed !== source.data) {
+          this._sourceRequests.set(id, (this._sourceRequests.get(id) || 0) + 1);
+        }
+        return [id, confirmed === undefined ? source : { ...source, data: confirmed, readError: false }];
+      }));
+      const ids = this._sourceIds().filter(id =>
+        this._sources[id]?.meta?.healthConnectDisplay || !isManifestDataFresh(id));
+      if (ids.length) this._refreshSources(ids);
     }
     if (!this._loading) {
       this._maybeUpdateChart();

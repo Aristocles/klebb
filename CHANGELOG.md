@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I reuse ordinary card history across day navigation, summaries and the calendar.
+  I retain confirmed values during temporary read failures, respect `Retry-After`
+  with bounded recovery, and keep failed writes for an explicit retry (#908).
+
 - I preserve confirmed schedule and checklist doses across date changes and
   pending saves, refresh their shared cache after acknowledgement, and restore
   the previous display with a visible error when a save fails (#905, #906).

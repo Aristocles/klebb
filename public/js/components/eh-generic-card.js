@@ -7,29 +7,29 @@
 //   meta.view.component = "generic-card"
 //
 // Meta fields consumed:
-//   meta.label                            — card title
-//   meta.emoji                            — optional title emoji
-//   meta.view.fallbackToLatest = boolean  — when true, on Today with no
+//   meta.label                            - card title
+//   meta.emoji                            - optional title emoji
+//   meta.view.fallbackToLatest = boolean  - when true, on Today with no
 //                                          row for today, display falls
 //                                          back to the most recent prior
 //                                          row. Default false. See #228.
-//   meta.view.dateContext (DEPRECATED)    — legacy string-enum field;
+//   meta.view.dateContext (DEPRECATED)    - legacy string-enum field;
 //                                          dateContext:"latest" is read
 //                                          as fallbackToLatest:true for
 //                                          one release cycle. Run
 //                                          scripts/migrate-dateContext-
 //                                          to-fallbackToLatest.js to
 //                                          migrate live manifests.
-//   meta.view.display.template            — template string for the headline
-//   meta.view.display.secondary           — optional template for the sub-line
-//   meta.view.display.unit                — small unit suffix after the headline
-//   meta.view.display.emojiMap            — { key: { value: emoji } } for {key:emoji}
-//   meta.view.display.emptyHeadline       — shown when no entry for the day
-//   meta.view.display.thresholds          — array of { ifField, min?, max?, eq?,
+//   meta.view.display.template            - template string for the headline
+//   meta.view.display.secondary           - optional template for the sub-line
+//   meta.view.display.unit                - small unit suffix after the headline
+//   meta.view.display.emojiMap            - { key: { value: emoji } } for {key:emoji}
+//   meta.view.display.emptyHeadline       - shown when no entry for the day
+//   meta.view.display.thresholds          - array of { ifField, min?, max?, eq?,
 //                                                      colour?, label? } rules;
 //                                          first match wins, paints a side-bar
 //                                          + shows the label pill
-//   meta.view.display.trendArrow          — { field: "kg" } enables ↑/↓/→ arrow
+//   meta.view.display.trendArrow          - { field: "kg" } enables ↑/↓/→ arrow
 //                                          next to the value, compared to the
 //                                          most recent prior entry, with the
 //                                          signed delta printed alongside.
@@ -37,15 +37,15 @@
 //                                          |'neutral' decides arrow colour
 //                                          (default down=good, the weight
 //                                          convention). See #423.
-//   meta.writeable.fromWebapp             — enables the ✏️/➕ input button
-//   meta.writeable.inputs                 — array of input specs for eh-input-form
-//   meta.writeable.maxReadingsPerDay      — default 1 (upsert behaviour)
+//   meta.writeable.fromWebapp             - enables the ✏️/➕ input button
+//   meta.writeable.inputs                 - array of input specs for eh-input-form
+//   meta.writeable.maxReadingsPerDay      - default 1 (upsert behaviour)
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { renderTemplate, evaluateThresholds, computeTrend, trendColour, resolveGoodDirection, formatTrendDelta, numericSeries } from '../lib/display-template.esm.js';
 import { registerRenderer } from '../renderer-registry.js';
-import { EhBaseCard, invalidateManifestCache } from './eh-base-card.js';
-import { errorFromResponse } from '../lib/save-error.js';
+import { EhBaseCard } from './eh-base-card.js';
+import { saveManifestData } from '../lib/manifest-reads.js';
 import { daysBetweenISO } from '../lib/date-util.js';
 import './eh-input-form.js';
 import './eh-sparkline.js';
@@ -158,7 +158,7 @@ export class EhGenericCard extends EhBaseCard {
     return sameDay;
   }
 
-  // Local aliases — don't shadow EhBaseCard's _meta getter
+  // Local aliases - don't shadow EhBaseCard's _meta getter
   _m() { return this.card?.meta || {}; }
   _vc() { return this.card?.viewConfig || {}; }
   _display() {
@@ -267,7 +267,7 @@ export class EhGenericCard extends EhBaseCard {
   _currentEntry() {
     const entries = this._entries();
     if (entries.length === 0) return null;
-    // fallbackToLatest is a Today-mode display fallback — on any
+    // fallbackToLatest is a Today-mode display fallback - on any
     // past/future date the card resolves by exact date match so
     // navigation actually means what it says. See #182.
     const isToday = this.dateMode === 'today' || !this.dateMode;
@@ -296,27 +296,17 @@ export class EhGenericCard extends EhBaseCard {
       this._closeEdit();
       return;
     }
+    if (!this._canWrite || this._saving) return;
     const id = this.card.id;
-    const request = this._dataRequest;
-    const current = () => this.isConnected && request === this._dataRequest
-      && id === this.card?.id && !this._m().healthConnectDisplay;
+    const current = () => this.isConnected && id === this.card?.id && !this._m().healthConnectDisplay;
     const existing = this._entries();
     if (index < 0 || index >= existing.length) return;
     this._saving = true;
     this._formError = null;
     try {
       const updated = existing.filter((_, i) => i !== index);
-      const r = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: updated }),
-      });
-      if (!r.ok) throw await errorFromResponse(r);
-      invalidateManifestCache(id);
-      if (!current()) {
-        if (this.isConnected && id === this.card?.id) this._fetchData();
-        return;
-      }
+      await saveManifestData(id, updated);
+      if (!current()) return;
       this.data = updated;
     } catch (err) {
       if (current()) this._formError = err.message;
@@ -330,10 +320,9 @@ export class EhGenericCard extends EhBaseCard {
       this._closeEdit();
       return;
     }
+    if (!this._canWrite || this._saving) return;
     const id = this.card.id;
-    const request = this._dataRequest;
-    const current = () => this.isConnected && request === this._dataRequest
-      && id === this.card?.id && !this._m().healthConnectDisplay;
+    const current = () => this.isConnected && id === this.card?.id && !this._m().healthConnectDisplay;
     const payload = e.detail;
     const meta = this._m();
     this._saving = true;
@@ -363,17 +352,8 @@ export class EhGenericCard extends EhBaseCard {
       }
       updated.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-      const r = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: updated }),
-      });
-      if (!r.ok) throw await errorFromResponse(r);
-      invalidateManifestCache(id);
-      if (!current()) {
-        if (this.isConnected && id === this.card?.id) this._fetchData();
-        return;
-      }
+      await saveManifestData(id, updated);
+      if (!current()) return;
 
       this.data = updated;
       this._editing = false;
@@ -631,7 +611,7 @@ export class EhGenericCard extends EhBaseCard {
     `,
   ];
 
-  // Resolve the most recent prior entry — the last row dated strictly
+  // Resolve the most recent prior entry - the last row dated strictly
   // before `this.date`. Returns null if none exists. Used by the
   // prefillFromLatest feature (#217).
   _latestPriorEntry() {
@@ -692,7 +672,7 @@ export class EhGenericCard extends EhBaseCard {
         prefillValues = rest;
       }
     }
-    // Back-compat for the variables used further down the render —
+    // Back-compat for the variables used further down the render -
     // `entry` remains the display fallback (drives the headline,
     // thresholds, trend arrow); the form consumes editEntry.
     const entry = displayEntry;
@@ -701,7 +681,7 @@ export class EhGenericCard extends EhBaseCard {
     // fallbackToLatest path resolved a prior row. Surface this so the
     // user can tell stale-from-prior-day apart from fresh-today. See
     // #231. The display fallback only triggers on Today, so this
-    // condition is a sufficient detector — past-date navigation never
+    // condition is a sufficient detector - past-date navigation never
     // hits the fallback path in _currentEntry().
     const isToday = this.dateMode === 'today' || !this.dateMode;
     const isCarryOver = isToday

@@ -8,9 +8,9 @@
 // component reads them from /api/health-auto-export/discoveries and
 // offers two actions per metric:
 //
-//   "Build a card" — seeds the chat widget with a templated prompt
+//   "Build a card" - seeds the chat widget with a templated prompt
 //                    asking klebbius to create a subscriber manifest.
-//   "Dismiss"      — permanently hides this metric (can be un-hidden
+//   "Dismiss"      - permanently hides this metric (can be un-hidden
 //                    from Settings).
 //
 // Supported metrics are grouped by catalogue category (sleep, recovery,
@@ -20,6 +20,7 @@
 // actually produce cards for.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { readJSON, invalidateRead, scheduleReadRetry } from '../lib/manifest-reads.js';
 
 const METRIC_LABELS = {
   sleep_analysis: 'Sleep',
@@ -68,6 +69,8 @@ export class EhHaeDiscoveryCard extends LitElement {
     this._loading = true;
     this._busyMetric = null;
     this._unsupportedOpen = false;
+    this._readRequest = 0;
+    this._retryCancel = null;
     this._onManifestChanged = this._onManifestChanged.bind(this);
   }
 
@@ -80,24 +83,38 @@ export class EhHaeDiscoveryCard extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this._readRequest++;
+    this._retryCancel?.();
+    this._retryCancel = null;
     window.removeEventListener('manifest-data-changed', this._onManifestChanged);
     window.removeEventListener('klebb-cards-changed', this._onManifestChanged);
   }
 
-  _onManifestChanged() {
+  _onManifestChanged(event) {
+    if (event?.type === 'manifest-data-changed' && event.detail?.cacheUpdated) return;
     this._load();
   }
 
-  async _load() {
-    this._loading = true;
+  async _load(retry = false) {
+    this._retryCancel?.();
+    this._retryCancel = null;
+    const request = ++this._readRequest;
+    const current = () => this.isConnected && request === this._readRequest;
+    this._loading = !this._data;
     try {
-      const r = await fetch('/api/health-auto-export/discoveries');
-      if (!r.ok) { this._data = null; return; }
-      this._data = await r.json();
-    } catch {
-      this._data = null;
+      const data = await readJSON('/api/health-auto-export/discoveries');
+      if (current()) this._data = data;
+    } catch (error) {
+      // Keep a previously loaded suggestion surface during a transient read.
+      if (current() && !error.transient) this._data = null;
+      if (current() && error.status === 429 && (!retry || error.blocked)) {
+        this._retryCancel = scheduleReadRetry(error.retryAt, () => {
+          this._retryCancel = null;
+          if (current()) this._load(true);
+        });
+      }
     } finally {
-      this._loading = false;
+      if (current()) this._loading = false;
     }
   }
 
@@ -113,14 +130,17 @@ export class EhHaeDiscoveryCard extends LitElement {
       const r = await fetch(
         `/api/health-auto-export/discoveries/${encodeURIComponent(metric)}/dismiss`,
         { method: 'POST' });
-      if (r.ok) this._removeLocally(metric);
+      if (r.ok) {
+        invalidateRead('/api/health-auto-export/discoveries');
+        this._removeLocally(metric);
+      }
     } finally {
       this._busyMetric = null;
     }
   }
 
   // Fan-out: dismiss every metric in a category in one click. No new
-  // endpoint needed — we just call the existing dismiss endpoint once
+  // endpoint needed - we just call the existing dismiss endpoint once
   // per metric and update local state.
   async _dismissCategory(category) {
     const supported = this._data?.undismissed?.supported || {};
@@ -131,13 +151,14 @@ export class EhHaeDiscoveryCard extends LitElement {
       await Promise.all(metrics.map(m =>
         fetch(`/api/health-auto-export/discoveries/${encodeURIComponent(m)}/dismiss`,
           { method: 'POST' })));
+      invalidateRead('/api/health-auto-export/discoveries');
       for (const m of metrics) this._removeLocally(m);
     } finally {
       this._busyMetric = null;
     }
   }
 
-  // Fan-out for unsupported metrics. See #218 — on a configured
+  // Fan-out for unsupported metrics. See #218 - on a configured
   // instance there can be 18+ of these sitting in the footer, and
   // dismissing them one-by-one is painful.
   async _dismissAllUnsupported() {
@@ -148,6 +169,7 @@ export class EhHaeDiscoveryCard extends LitElement {
       await Promise.all(metrics.map(m =>
         fetch(`/api/health-auto-export/discoveries/${encodeURIComponent(m)}/dismiss`,
           { method: 'POST' })));
+      invalidateRead('/api/health-auto-export/discoveries');
       for (const m of metrics) this._removeLocally(m);
     } finally {
       this._busyMetric = null;
@@ -194,7 +216,7 @@ export class EhHaeDiscoveryCard extends LitElement {
       .sort((a, b) => (CATEGORY_META[a]?.order ?? 999) - (CATEGORY_META[b]?.order ?? 999));
 
     if (supportedCount === 0) {
-      // Footer-only mode — no headline, no intro, no category list.
+      // Footer-only mode - no headline, no intro, no category list.
       return html`
         <div class="card footer-only">
           ${this._renderUnsupportedFooter(unsupported)}

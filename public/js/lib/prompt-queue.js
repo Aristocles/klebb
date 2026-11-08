@@ -20,6 +20,7 @@
 
 import { localToday } from './date-util.js';
 import { isScheduledOnDate } from '../../../lib/schedule.mjs';
+import { readJSON, fetchManifestData } from './manifest-reads.js';
 
 const STORAGE_PREFIX = 'klebb-prompt-shown-';
 
@@ -43,24 +44,24 @@ export function markShownToday(cardId, date = todayStr(), storage = globalThis.l
   try {
     storage?.setItem(shownTodayKey(cardId, date), '1');
   } catch {
-    // quota / private-mode — non-fatal
+    // quota / private-mode - non-fatal
   }
 }
 
 // Detect whether a card has an entry for the given date.
 // Supports the common shapes:
-//   data: [{ date, ... }]              — generic-card entries
-//   data.items: [...]                  — schedule-card / checklist items
+//   data: [{ date, ... }]              - generic-card entries
+//   data.items: [...]                  - schedule-card / checklist items
 //     each item may have doses: [{ scheduledDate, takenAt }]
 //     or takenDates: [YYYY-MM-DD, ...]
-//   data.current: [...]                — supplements-style; uses takenDates
+//   data.current: [...]                - supplements-style; uses takenDates
 // For cards with items + per-day ticks, "entry exists today" means:
 //   at least one item has a taken mark for today. (Some cards have
 //   multiple items; the modal is opt-in so this behaviour is documented
 //   as "shows until ANY item is ticked off".)
 //
 // For checklist-mode prompts the gate is per-item, not any/all-or-nothing
-// — see allScheduledTakenForDate below.
+// - see allScheduledTakenForDate below.
 export function entryExistsForDate(data, date) {
   if (!data) return false;
   if (Array.isArray(data)) {
@@ -87,7 +88,7 @@ export function entryExistsForDate(data, date) {
 // Eligibility helper for checklist-mode prompts. Returns true when every
 // item scheduled for the given date already has a takenAt dose, i.e. the
 // checklist would render with nothing to tick. The default
-// entryExistsForDate is too eager here — it would suppress the prompt as
+// entryExistsForDate is too eager here - it would suppress the prompt as
 // soon as one of three items was logged.
 export function allScheduledTakenForDate(data, date) {
   const items = Array.isArray(data?.items)
@@ -110,7 +111,7 @@ export function allScheduledTakenForDate(data, date) {
 // combination card. A combination card lists its donors in
 // meta.view.combines[].sourceId; if the combo itself is visible, those
 // donors are effectively visible to the user even when their atomic
-// card has meta.enabled:false. See #316 — without this, hiding the
+// card has meta.enabled:false. See #316 - without this, hiding the
 // atomic Mood card to roll it into a combo silently kills its prompt.
 function surfacedByVisibleCombo(manifests) {
   const out = new Set();
@@ -133,7 +134,7 @@ function surfacedByVisibleCombo(manifests) {
 // `surfaced` (optional) lets the caller pre-compute donor-visibility from
 // a wider manifest list than `manifests` itself. The network path passes
 // only candidate cards in `manifests`, so combo cards aren't there to
-// rediscover the surfacing relationship — see #338.
+// rediscover the surfacing relationship - see #338.
 export function buildPromptQueue(manifests, {
   date = todayStr(),
   storage = globalThis.localStorage,
@@ -146,7 +147,7 @@ export function buildPromptQueue(manifests, {
     if (!meta) continue;
     const prompt = meta.prompt;
     if (!prompt || prompt.enabled !== true) continue;
-    // Respect disabled cards at the registry level — don't nag about
+    // Respect disabled cards at the registry level - don't nag about
     // cards the user has hidden. Exception: a hidden card surfaced by
     // a visible combination card still prompts, since the user is
     // seeing it through the combo (#316).
@@ -174,13 +175,11 @@ export function buildPromptQueue(manifests, {
 export async function checkPromptsForToday() {
   let list;
   try {
-    const r = await fetch('/api/manifests', { credentials: 'same-origin' });
-    if (!r.ok) return [];
-    list = await r.json();
+    list = await readJSON('/api/manifests');
   } catch {
     return [];
   }
-  // /api/manifests returns { entries: [{id, meta}, ...] } — no data inline.
+  // /api/manifests returns { entries: [{id, meta}, ...] } - no data inline.
   const entries = Array.isArray(list?.entries) ? list.entries
                 : Array.isArray(list?.manifests) ? list.manifests
                 : Array.isArray(list) ? list : [];
@@ -198,6 +197,7 @@ export async function checkPromptsForToday() {
   for (const e of entries) {
     const meta = e.meta || e;
     const prompt = meta?.prompt;
+    if (meta.healthConnectDisplay) continue;
     if (!prompt || prompt.enabled !== true) continue;
     if (meta.enabled === false && !surfaced.has(meta.id)) continue;
     if (wasShownToday(meta.id, date)) continue;
@@ -208,16 +208,12 @@ export async function checkPromptsForToday() {
   // Fetch data only for candidates.
   const withData = await Promise.all(candidates.map(async (meta) => {
     try {
-      const r = await fetch(`/api/manifests/${encodeURIComponent(meta.id)}/data`, {
-        credentials: 'same-origin',
-      });
-      if (!r.ok) return { meta, data: null };
-      const j = await r.json();
-      return { meta, data: j?.data ?? j };
+      const data = await fetchManifestData(meta.id);
+      return { meta, data };
     } catch {
-      return { meta, data: null };
+      return null;
     }
   }));
 
-  return buildPromptQueue(withData, { date, surfaced });
+  return buildPromptQueue(withData.filter(Boolean), { date, surfaced });
 }

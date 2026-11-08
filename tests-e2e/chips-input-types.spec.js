@@ -108,7 +108,7 @@ test.describe('#344: chips and chips-multi input types', () => {
 
     // Apply to merge into the draft row, then Done to persist.
     await form.getByRole('button', { name: /^apply$/i }).click();
-    await card.locator('button[aria-label="Done \u2014 save changes"]').click();
+    await card.locator('button[aria-label="Done - save changes"]').click();
 
     // Round-trip: read the data file back and assert the shape.
     const res = await page.request.get(`${sandboxState.baseUrl}/api/manifests/${CARD_ID}/data`);

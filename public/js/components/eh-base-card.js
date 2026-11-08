@@ -17,109 +17,13 @@
 // work automatically.
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
-
-// Module-level data cache: id -> { data, fetchedAt, inflight }
-// TTL: 20 seconds. Cuts duplicate fetches when the same card gets
-// re-mounted during navigation (date switches, tab switches).
-const _dataCache = new Map();
-const _cacheRevisions = new Map();
-const _pendingWrites = new Map();
+import {
+  fetchManifestData, fetchSelectedManifestData, saveManifestData,
+  peekManifestData, isManifestDataFresh, hasPendingManifestWrite,
+  manifestCacheRevision, scheduleReadRetry,
+} from '../lib/manifest-reads.js';
+export { invalidateManifestCache } from '../lib/manifest-reads.js';
 const DATA_TTL_MS = 20000;
-
-async function fetchManifestData(id, current) {
-  // A replacement card must not load the pre-save state while a write is
-  // pending. On failure it can read the last confirmed server state.
-  const pending = _pendingWrites.get(id);
-  if (pending) await pending.catch(() => {});
-  const now = Date.now();
-  const cached = _dataCache.get(id);
-  if (cached && now - cached.fetchedAt < DATA_TTL_MS && !cached.inflight) {
-    return cached.data;
-  }
-  if (cached && cached.inflight) return cached.inflight;
-  const entry = { data: cached?.data ?? null, fetchedAt: cached?.fetchedAt ?? 0, inflight: null };
-  const p = (async () => {
-    try {
-      const res = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const body = await res.json();
-      if (Object.hasOwn(body, 'projection')) {
-        if (_dataCache.get(id) === entry) _dataCache.delete(id);
-        throw new Error('Saved source changed; refresh the card');
-      }
-      if (_dataCache.get(id) === entry) {
-        if (current()) {
-          entry.data = body.data;
-          entry.fetchedAt = Date.now();
-          entry.inflight = null;
-        } else _dataCache.delete(id);
-      }
-      return body.data;
-    } catch (error) {
-      if (_dataCache.get(id) === entry) _dataCache.delete(id);
-      throw error;
-    }
-  })();
-  entry.inflight = p;
-  _dataCache.set(id, entry);
-  return p;
-}
-
-async function fetchSelectedManifestData(id) {
-  const res = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = await res.json();
-  if (!Array.isArray(body.data) || !body.projection
-      || !['saved', 'pending'].includes(body.projection.state)
-      || !/^sha256:[a-f0-9]{64}$/.test(body.projection.revision)) {
-    throw new Error('Saved data status is unavailable');
-  }
-  return body;
-}
-
-// Exported for writes - after a card POSTs data, invalidate its cache entry.
-export function invalidateManifestCache(id) {
-  _cacheRevisions.set(id, (_cacheRevisions.get(id) || 0) + 1);
-  _dataCache.delete(id);
-}
-
-async function saveManifestData(id, data) {
-  if (_pendingWrites.has(id)) throw new Error('A save is already in progress. Please wait.');
-  const body = JSON.stringify({ data });
-  const snapshot = JSON.parse(body).data;
-  // Fence reads that started before this write, including readers in other
-  // mounted instances of the same card.
-  invalidateManifestCache(id);
-  const pending = (async () => {
-    const res = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-    });
-    if (!res.ok) throw new Error(`Could not save (HTTP ${res.status}). Please try again.`);
-    const confirmation = await res.json().catch(() => null);
-    if (confirmation?.ok !== true) throw new Error('The save was not confirmed. Please try again.');
-    invalidateManifestCache(id);
-    _dataCache.set(id, { data: snapshot, fetchedAt: Date.now(), inflight: null });
-  })();
-  _pendingWrites.set(id, pending);
-  try {
-    try {
-      await pending;
-    } finally {
-      if (_pendingWrites.get(id) === pending) _pendingWrites.delete(id);
-    }
-  } catch (error) {
-    // Notify mounted readers only after their controls can accept a retry.
-    window.dispatchEvent(new CustomEvent('manifest-data-save-failed', {
-      detail: { cardId: id, error: error.message || 'Could not save. Please try again.' },
-    }));
-    throw error;
-  }
-  window.dispatchEvent(new CustomEvent('manifest-data-changed', {
-    detail: { cardId: id, cacheUpdated: true },
-  }));
-}
 
 export class EhBaseCard extends LitElement {
   // Opt-in: real data-card renderers set this true to show a settings
@@ -139,6 +43,8 @@ export class EhBaseCard extends LitElement {
     error: { state: true },
     saving: { state: true },
     saveError: { state: true },
+    readStatus: { state: true },
+    _refreshing: { state: true },
     // When true, render only the card body (no header). Used when a card is
     // mounted as a sub-element inside another card's expanded region, so the
     // host card's header isn't duplicated.
@@ -152,6 +58,10 @@ export class EhBaseCard extends LitElement {
     this.projection = null;
     this._dataRequest = 0;
     this._selectedRefreshTimer = null;
+    this._cancelReadRetry = null;
+    this._requestIdentity = null;
+    this._loadedIdentity = null;
+    this._hasOrdinaryData = false;
     this._onManifestDataChanged = event => {
       const id = event?.detail?.cardId || event?.detail?.id;
       if (this.isConnected && this.card?.id && (!id || id === this.card.id)) {
@@ -159,20 +69,14 @@ export class EhBaseCard extends LitElement {
           // The writer already holds its candidate. Other readers can use
           // the confirmed snapshot without unmounting their open forms.
           if (this.saving) return;
-          const cached = _dataCache.get(this.card.id);
-          if (cached && !cached.inflight) {
-            this._dataRequest++;
-            this.data = cached.data;
-            this.projection = null;
-            this.error = null;
+          const cached = peekManifestData(this.card.id);
+          if (cached !== undefined) {
+            this._adoptConfirmedData(cached);
             this.saveError = null;
-            this.loading = false;
             return;
           }
         }
-        if (!event?.detail?.cacheUpdated || this.card.meta?.healthConnectDisplay) {
-          invalidateManifestCache(this.card.id);
-        }
+        // The shared module already invalidated before any reader listener.
         this._fetchData();
       }
     };
@@ -190,22 +94,31 @@ export class EhBaseCard extends LitElement {
     this.error = null;
     this.saving = false;
     this.saveError = null;
+    this.readStatus = null;
+    this._refreshing = false;
+    this._onVisible = () => {
+      if (document.visibilityState === 'visible') this._refreshData();
+    };
   }
 
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener('manifest-data-changed', this._onManifestDataChanged);
     window.addEventListener('manifest-data-save-failed', this._onManifestSaveFailed);
+    document.addEventListener('visibilitychange', this._onVisible);
     this._fetchData();
   }
 
   disconnectedCallback() {
     this._dataRequest++;
-    if (this.card?.id) invalidateManifestCache(this.card.id);
+    this._requestIdentity = null;
+    this._cancelReadRetry?.();
+    this._cancelReadRetry = null;
     clearTimeout(this._selectedRefreshTimer);
     this._selectedRefreshTimer = null;
     window.removeEventListener('manifest-data-changed', this._onManifestDataChanged);
     window.removeEventListener('manifest-data-save-failed', this._onManifestSaveFailed);
+    document.removeEventListener('visibilitychange', this._onVisible);
     super.disconnectedCallback();
   }
 
@@ -220,54 +133,145 @@ export class EhBaseCard extends LitElement {
   }
 
   updated(changed) {
-    if (changed.has('card') && changed.get('card') !== undefined) {
+    const dateChanged = changed.has('date') && changed.get('date') != null
+      && changed.get('date') !== this.date;
+    if (dateChanged) {
+      // Stable date navigation keeps the renderer, so close only the old
+      // date's unsaved form. An already-issued save keeps its own snapshot.
+      this._closeEdit?.();
+      this._cancelCheckOffForm?.();
+      if ('_entriesExpandedKey' in this) this._entriesExpandedKey = null;
+    }
+    if (changed.has('card')) {
       const previous = changed.get('card');
       if (previous?.id !== this.card?.id
           || JSON.stringify(previous?.meta?.healthConnectDisplay || null)
-            !== JSON.stringify(this.card?.meta?.healthConnectDisplay || null)
-          || this.card?.meta?.healthConnectDisplay) {
-        if (previous?.id) invalidateManifestCache(previous.id);
-        if (this.card?.id) invalidateManifestCache(this.card.id);
-        this._fetchData();
+            !== JSON.stringify(this.card?.meta?.healthConnectDisplay || null)) {
+        if (this._requestIdentity !== this._identity()) {
+          this._hasOrdinaryData = false;
+          this.data = null;
+          this._fetchData();
+        }
+        return;
+      } else if (previous !== this.card) {
+        // A list reload can replace metadata without changing identity.
+        // Check shared freshness, including central scope invalidation.
+        this._refreshData();
         return;
       }
     }
-    if (this.card?.meta?.healthConnectDisplay && changed.has('date')
-        && changed.get('date') !== undefined) this._fetchData();
+    if (dateChanged) this._refreshData();
   }
 
-  async _fetchData() {
-    if (!this.card?.id) return;
+  _identity() {
+    return JSON.stringify([this.card?.id, this.card?.meta?.healthConnectDisplay || null]);
+  }
+
+  _adoptConfirmedData(data) {
+    this._cancelReadRetry?.();
+    this._cancelReadRetry = null;
+    this._dataRequest++;
+    this.data = data;
+    this.projection = null;
+    this.error = null;
+    this.readStatus = null;
+    this.loading = false;
+    this._refreshing = false;
+    this._loadedIdentity = this._identity();
+    this._hasOrdinaryData = true;
+  }
+
+  _refreshData() {
+    if (!this.card?.id || !this.isConnected) return;
+    if (!this.card.meta?.healthConnectDisplay) {
+      if (this.saving) return;
+      if (this._loadedIdentity === this._identity() && isManifestDataFresh(this.card.id)) {
+        const confirmed = peekManifestData(this.card.id);
+        if (confirmed !== undefined && (confirmed !== this.data || this.readStatus || this.error)) {
+          this._adoptConfirmedData(confirmed);
+        }
+        return;
+      }
+    }
+    this._fetchData();
+  }
+
+  async _fetchData(retry = false) {
+    if (!this.card?.id || !this.isConnected) return;
+    this._cancelReadRetry?.();
+    this._cancelReadRetry = null;
     clearTimeout(this._selectedRefreshTimer);
     this._selectedRefreshTimer = null;
     const card = this.card;
     const id = card.id;
     const selected = card.meta?.healthConnectDisplay || null;
     const selection = JSON.stringify(selected);
+    const identity = this._identity();
+    this._requestIdentity = identity;
     const request = ++this._dataRequest;
-    if (selected) invalidateManifestCache(id);
-    const cacheRevision = _cacheRevisions.get(id) || 0;
+    const cacheRevision = manifestCacheRevision(id);
     const current = () => this.isConnected && request === this._dataRequest
-      && (selected || cacheRevision === (_cacheRevisions.get(id) || 0))
+      && (selected || cacheRevision === manifestCacheRevision(id))
       && id === this.card?.id && (!selected || card === this.card)
       && selection === JSON.stringify(this.card?.meta?.healthConnectDisplay || null);
-    this.loading = true;
+    const retain = !selected && this._hasOrdinaryData && this._loadedIdentity === identity;
+    this.loading = !retain;
+    this._refreshing = true;
     this.error = null;
+    this.readStatus = null;
     this.projection = null;
+    if (!retain) {
+      this.data = null;
+      this._hasOrdinaryData = false;
+      this._loadedIdentity = null;
+    }
     try {
       const result = selected ? await fetchSelectedManifestData(id)
         : { data: await fetchManifestData(id, current), projection: null };
       if (!current()) return;
       this.data = result.data;
       this.projection = result.projection;
+      this._loadedIdentity = identity;
+      this._hasOrdinaryData = !selected;
     } catch (e) {
-      if (current()) this.error = e.message || 'fetch failed';
+      if (current()) {
+        if (e.transient) {
+          this.readStatus = e.status === 429 ? e.message
+            : 'Updates are temporarily unavailable. Please try again shortly.';
+          if (!selected) {
+            const confirmed = peekManifestData(id);
+            if (confirmed !== undefined) {
+              this.data = confirmed;
+              this._loadedIdentity = identity;
+              this._hasOrdinaryData = true;
+            } else {
+              this.data = null;
+              this._hasOrdinaryData = false;
+            }
+          }
+          // A locally blocked check does not spend the one recovery GET.
+          // Another response can extend the global deadline meanwhile.
+          if (e.retryAt && (!retry || e.blocked)) {
+            this._cancelReadRetry = scheduleReadRetry(e.retryAt, () => {
+              this._cancelReadRetry = null;
+              if (current()) this._fetchData(true);
+            });
+          }
+        } else {
+          this.error = e.message || 'fetch failed';
+          this.data = null;
+          this._hasOrdinaryData = false;
+        }
+      }
     } finally {
-      if (current()) this.loading = false;
+      if (current()) {
+        this.loading = false;
+        this._refreshing = false;
+      }
       if (this.isConnected && request === this._dataRequest && id === this.card?.id
           && (!selected || card === this.card)
           && selection === JSON.stringify(this.card?.meta?.healthConnectDisplay || null)) {
-        if (!selected && cacheRevision !== (_cacheRevisions.get(id) || 0)) this._fetchData();
+        if (!selected && cacheRevision !== manifestCacheRevision(id)) this._fetchData();
         else this._scheduleSelectedRefresh();
       }
     }
@@ -327,7 +331,8 @@ export class EhBaseCard extends LitElement {
   // Can we edit on this date?
   get _canWrite() {
     const w = this._meta.writeable;
-    if (this.saving || _pendingWrites.has(this.card?.id)) return false;
+    if (this.saving || this.loading || this._refreshing || this.readStatus
+        || this.error || hasPendingManifestWrite(this.card?.id)) return false;
     if (this._meta.healthConnectDisplay) return false;
     if (!w || !w.fromWebapp) return false;
     if (this.dateMode === 'today')  return w.todayAllowed !== false;
@@ -450,6 +455,12 @@ export class EhBaseCard extends LitElement {
       background: rgba(255, 68, 68, 0.06);
       border-top: 1px solid var(--border);
     }
+    .read-status {
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: var(--bg-hover, rgba(255,255,255,0.03));
+    }
     .loading {
       padding: 16px;
       font-size: 12px;
@@ -464,8 +475,9 @@ export class EhBaseCard extends LitElement {
       return html`
         ${this.loading ? html`<div class="loading">Loading…</div>` : ''}
         ${this.error ? html`<div class="error-placeholder">⚠︎ ${this.error}</div>` : ''}
+        ${this.readStatus ? html`<div class="read-status" role="status">${this.readStatus}</div>` : ''}
         ${this.saveError ? html`<div class="error-placeholder" role="alert">${this.saveError}</div>` : ''}
-        ${!this.loading && !this.error ? html`<div class="card-body">${this._safeRender(() => this.renderCard())}</div>` : ''}
+        ${!this.loading && !this.error && (!this.readStatus || this._hasOrdinaryData) ? html`<div class="card-body">${this._safeRender(() => this.renderCard())}</div>` : ''}
       `;
     }
     return html`
@@ -498,8 +510,9 @@ export class EhBaseCard extends LitElement {
       </div>
       ${this.loading ? html`<div class="loading">Loading…</div>` : ''}
       ${this.error ? html`<div class="error-placeholder">⚠︎ ${this._meta.label || this.card?.id}: ${this.error}</div>` : ''}
+      ${this.readStatus ? html`<div class="read-status" role="status">${this.readStatus}</div>` : ''}
       ${this.saveError ? html`<div class="error-placeholder" role="alert">${this.saveError}</div>` : ''}
-      ${!this.loading && !this.error ? html`
+      ${!this.loading && !this.error && (!this.readStatus || this._hasOrdinaryData) ? html`
         <div class="card-body">${this._safeRender(() => this.renderCard())}</div>
         ${this.expanded ? html`<div class="card-expanded">${this._safeRender(() => this.renderExpanded())}</div>` : ''}
       ` : ''}
