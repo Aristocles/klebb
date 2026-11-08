@@ -4,12 +4,12 @@
 // Base class for every generic renderer card.
 //
 // Every card receives:
-//   .card        — the manifest entry { id, meta, viewConfig }
-//   .data        — data block fetched from /api/manifests/:id/data
-//   .date        — ISO date string (YYYY-MM-DD) representing the current DateView context
-//   .dateMode    — "today" | "past" | "future"
-//   .config      — the meta.<viewName> block for the current view
-//   .writeable   — { fromWebapp, pastAllowed, todayAllowed, futureAllowed }
+//   .card        - the manifest entry { id, meta, viewConfig }
+//   .data        - data block fetched from /api/manifests/:id/data
+//   .date        - ISO date string (YYYY-MM-DD) representing the current DateView context
+//   .dateMode    - "today" | "past" | "future"
+//   .config      - the meta.<viewName> block for the current view
+//   .writeable   - { fromWebapp, pastAllowed, todayAllowed, futureAllowed }
 //
 // Subclasses implement renderCard() and optionally renderExpanded().
 // The base handles the shell chrome: header, expand/collapse, loading,
@@ -23,9 +23,14 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 // re-mounted during navigation (date switches, tab switches).
 const _dataCache = new Map();
 const _cacheRevisions = new Map();
+const _pendingWrites = new Map();
 const DATA_TTL_MS = 20000;
 
 async function fetchManifestData(id, current) {
+  // A replacement card must not load the pre-save state while a write is
+  // pending. On failure it can read the last confirmed server state.
+  const pending = _pendingWrites.get(id);
+  if (pending) await pending.catch(() => {});
   const now = Date.now();
   const cached = _dataCache.get(id);
   if (cached && now - cached.fetchedAt < DATA_TTL_MS && !cached.inflight) {
@@ -60,7 +65,6 @@ async function fetchManifestData(id, current) {
   return p;
 }
 
-// Exported for writes — after a card POSTs data, invalidate its cache entry
 async function fetchSelectedManifestData(id) {
   const res = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`, { cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -73,9 +77,48 @@ async function fetchSelectedManifestData(id) {
   return body;
 }
 
+// Exported for writes - after a card POSTs data, invalidate its cache entry.
 export function invalidateManifestCache(id) {
   _cacheRevisions.set(id, (_cacheRevisions.get(id) || 0) + 1);
   _dataCache.delete(id);
+}
+
+async function saveManifestData(id, data) {
+  if (_pendingWrites.has(id)) throw new Error('A save is already in progress. Please wait.');
+  const body = JSON.stringify({ data });
+  const snapshot = JSON.parse(body).data;
+  // Fence reads that started before this write, including readers in other
+  // mounted instances of the same card.
+  invalidateManifestCache(id);
+  const pending = (async () => {
+    const res = await fetch(`/api/manifests/${encodeURIComponent(id)}/data`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    });
+    if (!res.ok) throw new Error(`Could not save (HTTP ${res.status}). Please try again.`);
+    const confirmation = await res.json().catch(() => null);
+    if (confirmation?.ok !== true) throw new Error('The save was not confirmed. Please try again.');
+    invalidateManifestCache(id);
+    _dataCache.set(id, { data: snapshot, fetchedAt: Date.now(), inflight: null });
+  })();
+  _pendingWrites.set(id, pending);
+  try {
+    try {
+      await pending;
+    } finally {
+      if (_pendingWrites.get(id) === pending) _pendingWrites.delete(id);
+    }
+  } catch (error) {
+    // Notify mounted readers only after their controls can accept a retry.
+    window.dispatchEvent(new CustomEvent('manifest-data-save-failed', {
+      detail: { cardId: id, error: error.message || 'Could not save. Please try again.' },
+    }));
+    throw error;
+  }
+  window.dispatchEvent(new CustomEvent('manifest-data-changed', {
+    detail: { cardId: id, cacheUpdated: true },
+  }));
 }
 
 export class EhBaseCard extends LitElement {
@@ -94,6 +137,8 @@ export class EhBaseCard extends LitElement {
     expanded: { state: true },
     loading: { state: true },
     error: { state: true },
+    saving: { state: true },
+    saveError: { state: true },
     // When true, render only the card body (no header). Used when a card is
     // mounted as a sub-element inside another card's expanded region, so the
     // host card's header isn't duplicated.
@@ -109,10 +154,32 @@ export class EhBaseCard extends LitElement {
     this._selectedRefreshTimer = null;
     this._onManifestDataChanged = event => {
       const id = event?.detail?.cardId || event?.detail?.id;
-      if (this.isConnected && this.card?.meta?.healthConnectDisplay
-          && (!id || id === this.card?.id)) {
-        invalidateManifestCache(this.card.id);
+      if (this.isConnected && this.card?.id && (!id || id === this.card.id)) {
+        if (event?.detail?.cacheUpdated && !this.card.meta?.healthConnectDisplay) {
+          // The writer already holds its candidate. Other readers can use
+          // the confirmed snapshot without unmounting their open forms.
+          if (this.saving) return;
+          const cached = _dataCache.get(this.card.id);
+          if (cached && !cached.inflight) {
+            this._dataRequest++;
+            this.data = cached.data;
+            this.projection = null;
+            this.error = null;
+            this.saveError = null;
+            this.loading = false;
+            return;
+          }
+        }
+        if (!event?.detail?.cacheUpdated || this.card.meta?.healthConnectDisplay) {
+          invalidateManifestCache(this.card.id);
+        }
         this._fetchData();
+      }
+    };
+    this._onManifestSaveFailed = event => {
+      if (this.isConnected && event?.detail?.cardId === this.card?.id) {
+        this.saveError = event.detail.error;
+        this.requestUpdate();
       }
     };
     this.date = null;
@@ -121,11 +188,14 @@ export class EhBaseCard extends LitElement {
     this.expanded = false;
     this.loading = true;
     this.error = null;
+    this.saving = false;
+    this.saveError = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener('manifest-data-changed', this._onManifestDataChanged);
+    window.addEventListener('manifest-data-save-failed', this._onManifestSaveFailed);
     this._fetchData();
   }
 
@@ -135,6 +205,7 @@ export class EhBaseCard extends LitElement {
     clearTimeout(this._selectedRefreshTimer);
     this._selectedRefreshTimer = null;
     window.removeEventListener('manifest-data-changed', this._onManifestDataChanged);
+    window.removeEventListener('manifest-data-save-failed', this._onManifestSaveFailed);
     super.disconnectedCallback();
   }
 
@@ -202,9 +273,30 @@ export class EhBaseCard extends LitElement {
     }
   }
 
+  async _saveData(nextData) {
+    if (!this._canWrite) return false;
+    const id = this.card.id;
+    const previous = this.data;
+    this.saving = true;
+    this.saveError = null;
+    this.data = nextData;
+    try {
+      await saveManifestData(id, nextData);
+      return true;
+    } catch (error) {
+      if (id === this.card?.id && !this.card.meta?.healthConnectDisplay) {
+        this.data = previous;
+        this.saveError = error.message || 'Could not save. Please try again.';
+      }
+      return false;
+    } finally {
+      this.saving = false;
+    }
+  }
+
   // Subclasses override these
   renderCard() {
-    return html`<div class="card-body">—</div>`;
+    return html`<div class="card-body">-</div>`;
   }
 
   renderExpanded() {
@@ -235,6 +327,7 @@ export class EhBaseCard extends LitElement {
   // Can we edit on this date?
   get _canWrite() {
     const w = this._meta.writeable;
+    if (this.saving || _pendingWrites.has(this.card?.id)) return false;
     if (this._meta.healthConnectDisplay) return false;
     if (!w || !w.fromWebapp) return false;
     if (this.dateMode === 'today')  return w.todayAllowed !== false;
@@ -371,6 +464,7 @@ export class EhBaseCard extends LitElement {
       return html`
         ${this.loading ? html`<div class="loading">Loading…</div>` : ''}
         ${this.error ? html`<div class="error-placeholder">⚠︎ ${this.error}</div>` : ''}
+        ${this.saveError ? html`<div class="error-placeholder" role="alert">${this.saveError}</div>` : ''}
         ${!this.loading && !this.error ? html`<div class="card-body">${this._safeRender(() => this.renderCard())}</div>` : ''}
       `;
     }
@@ -404,6 +498,7 @@ export class EhBaseCard extends LitElement {
       </div>
       ${this.loading ? html`<div class="loading">Loading…</div>` : ''}
       ${this.error ? html`<div class="error-placeholder">⚠︎ ${this._meta.label || this.card?.id}: ${this.error}</div>` : ''}
+      ${this.saveError ? html`<div class="error-placeholder" role="alert">${this.saveError}</div>` : ''}
       ${!this.loading && !this.error ? html`
         <div class="card-body">${this._safeRender(() => this.renderCard())}</div>
         ${this.expanded ? html`<div class="card-expanded">${this._safeRender(() => this.renderExpanded())}</div>` : ''}

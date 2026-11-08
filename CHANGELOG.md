@@ -9,6 +9,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- I preserve confirmed schedule and checklist doses across date changes and
+  pending saves, refresh their shared cache after acknowledgement, and restore
+  the previous display with a visible error when a save fails (#905, #906).
+
 - I keep unrelated daily prompts from intercepting browser regression checks.
   I also reclaim the unused hosted SDK for the CI emulator and allow the browser
   job to finish without changing individual test limits.

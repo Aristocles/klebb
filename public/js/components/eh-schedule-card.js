@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
-// eh-schedule-card.js — rich per-item card for scheduled protocols.
+// eh-schedule-card.js - rich per-item card for scheduled protocols.
 // Replaces the bare checklist-card for the peptides/medication data file.
 // Shows:
 //   - Cycle ring (SVG 48px, progress = cycleDay / cycleTotalDays)
 //   - Name + short_name
 //   - Dose label + units
-//   - "Cycle N — Day X of Y" subtitle
+//   - "Cycle N - Day X of Y" subtitle
 //   - M T W T F S S week dots (filled on scheduled days, ring on the
 //     day currently being viewed)
 //   - Injection checkbox (appends to item.doses[])
@@ -236,7 +236,7 @@ export class EhScheduleCard extends EhBaseCard {
         user-select: none;
       }
       .tod-chip + .tod-chip { margin-left: 2px; }
-      /* Per-dose metadata summary for the viewed date — site, reactions
+      /* Per-dose metadata summary for the viewed date - site, reactions
          the user logged via meta.view.checkOffForm. Hidden when the
          viewed date has no dose entry or the entry carries nothing
          from the form's field lists. See #354. */
@@ -461,7 +461,7 @@ export class EhScheduleCard extends EhBaseCard {
     }
     if (status === 'rest') return { cls: 'rest', text: 'Rest day' };
     if (status === 'off') return { cls: 'off', text: 'Off cycle' };
-    return null; // outside all cycles — don't show
+    return null; // outside all cycles - don't show
   }
 
   _doseLabel(item) {
@@ -552,7 +552,7 @@ export class EhScheduleCard extends EhBaseCard {
   // formatter above). Two clusters: current-dose values joined with
   // spaces, and previous-dose values joined with ", ". Clusters
   // separated by " · ". The reactions value "none" is filtered from
-  // chips-multi arrays — it's implicit, either by ticking the chip or
+  // chips-multi arrays - it's implicit, either by ticking the chip or
   // leaving the field empty. Returns '' when no fields carry a value.
   _summariseDoseForCard(dose, formCfg) {
     if (!dose || !formCfg) return '';
@@ -664,31 +664,17 @@ export class EhScheduleCard extends EhBaseCard {
   async _persistDoses(item, doses) {
     const d = this.data;
     const updatedItems = d.items.map(it => it === item ? { ...it, doses } : it);
-    this.data = { ...d, items: updatedItems };
-    this.requestUpdate();
-    try {
-      const res = await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: this.data }),
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`save failed: ${res.status} ${text}`);
-      }
-    } catch (e) {
-      console.warn('[schedule] save failed', e);
-      this._formError = e.message || 'save failed';
-    }
+    return this._saveData({ ...d, items: updatedItems });
   }
 
   async _submitCheckOffForm(item, opts, e) {
+    if (!this._canWrite) return;
     const payload = (e && e.detail) || {};
     const formCfg = this._checkOffFormConfig();
     if (!formCfg) return;
 
     // Build the new dose entry. eh-input-form auto-fills `date` from
-    // its .date property — drop it; schedule-card uses scheduledDate.
+    // its .date property - drop it; schedule-card uses scheduledDate.
     const newDose = { scheduledDate: this.date, takenAt: new Date().toISOString() };
     if (opts.offSchedule) newDose.offSchedule = true;
     for (const key of formCfg.currentDoseFields) {
@@ -699,6 +685,22 @@ export class EhScheduleCard extends EhBaseCard {
     // pushing the new one (so "previous" doesn't accidentally point at
     // itself).
     const doses = Array.isArray(item.doses) ? [...item.doses] : [];
+    const maxPerDay = this._maxReadingsPerDay();
+    const target = this._formSession?.editTarget;
+    if (maxPerDay > 1 && target && !doses.includes(target)) {
+      // Another mounted reader can publish a detached confirmed snapshot
+      // while this form stays open. Rebind only an unambiguous saved entry.
+      const currentTarget = this._resolveFormEditTarget(doses);
+      if (!currentTarget) {
+        this._formError = 'This dose changed while the form was open. Close it and reopen it before saving.';
+        return;
+      }
+      this._formSession = { ...this._formSession, editTarget: currentTarget };
+    }
+    if (maxPerDay > 1 && !target && this._takenEntriesOn(item).length >= maxPerDay) {
+      this._formError = 'The daily limit was reached while the form was open. Close it and reopen it before saving.';
+      return;
+    }
     const prev = this._resolvePreviousDose(doses);
     if (prev && formCfg.previousDoseFields.length > 0) {
       const merged = { ...prev.dose };
@@ -713,7 +715,6 @@ export class EhScheduleCard extends EhBaseCard {
     // Appends get the fresh takenAt; an at-cap edit MERGES onto its
     // target and keeps the original take time, or "edit" would silently
     // restamp the dose to now and drop fields the form never carried.
-    const maxPerDay = this._maxReadingsPerDay();
     if (maxPerDay > 1) {
       const target = this._formSession?.editTarget;
       const ti = target ? doses.indexOf(target) : -1;
@@ -733,6 +734,13 @@ export class EhScheduleCard extends EhBaseCard {
     await this._persistDoses(item, doses);
   }
 
+  _resolveFormEditTarget(doses) {
+    const target = this._formSession?.editTarget;
+    if (!target || doses.includes(target)) return target;
+    const matches = doses.filter(d => d && d.scheduledDate === target.scheduledDate && d.takenAt === target.takenAt);
+    return matches.length === 1 ? matches[0] : null;
+  }
+
   // "Previous dose" for the retroactive-review merge. Single mode keeps
   // the shipped rule: latest taken entry on a PRIOR date (today's entry
   // is the one being edited). Multi mode (#705) resolves by recency
@@ -742,7 +750,8 @@ export class EhScheduleCard extends EhBaseCard {
   _resolvePreviousDose(doses) {
     if (!Array.isArray(doses)) return null;
     if (this._maxReadingsPerDay() > 1) {
-      const target = this._formSession?.editTarget;
+      const target = this._resolveFormEditTarget(doses);
+      if (this._formSession?.editTarget && !target) return null;
       let best = -1;
       for (let i = 0; i < doses.length; i++) {
         const d = doses[i];
@@ -956,7 +965,7 @@ export class EhScheduleCard extends EhBaseCard {
           const isScheduledToday = scheduledStatus === 'scheduled';
           const isRestToday = scheduledStatus === 'rest';
           // Off-schedule dose taken when the date's status is 'rest' but
-          // we have a takenAt — or the dose entry itself has offSchedule.
+          // we have a takenAt - or the dose entry itself has offSchedule.
           const doseEntry = this._doseEntryOn(item);
           const isOffScheduleTaken = !!(taken && (isRestToday || doseEntry?.offSchedule));
           const itemKey = this._itemKey(item);
@@ -999,6 +1008,7 @@ export class EhScheduleCard extends EhBaseCard {
                       class="checkbox ${taken ? 'checked' : ''} ${this._canWrite ? '' : 'disabled'}"
                       @click=${() => this._toggleDose(item)}
                       role="button"
+                      aria-disabled=${this._canWrite ? 'false' : 'true'}
                       aria-label="mark ${item.name} taken"
                     ></div>
                   ` : isRestToday ? html`
@@ -1006,6 +1016,7 @@ export class EhScheduleCard extends EhBaseCard {
                       class="checkbox off-schedule ${isOffScheduleTaken ? 'checked' : ''} ${this._canWrite ? '' : 'disabled'}"
                       @click=${() => this._toggleDose(item, { offSchedule: true })}
                       role="button"
+                      aria-disabled=${this._canWrite ? 'false' : 'true'}
                       aria-label="log extra ${item.name} dose (off-schedule)"
                       title="Log an off-schedule dose"
                     ></div>
