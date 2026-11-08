@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Aristocles <https://github.com/Aristocles>
-// eh-checklist-card.js — items with check-off state per date.
+// eh-checklist-card.js - items with check-off state per date.
 // Generic over schedule + doses. Data shape:
 //   { items: [{ name, schedule, cycles, doses: [{scheduledDate, takenAt}] }, ...] }
 // or simpler: { items: [{ name, taken: boolean }] } for ad-hoc lists.
@@ -143,7 +143,7 @@ export class EhChecklistCard extends EhBaseCard {
         white-space: nowrap;
       }
 
-      /* Round check button — matches schedule-card for consistency */
+      /* Round check button - matches schedule-card for consistency */
       .checkbox {
         width: 26px;
         height: 26px;
@@ -245,8 +245,7 @@ export class EhChecklistCard extends EhBaseCard {
       const has = taken.includes(this.date);
       const newTaken = has ? taken.filter(x => x !== this.date) : [...taken, this.date];
       const updatedItem = { ...item, takenDates: newTaken };
-      this._updateItem(item, updatedItem, listPath);
-      await this._persist();
+      await this._saveData(this._updateItem(item, updatedItem, listPath));
       return;
     }
 
@@ -261,8 +260,7 @@ export class EhChecklistCard extends EhBaseCard {
       // silently dropping the oldest record.
       if (this._takenEntriesOn(item).length >= maxPerDay) return;
       doses.push({ scheduledDate: this.date, takenAt: now });
-      this._updateItem(item, { ...item, doses }, listPath);
-      await this._persist();
+      await this._saveData(this._updateItem(item, { ...item, doses }, listPath));
       return;
     }
     const alreadyTaken = doses.some(dd => dd.scheduledDate === this.date && dd.takenAt);
@@ -279,8 +277,7 @@ export class EhChecklistCard extends EhBaseCard {
       if (idx >= 0) doses[idx] = { ...doses[idx], takenAt: now };
       else doses.push({ scheduledDate: this.date, takenAt: now });
     }
-    this._updateItem(item, { ...item, doses }, listPath);
-    await this._persist();
+    await this._saveData(this._updateItem(item, { ...item, doses }, listPath));
   }
 
   // meta.writeable.maxReadingsPerDay (#705): 1 or anything invalid keeps
@@ -304,16 +301,15 @@ export class EhChecklistCard extends EhBaseCard {
     if (Array.isArray(d?.items)) listPath = 'items';
     else if (Array.isArray(d?.current)) listPath = 'current';
     const doses = (item.doses || []).filter(x => x !== entry);
-    this._updateItem(item, { ...item, doses }, listPath);
-    await this._persist();
+    await this._saveData(this._updateItem(item, { ...item, doses }, listPath));
   }
 
   _updateItem(oldItem, newItem, listPath) {
     const d = this.data;
     if (Array.isArray(d)) {
-      this.data = d.map(it => it === oldItem ? newItem : it);
+      return d.map(it => it === oldItem ? newItem : it);
     } else if (listPath) {
-      this.data = {
+      return {
         ...d,
         [listPath]: d[listPath].map(it => it === oldItem ? newItem : it),
       };
@@ -330,18 +326,6 @@ export class EhChecklistCard extends EhBaseCard {
     // Fallback: takenDates array (supplements / simple daily checklist)
     if (Array.isArray(item.takenDates)) return item.takenDates.includes(date);
     return item.taken === true;
-  }
-
-  async _persist() {
-    try {
-      await fetch(`/api/manifests/${encodeURIComponent(this.card.id)}/data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: this.data }),
-      });
-    } catch (e) {
-      console.warn('[checklist] save failed', e);
-    }
   }
 
   // Opt-in card-level adherence strip (meta.view.showSparkline): a per-day
@@ -403,6 +387,7 @@ export class EhChecklistCard extends EhBaseCard {
                   class="checkbox ${done ? 'checked' : ''} ${writeable ? '' : 'disabled'}"
                   @click=${() => this._toggle(item)}
                   role="button"
+                  aria-disabled=${writeable ? 'false' : 'true'}
                   tabindex="${writeable ? '0' : '-1'}"
                   aria-label="toggle ${item.name}"
                   @keydown=${writeable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._toggle(item); } } : null}
