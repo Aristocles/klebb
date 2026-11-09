@@ -1,4 +1,4 @@
-# DEPLOY.md — Running an Klebb instance
+# DEPLOY.md - Running an Klebb instance
 
 This document walks through standing up an Klebb instance on a Linux
 server. It covers:
@@ -31,7 +31,7 @@ see [DEMO.md](DEMO.md).
 ### Install
 
 ```bash
-# Clone the repo wherever you like — it's the running code directory.
+# Clone the repo wherever you like - it's the running code directory.
 # Set KLEBB_REPOSITORY_URL to the repository URL.
 git clone "$KLEBB_REPOSITORY_URL" /opt/klebb
 cd /opt/klebb
@@ -57,7 +57,7 @@ HEALTH_INSTANCE_NAME=My Health
 CHAT_AGENT_NAME=Chat
 CHAT_AGENT_EMOJI=💬
 
-# Auth (WebAuthn) — MUST match your public URL
+# Auth (WebAuthn) - MUST match your public URL
 HEALTH_RP_ID=health.example.com
 HEALTH_RP_NAME=My Health
 HEALTH_ORIGIN=https://health.example.com
@@ -71,7 +71,7 @@ HOST=127.0.0.1
 # timestamps to match your wall clock.
 # TZ=UTC
 
-# Chat agent — strongly recommended. Klebb is LLM-first: card creation,
+# Chat agent - strongly recommended. Klebb is LLM-first: card creation,
 # editing, and most ongoing interaction flows through the chat agent.
 # Without it, users are limited to hand-authoring manifest files.
 # Any OpenAI-compatible chat-completions endpoint works.
@@ -82,7 +82,7 @@ CHAT_MODEL=<model-id>
 # Optional: server-to-server agent writes
 # AGENT_API_TOKEN=<random-strong-token>
 
-# Optional: voice chat via Fish Audio — see docs/VOICE.md
+# Optional: voice chat via Fish Audio - see docs/VOICE.md
 # FISH_AUDIO_API_KEY=<key>
 # FISH_AUDIO_DEFAULT_VOICE=<voice-model-id>
 ```
@@ -500,7 +500,7 @@ Mismatch between browser origin and server RP_ID is the #1 cause.
 Set `HEALTH_DEBUG=1` and restart. The `/api/chat` path then emits
 structured `[chat:<reqId>]` lines for request entry, each agent-loop
 iteration (with gateway latency), each tool dispatch (with manifest id
-and duration), and the final outcome — visible in `journalctl -u
+and duration), and the final outcome - visible in `journalctl -u
 klebb@<instance>` or `docker compose logs klebb`. Structural facts
 only; no prompt or reply bodies are logged.
 
@@ -511,7 +511,7 @@ full troubleshooting list.
 **Server starts but dashboard is blank.**
 Look at `journalctl -u klebb -n 100`. Common cause: malformed
 manifest file in `$HEALTH_HOME/data/` logs a parse error but doesn't
-crash the server — the offending file just doesn't produce a card.
+crash the server - the offending file just doesn't produce a card.
 
 **Migrating from a legacy (v1) install.**
 Run `scripts/migrate-v1-to-v2.js` against your data directory. See the
@@ -553,6 +553,14 @@ is the portable export below, which materialises card files with their
 data re-embedded so a copy round-trips cleanly regardless of WAL state.
 
 ### Portable export
+
+Portable export and import support legacy data. Export refuses retained native
+Health Connect storage or connection authority, including an initialised empty
+native schema; import also refuses unsupported native state in its target.
+The limited format-2 export work does not provide a supported native restore
+path. For an instance retaining native state, stop the application and back up
+the complete persistent data and configuration instead. See
+[EXPORT-FORMAT.md](EXPORT-FORMAT.md) for the precise compatibility rules.
 
 ```bash
 npm run export -- /path/to/export-dir

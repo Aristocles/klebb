@@ -7,6 +7,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.7.0] - 2026-11-10
+
+Confirmed schedule and checklist doses now persist across date navigation.
+Ordinary day changes reuse shared reads, and temporary throttling retains
+confirmed values while respecting the server's retry delay.
+
+This release also includes additive Health Connect development work.
+The Android client remains under validation, with no public APK in this release.
+Portable-v1 exports and imports refuse retained native Health Connect state;
+complete native-history portability and recovery remain under development.
+
 ### Fixed
 
 - I reuse ordinary card history across day navigation, summaries and the calendar.
