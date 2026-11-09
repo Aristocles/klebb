@@ -278,6 +278,12 @@ passkeys, connected devices and chat history stay with the instance;
 data timestamps reset to the import time. If an import fails, the wizard
 offers a rollback to the automatic pre-import snapshot.
 
+Portable export and import support legacy history. They refuse unsupported
+native Health Connect storage or retained connection state, including an
+initialised empty native schema. Complete native-history backup and restore
+remain under development. Before upgrading, stop the container and back up
+its complete persistent data and configuration, including SQLite WAL files.
+
 The same machinery is scriptable. `npm run export -- /path/to/dir`
 writes a portable copy of an instance: every card file with its data
 re-embedded, HAE history, reports and config, but never credentials,
