@@ -67,7 +67,7 @@ function startStubGateway() {
 // invented, so a gateway upgrade that changes the wording fails this test
 // rather than silently degrading to the transient message in production.
 const REAL_BUDGET_BODIES = [
-  JSON.stringify({ error: { message: 'Budget has been exceeded! Key=klebb-eddz Current cost: 12.03, Max budget: 12.0', type: 'budget_exceeded', code: '429' } }),
+  JSON.stringify({ error: { message: 'Budget has been exceeded! Key=example-key Current cost: 12.03, Max budget: 12.0', type: 'budget_exceeded', code: '429' } }),
   JSON.stringify({ error: { message: 'ExceededBudget: User=klebb over budget. Spend=150.2, Budget=150.0', type: 'budget_exceeded', code: '429' } }),
 ];
 
